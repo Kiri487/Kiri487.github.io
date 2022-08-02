@@ -44,3 +44,8 @@ footer p {
   color: white;
   font-size: 1rem;
 }
+
+footer a {
+  color: white;
+  text-decoration: none;
+}
