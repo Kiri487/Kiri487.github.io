@@ -33,3 +33,14 @@ header ul li a:hover {
     background-color: #515967;
     color: white;
 }
+
+footer {
+  padding: 1rem 0rem;
+  padding-bottom: 20px;
+  text-align: center;
+}
+
+footer p {
+  color: white;
+  font-size: 1rem;
+}
