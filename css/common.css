@@ -15,7 +15,7 @@ header nav {
 }
 
 header ul {
-  padding: 1.5rem;
+  padding: 1rem;
   display: flex;
   list-style-type: none;
   justify-content: start;
