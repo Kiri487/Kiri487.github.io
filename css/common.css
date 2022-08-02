@@ -8,6 +8,11 @@ body {
   background-color: #939CAB;
 }
 
+header nav {
+  width: 100%;
+  background-color: #6B7484;
+}
+
 header ul li a {
     color: inherit; /* 移除超連結顏色 */
     text-decoration: none;  /* 移除超連結底線 */
