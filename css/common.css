@@ -7,3 +7,8 @@ box-sizing: border-box;
 body {
   background-color: #939CAB;
 }
+
+header nav a {
+    color: inherit; /* 移除超連結顏色 */
+    text-decoration: none;  /* 移除超連結底線 */
+}
