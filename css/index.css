@@ -14,3 +14,7 @@ main h2{
     font-family: 'Caveat', cursive;
     margin: 2rem;
 }
+
+img {
+    width: 150px;
+}
