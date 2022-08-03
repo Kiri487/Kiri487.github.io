@@ -1,6 +1,6 @@
 main {
-    padding: 2rem;
     width: 100%;
+    min-height: 85vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -17,5 +17,6 @@ main h2{
 }
 
 img {
-    width: 150px;
+    width: 250px;
+    border-radius:50%
 }
