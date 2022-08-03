@@ -16,6 +16,11 @@ main h2{
     margin: 2rem;
 }
 
+main.backImage {
+  width: 100%;
+  background-image: url("../img/background.jpg");
+}
+
 img {
     width: 250px;
     border-radius:50%
