@@ -9,7 +9,8 @@ main {
 main h2{
     color: white;
     font-size: 2rem;
+    font-weight:normal;
     letter-spacing: 3px;
-    margin: 2rem;
     font-family: 'Caveat', cursive;
+    margin: 2rem;
 }
