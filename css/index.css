@@ -1,6 +1,6 @@
 main.backImage {
     width: 100%;
-    min-height: 85vh;
+    min-height: 80vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
