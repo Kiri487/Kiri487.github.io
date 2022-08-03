@@ -19,7 +19,7 @@ main h2 {
 }
 
 img {
-    transition: all 0.2s ease;
+    transition: 0.5s ease;
     width: 250px;
     border-radius:50%
 }
