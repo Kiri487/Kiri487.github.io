@@ -19,6 +19,11 @@ main h2 {
 }
 
 img {
+    transition: all 0.2s ease;
     width: 250px;
     border-radius:50%
+}
+
+img:hover {
+    transform: scale(1.1);
 }
