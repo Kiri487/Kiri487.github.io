@@ -41,15 +41,12 @@ main li:hover {
     color: white;
     background-color: #6B7484;
     border-radius: 50px;
-    
 }
 
 main li:hover img{
     filter: brightness(100);
-    
 }
 
 main li:hover a{
     color: white;
-    
 }
