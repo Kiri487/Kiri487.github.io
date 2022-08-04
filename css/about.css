@@ -4,3 +4,10 @@ h2 {
     font-size: 1.8rem;
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
 }
+
+li {
+    padding: 23px;
+    color: #333a46;
+    font-size: 1.5rem;
+    font-family: 'Oswald', 'Noto Sans TC', sans-serif;
+}
