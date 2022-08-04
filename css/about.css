@@ -1,16 +1,17 @@
 main h2 {
-    padding: 1rem;
+    padding: 0.8rem;
     margin: 1rem;
     color: #333a46;
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
 }
 
 main li {
-    padding: 1rem;
+    list-style-type: none;
+    padding: 0.8rem;
     margin: 1rem;
     color: #333a46;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
 }
 
