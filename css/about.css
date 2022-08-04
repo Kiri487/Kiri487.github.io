@@ -1,6 +1,14 @@
+main h1 {
+    padding: 1rem;
+    margin: 0.8rem 1.5rem;
+    color: #333a46;
+    font-size: 2.5rem;
+    font-family: 'Oswald', 'Noto Sans TC', sans-serif;
+}
+
 main h2 {
-    padding: 0.8rem;
-    margin: 1rem;
+    padding: 1.5rem;
+    margin: 1rem 2.5rem;
     color: #333a46;
     font-size: 1.6rem;
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
@@ -8,8 +16,8 @@ main h2 {
 
 main li {
     list-style-type: none;
-    padding: 0.8rem;
-    margin: 1rem;
+    padding: 1.5rem;
+    margin: 1rem 2.5rem;
     color: #333a46;
     font-size: 1.2rem;
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
@@ -18,5 +26,5 @@ main li {
 main li:hover {
     background-color: #6b7484;
     color: white;
-    border-radius: 35px;
+    border-radius: 50px;
 }
