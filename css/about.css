@@ -15,6 +15,7 @@ main li {
 }
 
 main li:hover {
-    background-color: #515967ad;
+    background-color: #6b7484;
     color: white;
+    border-radius: 50px;
 }
