@@ -28,3 +28,10 @@ main li:hover {
     color: white;
     border-radius: 50px;
 }
+
+img {
+    width: 35px;
+    height: 35px;
+    float: left;
+    filter: brightness(110%);
+}
