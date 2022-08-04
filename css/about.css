@@ -1,1 +1,6 @@
-
+h2 {
+    padding: 23px;
+    color: #333a46;
+    font-size: 1.8rem;
+    font-family: 'Oswald', 'Noto Sans TC', sans-serif;
+}
