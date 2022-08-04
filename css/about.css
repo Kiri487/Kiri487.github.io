@@ -27,6 +27,12 @@ main li:hover {
     background-color: #6b7484;
     color: white;
     border-radius: 50px;
+    
+}
+
+main li:hover img{
+    filter: brightness(1000%);
+    
 }
 
 img {
