@@ -18,5 +18,5 @@ main li {
 main li:hover {
     background-color: #6b7484;
     color: white;
-    border-radius: 50px;
+    border-radius: 35px;
 }
