@@ -7,6 +7,7 @@
 
 body {
   background-color: #98A0AF;
+  min-height: 100vh;
 }
 
 header nav {
@@ -35,8 +36,9 @@ header ul li a:hover {
 
 footer {
   background-color: #98A0AF;
-  position: absolute;
+  position: relative;
   bottom: 0;
+  height: 60px;
   width: 100%;
   padding: 1rem;
   text-align: center;
