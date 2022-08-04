@@ -34,6 +34,10 @@ header ul li a:hover {
     color: white;
 }
 
+.active{
+  background-color: #515967;
+}
+
 footer {
   background-color: #98A0AF;
   position: relative;
