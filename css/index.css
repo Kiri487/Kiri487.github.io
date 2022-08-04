@@ -1,13 +1,14 @@
 main.backImage {
     width: 100%;
-    min-height: 80vh;
+    min-height: 85vh;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     background-image: url("../img/background.jpg");
-    background-size: cover;
     background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
 }
 
 main h2 {
