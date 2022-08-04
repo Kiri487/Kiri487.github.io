@@ -31,7 +31,7 @@ main li:hover {
 }
 
 main li:hover img{
-    filter: brightness(1000%);
+    filter: brightness(100);
     
 }
 
@@ -40,5 +40,5 @@ img {
     height: 40px;
     margin: 0rem 1rem;
     float: left;
-    filter: brightness(25%);
+    filter: brightness(20%);
 }
