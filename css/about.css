@@ -23,9 +23,21 @@ main li {
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
 }
 
+img {
+    width: 40px;
+    height: 40px;
+    margin: 0rem 1rem;
+    float: left;
+    filter: brightness(20%);
+}
+
+main li a {
+  color: #333a46;
+  text-decoration: none;
+}
+
 main li:hover {
     background-color: #6b7484;
-    color: white;
     border-radius: 50px;
     
 }
@@ -35,10 +47,7 @@ main li:hover img{
     
 }
 
-img {
-    width: 40px;
-    height: 40px;
-    margin: 0rem 1rem;
-    float: left;
-    filter: brightness(20%);
+main li:hover a{
+    color: white;
+    
 }
