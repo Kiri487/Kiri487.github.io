@@ -1,7 +1,7 @@
 main h2 {
     padding: 1rem;
     margin: 1rem;
-    color: #333A46;
+    color: #333a46;
     font-size: 1.8rem;
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
 }
@@ -9,7 +9,12 @@ main h2 {
 main li {
     padding: 1rem;
     margin: 1rem;
-    color: #333A46;
+    color: #333a46;
     font-size: 1.5rem;
     font-family: 'Oswald', 'Noto Sans TC', sans-serif;
+}
+
+main li:hover {
+    background-color: #515967ad;
+    color: white;
 }
