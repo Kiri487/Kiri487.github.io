@@ -11,16 +11,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald&display=swap">
     <link rel="stylesheet" href="./css/common.css" />
     <link rel="stylesheet" href="./css/creation.css" />
-    <script>
-      // 假設 flag 為 "FLAG{example_flag}"
-      var flag = "FLAG{example_flag}";
-
-      // 取得 flag 元素
-      var flagElement = document.getElementById("flag");
-
-      // 將 flag 設為元素的內容
-      flagElement.innerHTML = flag;
-    </script>
   </head>
   <body>
     <header>
@@ -35,12 +25,23 @@
     
     <main>
       <h2>窩還沒寫好 QQ</h2>
+      <p>Flag:</p>
       <div id="flag"></div>
     </main>
     
     <footer>
       <p id="copyright">Copyright © <a href="https://github.com/Kiri487">Kiri487</a> 2022</p>
     </footer>
-    
+
+    <script>
+      // 假設 flag 為 "FLAG{example_flag}"
+      var flag = "FLAG{example_flag}";
+
+      // 取得 flag 元素
+      var flagElement = document.getElementById("flag");
+
+      // 將 flag 設為元素的內容
+      flagElement.innerHTML = flag;
+    </script>
   </body>
 </html>
