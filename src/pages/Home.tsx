@@ -1,12 +1,15 @@
 import ANIMATION from "../assets/KiriSleep.mp4";
 import Contact from "../components/Contact";
+import { FaCat } from "react-icons/fa";
 
 function Home() {
   return (
     <div className="home">
       <div className="home-title">
         <p style={{ fontSize: "2rem"}}>Hi, I'm Kiri!</p>
+        <p style={{ fontSize: "1.2rem"}}>A programmer, a creator, and a cat <FaCat /></p>
         <Contact />
+        <p className="model-info" style={{ fontSize: "0.9rem"}}>The character model was purchased from <a href="https://mukumi.booth.pm/items/5813187">here</a></p>
       </div>
       <video autoPlay loop muted playsInline className="home-video">
         <source src={ANIMATION} type="video/mp4" />
