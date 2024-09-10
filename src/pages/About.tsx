@@ -38,7 +38,7 @@ function About() {
             </TimelineOppositeContent>
             <TimelineSeparator>
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
-              <TimelineDot sx={{ backgroundColor: "white", boxShadow: "none" }}></TimelineDot>
+              <TimelineDot variant="outlined" color="inherit"></TimelineDot>
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
             </TimelineSeparator>
             <TimelineContent style={{ fontFamily: "'Oswald'"}}>
