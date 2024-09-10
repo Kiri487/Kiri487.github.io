@@ -5,8 +5,10 @@ import TimelineConnector from '@mui/lab/TimelineConnector';
 import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
-import { FaCat, FaBook, FaMagic, FaStar} from "react-icons/fa";
+import { FaCat, FaBook, FaMagic, FaStar } from "react-icons/fa";
 import { SiCplusplus, SiCsharp, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact, SiGit } from "react-icons/si";
+import { TiStarOutline } from "react-icons/ti";
+
 
 function About() {
   return (
@@ -24,7 +26,7 @@ function About() {
             </TimelineOppositeContent>
             <TimelineSeparator>
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
-              <TimelineDot sx={{ backgroundColor: "white" }}></TimelineDot>
+              <TimelineDot sx={{ backgroundColor: "white", boxShadow: "none" }}></TimelineDot>
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
             </TimelineSeparator>
             <TimelineContent style={{ fontFamily: "'Oswald'"}}>
@@ -34,11 +36,11 @@ function About() {
           </TimelineItem>
           <TimelineItem>
             <TimelineOppositeContent style={{ flex: 0.1, fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0" }} align="left" color="white">
-              <p>2019-2021</p> 
+              2019-2021
             </TimelineOppositeContent>
             <TimelineSeparator>
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
-              <TimelineDot variant="outlined" color="inherit"></TimelineDot>
+              <TimelineDot sx={{ backgroundColor: "white", boxShadow: "none" }}></TimelineDot>
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
             </TimelineSeparator>
             <TimelineContent style={{ fontFamily: "'Oswald'"}}>
@@ -90,11 +92,9 @@ function About() {
       <h2 className="about-title"><FaStar />Experiences</h2>
       <div className="about-content">
       <p className="about-subtitle">Clubs</p>
-        <ul>
-          <li>GDSC NTUT 2022-2023 Lead</li>
-          <li>6th Vice President and Design Officer of NTUT Programming Club (NPC)</li>
-          <li>41st Design Officer of HSNU Computer Research Club (CRC)</li>
-        </ul>
+          <p>- GDSC NTUT 2022-2023 Lead</p>
+          <p><TiStarOutline />6th Vice President and Design Officer of NTUT Programming Club (NPC)</p>
+          <p><TiStarOutline />41st Design Officer of HSNU Computer Research Club (CRC)</p>
       </div>
     </div>
   );

@@ -95,11 +95,11 @@ button:focus-visible {
 }
 
 .model-info {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .model-info a {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .model-info a:hover {
@@ -134,18 +134,17 @@ button:focus-visible {
   font-size: 1.2rem;
 }
 
-.about-content li {
-  margin-bottom: 0.5rem;
+.about-content svg {
+  margin-right: 0.5rem;
 }
 
-
 .education-title {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
 }
 
 .education-info {
   font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .skills-content{
@@ -154,15 +153,11 @@ button:focus-visible {
 
 .skills-tag {
   padding: 0.5rem 1rem;
-  margin: 0.5rem;
+  margin: 0.5rem 0.25rem;
   font-size: 1rem;
   border: 2px solid white;
   border-radius: 20px;
   display: inline-block;
-}
-
-.skills-tag svg {
-  margin-right: 0.5rem;
 }
 
 @media (max-width: 768px) {
