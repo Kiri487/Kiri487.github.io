@@ -61,7 +61,7 @@ button:focus-visible {
   flex: 1;
   padding: 0 10vw;
   padding-top: 10vh;
-  min-height: 80vh;
+  min-height: 82vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -121,7 +121,7 @@ button:focus-visible {
 
 .about-title svg {
   margin-right: 0.5rem;
-  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3); /* 添加陰影 */
+  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
 }
 
 .about-subtitle {
@@ -151,6 +151,10 @@ button:focus-visible {
   margin-bottom: 1rem;
 }
 
+.experiences-content li {
+  margin-bottom: 0.5rem;
+}
+
 .skills-tag {
   padding: 0.5rem 1rem;
   margin: 0.5rem 0.25rem;
@@ -160,7 +164,7 @@ button:focus-visible {
   display: inline-block;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   .home {
     flex-direction: column;
     justify-content: center;

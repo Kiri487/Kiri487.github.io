@@ -7,8 +7,6 @@ import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
 import { FaCat, FaBook, FaMagic, FaStar } from "react-icons/fa";
 import { SiCplusplus, SiCsharp, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact, SiGit } from "react-icons/si";
-import { TiStarOutline } from "react-icons/ti";
-
 
 function About() {
   return (
@@ -21,7 +19,7 @@ function About() {
       <div className="about-content">
         <Timeline position="right">
           <TimelineItem>
-            <TimelineOppositeContent style={{ flex: 0.1, fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0"}} align="left" color="white">
+            <TimelineOppositeContent style={{ maxWidth: "5rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0"}} align="left" color="white">
               2021-Now
             </TimelineOppositeContent>
             <TimelineSeparator>
@@ -35,7 +33,7 @@ function About() {
             </TimelineContent>
           </TimelineItem>
           <TimelineItem>
-            <TimelineOppositeContent style={{ flex: 0.1, fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0" }} align="left" color="white">
+            <TimelineOppositeContent style={{ maxWidth: "5rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0" }} align="left" color="white">
               2019-2021
             </TimelineOppositeContent>
             <TimelineSeparator>
@@ -45,7 +43,7 @@ function About() {
             </TimelineSeparator>
             <TimelineContent style={{ fontFamily: "'Oswald'"}}>
               <p className="education-title">The Affiliated Senior High School of National Taiwan Normal University (HSNU)</p>
-              <p className="education-info">High School (Graduated)</p>
+              <p className="education-info">Class 1489 (Graduated)</p>
             </TimelineContent>
           </TimelineItem>
         </Timeline>
@@ -92,9 +90,21 @@ function About() {
       <h2 className="about-title"><FaStar />Experiences</h2>
       <div className="about-content">
       <p className="about-subtitle">Clubs</p>
-          <p>- GDSC NTUT 2022-2023 Lead</p>
-          <p><TiStarOutline />6th Vice President and Design Officer of NTUT Programming Club (NPC)</p>
-          <p><TiStarOutline />41st Design Officer of HSNU Computer Research Club (CRC)</p>
+      <ul className="experiences-content">
+        <li>GDSC NTUT 2022-2023 Lead</li>
+        <li>6th Vice President and Artistic Designer of NTUT Programming Club (NPC)</li>
+        <li>41st Artistic Designer of HSNU Computer Research Club (CRC)</li>
+      </ul>
+      <p className="about-subtitle">Activities</p>
+      <ul className="experiences-content">
+        <li>Advanced Information Security - Summer School (AIS3) 2023 - Intelligence Utilization and Malware Analysis Group, Participant</li>
+        <li>Students' Information Technology Conference (SITCON) 2022 - Staff</li>
+      </ul>
+      <p className="about-subtitle">Competition</p>
+      <ul className="experiences-content">
+        <li>Girls in CyberSecurity (GiCS) 2024 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>
+        <li>Girls in CyberSecurity (GiCS) 2023 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>
+      </ul>
       </div>
     </div>
   );
