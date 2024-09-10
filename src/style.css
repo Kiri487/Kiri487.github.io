@@ -67,12 +67,26 @@ button:focus-visible {
   justify-content: center;
 }
 
+.header-title {
+  display: flex;
+  justify-content: center;
+}
+
+.kiri-logo  {
+  margin-right: 0.5rem;
+}
+
 .header-options {
+  display: flex;
+  justify-content: center;
+}
+
+.header-option {
   margin: 0 1rem;
   font-size: 1.2rem;
 }
 
-.header-options.active {
+.header-option.active {
   text-decoration: underline;
 }
 
