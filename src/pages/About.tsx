@@ -89,22 +89,22 @@ function About() {
       </div>
       <h2 className="title"><FaStar />Experiences</h2>
       <div className="content">
-      <p className="subtitle">Clubs</p>
-      <ul className="experiences-content">
-        <li>GDSC NTUT 2022-2023 Lead</li>
-        <li>6th Vice President and Artistic Designer of NTUT Programming Club (NPC)</li>
-        <li>41st Artistic Designer of HSNU Computer Research Club (CRC)</li>
-      </ul>
-      <p className="subtitle">Activities</p>
-      <ul className="experiences-content">
-        <li>Advanced Information Security - Summer School (AIS3) 2023 - Intelligence Utilization and Malware Analysis Group, Participant</li>
-        <li>Students' Information Technology Conference (SITCON) 2022 - Staff</li>
-      </ul>
-      <p className="subtitle">Competition</p>
-      <ul className="experiences-content">
-        <li>Girls in CyberSecurity (GiCS) 2024 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>
-        <li>Girls in CyberSecurity (GiCS) 2023 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>
-      </ul>
+        <p className="subtitle">Clubs</p>
+        <ul className="experiences-content">
+          <li>GDSC NTUT 2022-2023 Lead</li>
+          <li>6th Vice President and Artistic Designer of NTUT Programming Club (NPC)</li>
+          <li>41st Artistic Designer of HSNU Computer Research Club (CRC)</li>
+        </ul>
+        <p className="subtitle">Activities</p>
+        <ul className="experiences-content">
+          <li>Advanced Information Security - Summer School (AIS3) 2023 - Intelligence Utilization and Malware Analysis Group, Participant</li>
+          <li>Students' Information Technology Conference (SITCON) 2022 - Staff</li>
+        </ul>
+        <p className="subtitle">Competition</p>
+        <ul className="experiences-content">
+          <li>Girls in CyberSecurity (GiCS) 2024 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>
+          <li>Girls in CyberSecurity (GiCS) 2023 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>
+        </ul>
       </div>
     </div>
   );
