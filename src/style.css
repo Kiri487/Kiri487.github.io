@@ -67,6 +67,8 @@ button:focus-visible {
   justify-content: center;
 }
 
+/* header & footer */
+
 .header-title {
   display: flex;
   justify-content: center;
@@ -98,13 +100,43 @@ button:focus-visible {
   align-items: center;  
 }
 
+/* common */
+
+.title {
+  font-size: 2rem;
+  margin: 1rem 0;
+  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+}
+
+.title svg {
+  margin-right: 0.5rem;
+  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
+}
+
+.subtitle {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+}
+
+.content {
+  padding: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.content svg {
+  margin-right: 0.5rem;
+}
+
+/* home page */
+
 .home {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.home-title {
+.intro {
   margin-right: 2rem;
 }
 
@@ -127,31 +159,7 @@ button:focus-visible {
   object-fit: cover;
 }
 
-.about-title {
-  font-size: 2rem;
-  margin: 1rem 0;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
-}
-
-.about-title svg {
-  margin-right: 0.5rem;
-  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
-}
-
-.about-subtitle {
-  font-size: 1.5rem;
-  margin-bottom: 1rem;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
-}
-
-.about-content {
-  padding: 0.5rem;
-  font-size: 1.2rem;
-}
-
-.about-content svg {
-  margin-right: 0.5rem;
-}
+/* about page */
 
 .education-title {
   font-size: 1.2rem;
@@ -179,13 +187,20 @@ button:focus-visible {
   display: inline-block;
 }
 
+.skills-tag:hover {
+  background-color: white;
+  color: #9DA2B2;
+}
+
+/* media */
+
 @media (max-width: 1000px) {
   .home {
     flex-direction: column;
     justify-content: center;
   }
 
-  .home-title {
+  .intro {
     display: flex;
     flex-direction: column;
     align-items: center;

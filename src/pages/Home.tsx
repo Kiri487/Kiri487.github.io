@@ -5,7 +5,7 @@ import { FaCat } from "react-icons/fa";
 function Home() {
   return (
     <div className="home">
-      <div className="home-title">
+      <div className="intro">
         <p style={{ fontSize: "2rem"}}>Hi, I'm Kiri!</p>
         <p style={{ fontSize: "1.2rem"}}>A programmer, a creator, and a cat <FaCat /></p>
         <div  style={{padding: "1rem 0"}}><Contact /></div>

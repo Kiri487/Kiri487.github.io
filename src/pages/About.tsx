@@ -11,12 +11,12 @@ import { SiCplusplus, SiCsharp, SiPython, SiJavascript, SiTypescript, SiHtml5, S
 function About() {
   return (
     <div className="about">
-      <h2 className="about-title"><FaCat />whoami</h2>
-      <div className="about-content">
+      <h2 className="title"><FaCat />whoami</h2>
+      <div className="content">
         <p>Hi, I'm Kiri. I'm a senior majoring in Electrical Engineering and Computer Science at the National Taipei University of Technology (NTUT).<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing 3D models! But I have no experience with 3D modeling yet—it's challenging QQ.</p>
       </div>
-      <h2 className="about-title"><FaBook />Education</h2>
-      <div className="about-content">
+      <h2 className="title"><FaBook />Education</h2>
+      <div className="content">
         <Timeline position="right">
           <TimelineItem>
             <TimelineOppositeContent style={{ maxWidth: "5rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0"}} align="left" color="white">
@@ -48,9 +48,9 @@ function About() {
           </TimelineItem>
         </Timeline>
       </div>
-      <h2 className="about-title"><FaMagic />Skills</h2>
-      <div className="about-content">
-        <p className="about-subtitle">Language</p>
+      <h2 className="title"><FaMagic />Skills</h2>
+      <div className="content">
+        <p className="subtitle">Language</p>
         <div className="skills-content">
           <div className="skills-tag">
             <SiCplusplus />C++
@@ -68,7 +68,7 @@ function About() {
             <SiTypescript />TypeScript
           </div>
         </div>
-        <p className="about-subtitle">Front End</p>
+        <p className="subtitle">Front End</p>
         <div className="skills-content">
           <div className="skills-tag">
             <SiHtml5 />HTML5
@@ -80,27 +80,27 @@ function About() {
             <SiReact />React
           </div>
         </div>
-        <p className="about-subtitle">Tools</p>
+        <p className="subtitle">Tools</p>
         <div className="skills-content">
           <div className="skills-tag">
             <SiGit />Git
           </div>
         </div>
       </div>
-      <h2 className="about-title"><FaStar />Experiences</h2>
-      <div className="about-content">
-      <p className="about-subtitle">Clubs</p>
+      <h2 className="title"><FaStar />Experiences</h2>
+      <div className="content">
+      <p className="subtitle">Clubs</p>
       <ul className="experiences-content">
         <li>GDSC NTUT 2022-2023 Lead</li>
         <li>6th Vice President and Artistic Designer of NTUT Programming Club (NPC)</li>
         <li>41st Artistic Designer of HSNU Computer Research Club (CRC)</li>
       </ul>
-      <p className="about-subtitle">Activities</p>
+      <p className="subtitle">Activities</p>
       <ul className="experiences-content">
         <li>Advanced Information Security - Summer School (AIS3) 2023 - Intelligence Utilization and Malware Analysis Group, Participant</li>
         <li>Students' Information Technology Conference (SITCON) 2022 - Staff</li>
       </ul>
-      <p className="about-subtitle">Competition</p>
+      <p className="subtitle">Competition</p>
       <ul className="experiences-content">
         <li>Girls in CyberSecurity (GiCS) 2024 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>
         <li>Girls in CyberSecurity (GiCS) 2023 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention</li>

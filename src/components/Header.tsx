@@ -27,7 +27,7 @@ function Header() {
     <AppBar position="fixed" sx={{ backgroundColor: "#6B7484", boxShadow: "none" }}>
       <Toolbar>
         <div className="header-title" style={{fontSize: "1.2rem"}}>
-          <img src={KIRI_LOGO} alt="Kiri's logo" className="kiri-logo" style={{width: "2rem", height: "2rem"}}/>
+          <img src={KIRI_LOGO} alt="Kiri's logo" className="kiri-logo" style={{width: "1.8rem", height: "1.8rem"}}/>
           Kiri487
         </div>
         <div style={{ flexGrow: 1 }}></div>
@@ -38,8 +38,8 @@ function Header() {
           <Link to="/about" className={`header-option ${current === "about" ? "active" : ""}`}>
             About
           </Link>
-          <Link to="/project" className={`header-option ${current === "project" ? "active" : ""}`}>
-            Project
+          <Link to="/portfolio" className={`header-option ${current === "portfolio" ? "active" : ""}`}>
+            Portfolio
           </Link>
         </div>
       </Toolbar>
