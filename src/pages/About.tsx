@@ -51,40 +51,22 @@ function About() {
       <h2 className="title"><FaMagic />Skills</h2>
       <div className="content">
         <p className="subtitle">Language</p>
-        <div className="skills-content">
-          <div className="skills-tag">
-            <SiCplusplus />C++
-          </div>
-          <div className="skills-tag">
-            <SiCsharp />C#
-          </div>
-          <div className="skills-tag">
-            <SiPython />Python
-          </div>
-          <div className="skills-tag">
-            <SiJavascript />JavaScript
-          </div>
-          <div className="skills-tag">
-            <SiTypescript />TypeScript
-          </div>
+        <div className="tags">
+          <div className="tag"><SiCplusplus />C++</div>
+          <div className="tag"><SiCsharp />C#</div>
+          <div className="tag"><SiPython />Python</div>
+          <div className="tag"><SiJavascript />JavaScript</div>
+          <div className="tag"><SiTypescript />TypeScript</div>
         </div>
         <p className="subtitle">Front End</p>
-        <div className="skills-content">
-          <div className="skills-tag">
-            <SiHtml5 />HTML5
-          </div>
-          <div className="skills-tag">
-            <SiCss3 />CSS3
-          </div>
-          <div className="skills-tag">
-            <SiReact />React
-          </div>
+        <div className="tags">
+          <div className="tag"><SiHtml5 />HTML5</div>
+          <div className="tag"><SiCss3 />CSS3</div>
+          <div className="tag"><SiReact />React</div>
         </div>
         <p className="subtitle">Tools</p>
-        <div className="skills-content">
-          <div className="skills-tag">
-            <SiGit />Git
-          </div>
+        <div className="tags">
+          <div className="tag"><SiGit />Git</div>
         </div>
       </div>
       <h2 className="title"><FaStar />Experiences</h2>
