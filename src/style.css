@@ -106,6 +106,8 @@ button:focus-visible {
   font-size: 2rem;
   margin: 1rem 0;
   text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  display: flex;
+  align-items: center;
 }
 
 .title svg {
@@ -115,7 +117,7 @@ button:focus-visible {
 
 .subtitle {
   font-size: 1.5rem;
-  margin-bottom: 1rem;
+  margin: 1rem 0;
   text-shadow: 2.5px 2.5px 0px #6b7484a3;
 }
 
@@ -126,6 +128,20 @@ button:focus-visible {
 
 .content svg {
   margin-right: 0.5rem;
+}
+
+.tag {
+  padding: 0.5rem 1rem;
+  margin: 0.5rem 0.25rem;
+  font-size: 1rem;
+  border: 2px solid white;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.tag:hover {
+  background-color: white;
+  color: #9DA2B2;
 }
 
 /* home page */
@@ -170,26 +186,35 @@ button:focus-visible {
   color: rgba(255, 255, 255, 0.7);
 }
 
-.skills-content{
-  margin-bottom: 1rem;
-}
-
 .experiences-content li {
   margin-bottom: 0.5rem;
 }
 
-.skills-tag {
-  padding: 0.5rem 1rem;
-  margin: 0.5rem 0.25rem;
-  font-size: 1rem;
-  border: 2px solid white;
-  border-radius: 20px;
-  display: inline-block;
+/* portfolio */
+
+.portfolio-block, .portfolio-block * {
+  box-sizing: border-box;
 }
 
-.skills-tag:hover {
-  background-color: white;
-  color: #9DA2B2;
+.portfolio-block {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 5px solid white;
+  border-radius: 10px;
+  display: flex;
+}
+
+.portfolio-block img {
+  width: 25rem;
+  margin-right: 2rem;
+  border-radius: 5px;
+  object-fit: contain;
+}
+
+.portfolio-links {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;  
 }
 
 /* media */
@@ -213,5 +238,14 @@ button:focus-visible {
     max-width: 600px;
     max-height: 600px;
     order: 0;
+  }
+
+  .portfolio-block {
+    flex-direction: column;
+  }
+
+  .portfolio-block img {
+    width: 100%;
+    margin-right: 0;
   }
 }
