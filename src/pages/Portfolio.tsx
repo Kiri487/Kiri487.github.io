@@ -1,5 +1,5 @@
 import { FaCode } from "react-icons/fa";
-import { PiPawPrintFill } from "react-icons/pi";
+// import { PiPawPrintFill } from "react-icons/pi";
 import { SiCplusplus, SiCsharp, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact } from "react-icons/si";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
 import SIMPLE_PPT_IMG from "../assets/SimplePPT.png";
