@@ -2,12 +2,12 @@ import { FaCode } from "react-icons/fa";
 import { PiPawPrintFill } from "react-icons/pi";
 import { SiCplusplus, SiCsharp, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact } from "react-icons/si";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
-import SIMPLE_PPT_IMG from "../assets/SimplePPT.jpg"
-import DATA_VIS_IMG from "../assets/DataVis.jpg"
-import CT_AND_CE_IMG from "../assets/ComputerTypographyAndCharacterEncoding.png"
-import BOXBOB_IMG from "../assets/BoxBob.png"
-import REDDIT_IMG from "../assets/RedditSentimentAnalysis.png"
-import ELECOOKIES_IMG from "../assets/Elecookies.png"
+import SIMPLE_PPT_IMG from "../assets/SimplePPT.png";
+import DATA_VIS_IMG from "../assets/DataVis.png";
+import CT_AND_CE_IMG from "../assets/ComputerTypographyAndCharacterEncoding.png";
+import BOXBOB_IMG from "../assets/BoxBob.png";
+import REDDIT_IMG from "../assets/RedditSentimentAnalysis.png";
+import ELECOOKIES_IMG from "../assets/Elecookies.png";
 
 
 function Portfolio() {

@@ -205,9 +205,8 @@ button:focus-visible {
 }
 
 .portfolio-block img {
-  width: 25rem;
+  width: 30rem;
   margin-right: 2rem;
-  border-radius: 5px;
   object-fit: contain;
 }
 
