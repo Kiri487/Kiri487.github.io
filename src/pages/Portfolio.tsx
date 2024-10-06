@@ -120,9 +120,9 @@ function Portfolio() {
           </div>
         </div>
       </div>
-      <h2 className="title"><PiPawPrintFill />Creations</h2>
+      {/* <h2 className="title"><PiPawPrintFill />Creations</h2>
       <div className="content">
-      </div>
+      </div> */}
     </div>
   );
 }
