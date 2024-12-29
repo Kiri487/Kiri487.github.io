@@ -101,7 +101,6 @@ function MyDrawer() {
                   <ListItem>Home</ListItem>
                 </Link>
               ) : (
-                // Show Refresh button on Home page
                 <Link to="/" className={`drawer-option`} onClick={refreshPage}>
                   <ListItem>Refresh</ListItem>
                 </Link>

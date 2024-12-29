@@ -45,16 +45,8 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
   transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
 }
 
 .routes-container {
@@ -171,10 +163,21 @@ button:focus-visible {
   text-decoration: none;
 }
 
-.home-video {
+#homeVideo {
   width: 600px;
   height: 600px;
   object-fit: cover;
+}
+
+.music-button {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  color: white;
+  border: none;
+  background-color: transparent;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 1000;
 }
 
 /* about page */
@@ -233,7 +236,7 @@ button:focus-visible {
     margin: 0;
   }
 
-  .home-video {
+  #homeVideo {
     width: 80vw;
     height: 80vw;
     max-width: 600px;
