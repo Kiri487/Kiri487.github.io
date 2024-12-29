@@ -67,29 +67,30 @@ button:focus-visible {
   justify-content: center;
 }
 
-/* header & footer */
+/* drawer & footer */
 
-.header-title {
+.drawer-title {
   display: flex;
   justify-content: center;
 }
 
-.kiri-logo  {
-  margin-right: 0.5rem;
-}
-
-.header-options {
+.drawer-option {
   display: flex;
-  justify-content: center;
-}
-
-.header-option {
-  margin: 0 1rem;
+  align-items: center;
   font-size: 1.2rem;
+  text-decoration: none;
+  padding: 8px 16px;
 }
 
-.header-option.active {
-  text-decoration: underline;
+.drawer-option:hover {
+  background-color: #5d6675;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.drawer-option.active {
+  background-color: #5d6675;
+  font-weight: bold;
 }
 
 .footer {
