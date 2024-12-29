@@ -80,6 +80,7 @@ button:focus-visible {
   font-size: 1.2rem;
   text-decoration: none;
   padding: 8px 16px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .drawer-option:hover {
