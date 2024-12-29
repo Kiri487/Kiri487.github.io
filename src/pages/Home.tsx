@@ -1,6 +1,8 @@
 import { useState } from "react";
-import ANIMATION from "../assets/KiriSleep.webm";
-import BGM from "../assets/Soul and Mind - E's Jammy Jams.mp3";
+import ANIMATION1 from "../assets/KiriSleep.webm";
+import ANIMATION2 from "../assets/KiriRoll.webm";
+import BGM1 from "../assets/Soul and Mind - E's Jammy Jams.mp3";
+import BGM2 from "../assets/Rick Astley - Never Gonna Give You Up.mp3";
 import Contact from "../components/Contact";
 import P5Canvas from "../components/P5Canvas";
 import { FaCat } from "react-icons/fa";
@@ -8,6 +10,14 @@ import { MdMusicNote, MdMusicOff } from "react-icons/md";
 
 function Home() {
   const [musicEnabled, setMusicEnabled] = useState(false);
+
+  const videoMusicPairs = [
+    { video: ANIMATION1, music: BGM1 },
+    { video: ANIMATION2, music: BGM2 },
+  ];
+
+  const randomIndex = Math.floor(Math.random() * videoMusicPairs.length);
+  const selectedPair = videoMusicPairs[randomIndex];
 
   const toggleMusic = () => {
     const audioElement = document.getElementById("homeBGM") as HTMLAudioElement;
@@ -39,12 +49,12 @@ function Home() {
       </div>
 
       <video autoPlay loop muted playsInline id="homeVideo">
-        <source src={ANIMATION} type="video/webm" />
+        <source src={selectedPair.video} type="video/webm" />
         Your browser does not support video playback.
       </video>
 
       <audio loop id="homeBGM">
-        <source src={BGM} type="audio/mp3" />
+        <source src={selectedPair.music} type="audio/mp3" />
         Your browser does not support the audio element.
       </audio>
 
