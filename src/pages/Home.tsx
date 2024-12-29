@@ -10,9 +10,17 @@ function Home() {
   const [musicEnabled, setMusicEnabled] = useState(false);
 
   const toggleMusic = () => {
-    setMusicEnabled(!musicEnabled);
+    const audioElement = document.getElementById("homeBGM") as HTMLAudioElement;
+    if (audioElement) {
+      if (musicEnabled) {
+        audioElement.pause();
+      } else {
+        audioElement.play().catch((e) => console.error("Audio play error:", e));
+      }
+      setMusicEnabled(!musicEnabled);
+    }
   };
-
+  
   return (
     <div className="home">
       <P5Canvas/>
@@ -35,7 +43,7 @@ function Home() {
         Your browser does not support video playback.
       </video>
 
-      <audio autoPlay loop muted={!musicEnabled} id="homeBGM">
+      <audio loop id="homeBGM">
         <source src={BGM} type="audio/mp3" />
         Your browser does not support the audio element.
       </audio>
