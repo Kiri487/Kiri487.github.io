@@ -6,7 +6,8 @@ import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
 import { FaCat, FaBook, FaMagic, FaStar } from "react-icons/fa";
-import { SiCplusplus, SiCsharp, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact, SiGit } from "react-icons/si";
+import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact, SiGit } from "react-icons/si";
+import { TbBrandCSharp } from "react-icons/tb";
 
 function About() {
   return (
@@ -53,7 +54,7 @@ function About() {
         <p className="subtitle">Language</p>
         <div className="tags">
           <div className="tag"><SiCplusplus />C++</div>
-          <div className="tag"><SiCsharp />C#</div>
+          <div className="tag"><TbBrandCSharp />C#</div>
           <div className="tag"><SiPython />Python</div>
           <div className="tag"><SiJavascript />JavaScript</div>
           <div className="tag"><SiTypescript />TypeScript</div>

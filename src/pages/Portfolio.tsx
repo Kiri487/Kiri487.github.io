@@ -1,6 +1,7 @@
 import { FaCode } from "react-icons/fa";
 // import { PiPawPrintFill } from "react-icons/pi";
-import { SiCplusplus, SiCsharp, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact } from "react-icons/si";
+import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact } from "react-icons/si";
+import { TbBrandCSharp } from "react-icons/tb";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
 import SIMPLE_PPT_IMG from "../assets/SimplePPT.png";
 import DATA_VIS_IMG from "../assets/DataVis.png";
@@ -27,7 +28,7 @@ function Portfolio() {
               <RiArrowRightDoubleLine /><a href="https://github.com/Kiri487/2023-Fall-Windows-PowerPoint">Github</a>
             </div>
             <div className="tags">
-              <div className="tag"><SiCsharp />C#</div>
+              <div className="tag"><TbBrandCSharp />C#</div>
             </div>
           </div>
         </div>
@@ -42,7 +43,7 @@ function Portfolio() {
               <RiArrowRightDoubleLine /><a href="https://github.com/Kiri487/vis2023f">Github</a>&nbsp;&nbsp;<RiArrowRightDoubleLine /><a href="https://kiri487.github.io/vis2023f/hw00/index.html">Web Page</a>
             </div>
             <div className="tags">
-              <div className="tag"><SiCsharp />C#</div>
+              <div className="tag"><TbBrandCSharp />C#</div>
               <div className="tag"><SiJavascript />JavaScript</div>
               <div className="tag"><SiHtml5 />HTML5</div>
               <div className="tag"><SiCss3 />CSS3</div>
