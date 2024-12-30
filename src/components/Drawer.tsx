@@ -32,13 +32,18 @@ function MyDrawer() {
 
   return (
     <>
+      {current !== "home" ? (
+        <div className="header"></div>
+      ) : (
+        <div></div>
+      )}
       {!drawerOpen && (
         <IconButton
           onClick={toggleDrawer(true)}
           sx={{
             position: "fixed",
-            top: "16px",
-            left: "16px",
+            top: "14px",
+            left: "14px",
             zIndex: 1300,
             outline: "none",
             backgroundColor: "transparent",

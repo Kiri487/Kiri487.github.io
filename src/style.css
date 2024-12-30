@@ -59,7 +59,16 @@ button {
   justify-content: center;
 }
 
-/* drawer & footer */
+/* header, drawer, footer */
+
+.header {
+  width: 100vw;
+  height: 4.5rem;
+  background-color: #9DA2B2;
+  position: fixed;
+  top: 0;
+  z-index: 1000;
+}
 
 .drawer-title {
   display: flex;
