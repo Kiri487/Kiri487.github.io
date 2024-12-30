@@ -61,7 +61,7 @@ function Home() {
 
       <div className="home-video">
         {!isLoaded && <CircularProgress color="inherit" size="5rem"/>}
-        <video autoPlay loop muted playsInline id="homeVideo" onCanPlayThrough={() => setIsLoaded(true)}>
+        <video autoPlay loop muted playsInline id="homeVideo" onCanPlay={() => setIsLoaded(true)}>
           <source src={selectedPair.video} type="video/webm" />
           Your browser does not support video playback.
         </video>

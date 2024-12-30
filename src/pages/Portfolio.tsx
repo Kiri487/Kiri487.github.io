@@ -67,6 +67,24 @@ function Portfolio() {
             </div>
           </div>
         </div>
+        <div className="portfolio-block">
+          {/* <img src={CA_IMG} alt="Computer Animation Portfolio"/> */}
+          <div className="portfolio-info">
+            <p className="subtitle">Computer Animation Portfolio</p>
+            <p>
+              This portfolio features a series of projects developed as part of the "Computer Animation" course.
+            </p>
+            <div className="portfolio-links">
+              <RiArrowRightDoubleLine /><a href="https://github.com/Kiri487/ca2024f">Github</a>&nbsp;&nbsp;<RiArrowRightDoubleLine /><a href="https://kiri487.github.io/ca2024f/">Web Page</a>
+            </div>
+            <div className="tags">
+              <div className="tag"><TbBrandCSharp />C#</div>
+              <div className="tag"><SiJavascript />JavaScript</div>
+              <div className="tag"><SiHtml5 />HTML5</div>
+              <div className="tag"><SiCss3 />CSS3</div>
+            </div>
+          </div>
+        </div>
         <p className="subtitle">Team</p>
         <div className="portfolio-block">
           <img src={BOXBOB_IMG} alt="BOXBOB"/>
