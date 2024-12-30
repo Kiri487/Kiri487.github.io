@@ -35,7 +35,7 @@ function Home() {
   
   return (
     <div className="home">
-      <P5Canvas/>
+      <P5Canvas musicEnabled={musicEnabled} />
       <div className="intro">
         <p style={{ fontSize: "2rem" }}>Hi, I'm Kiri!</p>
         <p style={{ fontSize: "1.2rem" }}>
