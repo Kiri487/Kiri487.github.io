@@ -7,8 +7,10 @@ import Contact from "../components/Contact";
 import P5Canvas from "../components/P5Canvas";
 import { FaCat } from "react-icons/fa";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
+import CircularProgress from "@mui/material/CircularProgress";
 
 function Home() {
+  const [isLoaded, setIsLoaded] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
 
   const videoMusicPairs = [
@@ -48,10 +50,13 @@ function Home() {
         </p>
       </div>
 
-      <video autoPlay loop muted playsInline id="homeVideo">
-        <source src={selectedPair.video} type="video/webm" />
-        Your browser does not support video playback.
-      </video>
+      <div className="home-video">
+        {!isLoaded && <CircularProgress color="inherit" size="5rem"/>}
+        <video autoPlay loop muted playsInline id="homeVideo" onCanPlayThrough={() => setIsLoaded(true)}>
+          <source src={selectedPair.video} type="video/webm" />
+          Your browser does not support video playback.
+        </video>
+      </div>
 
       <audio loop id="homeBGM">
         <source src={selectedPair.music} type="audio/mp3" />
