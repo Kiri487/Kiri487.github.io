@@ -1,8 +1,10 @@
 import { useState } from "react";
 import ANIMATION1 from "../assets/KiriSleep.webm";
 import ANIMATION2 from "../assets/KiriRoll.webm";
+import ANIMATION3 from "../assets/KiriOjousama.webm";
 import BGM1 from "../assets/Soul and Mind - E's Jammy Jams.mp3";
 import BGM2 from "../assets/Rick Astley - Never Gonna Give You Up.mp3";
+import BGM3 from "../assets/ASMRZ(TANAKA, NEEDMORECASH) - 잘자요 아가씨(prod. Gwana).mp3";
 import Contact from "../components/Contact";
 import P5Canvas from "../components/P5Canvas";
 import { FaCat } from "react-icons/fa";
@@ -17,6 +19,7 @@ function Home() {
   const videoMusicPairs = [
     { video: ANIMATION1, music: BGM1 },
     { video: ANIMATION2, music: BGM2 },
+    { video: ANIMATION3, music: BGM3 }
   ];
 
   const randomIndex = Math.floor(Math.random() * videoMusicPairs.length);
