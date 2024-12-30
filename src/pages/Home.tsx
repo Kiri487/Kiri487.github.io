@@ -12,6 +12,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [musicEnabled, setMusicEnabled] = useState(false);
+  const [animationClass, setAnimationClass] = useState("");
 
   const videoMusicPairs = [
     { video: ANIMATION1, music: BGM1 },
@@ -24,18 +25,26 @@ function Home() {
   const toggleMusic = () => {
     const audioElement = document.getElementById("homeBGM") as HTMLAudioElement;
     if (audioElement) {
-      if (musicEnabled) {
-        audioElement.pause();
-      } else {
-        audioElement.play().catch((e) => console.error("Audio play error:", e));
-      }
-      setMusicEnabled(!musicEnabled);
+      setAnimationClass("fade-out");
+      
+      setTimeout(() => {
+        if (musicEnabled) {
+          audioElement.pause();
+        } else {
+          audioElement.play().catch((e) => console.error("Audio play error:", e));
+        }
+        setMusicEnabled(!musicEnabled);
+
+        setAnimationClass("fade-in");
+      }, 250);
     }
   };
   
   return (
     <div className="home">
-      <P5Canvas musicEnabled={musicEnabled} />
+      <div className={`P5-canvas ${animationClass}`}>
+        <P5Canvas musicEnabled={musicEnabled} />
+      </div>
       <div className="intro">
         <p style={{ fontSize: "2rem" }}>Hi, I'm Kiri!</p>
         <p style={{ fontSize: "1.2rem" }}>

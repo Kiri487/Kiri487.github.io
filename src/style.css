@@ -53,10 +53,30 @@ button {
   flex: 1;
   padding: 0 10vw;
   padding-top: 10vh;
-  min-height: 82vh;
+  max-height: 82vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+/* animation */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 /* header, drawer, footer */
@@ -98,9 +118,11 @@ button {
 .footer {
   width: 100%;
   height: 8vh;
+  position: relative;
   display: flex;
   justify-content: center;    
-  align-items: center;  
+  align-items: center; 
+  z-index: 10; 
 }
 
 /* common */
@@ -153,10 +175,30 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  overflow: hidden;
+}
+
+.P5-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.P5-canvas.fade-in {
+  animation: fadeIn 0.25s forwards;
+}
+
+.P5-canvas.fade-out {
+  animation: fadeOut 0.25s forwards;
 }
 
 .intro {
   margin-right: 2rem;
+  z-index: 2;
 }
 
 .model-info {
@@ -178,6 +220,7 @@ button {
   align-items: center;
   width: 600px;
   height: 600px;
+  z-index: 2;
 }
 
 #homeVideo {

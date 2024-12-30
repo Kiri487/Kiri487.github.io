@@ -15,7 +15,7 @@ function Lines({ musicEnabled }: { musicEnabled: boolean }) {
       };
 
       p.draw = () => {
-        p.background(158, 163, 179);
+        p.background(157, 162, 178);
         p.stroke(255, 255, 255, 100);
         p.strokeWeight(2);
 
@@ -43,7 +43,7 @@ function Lines({ musicEnabled }: { musicEnabled: boolean }) {
     }
   }, [musicEnabled]);
 
-  return <div ref={sketchRef} style={{ position: "absolute", top: 0, left: 0, zIndex: -1, width: "100%", height: "100%", overflow: "hidden"}} />;
+  return <div ref={sketchRef} />;
 };
 
 export default Lines;
