@@ -116,6 +116,9 @@ function MyDrawer() {
             <Link to="/portfolio" className={`drawer-option ${current === "portfolio" ? "active" : ""}`}>
               <ListItem>Portfolio</ListItem>
             </Link>
+            <Link to="/cited" className={`drawer-option ${current === "cited" ? "active" : ""}`}>
+              <ListItem>Cited</ListItem>
+            </Link>
           </List>
         </div>
       </Drawer>

@@ -155,6 +155,10 @@ button {
   margin-right: 0.5rem;
 }
 
+.content li {
+  margin: 1.5rem 0;
+}
+
 .tag {
   padding: 0.5rem 1rem;
   margin: 0.5rem 0.25rem;
