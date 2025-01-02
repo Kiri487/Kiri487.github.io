@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
 import TimelineSeparator from '@mui/lab/TimelineSeparator';
@@ -12,6 +13,9 @@ import { TbBrandCSharp } from "react-icons/tb";
 function About() {
   return (
     <div className="about">
+      <Helmet>
+        <title>Kiri487 | About</title>
+      </Helmet>
       <h2 className="title"><FaCat />whoami</h2>
       <div className="content">
         <p>Hi, I'm Kiri. I'm a senior majoring in Electrical Engineering and Computer Science at the National Taipei University of Technology (NTUT).<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing 3D models! But I have no experience with 3D modeling yet—it's challenging QQ.</p>

@@ -1,3 +1,4 @@
+import { Helmet } from 'react-helmet-async';
 import { FaCode } from "react-icons/fa";
 // import { PiPawPrintFill } from "react-icons/pi";
 import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact } from "react-icons/si";
@@ -15,6 +16,9 @@ import ELECOOKIES_IMG from "../assets/Elecookies.png";
 function Portfolio() {
   return (
     <div className="portfolio">
+      <Helmet>
+        <title>Kiri487 | Portfolio</title>
+      </Helmet>
       <h2 className="title"><FaCode />Projects</h2>
       <div className="content">
         <p className="subtitle">Personal</p>

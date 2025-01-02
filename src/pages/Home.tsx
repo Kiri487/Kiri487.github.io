@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from 'react-helmet-async';
 import ANIMATION1 from "../assets/KiriSleep.webm";
 import ANIMATION2 from "../assets/KiriRoll.webm";
 import ANIMATION3 from "../assets/KiriOjousama.webm";
@@ -45,6 +46,9 @@ function Home() {
   
   return (
     <div className="home">
+      <Helmet>
+        <title>Kiri487</title>
+      </Helmet>
       <div className={`P5-canvas ${animationClass}`}>
         <P5Canvas musicEnabled={musicEnabled} />
       </div>
