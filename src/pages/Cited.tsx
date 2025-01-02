@@ -14,7 +14,7 @@ function Cited() {
           <li><a href="https://youtu.be/FoO7Pmx0bE4?si=biTM0TvoSg6YCvkq">ASMRZ(TANAKA, NEEDMORECASH) - 잘자요 아가씨(prod. Gwana)</a></li>
         </ul>
       </div>
-      <h2 className="title">Motion</h2>
+      <h2 className="title">Video Motion</h2>
       <div className="content">
         <ul>
           <li><a href="https://vrcmods.com/item?id=6751">Rick Roll Emote</a></li>
