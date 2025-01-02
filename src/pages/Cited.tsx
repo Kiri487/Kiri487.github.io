@@ -17,8 +17,8 @@ function Cited() {
       <h2 className="title">Video Motion</h2>
       <div className="content">
         <ul>
-          <li><a href="https://vrcmods.com/item?id=6751">Rick Roll Emote</a></li>
-          <li><a href="https://www.aplaybox.com/details/motion/cDPiKFCxvbcB">大小姐晚安【动作配布】</a></li>
+          <li><a href="https://vrcmods.com/item?id=6751">Epic Games - Rick Roll Emote</a></li>
+          <li><a href="https://www.aplaybox.com/details/motion/cDPiKFCxvbcB">圈圈酱 - 大小姐晚安【动作配布】</a></li>
         </ul>
       </div>
     </div>
