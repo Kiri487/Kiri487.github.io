@@ -18,14 +18,14 @@ function About() {
       </Helmet>
       <h2 className="title"><FaCat />whoami</h2>
       <div className="content">
-        <p>Hi, I'm Kiri. I'm a senior majoring in Electrical Engineering and Computer Science at the National Taipei University of Technology (NTUT).<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing 3D models! But I have no experience with 3D modeling yet—it's challenging QQ.</p>
+        <p>Hi, I'm Kiri. I'm a first-year master's student at National Taiwan University Graduate Institute of Networking and Multimedia.<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing 3D models!<br />But I have no experience with 3D modeling yet—it's challenging QQ.</p>
       </div>
       <h2 className="title"><FaBook />Education</h2>
       <div className="content">
         <Timeline position="right">
           <TimelineItem>
-            <TimelineOppositeContent style={{ maxWidth: "5rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0"}} align="left" color="white">
-              2021-Now
+            <TimelineOppositeContent style={{ maxWidth: "6rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0"}} align="left" color="white">
+              2025-Now
             </TimelineOppositeContent>
             <TimelineSeparator>
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
@@ -33,12 +33,26 @@ function About() {
               <TimelineConnector sx={{ backgroundColor: "white" }}/>
             </TimelineSeparator>
             <TimelineContent style={{ fontFamily: "'Oswald'"}}>
-              <p className="education-title">National Taipei University of Technology (NTUT)</p>
-              <p className="education-info">Electrical Engineering and Computer Science</p>
+              <p className="education-title">National Taiwan University (NTU)</p>
+              <p className="education-info">Graduate Institute of Networking and Multimedia</p>
             </TimelineContent>
           </TimelineItem>
           <TimelineItem>
-            <TimelineOppositeContent style={{ maxWidth: "5rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0" }} align="left" color="white">
+            <TimelineOppositeContent style={{ maxWidth: "6rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0" }} align="left" color="white">
+              2021-2025
+            </TimelineOppositeContent>
+            <TimelineSeparator>
+              <TimelineConnector sx={{ backgroundColor: "white" }}/>
+              <TimelineDot variant="outlined" color="inherit"></TimelineDot>
+              <TimelineConnector sx={{ backgroundColor: "white" }}/>
+            </TimelineSeparator>
+            <TimelineContent style={{ fontFamily: "'Oswald'"}}>
+              <p className="education-title">National Taipei University of Technology (NTUT)</p>
+              <p className="education-info">Electrical Engineering and Computer Science (Graduated)</p>
+            </TimelineContent>
+          </TimelineItem>
+          <TimelineItem>
+            <TimelineOppositeContent style={{ maxWidth: "6rem", fontFamily: "'Oswald'", fontSize: "1.2rem" }} sx={{ m: "auto 0" }} align="left" color="white">
               2019-2021
             </TimelineOppositeContent>
             <TimelineSeparator>
