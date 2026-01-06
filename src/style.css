@@ -155,10 +155,6 @@ button {
   margin-right: 0.5rem;
 }
 
-.content li {
-  margin: 1.5rem 0;
-}
-
 .tag {
   padding: 0.5rem 1rem;
   margin: 0.5rem 0.25rem;
@@ -248,15 +244,17 @@ button {
 
 .education-title {
   font-size: 1.2rem;
+  margin-top: 1.5rem;
 }
 
 .education-info {
   font-size: 1.2rem;
   color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 1.5rem;
 }
 
 .experiences-content li {
-  margin-bottom: 0.5rem;
+  margin: 1.5rem 0;
 }
 
 /* portfolio */
@@ -283,6 +281,12 @@ button {
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;  
+}
+
+/* cited*/
+
+.cited-content li {
+  margin: 1.5rem 0;
 }
 
 /* media */
