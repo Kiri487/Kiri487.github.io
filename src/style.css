@@ -309,6 +309,7 @@ button {
 .card-img-container {
   width: 100%;
   aspect-ratio: 16/9;
+  height: 210px;
   border-bottom: 4px solid white;
   background-color: #eee;
   position: relative;
@@ -400,7 +401,7 @@ button {
 .card-link {
   color: white;
   text-decoration: none;
-  font-size: 1.2rem;
+  font-size: 1.2rem; 
   transition: all 0.2s;
 }
 
