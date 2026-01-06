@@ -21,20 +21,20 @@ interface HomeProps {
   setMusicEnabled: (enabled: boolean) => void;
 }
 
+const videoMusicPairs = [
+  { video: ANIMATION1, music: BGM1 },
+  { video: ANIMATION2, music: BGM2 },
+  { video: ANIMATION3, music: BGM3 },
+  { video: ANIMATION4, music: BGM4 },
+  { video: ANIMATION5, music: BGM5 }
+];
+
 function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  
-  const videoMusicPairs = [
-    { video: ANIMATION1, music: BGM1 },
-    { video: ANIMATION2, music: BGM2 },
-    { video: ANIMATION3, music: BGM3 },
-    { video: ANIMATION4, music: BGM4 },
-    { video: ANIMATION5, music: BGM5 }
-  ];
 
   const [selectedPair] = useState(() => {
     const randomIndex = Math.floor(Math.random() * videoMusicPairs.length);
