@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Helmet } from 'react-helmet-async';
 import ANIMATION1 from "../assets/video/KiriSleep.webm";
 import ANIMATION2 from "../assets/video/KiriRoll.webm";
@@ -23,8 +23,11 @@ interface HomeProps {
 
 function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [animationClass, setAnimationClass] = useState("");
-
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  
   const videoMusicPairs = [
     { video: ANIMATION1, music: BGM1 },
     { video: ANIMATION2, music: BGM2 },
@@ -33,33 +36,53 @@ function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
     { video: ANIMATION5, music: BGM5 }
   ];
 
-  const randomIndex = Math.floor(Math.random() * videoMusicPairs.length);
-  const selectedPair = videoMusicPairs[randomIndex];
+  const [selectedPair] = useState(() => {
+    const randomIndex = Math.floor(Math.random() * videoMusicPairs.length);
+    return videoMusicPairs[randomIndex];
+  });
+
+  const initAudioContext = () => {
+    if (!audioRef.current) return;
+
+    if (!audioContextRef.current) {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      audioContextRef.current = ctx;
+
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+
+      if (!sourceRef.current) {
+        const source = ctx.createMediaElementSource(audioRef.current);
+        sourceRef.current = source;
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+      }
+    }
+
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  };
 
   useEffect(() => {
-    if (musicEnabled) {
-      const audioElement = document.getElementById("homeBGM") as HTMLAudioElement;
-      if (audioElement) {
-        audioElement.play().catch((e) => console.log("Auto-play blocked by browser policy:", e));
-      }
+    if (musicEnabled && audioRef.current) {
+      initAudioContext();
+      audioRef.current.play().catch((e) => console.log("Auto-play blocked by browser policy:", e));
     }
   }, []);
 
   const toggleMusic = () => {
-    const audioElement = document.getElementById("homeBGM") as HTMLAudioElement;
-    if (audioElement) {
-      setAnimationClass("fade-out");
-      
-      setTimeout(() => {
-        if (musicEnabled) {
-          audioElement.pause();
-        } else {
-          audioElement.play().catch((e) => console.error("Audio play error:", e));
-        }
-        setMusicEnabled(!musicEnabled);
+    if (audioRef.current) {
+      initAudioContext();
 
-        setAnimationClass("fade-in");
-      }, 250);
+      if (musicEnabled) {
+        audioRef.current?.pause();
+      } else {
+        audioRef.current?.play().catch((e) => console.error("Audio play error:", e));
+      }
+      setMusicEnabled(!musicEnabled);
     }
   };
   
@@ -68,8 +91,8 @@ function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
       <Helmet>
         <title>Kiri487</title>
       </Helmet>
-      <div className={`P5-canvas ${animationClass}`}>
-        <P5Canvas musicEnabled={musicEnabled} />
+      <div className={`P5-canvas`}>
+        <P5Canvas musicEnabled={musicEnabled} analyser={analyserRef.current} />
       </div>
       <div className="intro">
         <p style={{ fontSize: "2rem" }}>Hi, I'm Kiri!</p>
@@ -93,7 +116,7 @@ function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
         </video>
       </div>
 
-      <audio loop id="homeBGM">
+      <audio ref={audioRef} loop crossOrigin="anonymous">
         <source src={selectedPair.music} type="audio/mp3" />
         Your browser does not support the audio element.
       </audio>
