@@ -6,12 +6,16 @@ import ListItem from "@mui/material/ListItem";
 import IconButton from "@mui/material/IconButton";
 import KIRI_LOGO from "../assets/KiriLogo.png";
 
+interface DrawerProps {
+  onRefresh: () => void;
+}
+
 function GetPath(location: Location): string {
   const pathParts = location.pathname.split("/");
   return pathParts[1] === "" ? "home" : pathParts[1];
 }
 
-function MyDrawer() {
+function MyDrawer({ onRefresh }: DrawerProps) {
   const [current, setCurrent] = useState("home");
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -26,7 +30,8 @@ function MyDrawer() {
 
   const refreshPage = () => {
     if (current === "home") {
-      window.location.reload();
+      onRefresh();
+      setDrawerOpen(false);
     }
   };
 

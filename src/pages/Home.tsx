@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from 'react-helmet-async';
 import ANIMATION1 from "../assets/KiriSleep.webm";
 import ANIMATION2 from "../assets/KiriRoll.webm";
@@ -16,9 +16,13 @@ import { FaCat } from "react-icons/fa";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
 import CircularProgress from "@mui/material/CircularProgress";
 
-function Home() {
+interface HomeProps {
+  musicEnabled: boolean;
+  setMusicEnabled: (enabled: boolean) => void;
+}
+
+function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [musicEnabled, setMusicEnabled] = useState(false);
   const [animationClass, setAnimationClass] = useState("");
 
   const videoMusicPairs = [
@@ -31,6 +35,15 @@ function Home() {
 
   const randomIndex = Math.floor(Math.random() * videoMusicPairs.length);
   const selectedPair = videoMusicPairs[randomIndex];
+
+  useEffect(() => {
+    if (musicEnabled) {
+      const audioElement = document.getElementById("homeBGM") as HTMLAudioElement;
+      if (audioElement) {
+        audioElement.play().catch((e) => console.log("Auto-play blocked by browser policy:", e));
+      }
+    }
+  }, []);
 
   const toggleMusic = () => {
     const audioElement = document.getElementById("homeBGM") as HTMLAudioElement;
