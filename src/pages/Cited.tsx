@@ -12,6 +12,7 @@ function Cited() {
           <li><a href="https://youtu.be/fXWwBsPMQJU?si=bu8XYlq02fvDAfXz">Soul and Mind - E's Jammy Jams</a></li>
           <li><a href="https://youtu.be/pBD2Dq0ZRO8?si=_ifJZDt8penVjAVj">TrackTribe - "Jane Street"</a></li>
           <li><a href="https://youtu.be/y4zf3JkRqxE?si=yabPqL6jvU1Nh5eI">Bizzie - The Grand Affair</a></li>
+          <li><a href="https://youtu.be/qrxv0JNVtgY?si=QBv0ceh5_iIfhMJi">Cypis - Gdzie jest biały węgorz ? (Zejście)</a></li>
           <li><a href="https://youtu.be/dQw4w9WgXcQ?si=231WlXHr8URdbYHK">Rick Astley - Never Gonna Give You Up</a></li>
           <li><a href="https://youtu.be/FoO7Pmx0bE4?si=biTM0TvoSg6YCvkq">ASMRZ(TANAKA, NEEDMORECASH) - 잘자요 아가씨(prod. Gwana)</a></li>
           <li><a href="https://youtu.be/LmZD-TU96q4?si=aoZS2Zx6mxU30P_n">米津玄師  Kenshi Yonezu - IRIS OUT</a></li>
