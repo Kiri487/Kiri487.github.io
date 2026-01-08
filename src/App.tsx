@@ -11,20 +11,27 @@ import Cited from "./pages/Cited";
 function App() {
   const [homeKey, setHomeKey] = useState(0);
   
-  const [musicEnabled, setMusicEnabled] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(() => {
+    const saved = localStorage.getItem("musicEnabled");
+    return saved ? JSON.parse(saved) : false;
+  });
 
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem("bgmVolume");
     return saved ? parseFloat(saved) : 0.5;
   });
 
-  const handleRefresh = () => {
-    setHomeKey(prevKey => prevKey + 1);
-  };
+  useEffect(() => {
+    localStorage.setItem("musicEnabled", JSON.stringify(musicEnabled));
+  }, [musicEnabled]);
 
   useEffect(() => {
     localStorage.setItem("bgmVolume", volume.toString());
   }, [volume]);
+
+  const handleRefresh = () => {
+    setHomeKey(prevKey => prevKey + 1);
+  };
 
   return (
     <HelmetProvider>
