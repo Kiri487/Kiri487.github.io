@@ -23,6 +23,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 interface HomeProps {
   musicEnabled: boolean;
   setMusicEnabled: (enabled: boolean) => void;
+  volume: number;
+  setVolume: (vol: number) => void;
 }
 
 const videoMusicPairs = [
@@ -35,7 +37,7 @@ const videoMusicPairs = [
   { video: ANIMATION7, music: BGM7 },
 ];
 
-function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
+function Home({ musicEnabled, setMusicEnabled, volume, setVolume }: HomeProps) {
   const [isLoaded, setIsLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -91,6 +93,20 @@ function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
       setMusicEnabled(!musicEnabled);
     }
   };
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    if (newVolume > 0 && !musicEnabled) {
+      toggleMusic();
+    }
+  };
   
   return (
     <div className="home">
@@ -127,9 +143,14 @@ function Home({ musicEnabled, setMusicEnabled }: HomeProps) {
         Your browser does not support the audio element.
       </audio>
 
-      <button onClick={toggleMusic} className="music-button">
-        {musicEnabled ? <MdMusicNote size={30} /> : <MdMusicOff size={30} />}
-      </button>
+      <div className="music-control-container">
+        <button onClick={toggleMusic} className="music-button">
+          {musicEnabled ? <MdMusicNote size={30} /> : <MdMusicOff size={30} />}
+        </button>
+        <div className="volume-slider-wrapper">
+          <input type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange}className="volume-slider"style={{ backgroundImage: `linear-gradient(to right, white ${volume * 100}%, rgba(255, 255, 255, 0.7) ${volume * 100}%)` }} />
+        </div>
+      </div>
     </div>
   );
 }

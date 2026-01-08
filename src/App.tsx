@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { HelmetProvider } from 'react-helmet-async';
 import Drawer from "./components/Drawer";
@@ -10,11 +10,21 @@ import Cited from "./pages/Cited";
 
 function App() {
   const [homeKey, setHomeKey] = useState(0);
+  
   const [musicEnabled, setMusicEnabled] = useState(false);
+
+  const [volume, setVolume] = useState(() => {
+    const saved = localStorage.getItem("bgmVolume");
+    return saved ? parseFloat(saved) : 0.5;
+  });
 
   const handleRefresh = () => {
     setHomeKey(prevKey => prevKey + 1);
   };
+
+  useEffect(() => {
+    localStorage.setItem("bgmVolume", volume.toString());
+  }, [volume]);
 
   return (
     <HelmetProvider>
@@ -23,7 +33,7 @@ function App() {
         <div className="App">  
           <div className="routes-container">
             <Routes>
-            <Route path="/" element={<Home key={homeKey} musicEnabled={musicEnabled} setMusicEnabled={setMusicEnabled} />} />
+            <Route path="/" element={<Home key={homeKey} musicEnabled={musicEnabled} setMusicEnabled={setMusicEnabled} volume={volume} setVolume={setVolume} />} />
             <Route path="/about" element={<About />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/cited" element={<Cited />} />
