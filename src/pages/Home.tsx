@@ -77,17 +77,15 @@ function Home({ musicEnabled, setMusicEnabled, volume, setVolume }: HomeProps) {
   useEffect(() => {
     if (musicEnabled && audioRef.current) {
       initAudioContext();
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log("Autoplay success");
-          })
-          .catch((error) => {
-            console.log("Autoplay blocked");
-            setMusicEnabled(false); 
-          });
-      }
+      audioRef.current.play()
+        .then(() => {
+          console.log("Autoplay success");
+        })
+        .catch((e) => {
+          console.log("Audio play error:", e);
+          setMusicEnabled(false); 
+        });
+      
     }
   }, []);
 
