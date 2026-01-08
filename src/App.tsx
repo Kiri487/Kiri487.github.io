@@ -54,7 +54,7 @@ function App() {
     if (!audioRef.current) return;
 
     if (!audioContextRef.current) {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
       const ctx = new AudioContext();
       audioContextRef.current = ctx;
 

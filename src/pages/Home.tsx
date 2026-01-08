@@ -27,11 +27,11 @@ function Home({ videoSrc, analyser }: HomeProps) {
         <P5Canvas bgmEnabled={!!analyser} analyser={analyser} />
       </div>
       <div className="intro">
-        <p style={{ fontSize: "2rem" }}>Hi, I'm Kiri!</p>
-        <p style={{ fontSize: "1.2rem" }}>
+        <p className="intro-greeting">Hi, I'm Kiri!</p>
+        <p className="intro-desc">
           A programmer, a creator, and a cat <FaCat />
         </p>
-        <div style={{ padding: "1rem 0" }}>
+        <div className="intro-contact">
           <Contact />
         </div>
         <p className="model-info">
