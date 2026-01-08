@@ -64,8 +64,8 @@ const Navbar = ({ onRefresh, musicEnabled, toggleMusic, volume, setVolume }: Nav
 							<Link to="/about" className={`nav-link ${isActive("/about") ? "active" : ""}`}>
 								About
 							</Link>
-							<Link to="/portfolio" className={`nav-link ${isActive("/portfolio") ? "active" : ""}`}>
-								Portfolio
+							<Link to="/projects" className={`nav-link ${isActive("/projects") ? "active" : ""}`}>
+								Projects
 							</Link>
 							<Link to="/cited" className={`nav-link ${isActive("/cited") ? "active" : ""}`}>
 								Cited
@@ -87,7 +87,7 @@ const Navbar = ({ onRefresh, musicEnabled, toggleMusic, volume, setVolume }: Nav
 			<div className={`mobile-menu-dropdown ${isMenuOpen ? "open" : ""}`}>
         <Link to="/" className={`mobile-link ${isActive("/") ? "active" : ""}`} onClick={(e) => handleMobileClick("/", e)}>Home</Link>
         <Link to="/about" className={`mobile-link ${isActive("/about") ? "active" : ""}`} onClick={() => handleMobileClick("/about")}>About</Link>
-        <Link to="/portfolio" className={`mobile-link ${isActive("/portfolio") ? "active" : ""}`} onClick={() => handleMobileClick("/portfolio")}>Portfolio</Link>
+        <Link to="/projects" className={`mobile-link ${isActive("/projects") ? "active" : ""}`} onClick={() => handleMobileClick("/projects")}>Projects</Link>
         <Link to="/cited" className={`mobile-link ${isActive("/cited") ? "active" : ""}`} onClick={() => handleMobileClick("/cited")}>Cited</Link>
       </div>
 		</>

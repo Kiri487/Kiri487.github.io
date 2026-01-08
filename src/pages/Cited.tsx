@@ -1,4 +1,6 @@
 import { Helmet } from 'react-helmet-async';
+import { PiMusicNotesFill } from "react-icons/pi";
+import { FaRegCirclePlay } from "react-icons/fa6";
 
 function Cited() {
   return (
@@ -6,7 +8,7 @@ function Cited() {
       <Helmet>
         <title>Kiri487 | Cited</title>
       </Helmet>
-      <h2 className="title">BGM</h2>
+      <h2 className="title"><PiMusicNotesFill />BGM</h2>
       <div className="content">
         <ul className="cited-content">
           <li><a href="https://youtu.be/fXWwBsPMQJU?si=bu8XYlq02fvDAfXz">Soul and Mind - E's Jammy Jams</a></li>
@@ -18,7 +20,7 @@ function Cited() {
           <li><a href="https://youtu.be/LmZD-TU96q4?si=aoZS2Zx6mxU30P_n">米津玄師  Kenshi Yonezu - IRIS OUT</a></li>
         </ul>
       </div>
-      <h2 className="title">Video Motion</h2>
+      <h2 className="title"><FaRegCirclePlay />Video Motion</h2>
       <div className="content">
         <ul className="cited-content">
           <li><a href="https://www.mixamo.com/#/?page=1&type=Motion%2CMotionPack">Mixamo.com</a></li>

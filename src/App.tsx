@@ -6,7 +6,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import About from "./pages/About";
-import Portfolio from "./pages/Portfolio";
+import Projects from "./pages/Projects";
 import Cited from "./pages/Cited";
 
 function App() {
@@ -101,7 +101,7 @@ function App() {
             <Routes>
             <Route path="/" element={<Home key={homeKey} videoSrc={selectedPair.video} analyser={analyserRef.current} />} />
             <Route path="/about" element={<About />} />
-            <Route path="/portfolio" element={<Portfolio />} />
+            <Route path="/projects" element={<Projects />} />
             <Route path="/cited" element={<Cited />} />
             </Routes>
           </div>
