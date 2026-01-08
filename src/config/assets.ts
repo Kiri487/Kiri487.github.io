@@ -13,17 +13,14 @@ import BGM5 from "../assets/bgm/Jane Street - TrackTribe.mp3";
 import BGM6 from "../assets/bgm/米津玄師  Kenshi Yonezu - IRIS OUT.mp3";
 import BGM7 from "../assets/bgm/Cypis - Gdzie jest biały węgorz (Zejście).mp3";
 
-const videoMusicPairs = [
-  { video: ANIMATION1, music: BGM1 },
-  { video: ANIMATION2, music: BGM2 },
-  { video: ANIMATION3, music: BGM3 },
-  { video: ANIMATION4, music: BGM4 },
-  { video: ANIMATION5, music: BGM5 },
-  { video: ANIMATION6, music: BGM6 },
-  { video: ANIMATION7, music: BGM7 },
+export const videoBgmPairs = [
+  { video: ANIMATION1, bgm: BGM1 },
+  { video: ANIMATION2, bgm: BGM2 },
+  { video: ANIMATION3, bgm: BGM3 },
+  { video: ANIMATION4, bgm: BGM4 },
+  { video: ANIMATION5, bgm: BGM5 },
+  { video: ANIMATION6, bgm: BGM6 },
+  { video: ANIMATION7, bgm: BGM7 },
 ];
 
-export const getRandomPair = () => {
-  const randomIndex = Math.floor(Math.random() * videoMusicPairs.length);
-  return videoMusicPairs[randomIndex];
-};
+export const getRandomIndex = () => Math.floor(Math.random() * videoBgmPairs.length);

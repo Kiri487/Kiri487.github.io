@@ -6,13 +6,13 @@ import { LuMenu } from "react-icons/lu";
 
 interface NavbarProps {
   onRefresh: () => void;
-  musicEnabled: boolean;
-  toggleMusic: () => void;
+  bgmEnabled: boolean;
+  toggleBgm: () => void;
   volume: number;
   setVolume: (val: number) => void;
 }
 
-const Navbar = ({ onRefresh, musicEnabled, toggleMusic, volume, setVolume }: NavbarProps) => {
+const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -44,8 +44,8 @@ const Navbar = ({ onRefresh, musicEnabled, toggleMusic, volume, setVolume }: Nav
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
-    if (newVolume > 0 && !musicEnabled) {
-      toggleMusic();
+    if (newVolume > 0 && !bgmEnabled) {
+      toggleBgm();
     }
   };
 
@@ -71,9 +71,9 @@ const Navbar = ({ onRefresh, musicEnabled, toggleMusic, volume, setVolume }: Nav
 								Cited
 							</Link>
 					</div>
-					<div className="music-control-container">
-							<button onClick={toggleMusic} className="music-button">
-								{musicEnabled ? <MdMusicNote size={30} /> : <MdMusicOff size={30} />}
+					<div className="bgm-control-container">
+							<button onClick={toggleBgm} className="bgm-button">
+								{bgmEnabled ? <MdMusicNote size={30} /> : <MdMusicOff size={30} />}
 							</button>
 							<div className="volume-slider-wrapper">
 								<input type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange}className="volume-slider"style={{ backgroundImage: `linear-gradient(to right, white ${volume * 100}%, rgba(255, 255, 255, 0.7) ${volume * 100}%)` }} />

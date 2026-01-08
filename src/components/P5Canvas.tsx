@@ -2,20 +2,20 @@ import { useRef, useEffect } from "react";
 import p5 from "p5";
 
 interface P5CanvasProps {
-  musicEnabled: boolean;
+  bgmEnabled: boolean;
   analyser: AnalyserNode | null;
 }
 
-function Lines({ musicEnabled, analyser }: P5CanvasProps) {
+function Lines({ bgmEnabled, analyser }: P5CanvasProps) {
 
   const sketchRef = useRef<HTMLDivElement | null>(null);
-  const musicEnabledRef = useRef(musicEnabled);
+  const bgmEnabledRef = useRef(bgmEnabled);
   
   const analyserRef = useRef<AnalyserNode | null>(null);
 
   useEffect(() => {
-    musicEnabledRef.current = musicEnabled;
-  }, [musicEnabled]);
+    bgmEnabledRef.current = bgmEnabled;
+  }, [bgmEnabled]);
 
   useEffect(() => {
     analyserRef.current = analyser;
@@ -40,7 +40,7 @@ function Lines({ musicEnabled, analyser }: P5CanvasProps) {
 
         let targetAmp = 10;
 
-        if (musicEnabledRef.current && analyserRef.current) {
+        if (bgmEnabledRef.current && analyserRef.current) {
           analyserRef.current.getByteFrequencyData(dataArray);
 
           let sum = 0;

@@ -24,7 +24,7 @@ function Home({ videoSrc, analyser }: HomeProps) {
         <title>Kiri487</title>
       </Helmet>
       <div className="P5-canvas">
-        <P5Canvas musicEnabled={!!analyser} analyser={analyser} />
+        <P5Canvas bgmEnabled={!!analyser} analyser={analyser} />
       </div>
       <div className="intro">
         <p style={{ fontSize: "2rem" }}>Hi, I'm Kiri!</p>
