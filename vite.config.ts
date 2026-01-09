@@ -6,8 +6,7 @@ export default defineConfig({
   base: '/',
   plugins: [react()],
 build: {
-    // 調整警告上限 (可選，只是為了不看警告)
-    chunkSizeWarningLimit: 1000, 
+    chunkSizeWarningLimit: 500, 
     rollupOptions: {
       output: {
         manualChunks: {
