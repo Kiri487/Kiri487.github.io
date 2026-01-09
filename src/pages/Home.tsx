@@ -22,6 +22,7 @@ function Home({ videoSrc, analyser }: HomeProps) {
     <div className="home">
       <Helmet>
         <title>Kiri487</title>
+        <meta name="description" content="Kiri487's personal website." />
       </Helmet>
       <div className="P5-canvas">
         <P5Canvas bgmEnabled={!!analyser} analyser={analyser} />
