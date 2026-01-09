@@ -629,7 +629,6 @@ button {
 .gallery-item {
   display: block;
   break-inside: avoid;
-  margin-bottom: 1.5rem;
   position: relative;
   border-radius: 15px;
   overflow: hidden;
@@ -833,13 +832,5 @@ button {
 
   .projects-grid {
     grid-template-columns: 1fr;
-  }
-
-  .masonry-container {
-    gap: 1rem;
-  }
-  
-  .masonry-column {
-    gap: 1rem;
   }
 }

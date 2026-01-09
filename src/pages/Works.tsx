@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { BsStars } from "react-icons/bs";
-import { FaYoutube, FaFilter, FaPalette, FaVideo } from "react-icons/fa";
+import { FaYoutube, FaFilter, FaPalette, FaVideo, FaLink } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
-import { worksData, WorkItem } from '../data/works';
+import { IoPaw } from "react-icons/io5";
+import { worksData, WorkItem, IconType } from '../data/works';
 
 function Works() {
-  const [filter, setFilter] = useState<'all' | 'illustration' | 'video'>('all');
+  const [filter, setFilter] = useState<'all' | 'illustration' | 'video' | 'other'>('all');
 
 	const [columnsCount, setColumnsCount] = useState(3);
 
@@ -22,6 +23,18 @@ function Works() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+	const renderIcon = (iconType: IconType) => {
+		switch (iconType) {
+			case "x":
+				return <FaXTwitter size={40} aria-hidden="true" />;
+			case "youtube":
+				return <FaYoutube size={40} aria-hidden="true" />;
+			case "link":
+			default:
+				return <FaLink size={40} aria-hidden="true" />;
+		}
+	};
 
   const filteredWorks = worksData.filter(work => {
     if (filter === 'all') return true;
@@ -40,7 +53,7 @@ function Works() {
         <title>Kiri487 | Works</title>
       </Helmet>
 
-      <h2 className="title"><BsStars /> Gallery</h2>
+      <h2 className="title"><BsStars />Gallery</h2>
       
       <div className="filter-container">
         <button 
@@ -67,6 +80,14 @@ function Works() {
         >
           <FaVideo aria-hidden="true"/> Videos
         </button>
+				<button 
+          className={`filter-button ${filter === 'other' ? 'active' : ''}`} 
+          onClick={() => setFilter('other')} 
+          aria-label="Filter by other works" 
+          aria-pressed={filter === 'other'} 
+        >
+          <IoPaw aria-hidden="true"/> Other
+        </button>
       </div>
 
 			<div className="masonry-container">
@@ -74,18 +95,18 @@ function Works() {
           <div className="masonry-column" key={colIndex}>
             {col.map((work) => (
               <a 
-                key={work.url} 
+                key={work.thumbnail} 
                 href={work.url} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="gallery-item"
-                aria-label={`View ${work.title} on ${work.type === 'video' ? 'YouTube' : 'Twitter(X)'}`}
+                aria-label={`View ${work.title}`}
               >
                 <div className="gallery-img-wrapper">
                   <img src={work.thumbnail} alt={work.title} loading="lazy" decoding="async" />
                   <div className="gallery-overlay">
                     <div className="overlay-icon">
-                      {work.type === 'video' ? <FaYoutube size={40} aria-hidden="true"/> : <FaXTwitter size={40} aria-hidden="true"/>}
+                      {renderIcon(work.icon)}
                     </div>
                     <p className="overlay-title">{work.title}</p>
                     <p className="overlay-date">{work.date}</p>
