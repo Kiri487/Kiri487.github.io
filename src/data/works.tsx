@@ -29,7 +29,7 @@ export const worksData: WorkItem[] = [
 	{
     type: "other",
 		icon: "x",
-    title: "Weed Cat Cult: wool felt doll",
+    title: "Weed Cat Cult: Wool felt doll",
     thumbnail: "https://pbs.twimg.com/media/GzKsbj7bIAARd1E?format=jpg&name=small", 
     url: "https://x.com/kiri487_xxx/status/1959818380644602053",
     date: "2025.08.25",
@@ -37,7 +37,7 @@ export const worksData: WorkItem[] = [
 	{
     type: "other",
 		icon: "x",
-    title: "Weed Cat Cult: clay doll",
+    title: "Weed Cat Cult: Clay doll",
     thumbnail: "https://pbs.twimg.com/media/GxgqzzqaMAIbI6X?format=jpg&name=small", 
     url: "https://x.com/kiri487_xxx/status/1952359066099212443",
     date: "2025.08.04",
