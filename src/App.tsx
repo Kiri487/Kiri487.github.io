@@ -99,9 +99,6 @@ function App() {
     if (bgmEnabled) {
       initAudioContext();
       audioRef.current?.play()
-        .then(() => {
-          console.log("Autoplay success");
-        })
         .catch((e) => {
           console.log("Audio play error:", e);
           setBgmEnabled(false); 
