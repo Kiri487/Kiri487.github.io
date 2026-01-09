@@ -5,10 +5,10 @@ import { VscMail } from "react-icons/vsc";
 function Contact() {
   return (
     <div className="contact">
-        <a href="https://github.com/Kiri487" style={{marginRight: "1rem"}}><FaGithub size={30} color="white" /></a>
-        <a href="https://x.com/kiri487_xxx" style={{marginRight: "1rem"}}><FaXTwitter size={30} color="white" /></a>
-        <a href="https://telegram.me/kiri_487" style={{marginRight: "1rem"}}><FaTelegramPlane size={30} color="white" /></a>
-        <a href="mailto:kiri48787@gmail.com"><VscMail size={30} color="white" /></a>
+        <a href="https://github.com/Kiri487" aria-label="Kiri's GitHub"><FaGithub size={30} /></a>
+        <a href="https://x.com/kiri487_xxx" aria-label="Kiri's Twitter(X)"><FaXTwitter size={30} /></a>
+        <a href="https://telegram.me/kiri_487" aria-label="Kiri's Telegram"><FaTelegramPlane size={30} /></a>
+        <a href="mailto:kiri48787@gmail.com" aria-label="Kiri's mail"><VscMail size={30} /></a>
     </div>
   );
 }

@@ -42,7 +42,12 @@ function Home({ videoSrc, analyser }: HomeProps) {
 
       <div className="home-video">
         {!isLoaded && <CircularProgress color="inherit" size="5rem"/>}
-        <video autoPlay loop muted playsInline id="homeVideo" src={videoSrc} onCanPlay={() => setIsLoaded(true) } style={{ display: isLoaded ? 'block' : 'none' }}>
+        <video 
+          autoPlay loop muted playsInline 
+          id="homeVideo" src={videoSrc} 
+          onCanPlay={() => setIsLoaded(true) } 
+          style={{ display: isLoaded ? 'block' : 'none' }}
+          aria-label="Looping animation of Kiri's 3D character model">
           Your browser does not support video playback.
         </video>
       </div>

@@ -416,6 +416,23 @@ button {
   object-fit: cover;
 }
 
+.contact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.contact a {
+  color: white;
+  display: flex;
+  transition: transform 0.2s;
+  padding: 0.5rem;
+}
+
+.contact a:hover {
+  transform: scale(1.2);
+}
+
 /* about page */
 
 .education-title {
