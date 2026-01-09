@@ -29,14 +29,14 @@ function Home({ videoSrc, analyser }: HomeProps) {
       <div className="intro">
         <p className="intro-greeting">Hi, I'm Kiri!</p>
         <p className="intro-desc">
-          A programmer, a creator, and a cat <FaCat />
+          A programmer, a creator, and a cat <FaCat aria-hidden="true"/>
         </p>
         <div className="intro-contact">
           <Contact />
         </div>
         <p className="model-info">
           The character model was purchased from{" "}
-          <a href="https://mukumi.booth.pm/items/5813187">here</a>
+          <a href="https://mukumi.booth.pm/items/5813187" aria-label="Purchase the character model on BOOTH">here</a>
         </p>
       </div>
 

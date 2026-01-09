@@ -29,7 +29,7 @@ const ProjectCard = ({ project }: { project: Project }) => {
           
           <div className="card-links">
             {project.links.map((link, index) => (
-              <a key={index} href={link.url} className="card-link" target="_blank" rel="noopener noreferrer">
+              <a key={index} href={link.url} className="card-link" target="_blank" rel="noopener noreferrer" aria-label={`${link.label} for ${project.title}`}>
                 {link.label} <RiArrowRightDoubleLine />
               </a>
             ))}

@@ -10,7 +10,7 @@ function NotFound() {
       </Helmet>
 
       <div className="not-found-container">
-        <h1 className="not-found-title"><FaGhost /> 404</h1>
+        <h1 className="not-found-title"><FaGhost aria-hidden="true"/> 404</h1>
         <p className="subtitle">Page Not Found</p>
         <p className="not-found-message">The page you are looking for does not exist... or maybe it's just invisible?</p>
         <Link to="/" className="return-button">Return to Home</Link>

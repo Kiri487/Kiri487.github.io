@@ -16,12 +16,12 @@ function About() {
         <title>Kiri487 | About</title>
       </Helmet>
 
-      <h2 className="title"><FaCat />whoami</h2>
+      <h2 className="title"><FaCat aria-hidden="true"/>whoami</h2>
       <div className="content">
         <p>Hi, I'm Kiri. I'm a first-year master's student at National Taiwan University Graduate Institute of Networking and Multimedia.<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing 3D models!<br />But I have no experience with 3D modeling yet—it's challenging QQ.</p>
       </div>
 
-      <h2 className="title"><FaBook />Education</h2>
+      <h2 className="title"><FaBook aria-hidden="true"/>Education</h2>
       <div className="content">
         <Timeline position="right">
           {educationData.map((edu, index) => (
@@ -49,7 +49,7 @@ function About() {
         </Timeline>
       </div>
 
-      <h2 className="title"><FaMagic />Skills</h2>
+      <h2 className="title"><FaMagic aria-hidden="true"/>Skills</h2>
       <div className="content">
         {skillsData.map((section, index) => (
           <div key={index}>
@@ -65,7 +65,7 @@ function About() {
         ))}
       </div>
 
-      <h2 className="title"><FaStar />Experiences</h2>
+      <h2 className="title"><FaStar aria-hidden="true"/>Experiences</h2>
       <div className="content">
         {experienceData.map((exp, index) => (
           <div key={index}>
