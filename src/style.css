@@ -431,6 +431,7 @@ button {
 
 .contact a:hover {
   transform: scale(1.2);
+  filter: drop-shadow(2px 2px 0px #6b7484a3);
 }
 
 /* about page */
