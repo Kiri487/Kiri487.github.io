@@ -404,10 +404,10 @@ export const worksData: WorkItem[] = [
   },
 	{
     type: "other",
-		icon: "x",
+		icon: "link",
     title: "LINE stickers",
-    thumbnail: "https://pbs.twimg.com/media/GEwqanhboAA9gB_?format=jpg&name=small", 
-    url: "https://x.com/kiri487_xxx/status/1750821003046113546",
+    thumbnail: "https://stickershop.line-scdn.net/stickershop/v1/product/25532184/iPhone/main@2x.png", 
+    url: "https://store.line.me/stickershop/product/25532184/zh-Hant",
     date: "2024.01.26",
   },
 	{

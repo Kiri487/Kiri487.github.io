@@ -634,7 +634,7 @@ button {
   overflow: hidden;
   border: 4px solid white;
   transition: all 0.3s ease;
-  background-color: #6b7484a3;
+  background-color: rgba(255, 255, 255, 0.3);
 }
 
 .gallery-item:hover {
