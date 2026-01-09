@@ -7,6 +7,7 @@ import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Projects from "./pages/Projects";
+import Works from "./pages/Works";
 import Cited from "./pages/Cited";
 import NotFound from "./pages/NotFound";
 
@@ -120,6 +121,7 @@ function App() {
               <Route path="/" element={<Home key={homeKey} videoSrc={selectedPair.video} analyser={analyserRef.current} />} />
               <Route path="/about" element={<About />} />
               <Route path="/projects" element={<Projects />} />
+              <Route path="/works" element={<Works />} />
               <Route path="/cited" element={<Cited />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

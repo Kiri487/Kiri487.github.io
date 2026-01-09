@@ -46,7 +46,7 @@ function Projects() {
       <Helmet>
         <title>Kiri487 | Projects</title>
       </Helmet>
-      <h2 className="title"><BsPersonFill />Personal</h2>
+      <h2 className="title"><BsPersonFill aria-hidden="true"/>Personal</h2>
       <div className="content">
         <div className="projects-grid">
           {personalProjects.map((project, index) => (
@@ -55,7 +55,7 @@ function Projects() {
         </div>
       </div>
 
-      <h2 className="title"><BsPeopleFill />Team</h2>
+      <h2 className="title"><BsPeopleFill aria-hidden="true"/>Team</h2>
       <div className="content">
           <div className="projects-grid">
           {teamProjects.map((project, index) => (

@@ -58,18 +58,11 @@ const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarP
 				</a>
 				<div className="navbar-right-section">
 					<div className="navbar-links">
-							<Link to="/" className={`nav-link ${isActive("/") ? "active" : ""}`}>
-								Home
-							</Link>
-							<Link to="/about" className={`nav-link ${isActive("/about") ? "active" : ""}`}>
-								About
-							</Link>
-							<Link to="/projects" className={`nav-link ${isActive("/projects") ? "active" : ""}`}>
-								Projects
-							</Link>
-							<Link to="/cited" className={`nav-link ${isActive("/cited") ? "active" : ""}`}>
-								Cited
-							</Link>
+							<Link to="/" className={`nav-link ${isActive("/") ? "active" : ""}`}>Home</Link>
+							<Link to="/about" className={`nav-link ${isActive("/about") ? "active" : ""}`}>About</Link>
+							<Link to="/projects" className={`nav-link ${isActive("/projects") ? "active" : ""}`}>Projects</Link>
+              <Link to="/works" className={`nav-link ${isActive("/works") ? "active" : ""}`}>Works</Link>
+							<Link to="/cited" className={`nav-link ${isActive("/cited") ? "active" : ""}`}>Cited</Link>
 					</div>
 					<div className="bgm-control-container">
 							<button onClick={toggleBgm} className="bgm-button" aria-label={bgmEnabled ? "Mute background music" : "Play background music"}>
@@ -93,6 +86,7 @@ const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarP
         <Link to="/" className={`mobile-link ${isActive("/") ? "active" : ""}`} onClick={(e) => handleMobileClick("/", e)}>Home</Link>
         <Link to="/about" className={`mobile-link ${isActive("/about") ? "active" : ""}`} onClick={() => handleMobileClick("/about")}>About</Link>
         <Link to="/projects" className={`mobile-link ${isActive("/projects") ? "active" : ""}`} onClick={() => handleMobileClick("/projects")}>Projects</Link>
+        <Link to="/works" className={`mobile-link ${isActive("/works") ? "active" : ""}`} onClick={() => handleMobileClick("/works")}>Works</Link>
         <Link to="/cited" className={`mobile-link ${isActive("/cited") ? "active" : ""}`} onClick={() => handleMobileClick("/cited")}>Cited</Link>
       </div>
 		</>
