@@ -13,8 +13,8 @@ function Works() {
 
 	useEffect(() => {
 		const handleResize = () => {
-			if (window.innerWidth < 760) setColumnsCount(1); 
-			else if (window.innerWidth < 1080) setColumnsCount(2);
+			if (window.innerWidth < 768) setColumnsCount(1); 
+			else if (window.innerWidth < 1024) setColumnsCount(2);
 			else setColumnsCount(3);
 		};
 

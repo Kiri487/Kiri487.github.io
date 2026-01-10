@@ -746,7 +746,7 @@ button {
 
 /* media */
 
-@media (max-width: 760px) {
+@media (max-width: 768px) {
   .navbar-right-section {
     gap: 10px;
   }
