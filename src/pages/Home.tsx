@@ -6,17 +6,18 @@ import { FaCat } from "react-icons/fa";
 import CircularProgress from "@mui/material/CircularProgress";
 
 interface HomeProps {
-  videoSrc: string;
+  videoWebm: string;
+  videoMov: string;
   analyser: AnalyserNode | null;
 }
 
 
-function Home({ videoSrc, analyser }: HomeProps) {
+function Home({ videoWebm, videoMov, analyser }: HomeProps) {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     setIsLoaded(false);
-  }, [videoSrc]);
+  }, [videoWebm]);
   
   return (
     <div className="home">
@@ -43,12 +44,15 @@ function Home({ videoSrc, analyser }: HomeProps) {
 
       <div className="home-video">
         {!isLoaded && <CircularProgress color="inherit" size="5rem"/>}
-        <video 
+        <video
+          key={videoWebm} 
           autoPlay loop muted playsInline 
-          id="homeVideo" src={videoSrc} 
+          id="homeVideo"
           onCanPlay={() => setIsLoaded(true) } 
           style={{ display: isLoaded ? 'block' : 'none' }}
           aria-label="Looping animation of Kiri's 3D character model">
+          <source src={videoMov} type="video/quicktime" />
+          <source src={videoWebm} type="video/webm" />
           Your browser does not support video playback.
         </video>
       </div>

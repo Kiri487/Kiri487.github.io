@@ -118,7 +118,7 @@ function App() {
         <div className="App">  
           <div className="routes-container">
             <Routes>
-              <Route path="/" element={<Home key={homeKey} videoSrc={selectedPair.video} analyser={analyserRef.current} />} />
+              <Route path="/" element={<Home key={homeKey} videoWebm={selectedPair.webm} videoMov={selectedPair.mov} analyser={analyserRef.current} />} />
               <Route path="/about" element={<About />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/works" element={<Works />} />
