@@ -47,21 +47,17 @@ function Projects() {
         <title>Kiri487 | Projects</title>
       </Helmet>
       <h2 className="title"><BsPersonFill aria-hidden="true"/>Personal</h2>
-      <div className="content">
-        <div className="projects-grid">
-          {personalProjects.map((project, index) => (
-            <ProjectCard key={index} project={project} />
-          ))}
-        </div>
-      </div>
+      <div className="projects-grid">
+        {personalProjects.map((project, index) => (
+          <ProjectCard key={index} project={project} />
+        ))}
+     </div>
 
       <h2 className="title"><BsPeopleFill aria-hidden="true"/>Team</h2>
-      <div className="content">
-          <div className="projects-grid">
-          {teamProjects.map((project, index) => (
-            <ProjectCard key={index} project={project} />
-          ))}
-        </div>
+      <div className="projects-grid">
+        {teamProjects.map((project, index) => (
+          <ProjectCard key={index} project={project} />
+        ))}
       </div>
     </div>
   );
