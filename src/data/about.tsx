@@ -1,4 +1,5 @@
-import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiMysql, SiPostgresql, SiHtml5, SiCss3, SiReact, SiGit, SiLinux } from "react-icons/si";
+import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiPostgresql, SiHtml5, SiCss3, SiReact, SiGit, SiLinux } from "react-icons/si";
+import { DiMsqlServer } from "react-icons/di";
 import { TbBrandCSharp } from "react-icons/tb";
 import { IconType } from "react-icons";
 
@@ -57,19 +58,25 @@ export const workData: Work[] = [
 
 export const experienceData: Experience[] = [
   {
-    category: "Clubs & Leadership",
-    items: [
-      "Google Developer Student Clubs (GDSC) NTUT - Lead (Aug 2022 - Jul 2023)",
-      "NTUT Programming Club (NPC) - 6th Vice President and Artistic Designer (Aug 2022 - Jul 2023)",
-      "HSNU Computer Research Club (CRC) - 41st Artistic Designer (Aug 2019 - Jul 2020)"
-    ]
-  },
-  {
     category: "Honors & Awards",
     items: [
       "Girls in CyberSecurity (GiCS) 2025 - Cybersecurity Challenge College/University Category, Finalist with Excellence Award",
       "Girls in CyberSecurity (GiCS) 2024 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention",
       "Girls in CyberSecurity (GiCS) 2023 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention"
+    ]
+  },
+  {
+    category: "Certifications",
+    items: [
+      "Ministry of Economic Affairs (MOEA) iPAS - Information Security Engineer, Associate Level (Dec 2024)"
+    ]
+  },
+  {
+    category: "Clubs & Leadership",
+    items: [
+      "Google Developer Student Clubs (GDSC) NTUT - Lead (Aug 2022 - Jul 2023)",
+      "NTUT Programming Club (NPC) - 6th Vice President and Artistic Designer (Aug 2022 - Jul 2023)",
+      "HSNU Computer Research Club (CRC) - 41st Artistic Designer (Aug 2019 - Jul 2020)"
     ]
   },
   {
@@ -103,7 +110,7 @@ export const skillsData: { category: string; skills: Skill[] }[] = [
   {
     category: "Database",
     skills: [
-      { name: "MySQL", icon: SiMysql },
+      { name: "MSSQL", icon: DiMsqlServer },
       { name: "PostgreSQL", icon: SiPostgresql },
     ]
   },
