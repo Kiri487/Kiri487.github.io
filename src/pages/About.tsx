@@ -6,8 +6,9 @@ import TimelineConnector from '@mui/lab/TimelineConnector';
 import TimelineContent from '@mui/lab/TimelineContent';
 import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
-import { FaCat, FaBook, FaMagic, FaStar } from "react-icons/fa";
-import { educationData, skillsData, experienceData } from "../data/about";
+import { FaCat, FaBook, FaBriefcase, FaMagic, FaStar } from "react-icons/fa";
+import { FaRegFaceDizzy } from "react-icons/fa6";
+import { educationData, workData, experienceData, skillsData } from "../data/about";
 
 function About() {
   return (
@@ -18,7 +19,7 @@ function About() {
 
       <h2 className="title"><FaCat aria-hidden="true"/>whoami</h2>
       <div className="content">
-        <p>Hi, I'm Kiri. I'm a first-year master's student at National Taiwan University Graduate Institute of Networking and Multimedia.<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing 3D models!<br />But I have no experience with 3D modeling yet—it's challenging QQ.</p>
+        <p>Hi, I'm Kiri. I'm a first-year master's student at National Taiwan University Graduate Institute of Networking and Multimedia.<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing with 3D models!<br />But I have no experience with 3D modeling yet—it's challenging... <FaRegFaceDizzy aria-hidden="true"/></p>
       </div>
 
       <h2 className="title"><FaBook aria-hidden="true"/>Education</h2>
@@ -26,8 +27,7 @@ function About() {
         <Timeline position="right">
           {educationData.map((edu, index) => (
             <TimelineItem key={index}>
-              <TimelineOppositeContent sx={{ maxWidth: "6rem", fontFamily: "'Oswald'", fontSize: "1.2rem", m: "auto 0" }} align="left" color="white">
-                {edu.period}
+              <TimelineOppositeContent sx={{ display: "none" }}>
               </TimelineOppositeContent>
               <TimelineSeparator>
                 <TimelineConnector sx={{ backgroundColor: "white" }} />
@@ -39,14 +39,57 @@ function About() {
                 <TimelineConnector sx={{ backgroundColor: "white" }} />
               </TimelineSeparator>
               <TimelineContent sx={{ fontFamily: "'Oswald'" }}>
-                <p className="education-title">{edu.school}</p>
-                <p className="education-info">
-                  {edu.department} {edu.status && `(${edu.status})`}
+                <p className="timeline-title">{edu.school}</p>
+                <p className="timeline-info">
+                  {edu.department}
                 </p>
+                <p className="timeline-period">{edu.period}</p>
               </TimelineContent>
             </TimelineItem>
           ))}
         </Timeline>
+      </div>
+        
+      <h2 className="title"><FaBriefcase aria-hidden="true"/>Work Experience</h2>
+      <div className="content">
+        <Timeline position="right">
+          {workData.map((work, index) => (
+            <TimelineItem key={index}>
+              <TimelineOppositeContent sx={{ display: "none" }}>
+              </TimelineOppositeContent>
+              <TimelineSeparator>
+                <TimelineConnector sx={{ backgroundColor: "white" }} />
+                <TimelineDot 
+                  variant="outlined"
+                  color="inherit" 
+                  sx={{ backgroundColor: "transparent", boxShadow: "none" }} 
+                />
+                <TimelineConnector sx={{ backgroundColor: "white" }} />
+              </TimelineSeparator>
+              <TimelineContent sx={{ fontFamily: "'Oswald'" }}>
+                <p className="timeline-title">{work.company}</p>
+                <p className="timeline-info">
+                  {work.position}
+                </p>
+                <p className="timeline-period">{work.period}</p>
+              </TimelineContent>
+            </TimelineItem>
+          ))}
+        </Timeline>
+      </div>
+
+      <h2 className="title"><FaStar aria-hidden="true"/>Extracurricular Activities</h2>
+      <div className="content">
+        {experienceData.map((exp, index) => (
+          <div key={index}>
+            <p className="subtitle">{exp.category}</p>
+            <ul className="experiences-content">
+              {exp.items.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
 
       <h2 className="title"><FaMagic aria-hidden="true"/>Skills</h2>
@@ -61,20 +104,6 @@ function About() {
                 </div>
               ))}
             </div>
-          </div>
-        ))}
-      </div>
-
-      <h2 className="title"><FaStar aria-hidden="true"/>Experiences</h2>
-      <div className="content">
-        {experienceData.map((exp, index) => (
-          <div key={index}>
-            <p className="subtitle">{exp.category}</p>
-            <ul className="experiences-content">
-              {exp.items.map((item, i) => (
-                <li key={i}>{item}</li>
-              ))}
-            </ul>
           </div>
         ))}
       </div>
