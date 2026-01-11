@@ -78,7 +78,7 @@ function About() {
         </Timeline>
       </div>
 
-      <h2 className="title"><FaStar aria-hidden="true"/>Extracurricular Activities</h2>
+      <h2 className="title"><FaStar aria-hidden="true"/>Extracurriculars</h2>
       <div className="content">
         {experienceData.map((exp, index) => (
           <div key={index}>
