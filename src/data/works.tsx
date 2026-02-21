@@ -10,7 +10,32 @@ export interface WorkItem {
 }
 
 export const worksData: WorkItem[] = [
-	{
+	
+  {
+    type: "video",
+		icon: "youtube",
+    title: "The secret behind low budget Perlica's wings... 🪽🐱⁉️",
+    thumbnail: "https://img.youtube.com/vi/5c9voDAGMWs/maxresdefault.jpg", 
+    url: "https://youtube.com/shorts/5c9voDAGMWs",
+    date: "2026.02.21",
+  },
+  {
+    type: "video",
+		icon: "youtube",
+    title: "Can You Send Me 30K? 🥺🙏💵 [Motion DL]",
+    thumbnail: "https://img.youtube.com/vi/P_eKsmcGhow/maxresdefault.jpg", 
+    url: "https://youtube.com/shorts/P_eKsmcGhow",
+    date: "2026.02.18",
+  },
+  {
+    type: "illustration",
+		icon: "x",
+    title: "Endfield: My persona",
+    thumbnail: "https://pbs.twimg.com/media/G_459zrakAAxZOY?format=jpg&name=small", 
+    url: "https://x.com/kiri487_xxx/status/2017114072899342514",
+    date: "2026.01.30",
+  },
+  {
     type: "video",
 		icon: "youtube",
     title: "「IRIS OUT」dances with Raze 😭💥❤️",
