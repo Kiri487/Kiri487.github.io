@@ -27,17 +27,17 @@ export interface Skill {
 
 export const educationData: Education[] = [
   {
-    period: "Aug 2025 - Present",
+    period: "Sep 2025 - Present",
     school: "National Taiwan University (NTU)",
     department: "Graduate Institute of Networking and Multimedia (M.S.)"
   },
   {
-    period: "Aug 2021 - Jun 2025",
+    period: "Sep 2021 - Jun 2025",
     school: "National Taipei University of Technology (NTUT)",
     department: "Electrical Engineering and Computer Science (B.S.)",
   },
   {
-    period: "Aug 2018 - Jun 2021",
+    period: "Sep 2018 - Jun 2021",
     school: "The Affiliated Senior High School of National Taiwan Normal University (HSNU)",
     department: "Class 1489",
   }
