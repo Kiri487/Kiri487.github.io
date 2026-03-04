@@ -8,6 +8,7 @@ import CT_AND_CE_IMG from "../assets/img/ComputerTypographyAndCharacterEncoding.
 import CA_IMG from "../assets/img/ComputerAnimation.png";
 import BOXBOB_IMG from "../assets/img/BoxBob.png";
 import REDDIT_IMG from "../assets/img/RedditSentimentAnalysis.png";
+import RANSOMCHECK_IMG from "../assets/img/RANsomCheck.png";
 import ELECOOKIES_IMG from "../assets/img/Elecookies.png";
 import AI_KASSUS_IMG from "../assets/img/AiKassus.png";
 import MYSTIC_SHOP_IMG from "../assets/img/MysticShopLUIS.png";
@@ -37,7 +38,7 @@ export const personalProjects: Project[] = [
     title: "Mystic Shop LUIS",
     img: MYSTIC_SHOP_IMG,
     year: "2025",
-    description: "A cute puzzle game and playable in the browser.",
+    description: "A cute puzzle game playable in the browser.",
     links: [
       { label: "Play", url: "https://kiri487.itch.io/mystic-shop-luis" }
     ],
@@ -61,7 +62,7 @@ export const personalProjects: Project[] = [
     title: "Computer Animation Projects",
     img: CA_IMG,
     year: "2024",
-    description: "This projects features a series of projects developed as part of the \"Computer Animation\" course.",
+    description: "A series of projects developed as part of the \"Computer Animation\" course.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/ca2024f" },
       { label: "View", url: "https://kiri487.github.io/ca2024f/" }
@@ -77,7 +78,7 @@ export const personalProjects: Project[] = [
     title: "Computer Typography and Character Encoding Projects",
     img: CT_AND_CE_IMG,
     year: "2024",
-    description: "This projects features a series of projects developed as part of the \"Computer Typography and Character Encoding\" course.",
+    description: "A series of projects developed as part of the \"Computer Typography and Character Encoding\" course.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/ct2024s" },
       { label: "View", url: "https://kiri487.github.io/ct2024s/hw00/index.html" }
@@ -92,7 +93,7 @@ export const personalProjects: Project[] = [
     title: "Data Visualization Projects",
     img: DATA_VIS_IMG,
     year: "2023",
-    description: "This projects features a series of projects developed as part of the \"Data Visualization\" course.",
+    description: "A series of projects developed as part of the \"Data Visualization\" course.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/vis2023f" },
       { label: "View", url: "https://kiri487.github.io/vis2023f/hw00/index.html" }
@@ -108,7 +109,7 @@ export const personalProjects: Project[] = [
     title: "Simple PowerPoint",
     img: SIMPLE_PPT_IMG,
     year: "2023",
-    description: "A software similar to PowerPoint but simpler, with its main features divided into four sections: menu, slide selection, drawing area, and graphical data display.",
+    description: "Software similar to PowerPoint but simpler, with its main features divided into four sections: menu, slide selection, drawing area, and graphical data display.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/2023-Fall-Windows-PowerPoint" }
     ],
@@ -123,12 +124,28 @@ export const teamProjects: Project[] = [
     title: "Gravity Drift",
     img: GRAVITY_DRIFT_IMG,
     year: "2025",
-    description: "A cute puzzle game and playable in the browser.",
+    description: "A gravity-shifting puzzle game playable in the browser.",
     links: [
       { label: "Play", url: "https://tofudoctorr.itch.io/gravitydrift" }
     ],
     tags: [
       { icon: TbBrandCSharp, name: "C#" },
+    ]
+  },
+  {
+    title: "RANsomCheck",
+    img: RANSOMCHECK_IMG,
+    year: "2025",
+    description: "A CNN-Transformer model for malware detection based on API call sequences.",
+    links: [
+      { label: "Github", url: "https://github.com/stwater20/RANsomCheck" },
+      { label: "Paper", url: "https://link.springer.com/chapter/10.1007/978-981-96-8892-0_10" },
+    ],
+    tags: [
+      { icon: SiPython, name: "Python" },
+      { icon: SiTypescript, name: "TypeScript" },
+      { icon: SiHtml5, name: "HTML5" },
+      { icon: SiCss3, name: "CSS3" }
     ]
   },
   {
@@ -155,7 +172,7 @@ export const teamProjects: Project[] = [
     title: "Elecookies-Frontend",
     img: ELECOOKIES_IMG,
     year: "2023",
-    description: "An online cookie store that offers features such as product management, user management, order management.",
+    description: "An online cookie store that offers features such as product management, user management, and order management.",
     links: [
       { label: "Github", url: "https://github.com/Zch720/NTUT_112_1_DatabaseProject_frontend" }
     ],
