@@ -60,7 +60,7 @@ export const experienceData: Experience[] = [
   {
     category: "Honors & Awards",
     items: [
-      "Paper Publication (IEA/AIE 2025) - RANsomCheck: A CNN-Transformer Model for Malware Detection",
+      "Paper Publication (2nd Author, IEA/AIE 2025) - RANsomCheck: A CNN-Transformer Model for Malware Detection",
       "National Science and Technology Council (NSTC) College/University Student Research (No. 113-2813-C-027-054-E) - Deep Learning Model Based on API Call Sequences for Ransomware Detection (Jul 2024 - Feb 2025)",
       "Girls in CyberSecurity (GiCS) 2025 - Cybersecurity Challenge College/University Category, Finalist with Excellence Award",
       "Girls in CyberSecurity (GiCS) 2024 - Cybersecurity Challenge College/University Category, Finalist with Honorable Mention",
