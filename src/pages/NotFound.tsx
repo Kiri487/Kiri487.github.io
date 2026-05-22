@@ -1,13 +1,11 @@
 import { Link } from "react-router-dom";
-import { Helmet } from 'react-helmet-async';
 import { FaGhost } from "react-icons/fa";
 
 function NotFound() {
   return (
     <div className="not-found">
-      <Helmet>
-        <title>Kiri487 | 404 Not Found</title>
-      </Helmet>
+      <title>Kiri487 | 404 Not Found</title>
+      <meta name="robots" content="noindex" />
 
       <div className="not-found-container">
         <h1 className="not-found-title"><FaGhost aria-hidden="true"/> 404</h1>

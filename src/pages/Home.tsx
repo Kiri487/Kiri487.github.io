@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Helmet } from 'react-helmet-async';
+import { useState } from "react";
 import Contact from "../components/Contact";
 import P5Canvas from "../components/P5Canvas";
 import { FaCat } from "react-icons/fa";
@@ -15,18 +14,12 @@ interface HomeProps {
 function Home({ videoWebm, videoMov, analyser }: HomeProps) {
   const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
-    setIsLoaded(false);
-  }, [videoWebm]);
-  
   return (
     <div className="home">
-      <Helmet>
-        <title>Kiri487</title>
-        <meta name="description" content="Kiri487's personal website." />
-      </Helmet>
+      <title>Kiri487</title>
+      <meta name="description" content="Kiri487's personal website — a programmer, a creator, and a cat." />
       <div className="P5-canvas">
-        <P5Canvas bgmEnabled={!!analyser} analyser={analyser} />
+        <P5Canvas analyser={analyser} />
       </div>
       <div className="intro">
         <p className="intro-greeting">Hi, I'm Kiri!</p>
@@ -38,17 +31,16 @@ function Home({ videoWebm, videoMov, analyser }: HomeProps) {
         </div>
         <p className="model-info">
           The character model was purchased from{" "}
-          <a href="https://mukumi.booth.pm/items/5813187" aria-label="Purchase the character model on BOOTH">here</a>
+          <a href="https://mukumi.booth.pm/items/5813187" aria-label="Purchase the character model on BOOTH">BOOTH</a>
         </p>
       </div>
 
       <div className="home-video">
         {!isLoaded && <CircularProgress color="inherit" size="5rem"/>}
         <video
-          key={videoWebm} 
-          autoPlay loop muted playsInline 
-          id="homeVideo"
-          onCanPlay={() => setIsLoaded(true) } 
+          key={videoWebm}
+          autoPlay loop muted playsInline
+          onCanPlay={() => setIsLoaded(true) }
           style={{ display: isLoaded ? 'block' : 'none' }}
           aria-label="Looping animation of Kiri's 3D character model">
           <source src={videoMov} type="video/quicktime" />

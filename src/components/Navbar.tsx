@@ -15,7 +15,7 @@ interface NavbarProps {
 const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-	const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const isActive = (path: string) => {
     if (path === "/" && location.pathname === "/") return true;
@@ -25,7 +25,7 @@ const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarP
 
   const handleLogoClick = (e: React.MouseEvent) => {
     e.preventDefault();
-		setIsMenuOpen(false);
+    setIsMenuOpen(false);
     if (location.pathname === "/") {
       onRefresh();
     } else {
@@ -33,7 +33,7 @@ const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarP
     }
   };
 
-	const handleMobileClick = (path: string, e?: React.MouseEvent) => {
+  const handleMobileClick = (path: string, e?: React.MouseEvent) => {
     setIsMenuOpen(false);
     if (path === "/" && location.pathname === "/") {
       e?.preventDefault();
@@ -50,46 +50,46 @@ const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarP
   };
 
   return (
-		<>
-			<nav className="navbar">
-				<a href="/" onClick={handleLogoClick} className="navbar-logo-container">
-					<img src={KIRI_LOGO} alt="Kiri Logo" className="navbar-logo-img" />
-					<span className="navbar-title">Kiri487</span>
-				</a>
-				<div className="navbar-right-section">
-					<div className="navbar-links">
-							<Link to="/" className={`nav-link ${isActive("/") ? "active" : ""}`}>Home</Link>
-							<Link to="/about" className={`nav-link ${isActive("/about") ? "active" : ""}`}>About</Link>
-							<Link to="/projects" className={`nav-link ${isActive("/projects") ? "active" : ""}`}>Projects</Link>
-              <Link to="/works" className={`nav-link ${isActive("/works") ? "active" : ""}`}>Works</Link>
-							<Link to="/cited" className={`nav-link ${isActive("/cited") ? "active" : ""}`}>Cited</Link>
-					</div>
-					<div className="bgm-control-container">
-							<button onClick={toggleBgm} className="bgm-button" aria-label={bgmEnabled ? "Mute background music" : "Play background music"}>
-								{bgmEnabled ? <MdMusicNote size={30} /> : <MdMusicOff size={30} />}
-							</button>
-							<div className="volume-slider-wrapper">
-								<input 
-                  type="range" min="0" max="1" step="0.01" 
-                  value={volume} onChange={handleVolumeChange} 
-                  className="volume-slider"
-                  style={{ backgroundImage: `linear-gradient(to right, white ${volume * 100}%, rgba(255, 255, 255, 0.7) ${volume * 100}%)` }} 
-                  aria-label="Volume control" />
-							</div>
-					</div>
-					<button className="mobile-menu-button" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle navigation menu" aria-expanded={isMenuOpen}>
+    <>
+      <nav className="navbar">
+        <a href="/" onClick={handleLogoClick} className="navbar-logo-container">
+          <img src={KIRI_LOGO} alt="Kiri Logo" className="navbar-logo-img" />
+          <span className="navbar-title">Kiri487</span>
+        </a>
+        <div className="navbar-right-section">
+          <div className="navbar-links">
+            <Link to="/" className={`nav-link ${isActive("/") ? "active" : ""}`}>Home</Link>
+            <Link to="/about" className={`nav-link ${isActive("/about") ? "active" : ""}`}>About</Link>
+            <Link to="/projects" className={`nav-link ${isActive("/projects") ? "active" : ""}`}>Projects</Link>
+            <Link to="/works" className={`nav-link ${isActive("/works") ? "active" : ""}`}>Works</Link>
+            <Link to="/cited" className={`nav-link ${isActive("/cited") ? "active" : ""}`}>Cited</Link>
+          </div>
+          <div className="bgm-control-container">
+            <button onClick={toggleBgm} className="bgm-button" aria-label={bgmEnabled ? "Mute background music" : "Play background music"}>
+              {bgmEnabled ? <MdMusicNote size={30} /> : <MdMusicOff size={30} />}
+            </button>
+            <div className="volume-slider-wrapper">
+              <input
+                type="range" min="0" max="1" step="0.01"
+                value={volume} onChange={handleVolumeChange}
+                className="volume-slider"
+                style={{ backgroundImage: `linear-gradient(to right, white ${volume * 100}%, rgba(255, 255, 255, 0.7) ${volume * 100}%)` }}
+                aria-label="Volume control" />
+            </div>
+          </div>
+          <button className="mobile-menu-button" onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Toggle navigation menu" aria-expanded={isMenuOpen}>
             <LuMenu size={30} />
           </button>
-				</div>
-			</nav>
-			<div className={`mobile-menu-dropdown ${isMenuOpen ? "open" : ""}`} aria-label="Toggle navigation menu">
+        </div>
+      </nav>
+      <div className={`mobile-menu-dropdown ${isMenuOpen ? "open" : ""}`}>
         <Link to="/" className={`mobile-link ${isActive("/") ? "active" : ""}`} onClick={(e) => handleMobileClick("/", e)}>Home</Link>
         <Link to="/about" className={`mobile-link ${isActive("/about") ? "active" : ""}`} onClick={() => handleMobileClick("/about")}>About</Link>
         <Link to="/projects" className={`mobile-link ${isActive("/projects") ? "active" : ""}`} onClick={() => handleMobileClick("/projects")}>Projects</Link>
         <Link to="/works" className={`mobile-link ${isActive("/works") ? "active" : ""}`} onClick={() => handleMobileClick("/works")}>Works</Link>
         <Link to="/cited" className={`mobile-link ${isActive("/cited") ? "active" : ""}`} onClick={() => handleMobileClick("/cited")}>Cited</Link>
       </div>
-		</>
+    </>
   );
 };
 

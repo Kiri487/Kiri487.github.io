@@ -2,20 +2,12 @@ import { useRef, useEffect } from "react";
 import p5 from "p5";
 
 interface P5CanvasProps {
-  bgmEnabled: boolean;
   analyser: AnalyserNode | null;
 }
 
-function Lines({ bgmEnabled, analyser }: P5CanvasProps) {
-
+function P5Canvas({ analyser }: P5CanvasProps) {
   const sketchRef = useRef<HTMLDivElement | null>(null);
-  const bgmEnabledRef = useRef(bgmEnabled);
-  
   const analyserRef = useRef<AnalyserNode | null>(null);
-
-  useEffect(() => {
-    bgmEnabledRef.current = bgmEnabled;
-  }, [bgmEnabled]);
 
   useEffect(() => {
     analyserRef.current = analyser;
@@ -25,8 +17,8 @@ function Lines({ bgmEnabled, analyser }: P5CanvasProps) {
     const sketch = (p: p5) => {
       let t = 0;
       let currentAmp = 10;
-      
-      const dataArray = new Uint8Array(128); 
+
+      const dataArray = new Uint8Array(128);
 
       p.setup = () => {
         p.createCanvas(p.windowWidth, p.windowHeight);
@@ -40,7 +32,7 @@ function Lines({ bgmEnabled, analyser }: P5CanvasProps) {
 
         let targetAmp = 10;
 
-        if (bgmEnabledRef.current && analyserRef.current) {
+        if (analyserRef.current) {
           analyserRef.current.getByteFrequencyData(dataArray);
 
           let sum = 0;
@@ -52,7 +44,7 @@ function Lines({ bgmEnabled, analyser }: P5CanvasProps) {
           // map(value, inputMin, inputMax, outputMin, outputMax)
           targetAmp = p.map(average, 0, 150, 10, 100, true);
         } else {
-            targetAmp = 10;
+          targetAmp = 10;
         }
 
         currentAmp = p.lerp(currentAmp, targetAmp, 0.3);
@@ -78,9 +70,9 @@ function Lines({ bgmEnabled, analyser }: P5CanvasProps) {
       const p5Instance = new p5(sketch, sketchRef.current);
       return () => p5Instance.remove();
     }
-  }, []); 
+  }, []);
 
   return <div ref={sketchRef} />;
-};
+}
 
-export default Lines;
+export default P5Canvas;

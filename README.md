@@ -1,50 +1,35 @@
-# React + TypeScript + Vite
+# Kiri487's Personal Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+My personal website, built with React + TypeScript + Vite and deployed to GitHub Pages.
 
-Currently, two official plugins are available:
+🔗 https://kiri487.github.io/
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech Stack
 
-## Expanding the ESLint configuration
+- **Framework:** React 19 + React Router v7
+- **Build tool:** Vite
+- **UI:** MUI v7, react-icons, Emotion
+- **Graphics:** p5.js (audio-reactive background animation)
+- **Meta:** react-helmet-async
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Pages
 
-- Configure the top-level `parserOptions` property like this:
+- `/` — Home: animated 3D character video paired with background music
+- `/about` — Education, work experience, highlights, and skills
+- `/projects` — Personal and team projects
+- `/works` — Illustration / video gallery
+- `/cited` — Credits for BGM and video motion
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## Development
+
+```bash
+npm install      # install dependencies
+npm run dev      # start the dev server
+npm run build    # type-check and build for production
+npm run preview  # preview the production build
+npm run lint     # run ESLint
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+## Deployment
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+Deployment to GitHub Pages is automated via GitHub Actions on push to `main`.

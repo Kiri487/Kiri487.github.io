@@ -1,4 +1,3 @@
-import { Helmet } from 'react-helmet-async';
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
 import TimelineSeparator from '@mui/lab/TimelineSeparator';
@@ -13,9 +12,8 @@ import { educationData, workData, experienceData, skillsData } from "../data/abo
 function About() {
   return (
     <div className="about">
-      <Helmet>
-        <title>Kiri487 | About</title>
-      </Helmet>
+      <title>Kiri487 | About</title>
+      <meta name="description" content="Get to know Kiri — a graduate student at National Taiwan University interested in software development, web front-end design, and information security." />
 
       <h2 className="title"><FaCat aria-hidden="true"/>whoami</h2>
       <div className="content">

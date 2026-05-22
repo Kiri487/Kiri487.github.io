@@ -1,4 +1,4 @@
-import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiPostgresql, SiHtml5, SiCss3, SiReact, SiGit, SiLinux } from "react-icons/si";
+import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiPostgresql, SiHtml5, SiCss, SiReact, SiGit, SiLinux } from "react-icons/si";
 import { DiMsqlServer } from "react-icons/di";
 import { TbBrandCSharp } from "react-icons/tb";
 import { IconType } from "react-icons";
@@ -105,7 +105,7 @@ export const skillsData: { category: string; skills: Skill[] }[] = [
     category: "Front End",
     skills: [
       { name: "HTML5", icon: SiHtml5 },
-      { name: "CSS3", icon: SiCss3 },
+      { name: "CSS3", icon: SiCss },
       { name: "React", icon: SiReact },
     ]
   },

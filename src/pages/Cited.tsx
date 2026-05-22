@@ -1,4 +1,3 @@
-import { Helmet } from 'react-helmet-async';
 import { PiMusicNotesFill } from "react-icons/pi";
 import { FaRegCirclePlay } from "react-icons/fa6";
 import { bgmList, videoMotionList } from "../data/cited";
@@ -6,9 +5,8 @@ import { bgmList, videoMotionList } from "../data/cited";
 function Cited() {
   return (
     <div className="cited">
-      <Helmet>
-        <title>Kiri487 | Cited</title>
-      </Helmet>
+      <title>Kiri487 | Cited</title>
+      <meta name="description" content="Sources and credits for the background music and video motions used on this website." />
       
       <h2 className="title"><PiMusicNotesFill />BGM</h2>
       <div className="content">

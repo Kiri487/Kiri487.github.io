@@ -10,7 +10,7 @@ build: {
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom', 'react-helmet-async'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'mui-vendor': ['@mui/material', '@mui/lab', '@emotion/react', '@emotion/styled'],
           'p5-vendor': ['p5'],
           'icons-vendor': ['react-icons']

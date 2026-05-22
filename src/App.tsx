@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import { HelmetProvider } from 'react-helmet-async';
 import { videoBgmPairs, getRandomIndex } from "./config/assets";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -15,9 +14,9 @@ function App() {
   const [homeKey, setHomeKey] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+
   const [bgmEnabled, setBgmEnabled] = useState(() => {
     const saved = localStorage.getItem("bgmEnabled");
     return saved ? JSON.parse(saved) : false;
@@ -30,7 +29,7 @@ function App() {
 
   const [currentPairIndex, setCurrentPairIndex] = useState(() => {
     const savedIndex = sessionStorage.getItem("bgmIndex");
-    
+
     if (savedIndex !== null) {
       const index = parseInt(savedIndex, 10);
       if (!isNaN(index) && index >= 0 && index < videoBgmPairs.length) {
@@ -59,16 +58,17 @@ function App() {
       const ctx = new AudioContext();
       audioContextRef.current = ctx;
 
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
+      const analyserNode = ctx.createAnalyser();
+      analyserNode.fftSize = 256;
 
       if (!sourceRef.current) {
         const source = ctx.createMediaElementSource(audioRef.current);
         sourceRef.current = source;
-        source.connect(analyser);
-        analyser.connect(ctx.destination);
+        source.connect(analyserNode);
+        analyserNode.connect(ctx.destination);
       }
+
+      setAnalyser(analyserNode);
     }
 
     if (audioContextRef.current?.state === 'suspended') {
@@ -98,11 +98,12 @@ function App() {
 
   useEffect(() => {
     if (bgmEnabled) {
+      // Build the Web Audio graph before playback so the canvas can visualize it.
       initAudioContext();
       audioRef.current?.play()
         .catch((e) => {
           console.log("Audio play error:", e);
-          setBgmEnabled(false); 
+          setBgmEnabled(false);
         });
     }
     else {
@@ -111,25 +112,23 @@ function App() {
   }, [bgmEnabled, currentPairIndex]);
 
   return (
-    <HelmetProvider>
-      <Router basename="/">
-        <audio ref={audioRef} src={selectedPair.bgm} loop crossOrigin="anonymous" />
-        <Navbar onRefresh={handleRefresh} bgmEnabled={bgmEnabled} toggleBgm={toggleBgm} volume={volume} setVolume={setVolume}/>
-        <div className="App">  
-          <div className="routes-container">
-            <Routes>
-              <Route path="/" element={<Home key={homeKey} videoWebm={selectedPair.webm} videoMov={selectedPair.mov} analyser={analyserRef.current} />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/works" element={<Works />} />
-              <Route path="/cited" element={<Cited />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </div>
+    <Router basename="/">
+      <audio ref={audioRef} src={selectedPair.bgm} loop crossOrigin="anonymous" />
+      <Navbar onRefresh={handleRefresh} bgmEnabled={bgmEnabled} toggleBgm={toggleBgm} volume={volume} setVolume={setVolume}/>
+      <div className="App">
+        <div className="routes-container">
+          <Routes>
+            <Route path="/" element={<Home key={homeKey} videoWebm={selectedPair.webm} videoMov={selectedPair.mov} analyser={analyser} />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/works" element={<Works />} />
+            <Route path="/cited" element={<Cited />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </div>
-        <Footer />
-      </Router>
-    </HelmetProvider>
+      </div>
+      <Footer />
+    </Router>
   );
 }
 

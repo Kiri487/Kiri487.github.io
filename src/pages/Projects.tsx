@@ -1,4 +1,3 @@
-import { Helmet } from 'react-helmet-async';
 import { BsPersonFill, BsPeopleFill } from "react-icons/bs";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
 import { personalProjects, teamProjects, Project } from "../data/projects";
@@ -43,9 +42,8 @@ const ProjectCard = ({ project }: { project: Project }) => {
 function Projects() {
   return (
     <div className="projects">
-      <Helmet>
-        <title>Kiri487 | Projects</title>
-      </Helmet>
+      <title>Kiri487 | Projects</title>
+      <meta name="description" content="Explore Kiri's personal and team software development projects." />
       <h2 className="title"><BsPersonFill aria-hidden="true"/>Personal</h2>
       <div className="projects-grid">
         {personalProjects.map((project, index) => (

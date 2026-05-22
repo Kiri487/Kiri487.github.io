@@ -1,4 +1,4 @@
-import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss3, SiReact } from "react-icons/si";
+import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss, SiReact } from "react-icons/si";
 import { TbBrandCSharp } from "react-icons/tb";
 import { IconType } from "react-icons";
 
@@ -71,7 +71,7 @@ export const personalProjects: Project[] = [
       { icon: TbBrandCSharp, name: "C#" },
       { icon: SiJavascript, name: "JavaScript" },
       { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss3, name: "CSS3" }
+      { icon: SiCss, name: "CSS3" }
     ]
   },
   {
@@ -86,7 +86,7 @@ export const personalProjects: Project[] = [
     tags: [
       { icon: SiJavascript, name: "JavaScript" },
       { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss3, name: "CSS3" }
+      { icon: SiCss, name: "CSS3" }
     ]
   },
   {
@@ -102,7 +102,7 @@ export const personalProjects: Project[] = [
       { icon: TbBrandCSharp, name: "C#" },
       { icon: SiJavascript, name: "JavaScript" },
       { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss3, name: "CSS3" }
+      { icon: SiCss, name: "CSS3" }
     ]
   },
   {
@@ -145,7 +145,7 @@ export const teamProjects: Project[] = [
       { icon: SiPython, name: "Python" },
       { icon: SiTypescript, name: "TypeScript" },
       { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss3, name: "CSS3" }
+      { icon: SiCss, name: "CSS3" }
     ]
   },
   {
@@ -165,7 +165,7 @@ export const teamProjects: Project[] = [
       { icon: SiPython, name: "Python" },
       { icon: SiJavascript, name: "JavaScript" },
       { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss3, name: "CSS3" }
+      { icon: SiCss, name: "CSS3" }
     ]
   },
   {
@@ -179,7 +179,7 @@ export const teamProjects: Project[] = [
     tags: [
       { icon: SiTypescript, name: "TypeScript" },
       { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss3, name: "CSS3" },
+      { icon: SiCss, name: "CSS3" },
       { icon: SiReact, name: "React" }
     ]
   },
