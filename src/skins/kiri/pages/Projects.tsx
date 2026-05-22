@@ -1,6 +1,7 @@
 import { BsPersonFill, BsPeopleFill } from "react-icons/bs";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
 import { personalProjects, teamProjects, Project } from "../../../data/projects";
+import { techIcons } from "../techIcons";
 
 const ProjectCard = ({ project }: { project: Project }) => {
   return (
@@ -19,11 +20,14 @@ const ProjectCard = ({ project }: { project: Project }) => {
         
         <div className="card-footer">
           <div className="card-tags">
-            {project.tags.map((tag, index) => (
-              <div className="card-tag" key={index} title={tag.name}>
-                <tag.icon />
-              </div>
-            ))}
+            {project.tags.map((tag, index) => {
+              const Icon = techIcons[tag.tech];
+              return (
+                <div className="card-tag" key={index} title={tag.name}>
+                  <Icon />
+                </div>
+              );
+            })}
           </div>
           
           <div className="card-links">

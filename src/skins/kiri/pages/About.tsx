@@ -8,6 +8,7 @@ import TimelineDot from '@mui/lab/TimelineDot';
 import { FaCat, FaBook, FaBriefcase, FaMagic, FaStar } from "react-icons/fa";
 import { FaRegFaceDizzy } from "react-icons/fa6";
 import { educationData, workData, experienceData, skillsData } from "../../../data/about";
+import { techIcons } from "../techIcons";
 
 function About() {
   return (
@@ -96,11 +97,14 @@ function About() {
           <div key={index}>
             <p className="subtitle">{section.category}</p>
             <div className="tags">
-              {section.skills.map((skill, i) => (
-                <div className="tag" key={i}>
-                  <skill.icon />{skill.name}
-                </div>
-              ))}
+              {section.skills.map((skill, i) => {
+                const Icon = techIcons[skill.tech];
+                return (
+                  <div className="tag" key={i}>
+                    <Icon />{skill.name}
+                  </div>
+                );
+              })}
             </div>
           </div>
         ))}

@@ -1,6 +1,4 @@
-import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiHtml5, SiCss, SiReact } from "react-icons/si";
-import { TbBrandCSharp } from "react-icons/tb";
-import { IconType } from "react-icons";
+import type { Tech } from "./tech";
 
 import SIMPLE_PPT_IMG from "../assets/img/SimplePPT.png";
 import DATA_VIS_IMG from "../assets/img/DataVis.png";
@@ -20,7 +18,7 @@ export interface ProjectLink {
 }
 
 export interface ProjectTag {
-  icon: IconType;
+  tech: Tech;
   name: string;
 }
 
@@ -43,7 +41,7 @@ export const personalProjects: Project[] = [
       { label: "Play", url: "https://kiri487.itch.io/mystic-shop-luis" }
     ],
     tags: [
-      { icon: TbBrandCSharp, name: "C#" },
+      { tech: "csharp", name: "C#" },
     ]
   },
   {
@@ -55,7 +53,7 @@ export const personalProjects: Project[] = [
       { label: "Demo VOD", url: "https://youtube.com/live/qfJ_Ch7Z-wM" }
     ],
     tags: [
-      { icon: TbBrandCSharp, name: "C#" },
+      { tech: "csharp", name: "C#" },
     ]
   },
   {
@@ -68,10 +66,10 @@ export const personalProjects: Project[] = [
       { label: "View", url: "https://kiri487.github.io/ca2024f/" }
     ],
     tags: [
-      { icon: TbBrandCSharp, name: "C#" },
-      { icon: SiJavascript, name: "JavaScript" },
-      { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss, name: "CSS3" }
+      { tech: "csharp", name: "C#" },
+      { tech: "javascript", name: "JavaScript" },
+      { tech: "html5", name: "HTML5" },
+      { tech: "css", name: "CSS3" }
     ]
   },
   {
@@ -84,9 +82,9 @@ export const personalProjects: Project[] = [
       { label: "View", url: "https://kiri487.github.io/ct2024s/hw00/index.html" }
     ],
     tags: [
-      { icon: SiJavascript, name: "JavaScript" },
-      { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss, name: "CSS3" }
+      { tech: "javascript", name: "JavaScript" },
+      { tech: "html5", name: "HTML5" },
+      { tech: "css", name: "CSS3" }
     ]
   },
   {
@@ -99,10 +97,10 @@ export const personalProjects: Project[] = [
       { label: "View", url: "https://kiri487.github.io/vis2023f/hw00/index.html" }
     ],
     tags: [
-      { icon: TbBrandCSharp, name: "C#" },
-      { icon: SiJavascript, name: "JavaScript" },
-      { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss, name: "CSS3" }
+      { tech: "csharp", name: "C#" },
+      { tech: "javascript", name: "JavaScript" },
+      { tech: "html5", name: "HTML5" },
+      { tech: "css", name: "CSS3" }
     ]
   },
   {
@@ -114,7 +112,7 @@ export const personalProjects: Project[] = [
       { label: "Github", url: "https://github.com/Kiri487/2023-Fall-Windows-PowerPoint" }
     ],
     tags: [
-      { icon: TbBrandCSharp, name: "C#" }
+      { tech: "csharp", name: "C#" }
     ]
   }
 ];
@@ -129,7 +127,7 @@ export const teamProjects: Project[] = [
       { label: "Play", url: "https://tofudoctorr.itch.io/gravitydrift" }
     ],
     tags: [
-      { icon: TbBrandCSharp, name: "C#" },
+      { tech: "csharp", name: "C#" },
     ]
   },
   {
@@ -142,10 +140,10 @@ export const teamProjects: Project[] = [
       { label: "Paper", url: "https://link.springer.com/chapter/10.1007/978-981-96-8892-0_10" },
     ],
     tags: [
-      { icon: SiPython, name: "Python" },
-      { icon: SiTypescript, name: "TypeScript" },
-      { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss, name: "CSS3" }
+      { tech: "python", name: "Python" },
+      { tech: "typescript", name: "TypeScript" },
+      { tech: "html5", name: "HTML5" },
+      { tech: "css", name: "CSS3" }
     ]
   },
   {
@@ -162,10 +160,10 @@ export const teamProjects: Project[] = [
       { label: "View", url: "https://kiri487.github.io/2024-Spring-NLP-Reddit-Sentiment-Analysis/" }
     ],
     tags: [
-      { icon: SiPython, name: "Python" },
-      { icon: SiJavascript, name: "JavaScript" },
-      { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss, name: "CSS3" }
+      { tech: "python", name: "Python" },
+      { tech: "javascript", name: "JavaScript" },
+      { tech: "html5", name: "HTML5" },
+      { tech: "css", name: "CSS3" }
     ]
   },
   {
@@ -177,10 +175,10 @@ export const teamProjects: Project[] = [
       { label: "Github", url: "https://github.com/Zch720/NTUT_112_1_DatabaseProject_frontend" }
     ],
     tags: [
-      { icon: SiTypescript, name: "TypeScript" },
-      { icon: SiHtml5, name: "HTML5" },
-      { icon: SiCss, name: "CSS3" },
-      { icon: SiReact, name: "React" }
+      { tech: "typescript", name: "TypeScript" },
+      { tech: "html5", name: "HTML5" },
+      { tech: "css", name: "CSS3" },
+      { tech: "react", name: "React" }
     ]
   },
   {
@@ -197,7 +195,7 @@ export const teamProjects: Project[] = [
       { label: "Github", url: "https://github.com/Kiri487/2022-Spring-OOPL/releases/tag/v1.0" }
     ],
     tags: [
-      { icon: SiCplusplus, name: "C++" }
+      { tech: "cplusplus", name: "C++" }
     ]
   }
 ];

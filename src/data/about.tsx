@@ -1,7 +1,4 @@
-import { SiCplusplus, SiPython, SiJavascript, SiTypescript, SiPostgresql, SiHtml5, SiCss, SiReact, SiGit, SiLinux } from "react-icons/si";
-import { DiMsqlServer } from "react-icons/di";
-import { TbBrandCSharp } from "react-icons/tb";
-import { IconType } from "react-icons";
+import type { Tech } from "./tech";
 
 export interface Education {
   period: string;
@@ -22,7 +19,7 @@ export interface Experience {
 
 export interface Skill {
   name: string;
-  icon: IconType;
+  tech: Tech;
 }
 
 export const educationData: Education[] = [
@@ -94,33 +91,33 @@ export const skillsData: { category: string; skills: Skill[] }[] = [
   {
     category: "Language",
     skills: [
-      { name: "C++", icon: SiCplusplus },
-      { name: "C#", icon: TbBrandCSharp },
-      { name: "Python", icon: SiPython },
-      { name: "JavaScript", icon: SiJavascript },
-      { name: "TypeScript", icon: SiTypescript },
+      { name: "C++", tech: "cplusplus" },
+      { name: "C#", tech: "csharp" },
+      { name: "Python", tech: "python" },
+      { name: "JavaScript", tech: "javascript" },
+      { name: "TypeScript", tech: "typescript" },
     ]
   },
   {
     category: "Front End",
     skills: [
-      { name: "HTML5", icon: SiHtml5 },
-      { name: "CSS3", icon: SiCss },
-      { name: "React", icon: SiReact },
+      { name: "HTML5", tech: "html5" },
+      { name: "CSS3", tech: "css" },
+      { name: "React", tech: "react" },
     ]
   },
   {
     category: "Database",
     skills: [
-      { name: "MSSQL", icon: DiMsqlServer },
-      { name: "PostgreSQL", icon: SiPostgresql },
+      { name: "MSSQL", tech: "mssql" },
+      { name: "PostgreSQL", tech: "postgresql" },
     ]
   },
   {
     category: "Tools & OS",
     skills: [
-      { name: "Git", icon: SiGit },
-      { name: "Linux", icon: SiLinux },
+      { name: "Git", tech: "git" },
+      { name: "Linux", tech: "linux" },
     ]
   }
 ];
