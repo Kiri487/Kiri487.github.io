@@ -22,6 +22,9 @@ export function SkinProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, skin);
+    // Scopes each skin's CSS — every skin's stylesheet is written under
+    // [data-skin="<id>"], so only the active skin's rules apply.
+    document.documentElement.dataset.skin = skin;
   }, [skin]);
 
   return (
