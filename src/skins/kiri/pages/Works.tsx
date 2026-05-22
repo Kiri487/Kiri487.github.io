@@ -3,7 +3,7 @@ import { BsStars } from "react-icons/bs";
 import { FaYoutube, FaFilter, FaPalette, FaVideo, FaLink } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { IoPaw } from "react-icons/io5";
-import { worksData, WorkItem, IconType } from '../data/works';
+import { worksData, WorkItem, IconType } from '../../../data/works';
 
 function Works() {
   const [filter, setFilter] = useState<'all' | 'illustration' | 'video' | 'other'>('all');

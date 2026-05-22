@@ -1,6 +1,6 @@
 import { PiMusicNotesFill } from "react-icons/pi";
 import { FaRegCirclePlay } from "react-icons/fa6";
-import { bgmList, videoMotionList } from "../data/cited";
+import { bgmList, videoMotionList } from "../../../data/cited";
 
 function Cited() {
   return (

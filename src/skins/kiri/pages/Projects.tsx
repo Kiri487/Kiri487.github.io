@@ -1,6 +1,6 @@
 import { BsPersonFill, BsPeopleFill } from "react-icons/bs";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
-import { personalProjects, teamProjects, Project } from "../data/projects";
+import { personalProjects, teamProjects, Project } from "../../../data/projects";
 
 const ProjectCard = ({ project }: { project: Project }) => {
   return (
