@@ -143,8 +143,16 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888" }: W
 function Scene() {
   const { scene } = useGLTF("/models/dirty_street.glb");
   const graffitiTex = useTexture("/textures/kiri487_graffiti.png");
+  const worksTex = useTexture("/textures/works_sticker.png");
+  const creditsTex = useTexture("/textures/cited_sticker.png");
   const gl = useThree((s) => s.gl);
   gl.toneMappingExposure = 1.0;
+
+  const worksAspect = worksTex.image ? worksTex.image.width / worksTex.image.height : 1.5;
+  const worksScale = 0.17;
+
+  const creditsAspect = creditsTex.image ? creditsTex.image.width / creditsTex.image.height : 0.6;
+  const creditsScale = 1.06;
 
   useEffect(() => {
     scene.traverse((child) => {
@@ -228,18 +236,18 @@ function Scene() {
 
       {/* Works — sticker on box */}
       <WallObject
-        position={[-0.95, -1.80, 0.10]}
-        rotation={[-0.16, -3.30, -0.02]}
-        scale={[0.25, 0.15]}
-        color="#4488ff"
+        position={[-0.94, -1.82, 0.12]}
+        rotation={[-0.06, -3.49, 0.01]}
+        scale={[worksAspect * worksScale, worksScale]}
+        texture={worksTex}
       />
 
-      {/* Credits — label near door */}
+      {/* Credits — sticker on wall */}
       <WallObject
-        position={[-1.50, -1.15, 0.50]}
+        position={[-1.47, -0.96, 0.53]}
         rotation={[0, -3.14, 0]}
-        scale={[0.35, 0.40]}
-        color="#888888"
+        scale={[creditsAspect * creditsScale, creditsScale]}
+        texture={creditsTex}
       />
 
       <EffectComposer>
