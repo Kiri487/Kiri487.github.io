@@ -1,12 +1,148 @@
-import { useMemo, useEffect } from "react";
-import { useThree } from "@react-three/fiber";
-import { useGLTF, Environment } from "@react-three/drei";
+import { useMemo, useEffect, useRef, useState, useCallback } from "react";
+import { useThree, useFrame } from "@react-three/fiber";
+import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 
+interface GraffitiHotspotProps {
+  texture: THREE.Texture;
+  aspect: number;
+}
+
+function GraffitiHotspot({ texture, aspect }: GraffitiHotspotProps) {
+  const matRef = useRef<THREE.MeshStandardMaterial>(null!);
+  const [hovered, setHovered] = useState(false);
+  const emissiveTarget = hovered ? 0.5 : 0;
+
+  const alphaData = useMemo(() => {
+    const img = texture.image as HTMLImageElement;
+    if (!img) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0);
+    return { data: ctx.getImageData(0, 0, img.width, img.height).data, w: img.width, h: img.height };
+  }, [texture]);
+
+  const checkAlpha = useCallback((uv: THREE.Vector2) => {
+    if (!alphaData) return false;
+    const x = Math.floor(uv.x * alphaData.w);
+    const y = Math.floor((1 - uv.y) * alphaData.h);
+    const idx = (y * alphaData.w + x) * 4 + 3;
+    return alphaData.data[idx] > 25;
+  }, [alphaData]);
+
+  useFrame(() => {
+    if (!matRef.current) return;
+    matRef.current.emissiveIntensity += (emissiveTarget - matRef.current.emissiveIntensity) * 0.08;
+  });
+
+  const onMove = useCallback((e: { uv?: THREE.Vector2 }) => {
+    if (e.uv && checkAlpha(e.uv)) {
+      if (!hovered) { setHovered(true); document.body.style.cursor = "pointer"; }
+    } else {
+      if (hovered) { setHovered(false); document.body.style.cursor = ""; }
+    }
+  }, [checkAlpha, hovered]);
+
+  const onOut = useCallback(() => {
+    setHovered(false);
+    document.body.style.cursor = "";
+  }, []);
+
+  const scale = 0.55;
+
+  return (
+    <mesh
+      position={[-2.55, -0.55, -0.1]}
+      rotation={[0, -3.13, -0.14]}
+      receiveShadow
+      onPointerMove={onMove}
+      onPointerOut={onOut}
+    >
+      <planeGeometry args={[aspect * scale, scale]} />
+      <meshStandardMaterial
+        ref={matRef}
+        map={texture}
+        emissiveMap={texture}
+        emissive="#ffffff"
+        emissiveIntensity={0}
+        transparent
+        alphaTest={0.05}
+        roughness={0.85}
+        metalness={0}
+      />
+    </mesh>
+  );
+}
+
+interface WallObjectProps {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: [number, number];
+  texture?: THREE.Texture;
+  color?: string;
+}
+
+function WallObject({ position, rotation, scale: s, texture, color = "#888" }: WallObjectProps) {
+  const matRef = useRef<THREE.MeshStandardMaterial>(null!);
+  const [hovered, setHovered] = useState(false);
+  const emissiveTarget = hovered ? 0.5 : 0;
+
+  useFrame(() => {
+    if (!matRef.current) return;
+    matRef.current.emissiveIntensity += (emissiveTarget - matRef.current.emissiveIntensity) * 0.08;
+  });
+
+  const onOver = useCallback(() => {
+    setHovered(true);
+    document.body.style.cursor = "pointer";
+  }, []);
+  const onOut = useCallback(() => {
+    setHovered(false);
+    document.body.style.cursor = "";
+  }, []);
+
+  return (
+    <mesh
+      position={position}
+      rotation={rotation}
+      receiveShadow
+      onPointerOver={onOver}
+      onPointerOut={onOut}
+    >
+      <planeGeometry args={[s[0], s[1]]} />
+      {texture ? (
+        <meshStandardMaterial
+          ref={matRef}
+          map={texture}
+          emissiveMap={texture}
+          emissive="#ffffff"
+          emissiveIntensity={0}
+          transparent
+          alphaTest={0.05}
+          roughness={0.85}
+          metalness={0}
+        />
+      ) : (
+        <meshStandardMaterial
+          ref={matRef}
+          color={color}
+          emissive="#ffffff"
+          emissiveIntensity={0}
+          roughness={0.85}
+          metalness={0}
+        />
+      )}
+    </mesh>
+  );
+}
+
 function Scene() {
   const { scene } = useGLTF("/models/dirty_street.glb");
+  const graffitiTex = useTexture("/textures/kiri487_graffiti.png");
   const gl = useThree((s) => s.gl);
   gl.toneMappingExposure = 1.0;
 
@@ -22,6 +158,8 @@ function Scene() {
       }
     });
   }, [scene]);
+
+  const aspect = graffitiTex.image ? graffitiTex.image.width / graffitiTex.image.height : 1.5;
 
   const lampTarget = useMemo(() => {
     const obj = new THREE.Object3D();
@@ -40,7 +178,6 @@ function Scene() {
       <Environment preset="night" environmentIntensity={0.25} />
       <ambientLight intensity={0.12} />
 
-      {/* Wall lamp — spotlight with shadow */}
       <primitive object={lampTarget} />
       <spotLight
         castShadow
@@ -57,7 +194,6 @@ function Scene() {
         decay={2}
       />
 
-      {/* EXIT sign — spotlight with shadow */}
       <primitive object={exitTarget} />
       <spotLight
         castShadow
@@ -74,13 +210,37 @@ function Scene() {
         decay={2}
       />
 
-      {/* BAR neon — pointLight */}
       <pointLight position={[-1.15, -0.35, 0.25]} intensity={1.5} color="#ff4466" distance={4} decay={2} />
-
-      {/* fill */}
       <directionalLight position={[0, 4, 0]} intensity={0.06} color="#99aabb" />
 
       <primitive object={scene} />
+
+      {/* About — Kiri487 graffiti */}
+      <GraffitiHotspot texture={graffitiTex} aspect={aspect} />
+
+      {/* Projects — poster on left wall under lamp */}
+      <WallObject
+        position={[1.10, -0.65, 1.00]}
+        rotation={[0, -3.14, 0]}
+        scale={[1.10, 0.90]}
+        color="#e8a838"
+      />
+
+      {/* Works — sticker on box */}
+      <WallObject
+        position={[-0.95, -1.80, 0.10]}
+        rotation={[-0.16, -3.30, -0.02]}
+        scale={[0.25, 0.15]}
+        color="#4488ff"
+      />
+
+      {/* Credits — label near door */}
+      <WallObject
+        position={[-1.50, -1.15, 0.50]}
+        rotation={[0, -3.14, 0]}
+        scale={[0.35, 0.40]}
+        color="#888888"
+      />
 
       <EffectComposer>
         <Bloom
