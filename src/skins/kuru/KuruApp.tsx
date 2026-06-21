@@ -1,11 +1,14 @@
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import Scene from "./Scene";
+import Overlay from "./Overlay";
 import "./style.css";
 
-export type SectionId = "about" | "projects" | "works" | "contact";
+export type SectionId = "about" | "projects" | "works" | "credits";
 
 function KuruApp() {
+  const [activeSection, setActiveSection] = useState<SectionId | null>(null);
+
   return (
     <div className="kuru">
       <Canvas
@@ -16,9 +19,10 @@ function KuruApp() {
         gl={{ antialias: true, alpha: false }}
       >
         <Suspense fallback={null}>
-          <Scene />
+          <Scene onSectionClick={setActiveSection} />
         </Suspense>
       </Canvas>
+      <Overlay activeSection={activeSection} onClose={() => setActiveSection(null)} />
     </div>
   );
 }
