@@ -547,6 +547,27 @@ html[data-skin="kuru"] body {
 [data-skin="kuru"] .kuru-file__links a:hover {
   text-shadow: 0 0 8px var(--kuru-accent-glow, rgba(255, 230, 0, 0.4));
 }
+a[data-skin="kuru"] .kuru-file--link,
+[data-skin="kuru"] a.kuru-file--link {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+[data-skin="kuru"] a.kuru-file--link:hover {
+  border-color: var(--kuru-accent, #ffe600);
+  box-shadow: 0 0 12px var(--kuru-accent-glow, rgba(255, 230, 0, 0.3));
+}
+[data-skin="kuru"] .kuru-term__pending {
+  color: rgba(255, 255, 255, 0.3);
+  font-style: italic;
+}
+[data-skin="kuru"] .kuru-term__tree a {
+  color: var(--kuru-accent, #f22);
+  text-decoration: none;
+}
+[data-skin="kuru"] .kuru-term__tree a:hover {
+  text-shadow: 0 0 8px var(--kuru-accent-glow, rgba(255, 0, 34, 0.4));
+}
 
 /* ---- content: shared ---- */
 
