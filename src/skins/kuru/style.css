@@ -48,6 +48,7 @@ html[data-skin="kuru"] body {
   display: block;
   width: 100% !important;
   height: 100% !important;
+  touch-action: none;
 }
 
 /* ---- overlay: section accent colors ---- */
@@ -768,11 +769,44 @@ a[data-skin="kuru"] .kuru-file--link,
 /* ---- responsive ---- */
 
 @media (max-width: 768px) {
-  [data-skin="kuru"] .kuru-overlay__panel { width: 95vw; max-height: 85vh; }
-  [data-skin="kuru"] .kuru-overlay__body { padding: 1rem 1.2rem; }
-  [data-skin="kuru"] .kuru-overlay__header { padding: 0.5rem 1rem; padding-right: 2rem; }
+  /* overlay panel */
+  [data-skin="kuru"] .kuru-overlay__panel { width: 92vw; max-height: 88vh; }
+  [data-skin="kuru"] .kuru-overlay__body { padding: 0.8rem 1rem; }
+  [data-skin="kuru"] .kuru-overlay__header { padding: 0.5rem 0.8rem; padding-right: 2rem; }
   [data-skin="kuru"] .kuru-overlay__barcode { display: none; }
-  [data-skin="kuru"] .kuru-overlay__frame { padding: 8px; }
+  [data-skin="kuru"] .kuru-overlay__id { display: none; }
+  [data-skin="kuru"] .kuru-overlay__frame { padding: 6px; }
+  [data-skin="kuru"] .kuru-overlay__footer { font-size: 0.55rem; padding: 0.3rem 0.8rem; }
+  [data-skin="kuru"] .kuru-overlay__footer-sep { display: none; }
+
+  /* connect overlay */
+  [data-skin="kuru"] .kuru-connect__box { width: min(320px, 85vw); }
+  [data-skin="kuru"] .kuru-connect__content { font-size: 0.72rem; padding: 8px 12px; }
+
+  /* file list (projects) */
+  [data-skin="kuru"] .kuru-file { gap: 0.5rem; padding: 0.5rem; }
+  [data-skin="kuru"] .kuru-file__idx { display: none; }
+  [data-skin="kuru"] .kuru-file__thumb { width: 40px; height: 40px; }
+  [data-skin="kuru"] .kuru-file__title { font-size: 0.85rem; }
+  [data-skin="kuru"] .kuru-file__desc { font-size: 0.68rem; }
+  [data-skin="kuru"] .kuru-file__row2 { flex-wrap: wrap; gap: 0.3rem 0.6rem; font-size: 0.62rem; }
+
+  /* terminal content */
+  [data-skin="kuru"] .kuru-term__head { flex-wrap: wrap; gap: 0.2rem; }
+  [data-skin="kuru"] .kuru-term__prompt { font-size: 0.68rem; }
+  [data-skin="kuru"] .kuru-term__meta { font-size: 0.58rem; }
+  [data-skin="kuru"] .kuru-term__tree { font-size: 0.75rem; padding-left: 0.2rem; }
+  [data-skin="kuru"] .kuru-term__log { font-size: 0.72rem; padding-left: 0.2rem; }
+  [data-skin="kuru"] .kuru-term__log-time { font-size: 0.62rem; }
+  [data-skin="kuru"] .kuru-term__group-cat { font-size: 0.7rem; }
+  [data-skin="kuru"] .kuru-term__group-item { font-size: 0.65rem; }
+  [data-skin="kuru"] .kuru-term__section { margin-bottom: 1rem; }
+
+  /* BGM player */
+  [data-skin="kuru"] .kuru-bgm { gap: 0.3rem; padding: 0.3rem 0.6rem; bottom: 0.6rem; }
+  [data-skin="kuru"] .kuru-bgm__track { max-width: 100px; font-size: 0.65rem; }
+  [data-skin="kuru"] .kuru-bgm__bar { width: 60px; }
+  [data-skin="kuru"] .kuru-bgm__time { font-size: 0.58rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

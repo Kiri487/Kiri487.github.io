@@ -194,17 +194,45 @@ function CameraZoom({ target, phase, onDone }: {
   const doneRef = useRef(false);
   const mouseX = useRef(0);
   const panX = useRef(HOME_POS.x);
+  const touchRef = useRef({ startX: 0, lastX: 0, active: false });
+  const velocityX = useRef(0);
 
   useEffect(() => {
     doneRef.current = false;
   }, [target, phase]);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const onMouseMove = (e: MouseEvent) => {
       mouseX.current = (e.clientX / window.innerWidth) * 2 - 1;
     };
-    window.addEventListener("mousemove", handler);
-    return () => window.removeEventListener("mousemove", handler);
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      touchRef.current = { startX: t.clientX, lastX: t.clientX, active: true };
+      velocityX.current = 0;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchRef.current.active) return;
+      const t = e.touches[0];
+      const dx = t.clientX - touchRef.current.lastX;
+      const sensitivity = 0.004;
+      velocityX.current = dx * sensitivity;
+      panX.current += dx * sensitivity;
+      panX.current = Math.max(PAN_LO, Math.min(PAN_HI, panX.current));
+      touchRef.current.lastX = t.clientX;
+    };
+    const onTouchEnd = () => {
+      touchRef.current.active = false;
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
   }, []);
 
   useFrame((_, delta) => {
@@ -218,6 +246,10 @@ function CameraZoom({ target, phase, onDone }: {
       } else if (mx > 1 - edge) {
         const strength = (mx - (1 - edge)) / edge;
         panX.current -= speed * strength * delta;
+      }
+      if (!touchRef.current.active && Math.abs(velocityX.current) > 0.0001) {
+        panX.current += velocityX.current;
+        velocityX.current *= 0.92;
       }
       panX.current = Math.max(PAN_LO, Math.min(PAN_HI, panX.current));
       camera.position.x += (panX.current - camera.position.x) * 0.08;
