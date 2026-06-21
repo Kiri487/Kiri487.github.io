@@ -1,6 +1,6 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
-import { useGLTF, useTexture, Environment } from "@react-three/drei";
+import { useGLTF, useTexture, Environment, Html } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
@@ -180,6 +180,10 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
+const PAN_CALIBRATE = false;
+const PAN_LEFT_X = 0.45;
+const PAN_RIGHT_X = -1.35;
+
 function CameraZoom({ target, phase, onDone }: {
   target: SectionId | null;
   phase: Phase;
@@ -187,14 +191,53 @@ function CameraZoom({ target, phase, onDone }: {
 }) {
   const camera = useThree((s) => s.camera);
   const doneRef = useRef(false);
+  const mouseX = useRef(0);
+  const [panLeft, setPanLeft] = useState(PAN_LEFT_X);
+  const [panRight, setPanRight] = useState(PAN_RIGHT_X);
+  const panX = useRef(HOME_POS.x);
 
   useEffect(() => {
     doneRef.current = false;
   }, [target, phase]);
 
-  useFrame(() => {
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      mouseX.current = (e.clientX / window.innerWidth) * 2 - 1;
+    };
+    window.addEventListener("mousemove", handler);
+    return () => window.removeEventListener("mousemove", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!PAN_CALIBRATE) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "[") setPanLeft(panX.current);
+      if (e.key === "]") setPanRight(panX.current);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useFrame((_, delta) => {
     if (phase === "idle") {
-      camera.position.lerp(HOME_POS, 0.04);
+      const mx = mouseX.current;
+      const edge = 0.15;
+      const speed = PAN_CALIBRATE ? 2.0 : 1.2;
+      if (mx < -1 + edge) {
+        const strength = ((-1 + edge) - mx) / edge;
+        panX.current += speed * strength * delta;
+      } else if (mx > 1 - edge) {
+        const strength = (mx - (1 - edge)) / edge;
+        panX.current -= speed * strength * delta;
+      }
+      if (!PAN_CALIBRATE) {
+        const lo = Math.min(panLeft, panRight);
+        const hi = Math.max(panLeft, panRight);
+        panX.current = Math.max(lo, Math.min(hi, panX.current));
+      }
+      camera.position.x += (panX.current - camera.position.x) * 0.08;
+      camera.position.y += (HOME_POS.y - camera.position.y) * 0.04;
+      camera.position.z += (HOME_POS.z - camera.position.z) * 0.04;
       return;
     }
     if (phase === "zooming" && target) {
@@ -207,7 +250,31 @@ function CameraZoom({ target, phase, onDone }: {
     }
   });
 
-  return null;
+  return PAN_CALIBRATE ? (
+    <Html position={[0, 0.5, 2]} center style={{ pointerEvents: "none" }}>
+      <pre
+        style={{
+          color: "#0f0",
+          background: "rgba(0,0,0,0.8)",
+          padding: "8px 14px",
+          fontSize: "11px",
+          fontFamily: "Courier New, monospace",
+          whiteSpace: "pre",
+          userSelect: "all",
+          pointerEvents: "auto",
+        }}
+      >
+{`PAN CALIBRATION
+cam X:   ${panX.current.toFixed(2)}
+left:    ${panLeft.toFixed(2)}
+right:   ${panRight.toFixed(2)}
+─────────────────
+Move mouse to edges to pan
+[ = set left bound here
+] = set right bound here`}
+      </pre>
+    </Html>
+  ) : null;
 }
 
 interface SceneProps {
