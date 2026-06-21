@@ -19,12 +19,15 @@ function fmt(sec: number) {
 
 function BgmPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(() => {
+    const saved = localStorage.getItem("bgmEnabled");
+    return saved ? JSON.parse(saved) === true : false;
+  });
   const [trackIdx, setTrackIdx] = useState(randomIdx);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
-    const saved = localStorage.getItem("kuruBgmVolume");
+    const saved = localStorage.getItem("bgmVolume");
     return saved ? parseFloat(saved) : 0.4;
   });
   const prevVolume = useRef(volume);
@@ -32,13 +35,14 @@ function BgmPlayer() {
   const track = TRACKS[trackIdx];
 
   const toggle = useCallback(() => {
-    if (playing) {
-      audioRef.current?.pause();
-      setPlaying(false);
-    } else {
+    const next = !playing;
+    if (next) {
       audioRef.current?.play();
-      setPlaying(true);
+    } else {
+      audioRef.current?.pause();
     }
+    setPlaying(next);
+    localStorage.setItem("bgmEnabled", JSON.stringify(next));
   }, [playing]);
 
   const next = useCallback(() => {
@@ -46,6 +50,7 @@ function BgmPlayer() {
     while (idx === trackIdx && TRACKS.length > 1) idx = randomIdx();
     setTrackIdx(idx);
     setPlaying(true);
+    localStorage.setItem("bgmEnabled", "true");
   }, [trackIdx]);
 
   const prev = useCallback(() => {
@@ -56,12 +61,13 @@ function BgmPlayer() {
       const idx = (trackIdx - 1 + TRACKS.length) % TRACKS.length;
       setTrackIdx(idx);
       setPlaying(true);
+      localStorage.setItem("bgmEnabled", "true");
     }
   }, [trackIdx]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
-    localStorage.setItem("kuruBgmVolume", volume.toString());
+    localStorage.setItem("bgmVolume", volume.toString());
   }, [volume]);
 
   useEffect(() => {
