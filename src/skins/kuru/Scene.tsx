@@ -181,10 +181,12 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
-const PAN_BASE_HI = 1.3;
-const PAN_BASE_LO = -1.35;
-const PAN_REF_ASPECT = 16 / 9;
-const PAN_ASPECT_SCALE = 1.2;
+const PAN_DESKTOP = { lo: -1.35, hi: 0.45 };
+function getMobileBounds() {
+  const aspect = window.innerWidth / window.innerHeight;
+  const adjust = (16 / 9 - aspect) * 1.2;
+  return { lo: -1.35 - adjust, hi: 1.3 + adjust };
+}
 
 function CameraZoom({ target, phase, onDone }: {
   target: SectionId | null;
@@ -192,18 +194,13 @@ function CameraZoom({ target, phase, onDone }: {
   onDone: () => void;
 }) {
   const camera = useThree((s) => s.camera);
-  const size = useThree((s) => s.size);
   const doneRef = useRef(false);
   const mouseX = useRef(0);
   const panX = useRef(HOME_POS.x);
   const touchRef = useRef({ startX: 0, lastX: 0, active: false });
   const velocityX = useRef(0);
 
-  const bounds = useMemo(() => {
-    const aspect = size.width / size.height;
-    const adjust = (PAN_REF_ASPECT - aspect) * PAN_ASPECT_SCALE;
-    return { lo: PAN_BASE_LO - adjust, hi: PAN_BASE_HI + adjust };
-  }, [size.width, size.height]);
+  const bounds = IS_MOBILE ? getMobileBounds() : PAN_DESKTOP;
 
   useEffect(() => {
     doneRef.current = false;
