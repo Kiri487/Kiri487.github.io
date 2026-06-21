@@ -159,6 +159,29 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888", glo
   );
 }
 
+function ExitHotspot({ onClick, lightRef }: { onClick: () => void; lightRef: React.RefObject<THREE.SpotLight | null> }) {
+  const [hovered, setHovered] = useState(false);
+  const intensityTarget = hovered ? 25 : 10;
+
+  useFrame(() => {
+    if (!lightRef.current) return;
+    lightRef.current.intensity += (intensityTarget - lightRef.current.intensity) * 0.08;
+  });
+
+  return (
+    <mesh
+      position={[-0.22, -0.24, 0.67]}
+      rotation={[0, -3.14, 0]}
+      onPointerOver={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = ""; }}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+    >
+      <planeGeometry args={[0.32, 0.12]} />
+      <meshStandardMaterial transparent opacity={0} />
+    </mesh>
+  );
+}
+
 function CameraZoom({ target, phase, onDone }: {
   target: SectionId | null;
   phase: Phase;
@@ -191,12 +214,13 @@ function CameraZoom({ target, phase, onDone }: {
 
 interface SceneProps {
   onSectionClick: (section: SectionId) => void;
+  onExit: () => void;
   zoomTarget: SectionId | null;
   phase: Phase;
   onZoomDone: () => void;
 }
 
-function Scene({ onSectionClick, zoomTarget, phase, onZoomDone }: SceneProps) {
+function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneProps) {
   const { scene } = useGLTF("/models/dirty_street.glb");
   const graffitiTex = useTexture("/textures/kiri487_graffiti.png");
   const worksTex = useTexture("/textures/works_sticker.png");
@@ -241,6 +265,8 @@ function Scene({ onSectionClick, zoomTarget, phase, onZoomDone }: SceneProps) {
     return obj;
   }, []);
 
+  const exitLightRef = useRef<THREE.SpotLight>(null);
+
   return (
     <>
       <CameraZoom target={zoomTarget} phase={phase} onDone={onZoomDone} />
@@ -266,6 +292,7 @@ function Scene({ onSectionClick, zoomTarget, phase, onZoomDone }: SceneProps) {
 
       <primitive object={exitTarget} />
       <spotLight
+        ref={exitLightRef}
         castShadow
         shadow-mapSize-width={512}
         shadow-mapSize-height={512}
@@ -284,6 +311,8 @@ function Scene({ onSectionClick, zoomTarget, phase, onZoomDone }: SceneProps) {
       <directionalLight position={[0, 4, 0]} intensity={0.06} color="#99aabb" />
 
       <primitive object={scene} />
+
+      <ExitHotspot onClick={onExit} lightRef={exitLightRef} />
 
       <GraffitiHotspot
         texture={graffitiTex}

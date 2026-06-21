@@ -1,8 +1,6 @@
 import { lazy, Suspense, type CSSProperties } from "react";
 import { SkinProvider, useSkin } from "./SkinContext";
 
-/** Register each skin here. Skins are lazy-loaded, so a visitor only
- *  downloads the code for the skin that is currently active. */
 const SKINS = {
   kiri: lazy(() => import("./skins/kiri/KiriApp")),
   kuru: lazy(() => import("./skins/kuru/KuruApp")),
@@ -18,34 +16,45 @@ function ActiveSkin() {
   );
 }
 
-/** Temporary dev control for hopping between skins. Inline-styled so it
- *  carries no global CSS; each skin can host its own switch UI later. */
-const switcherStyle: CSSProperties = {
+const graffitiStyle: CSSProperties = {
   position: "fixed",
-  right: "16px",
-  bottom: "16px",
+  right: "20px",
+  bottom: "20px",
   zIndex: 99999,
-  padding: "8px 14px",
-  fontFamily: "monospace",
-  fontSize: "13px",
-  fontWeight: 700,
-  letterSpacing: "0.05em",
-  color: "#fff",
-  background: "#000",
-  border: "2px solid #fff",
+  width: "80px",
   cursor: "pointer",
-  boxShadow: "3px 3px 0 rgba(255, 255, 255, 0.35)",
+  filter: "drop-shadow(0 0 6px rgba(255,255,255,0.3))",
+  transition: "filter 0.3s, transform 0.3s",
+  background: "none",
+  border: "none",
+  padding: 0,
 };
 
 function SkinSwitcher() {
   const { skin, setSkin } = useSkin();
+
+  if (skin !== "kiri") return null;
+
   return (
     <button
       type="button"
-      style={switcherStyle}
-      onClick={() => setSkin(skin === "kiri" ? "kuru" : "kiri")}
+      style={graffitiStyle}
+      onClick={() => setSkin("kuru")}
+      aria-label="Switch to kuru skin"
+      onMouseEnter={(e) => {
+        e.currentTarget.style.filter = "drop-shadow(0 0 12px rgba(0,170,255,0.6))";
+        e.currentTarget.style.transform = "scale(1.05)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.filter = "drop-shadow(0 0 6px rgba(255,255,255,0.3))";
+        e.currentTarget.style.transform = "scale(1)";
+      }}
     >
-      SKIN ▸ {skin}
+      <img
+        src="/textures/kiri487_graffiti.png"
+        alt="Switch to kuru"
+        style={{ width: "100%", display: "block" }}
+      />
     </button>
   );
 }

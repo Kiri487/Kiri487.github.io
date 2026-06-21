@@ -1,5 +1,6 @@
 import { Suspense, useState, useCallback, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
+import { useSkin } from "../../SkinContext";
 import Scene from "./Scene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
@@ -9,6 +10,7 @@ export type SectionId = "about" | "projects" | "works" | "credits";
 export type Phase = "idle" | "zooming" | "connecting" | "panel" | "open";
 
 function KuruApp() {
+  const { setSkin } = useSkin();
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const pendingRef = useRef<SectionId | null>(null);
@@ -49,6 +51,7 @@ function KuruApp() {
         <Suspense fallback={null}>
           <Scene
             onSectionClick={handleSectionClick}
+            onExit={() => setSkin("kiri")}
             zoomTarget={activeSection}
             phase={phase}
             onZoomDone={handleZoomDone}
