@@ -1,6 +1,9 @@
 import { personalProjects, teamProjects } from "../../../data/projects";
 
-const allProjects = [...personalProjects, ...teamProjects];
+const allProjects = [
+  ...personalProjects.map((p) => ({ ...p, kind: "Personal" as const })),
+  ...teamProjects.map((p) => ({ ...p, kind: "Team" as const })),
+];
 
 function ProjectsContent() {
   return (
@@ -31,11 +34,9 @@ function ProjectsContent() {
                 <p className="kuru-file__desc">{p.description}</p>
                 <div className="kuru-file__row2">
                   <span className="kuru-file__tags">
-                    {p.tags.map((t, j) => (
-                      <span key={t.tech}>
-                        {j > 0 && " ∙ "}
-                        {t.name}
-                      </span>
+                    {p.kind}
+                    {p.tags.map((t) => (
+                      <span key={t.tech}> ∙ {t.name}</span>
                     ))}
                   </span>
                   {p.links.length > 0 && (
