@@ -273,6 +273,7 @@ html[data-skin="kuru"] body {
 [data-skin="kuru"] .kuru-overlay__body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.5rem 2rem;
   background:
     repeating-linear-gradient(
@@ -403,6 +404,8 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-term__items {
   color: #b0aca4;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 /* log entries (edu, work) */
@@ -802,8 +805,16 @@ a[data-skin="kuru"] .kuru-file--link,
   [data-skin="kuru"] .kuru-term__head { flex-wrap: wrap; gap: 0.2rem; }
   [data-skin="kuru"] .kuru-term__prompt { font-size: 0.68rem; }
   [data-skin="kuru"] .kuru-term__meta { font-size: 0.58rem; }
-  [data-skin="kuru"] .kuru-term__tree { font-size: 0.75rem; padding-left: 0.2rem; }
-  [data-skin="kuru"] .kuru-term__log { font-size: 0.72rem; padding-left: 0.2rem; }
+  [data-skin="kuru"] .kuru-term__tree { font-size: 0.75rem; padding-left: 0; word-break: break-word; }
+  [data-skin="kuru"] .kuru-term__prefix { display: none; }
+  [data-skin="kuru"] .kuru-term__dots { display: none; }
+  [data-skin="kuru"] .kuru-term__branch { flex-direction: column; gap: 0.1rem; }
+  [data-skin="kuru"] .kuru-term__items { padding-left: 0.3rem; }
+  [data-skin="kuru"] .kuru-term__log { font-size: 0.72rem; padding-left: 0.2rem; word-break: break-word; }
+  [data-skin="kuru"] .kuru-term__log-entry { flex-direction: column; gap: 0.1rem 0; }
+  [data-skin="kuru"] .kuru-term__log-name { flex-shrink: 1; word-break: break-word; }
+  [data-skin="kuru"] .kuru-term__log-sep { display: none; }
+  [data-skin="kuru"] .kuru-term__log-detail { padding-left: 0; }
   [data-skin="kuru"] .kuru-term__log-time { font-size: 0.62rem; }
   [data-skin="kuru"] .kuru-term__group-cat { font-size: 0.7rem; }
   [data-skin="kuru"] .kuru-term__group-item { font-size: 0.65rem; }
