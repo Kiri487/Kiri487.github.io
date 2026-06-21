@@ -51,7 +51,7 @@ function SkinSwitcher() {
       }}
     >
       <img
-        src="/textures/kiri487_graffiti.png"
+        src="/textures/kiri487_graffiti.webp"
         alt="Switch to kuru"
         style={{ width: "100%", display: "block" }}
       />
