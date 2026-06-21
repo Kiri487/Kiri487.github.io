@@ -4,13 +4,15 @@ import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
+import type { SectionId } from "./KuruApp";
 
 interface GraffitiHotspotProps {
   texture: THREE.Texture;
   aspect: number;
+  onClick?: () => void;
 }
 
-function GraffitiHotspot({ texture, aspect }: GraffitiHotspotProps) {
+function GraffitiHotspot({ texture, aspect, onClick }: GraffitiHotspotProps) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
   const emissiveTarget = hovered ? 0.5 : 0;
@@ -61,6 +63,10 @@ function GraffitiHotspot({ texture, aspect }: GraffitiHotspotProps) {
       receiveShadow
       onPointerMove={onMove}
       onPointerOut={onOut}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.uv && checkAlpha(e.uv) && onClick) onClick();
+      }}
     >
       <planeGeometry args={[aspect * scale, scale]} />
       <meshStandardMaterial
@@ -84,9 +90,10 @@ interface WallObjectProps {
   scale: [number, number];
   texture?: THREE.Texture;
   color?: string;
+  onClick?: () => void;
 }
 
-function WallObject({ position, rotation, scale: s, texture, color = "#888" }: WallObjectProps) {
+function WallObject({ position, rotation, scale: s, texture, color = "#888", onClick }: WallObjectProps) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
   const emissiveTarget = hovered ? 0.5 : 0;
@@ -112,6 +119,7 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888" }: W
       receiveShadow
       onPointerOver={onOver}
       onPointerOut={onOut}
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
     >
       <planeGeometry args={[s[0], s[1]]} />
       {texture ? (
@@ -140,11 +148,16 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888" }: W
   );
 }
 
-function Scene() {
+interface SceneProps {
+  onSectionClick: (section: SectionId) => void;
+}
+
+function Scene({ onSectionClick }: SceneProps) {
   const { scene } = useGLTF("/models/dirty_street.glb");
   const graffitiTex = useTexture("/textures/kiri487_graffiti.png");
   const worksTex = useTexture("/textures/works_sticker.png");
   const creditsTex = useTexture("/textures/cited_sticker.png");
+  const posterTex = useTexture("/textures/projects_poster.png");
   const gl = useThree((s) => s.gl);
   gl.toneMappingExposure = 1.0;
 
@@ -153,6 +166,9 @@ function Scene() {
 
   const creditsAspect = creditsTex.image ? creditsTex.image.width / creditsTex.image.height : 0.6;
   const creditsScale = 1.06;
+
+  const posterAspect = posterTex.image ? posterTex.image.width / posterTex.image.height : 1.20;
+  const posterScale = 0.90;
 
   useEffect(() => {
     scene.traverse((child) => {
@@ -224,14 +240,15 @@ function Scene() {
       <primitive object={scene} />
 
       {/* About — Kiri487 graffiti */}
-      <GraffitiHotspot texture={graffitiTex} aspect={aspect} />
+      <GraffitiHotspot texture={graffitiTex} aspect={aspect} onClick={() => onSectionClick("about")} />
 
-      {/* Projects — poster on left wall under lamp */}
+      {/* Projects — poster on wall under lamp */}
       <WallObject
-        position={[1.10, -0.65, 1.00]}
+        position={[1.10, -0.67, 1.01]}
         rotation={[0, -3.14, 0]}
-        scale={[1.10, 0.90]}
-        color="#e8a838"
+        scale={[posterAspect * posterScale, posterScale]}
+        texture={posterTex}
+        onClick={() => onSectionClick("projects")}
       />
 
       {/* Works — sticker on box */}
@@ -240,6 +257,7 @@ function Scene() {
         rotation={[-0.06, -3.49, 0.01]}
         scale={[worksAspect * worksScale, worksScale]}
         texture={worksTex}
+        onClick={() => onSectionClick("works")}
       />
 
       {/* Credits — sticker on wall */}
@@ -248,6 +266,7 @@ function Scene() {
         rotation={[0, -3.14, 0]}
         scale={[creditsAspect * creditsScale, creditsScale]}
         texture={creditsTex}
+        onClick={() => onSectionClick("credits")}
       />
 
       <EffectComposer>
@@ -259,6 +278,7 @@ function Scene() {
         />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>
+
     </>
   );
 }
