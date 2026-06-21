@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 /** Add a new id here whenever you create another skin under src/skins/. */
-export type Skin = "kiri";
+export type Skin = "kiri" | "kuru";
 
-const SKIN_IDS: Skin[] = ["kiri"];
+const SKIN_IDS: Skin[] = ["kiri", "kuru"];
 const DEFAULT_SKIN: Skin = "kiri";
 const STORAGE_KEY = "skin";
 
