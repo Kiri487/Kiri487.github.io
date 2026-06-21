@@ -42,6 +42,9 @@ html[data-skin="kuru"] body {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 [data-skin="kuru"] .kuru-canvas {
@@ -49,6 +52,7 @@ html[data-skin="kuru"] body {
   width: 100% !important;
   height: 100% !important;
   touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ---- overlay: section accent colors ---- */

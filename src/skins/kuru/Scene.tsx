@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { SectionId, Phase } from "./KuruApp";
 
 const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
+const IS_MOBILE = navigator.maxTouchPoints > 0;
 
 const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
   about: new THREE.Vector3(-2.55, -0.55, -0.90),
@@ -180,10 +181,10 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
-const PAN_LEFT_X = 0.45;
-const PAN_RIGHT_X = -1.35;
-const PAN_LO = Math.min(PAN_LEFT_X, PAN_RIGHT_X);
-const PAN_HI = Math.max(PAN_LEFT_X, PAN_RIGHT_X);
+const PAN_BASE_HI = 1.3;
+const PAN_BASE_LO = -1.35;
+const PAN_REF_ASPECT = 16 / 9;
+const PAN_ASPECT_SCALE = 1.2;
 
 function CameraZoom({ target, phase, onDone }: {
   target: SectionId | null;
@@ -191,11 +192,18 @@ function CameraZoom({ target, phase, onDone }: {
   onDone: () => void;
 }) {
   const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
   const doneRef = useRef(false);
   const mouseX = useRef(0);
   const panX = useRef(HOME_POS.x);
   const touchRef = useRef({ startX: 0, lastX: 0, active: false });
   const velocityX = useRef(0);
+
+  const bounds = useMemo(() => {
+    const aspect = size.width / size.height;
+    const adjust = (PAN_REF_ASPECT - aspect) * PAN_ASPECT_SCALE;
+    return { lo: PAN_BASE_LO - adjust, hi: PAN_BASE_HI + adjust };
+  }, [size.width, size.height]);
 
   useEffect(() => {
     doneRef.current = false;
@@ -214,10 +222,10 @@ function CameraZoom({ target, phase, onDone }: {
       if (!touchRef.current.active) return;
       const t = e.touches[0];
       const dx = t.clientX - touchRef.current.lastX;
-      const sensitivity = 0.004;
+      const sensitivity = 2.0 / window.innerWidth;
       velocityX.current = dx * sensitivity;
       panX.current += dx * sensitivity;
-      panX.current = Math.max(PAN_LO, Math.min(PAN_HI, panX.current));
+      panX.current = Math.max(bounds.lo, Math.min(bounds.hi, panX.current));
       touchRef.current.lastX = t.clientX;
     };
     const onTouchEnd = () => {
@@ -237,21 +245,23 @@ function CameraZoom({ target, phase, onDone }: {
 
   useFrame((_, delta) => {
     if (phase === "idle") {
-      const mx = mouseX.current;
-      const edge = 0.15;
-      const speed = 1.2;
-      if (mx < -1 + edge) {
-        const strength = ((-1 + edge) - mx) / edge;
-        panX.current += speed * strength * delta;
-      } else if (mx > 1 - edge) {
-        const strength = (mx - (1 - edge)) / edge;
-        panX.current -= speed * strength * delta;
+      if (!IS_MOBILE) {
+        const mx = mouseX.current;
+        const edge = 0.15;
+        const speed = 1.2;
+        if (mx < -1 + edge) {
+          const strength = ((-1 + edge) - mx) / edge;
+          panX.current += speed * strength * delta;
+        } else if (mx > 1 - edge) {
+          const strength = (mx - (1 - edge)) / edge;
+          panX.current -= speed * strength * delta;
+        }
       }
       if (!touchRef.current.active && Math.abs(velocityX.current) > 0.0001) {
         panX.current += velocityX.current;
         velocityX.current *= 0.92;
       }
-      panX.current = Math.max(PAN_LO, Math.min(PAN_HI, panX.current));
+      panX.current = Math.max(bounds.lo, Math.min(bounds.hi, panX.current));
       camera.position.x += (panX.current - camera.position.x) * 0.08;
       camera.position.y += (HOME_POS.y - camera.position.y) * 0.04;
       camera.position.z += (HOME_POS.z - camera.position.z) * 0.04;
@@ -449,15 +459,17 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
         onClick={() => onSectionClick("credits")}
       />
 
-      <EffectComposer>
-        <Bloom
-          intensity={1.0}
-          luminanceThreshold={0.7}
-          luminanceSmoothing={0.4}
-          mipmapBlur
-        />
-        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-      </EffectComposer>
+      {!IS_MOBILE && (
+        <EffectComposer>
+          <Bloom
+            intensity={1.0}
+            luminanceThreshold={0.7}
+            luminanceSmoothing={0.4}
+            mipmapBlur
+          />
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        </EffectComposer>
+      )}
     </>
   );
 }
