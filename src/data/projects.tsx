@@ -1,16 +1,16 @@
 import type { Tech } from "./tech";
 
-import SIMPLE_PPT_IMG from "../assets/img/SimplePPT.png";
-import DATA_VIS_IMG from "../assets/img/DataVis.png";
-import CT_AND_CE_IMG from "../assets/img/ComputerTypographyAndCharacterEncoding.png";
-import CA_IMG from "../assets/img/ComputerAnimation.png";
-import BOXBOB_IMG from "../assets/img/BoxBob.png";
-import REDDIT_IMG from "../assets/img/RedditSentimentAnalysis.png";
-import RANSOMCHECK_IMG from "../assets/img/RANsomCheck.png";
-import ELECOOKIES_IMG from "../assets/img/Elecookies.png";
-import AI_KASSUS_IMG from "../assets/img/AiKassus.png";
-import MYSTIC_SHOP_IMG from "../assets/img/MysticShopLUIS.png";
-import GRAVITY_DRIFT_IMG from "../assets/img/GravityDrift.png";
+import SIMPLE_PPT_IMG from "../skins/kiri/assets/img/SimplePPT.png";
+import DATA_VIS_IMG from "../skins/kiri/assets/img/DataVis.png";
+import CT_AND_CE_IMG from "../skins/kiri/assets/img/ComputerTypographyAndCharacterEncoding.png";
+import CA_IMG from "../skins/kiri/assets/img/ComputerAnimation.png";
+import BOXBOB_IMG from "../skins/kiri/assets/img/BoxBob.png";
+import REDDIT_IMG from "../skins/kiri/assets/img/RedditSentimentAnalysis.png";
+import RANSOMCHECK_IMG from "../skins/kiri/assets/img/RANsomCheck.png";
+import ELECOOKIES_IMG from "../skins/kiri/assets/img/Elecookies.png";
+import AI_KASSUS_IMG from "../skins/kiri/assets/img/AiKassus.png";
+import MYSTIC_SHOP_IMG from "../skins/kiri/assets/img/MysticShopLUIS.png";
+import GRAVITY_DRIFT_IMG from "../skins/kiri/assets/img/GravityDrift.png";
 
 export interface ProjectLink {
   label: string;

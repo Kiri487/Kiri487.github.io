@@ -286,11 +286,11 @@ interface SceneProps {
 }
 
 function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneProps) {
-  const { scene } = useGLTF("/models/dirty_street.glb", true);
-  const graffitiTex = useTexture("/textures/kiri487_graffiti.webp");
-  const worksTex = useTexture("/textures/works_sticker.webp");
-  const creditsTex = useTexture("/textures/cited_sticker.webp");
-  const posterTex = useTexture("/textures/projects_poster.webp");
+  const { scene } = useGLTF("/kuru/models/dirty_street.glb", true);
+  const graffitiTex = useTexture("/kuru/textures/kiri487_graffiti.webp");
+  const worksTex = useTexture("/kuru/textures/works_sticker.webp");
+  const creditsTex = useTexture("/kuru/textures/cited_sticker.webp");
+  const posterTex = useTexture("/kuru/textures/projects_poster.webp");
   const gl = useThree((s) => s.gl);
   gl.toneMappingExposure = 1.0;
 
@@ -469,6 +469,6 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
   );
 }
 
-useGLTF.preload("/models/dirty_street.glb", true);
+useGLTF.preload("/kuru/models/dirty_street.glb", true);
 
 export default Scene;

@@ -1,26 +1,26 @@
-import WEBM1 from "../assets/video/KiriSleep.webm";
-import WEBM2 from "../assets/video/KiriRoll.webm";
-import WEBM3 from "../assets/video/KiriOjousama.webm";
-import WEBM4 from "../assets/video/KiriHeadspin.webm";
-import WEBM5 from "../assets/video/KiriLook.webm";
-import WEBM6 from "../assets/video/KiriIrisOut.webm";
-import WEBM7 from "../assets/video/KiriPolishCow.webm";
+import WEBM1 from "../skins/kiri/assets/video/KiriSleep.webm";
+import WEBM2 from "../skins/kiri/assets/video/KiriRoll.webm";
+import WEBM3 from "../skins/kiri/assets/video/KiriOjousama.webm";
+import WEBM4 from "../skins/kiri/assets/video/KiriHeadspin.webm";
+import WEBM5 from "../skins/kiri/assets/video/KiriLook.webm";
+import WEBM6 from "../skins/kiri/assets/video/KiriIrisOut.webm";
+import WEBM7 from "../skins/kiri/assets/video/KiriPolishCow.webm";
 
-import MOV1 from "../assets/video/KiriSleep_iOS.mov";
-import MOV2 from "../assets/video/KiriRoll_iOS.mov";
-import MOV3 from "../assets/video/KiriOjousama_iOS.mov";
-import MOV4 from "../assets/video/KiriHeadspin_iOS.mov";
-import MOV5 from "../assets/video/KiriLook_iOS.mov";
-import MOV6 from "../assets/video/KiriIrisOut_iOS.mov";
-import MOV7 from "../assets/video/KiriPolishCow_iOS.mov";
+import MOV1 from "../skins/kiri/assets/video/KiriSleep_iOS.mov";
+import MOV2 from "../skins/kiri/assets/video/KiriRoll_iOS.mov";
+import MOV3 from "../skins/kiri/assets/video/KiriOjousama_iOS.mov";
+import MOV4 from "../skins/kiri/assets/video/KiriHeadspin_iOS.mov";
+import MOV5 from "../skins/kiri/assets/video/KiriLook_iOS.mov";
+import MOV6 from "../skins/kiri/assets/video/KiriIrisOut_iOS.mov";
+import MOV7 from "../skins/kiri/assets/video/KiriPolishCow_iOS.mov";
 
-import BGM1 from "../assets/bgm/Soul and Mind - E's Jammy Jams.mp3";
-import BGM2 from "../assets/bgm/Rick Astley - Never Gonna Give You Up.mp3";
-import BGM3 from "../assets/bgm/ASMRZ(TANAKA, NEEDMORECASH) - 잘자요 아가씨(prod. Gwana).mp3";
-import BGM4 from "../assets/bgm/Bizzie - The Grand Affair.mp3";
-import BGM5 from "../assets/bgm/Jane Street - TrackTribe.mp3";
-import BGM6 from "../assets/bgm/米津玄師  Kenshi Yonezu - IRIS OUT.mp3";
-import BGM7 from "../assets/bgm/Cypis - Gdzie jest biały węgorz (Zejście).mp3";
+import BGM1 from "../skins/kiri/assets/bgm/Soul and Mind - E's Jammy Jams.mp3";
+import BGM2 from "../skins/kiri/assets/bgm/Rick Astley - Never Gonna Give You Up.mp3";
+import BGM3 from "../skins/kiri/assets/bgm/ASMRZ(TANAKA, NEEDMORECASH) - 잘자요 아가씨(prod. Gwana).mp3";
+import BGM4 from "../skins/kiri/assets/bgm/Bizzie - The Grand Affair.mp3";
+import BGM5 from "../skins/kiri/assets/bgm/Jane Street - TrackTribe.mp3";
+import BGM6 from "../skins/kiri/assets/bgm/米津玄師  Kenshi Yonezu - IRIS OUT.mp3";
+import BGM7 from "../skins/kiri/assets/bgm/Cypis - Gdzie jest biały węgorz (Zejście).mp3";
 
 export interface VideoBgmPair {
   webm: string;

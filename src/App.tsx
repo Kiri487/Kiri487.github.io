@@ -23,7 +23,7 @@ const graffitiStyle: CSSProperties = {
   zIndex: 99999,
   width: "80px",
   cursor: "pointer",
-  filter: "drop-shadow(0 0 6px rgba(255,255,255,0.3))",
+  filter: "none",
   transition: "filter 0.3s, transform 0.3s",
   background: "none",
   border: "none",
@@ -42,16 +42,14 @@ function SkinSwitcher() {
       onClick={() => setSkin("kuru")}
       aria-label="Switch to kuru skin"
       onMouseEnter={(e) => {
-        e.currentTarget.style.filter = "drop-shadow(0 0 12px rgba(0,170,255,0.6))";
         e.currentTarget.style.transform = "scale(1.05)";
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.filter = "drop-shadow(0 0 6px rgba(255,255,255,0.3))";
         e.currentTarget.style.transform = "scale(1)";
       }}
     >
       <img
-        src="/textures/kiri487_graffiti.webp"
+        src="/kuru/textures/kiri487_graffiti.webp"
         alt="Switch to kuru"
         style={{ width: "100%", display: "block" }}
       />

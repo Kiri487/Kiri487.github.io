@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import KIRI_LOGO from "../../../assets/KiriLogo.png";
+import KIRI_LOGO from "../assets/KiriLogo.png";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
 import { LuMenu } from "react-icons/lu";
 
