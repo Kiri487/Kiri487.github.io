@@ -25,39 +25,20 @@ function CreditsContent() {
             <div className="kuru-term__group-cat">:: BGM</div>
             <div className="kuru-term__group-item">
               <span className="kuru-term__prefix">└</span>
-              <span className="kuru-term__pending">[PENDING]</span>
+              <span>
+                Music by{" "}
+                <a href="https://pixabay.com/users/tunetank-50201703/" target="_blank" rel="noopener noreferrer">Tunetank</a>
+                {" "}from{" "}
+                <a href="https://pixabay.com/" target="_blank" rel="noopener noreferrer">Pixabay</a>
+              </span>
             </div>
           </div>
 
           <div className="kuru-term__group">
             <div className="kuru-term__group-cat">:: FONTS</div>
             <div className="kuru-term__group-item">
-              <span className="kuru-term__prefix">├</span>
-              <span>Sedgwick Ave ·· Google Fonts</span>
-            </div>
-            <div className="kuru-term__group-item">
               <span className="kuru-term__prefix">└</span>
               <span>Libre Barcode 39 Extended Text ·· Google Fonts</span>
-            </div>
-          </div>
-
-          <div className="kuru-term__group">
-            <div className="kuru-term__group-cat">:: TEXTURES</div>
-            <div className="kuru-term__group-item">
-              <span className="kuru-term__prefix">├</span>
-              <span>kiri487_graffiti.png ·· original</span>
-            </div>
-            <div className="kuru-term__group-item">
-              <span className="kuru-term__prefix">├</span>
-              <span>projects_poster.png ·· original</span>
-            </div>
-            <div className="kuru-term__group-item">
-              <span className="kuru-term__prefix">├</span>
-              <span>works_sticker.png ·· original</span>
-            </div>
-            <div className="kuru-term__group-item">
-              <span className="kuru-term__prefix">└</span>
-              <span>cited_sticker.png ·· original</span>
             </div>
           </div>
 

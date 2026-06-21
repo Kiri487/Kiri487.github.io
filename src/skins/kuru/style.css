@@ -3,7 +3,7 @@
    Fixed viewport, click objects to open content overlays.
    Every rule scoped under [data-skin="kuru"].
    ============================================================ */
-@import url('https://fonts.googleapis.com/css2?family=Libre+Barcode+39+Extended+Text&family=Sedgwick+Ave&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Barcode+39+Extended+Text&display=swap');
 
 /* ---- palette & document ---- */
 
@@ -97,7 +97,7 @@ html[data-skin="kuru"] body {
   box-shadow: 0 0 20px var(--kuru-accent-glow, rgba(0, 170, 255, 0.4));
 }
 [data-skin="kuru"] .kuru-connect__box--open {
-  height: 90px;
+  height: 110px;
   border: 1px solid var(--kuru-accent, #0af);
   background: rgba(0, 0, 0, 0.85);
 }
@@ -109,7 +109,7 @@ html[data-skin="kuru"] body {
 [data-skin="kuru"] .kuru-connect__content {
   padding: 10px 16px;
   font-family: 'Courier New', monospace;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   color: var(--kuru-accent, #0af);
   line-height: 1.6;
 }
@@ -212,7 +212,8 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-overlay__title {
-  font-family: 'Sedgwick Ave', cursive;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
   font-size: clamp(1.3rem, 3.5vw, 1.8rem);
   margin: 0;
   color: #fff;
@@ -238,7 +239,7 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-overlay__id {
   font-family: 'Courier New', monospace;
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.25);
   letter-spacing: 0.1em;
   white-space: nowrap;
@@ -248,7 +249,7 @@ html[data-skin="kuru"] body {
   border: none;
   background: transparent;
   font-family: 'Courier New', monospace;
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: rgba(255, 255, 255, 0.35);
   cursor: pointer;
   padding: 0.2rem 0.3rem;
@@ -310,7 +311,7 @@ html[data-skin="kuru"] body {
   align-items: center;
   padding: 0.45rem 1.5rem;
   font-family: 'Courier New', monospace;
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.18);
   letter-spacing: 0.08em;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -341,8 +342,9 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-term__prompt {
-  font-family: 'Sedgwick Ave', cursive;
-  font-size: 1rem;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 1.1rem;
   color: var(--kuru-accent, #0af);
   white-space: nowrap;
   letter-spacing: 0.04em;
@@ -356,7 +358,7 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-term__meta {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--kuru-accent, #0af);
   opacity: 0.45;
   white-space: nowrap;
@@ -366,7 +368,7 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-term__tree {
   padding-left: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   line-height: 1.9;
 }
 
@@ -400,7 +402,7 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-term__log {
   padding-left: 0.5rem;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
 }
 
 [data-skin="kuru"] .kuru-term__log-entry {
@@ -415,7 +417,7 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-term__log-time {
   color: rgba(255, 255, 255, 0.25);
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   flex-shrink: 0;
 }
 
@@ -441,12 +443,12 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-term__group-cat {
   color: var(--kuru-accent, #0af);
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   margin-bottom: 0.15rem;
 }
 
 [data-skin="kuru"] .kuru-term__group-item {
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   color: #9a9690;
   line-height: 1.7;
   padding-left: 0.3rem;
@@ -476,7 +478,7 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-file__idx {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   color: var(--kuru-accent, #ffe600);
   opacity: 0.35;
   flex-shrink: 0;
@@ -509,19 +511,20 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-file__title {
-  font-family: 'Sedgwick Ave', cursive;
-  font-size: 0.95rem;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 1.05rem;
   color: #e8e4dc;
 }
 
 [data-skin="kuru"] .kuru-file__year {
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   color: var(--kuru-accent, #ffe600);
   opacity: 0.55;
 }
 
 [data-skin="kuru"] .kuru-file__desc {
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   color: #8a8680;
   margin: 0 0 0.25rem;
   line-height: 1.4;
@@ -534,7 +537,7 @@ html[data-skin="kuru"] body {
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  font-size: 0.58rem;
+  font-size: 0.7rem;
 }
 
 [data-skin="kuru"] .kuru-file__tags {
@@ -616,8 +619,9 @@ a[data-skin="kuru"] .kuru-file--link,
 [data-skin="kuru"] .kuru-contact-link {
   display: flex; align-items: center; gap: 0.45rem;
   padding: 0.35rem 0.8rem;
-  font-family: 'Sedgwick Ave', cursive;
-  font-size: 0.8rem;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 0.9rem;
   color: #d4d0c8;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -643,6 +647,113 @@ a[data-skin="kuru"] .kuru-file--link,
   text-shadow: 0 0 8px var(--kuru-accent-glow, rgba(255, 34, 34, 0.4));
   overflow-x: auto;
   white-space: pre;
+}
+
+/* ---- BGM player ---- */
+
+[data-skin="kuru"] .kuru-bgm {
+  position: fixed;
+  bottom: 1.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.8rem;
+  background: rgba(10, 10, 16, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+[data-skin="kuru"] .kuru-bgm__btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.1rem 0.15rem;
+  transition: color 0.2s, text-shadow 0.2s;
+  font-family: inherit;
+  line-height: 1;
+}
+[data-skin="kuru"] .kuru-bgm__btn:hover {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+[data-skin="kuru"] .kuru-bgm__track {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.03em;
+}
+
+[data-skin="kuru"] .kuru-bgm__time {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.68rem;
+  flex-shrink: 0;
+}
+
+[data-skin="kuru"] .kuru-bgm__bar {
+  width: 100px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+[data-skin="kuru"] .kuru-bgm__fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.35);
+  transition: width 0.3s linear;
+}
+
+[data-skin="kuru"] .kuru-bgm__vol-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+[data-skin="kuru"] .kuru-bgm__vol {
+  width: 0;
+  opacity: 0;
+  height: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+  transition: width 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
+  margin-left: 0;
+}
+[data-skin="kuru"] .kuru-bgm__vol-wrap:hover .kuru-bgm__vol {
+  width: 50px;
+  opacity: 1;
+  margin-left: 0.4rem;
+}
+[data-skin="kuru"] .kuru-bgm__vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+}
+[data-skin="kuru"] .kuru-bgm__vol::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  cursor: pointer;
 }
 
 /* ---- animations ---- */

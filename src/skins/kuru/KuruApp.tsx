@@ -4,6 +4,7 @@ import { useSkin } from "../../SkinContext";
 import Scene from "./Scene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
+import BgmPlayer from "./BgmPlayer";
 import "./style.css";
 
 export type SectionId = "about" | "projects" | "works" | "credits";
@@ -68,6 +69,7 @@ function KuruApp() {
         phase={phase}
         onClose={handleClose}
       />
+      <BgmPlayer />
     </div>
   );
 }
