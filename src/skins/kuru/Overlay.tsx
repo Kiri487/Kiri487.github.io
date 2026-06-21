@@ -1,4 +1,4 @@
-import type { SectionId } from "./KuruApp";
+import type { SectionId, Phase } from "./KuruApp";
 import AboutContent from "./content/AboutContent";
 import ProjectsContent from "./content/ProjectsContent";
 import WorksContent from "./content/WorksContent";
@@ -20,16 +20,24 @@ const TITLES: Record<SectionId, string> = {
 
 interface OverlayProps {
   activeSection: SectionId | null;
+  phase: Phase;
   onClose: () => void;
 }
 
-function Overlay({ activeSection, onClose }: OverlayProps) {
-  if (!activeSection) return null;
+function Overlay({ activeSection, phase, onClose }: OverlayProps) {
+  if (!activeSection || (phase !== "panel" && phase !== "open")) return null;
 
   const Content = CONTENT[activeSection];
 
   return (
-    <div className="kuru-overlay" data-section={activeSection}>
+    <div
+      className={
+        "kuru-overlay" +
+        (phase === "panel" ? " kuru-overlay--line" : "") +
+        (phase === "open" ? " kuru-overlay--open" : "")
+      }
+      data-section={activeSection}
+    >
       <div className="kuru-overlay__backdrop" onClick={onClose} />
       <div className="kuru-overlay__frame">
         <div className="kuru-overlay__panel">

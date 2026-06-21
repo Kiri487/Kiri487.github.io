@@ -114,24 +114,77 @@ html[data-skin="kuru"] body {
 
 /* ---- overlay: section accent colors ---- */
 
-[data-skin="kuru"] .kuru-overlay[data-section="about"] {
+[data-skin="kuru"] .kuru-overlay[data-section="about"],
+[data-skin="kuru"] .kuru-connect[data-section="about"] {
   --kuru-accent: #0af;
   --kuru-accent-glow: rgba(0, 170, 255, 0.5);
 }
-[data-skin="kuru"] .kuru-overlay[data-section="projects"] {
+[data-skin="kuru"] .kuru-overlay[data-section="projects"],
+[data-skin="kuru"] .kuru-connect[data-section="projects"] {
   --kuru-accent: #ffe600;
   --kuru-accent-glow: rgba(255, 230, 0, 0.45);
 }
-[data-skin="kuru"] .kuru-overlay[data-section="works"] {
+[data-skin="kuru"] .kuru-overlay[data-section="works"],
+[data-skin="kuru"] .kuru-connect[data-section="works"] {
   --kuru-accent: #0f6;
   --kuru-accent-glow: rgba(0, 255, 102, 0.45);
 }
-[data-skin="kuru"] .kuru-overlay[data-section="credits"] {
+[data-skin="kuru"] .kuru-overlay[data-section="credits"],
+[data-skin="kuru"] .kuru-connect[data-section="credits"] {
   --kuru-accent: #f22;
   --kuru-accent-glow: rgba(255, 34, 34, 0.5);
 }
 
 /* ---- content overlay ---- */
+
+/* ---- connect overlay (line → expand → text → collapse) ---- */
+
+[data-skin="kuru"] .kuru-connect {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+[data-skin="kuru"] .kuru-connect__box {
+  width: min(400px, 70vw);
+  height: 2px;
+  background: var(--kuru-accent, #0af);
+  overflow: hidden;
+  opacity: 1;
+  transition: height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.2s ease;
+  box-shadow: 0 0 20px var(--kuru-accent-glow, rgba(0, 170, 255, 0.4));
+}
+[data-skin="kuru"] .kuru-connect__box--open {
+  height: 90px;
+  border: 1px solid var(--kuru-accent, #0af);
+  background: rgba(0, 0, 0, 0.85);
+}
+[data-skin="kuru"] .kuru-connect__box--close {
+  height: 2px;
+  opacity: 0;
+  border-color: transparent;
+}
+[data-skin="kuru"] .kuru-connect__content {
+  padding: 10px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: var(--kuru-accent, #0af);
+  line-height: 1.6;
+}
+[data-skin="kuru"] .kuru-connect__line {
+  opacity: 0;
+  animation: kuru-line-in 0.15s ease forwards;
+}
+[data-skin="kuru"] .kuru-connect__line--ok {
+  font-weight: bold;
+  text-shadow: 0 0 8px var(--kuru-accent-glow, rgba(0, 170, 255, 0.5));
+}
+
+/* ---- overlay: line → expand panel ---- */
 
 [data-skin="kuru"] .kuru-overlay {
   position: fixed;
@@ -140,12 +193,17 @@ html[data-skin="kuru"] body {
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: kuru-backdrop-in 0.3s ease;
 }
 
 [data-skin="kuru"] .kuru-overlay__backdrop {
   position: absolute;
   inset: 0;
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: background 0.4s ease, backdrop-filter 0.4s ease, -webkit-backdrop-filter 0.4s ease;
+}
+[data-skin="kuru"] .kuru-overlay--open .kuru-overlay__backdrop {
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -157,7 +215,17 @@ html[data-skin="kuru"] body {
   position: relative;
   z-index: 1;
   padding: 14px;
-  animation: kuru-panel-in 0.35s ease;
+}
+
+/* line state: thin horizontal bar */
+[data-skin="kuru"] .kuru-overlay--line .kuru-overlay__frame {
+  transform: scaleY(0);
+  opacity: 0;
+}
+
+/* open state: expand from line */
+[data-skin="kuru"] .kuru-overlay--open .kuru-overlay__frame {
+  animation: kuru-expand-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 [data-skin="kuru"] .kuru-overlay__frame::before,
@@ -912,14 +980,24 @@ a[data-skin="kuru"] .kuru-file--link,
   50% { opacity: 0.25; }
 }
 
-@keyframes kuru-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+@keyframes kuru-expand-in {
+  0% {
+    transform: scaleY(0.005);
+    opacity: 1;
+  }
+  30% {
+    transform: scaleY(0.005);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
 }
 
-@keyframes kuru-panel-in {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes kuru-line-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes kuru-bracket-pulse {
@@ -941,8 +1019,9 @@ a[data-skin="kuru"] .kuru-file--link,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-skin="kuru"] .kuru-overlay,
-  [data-skin="kuru"] .kuru-overlay__frame { animation: none; }
+  [data-skin="kuru"] .kuru-overlay__frame { animation: none; transform: scaleY(1); opacity: 1; }
   [data-skin="kuru"] .kuru-overlay__frame::before,
   [data-skin="kuru"] .kuru-overlay__frame::after { animation: none; }
+  [data-skin="kuru"] .kuru-connect__box { transition: none; }
+  [data-skin="kuru"] .kuru-connect__line { animation: none; opacity: 1; }
 }

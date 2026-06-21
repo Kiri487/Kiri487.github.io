@@ -4,18 +4,28 @@ import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
-import type { SectionId } from "./KuruApp";
+import type { SectionId, Phase } from "./KuruApp";
+
+const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
+
+const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
+  about: new THREE.Vector3(-2.55, -0.55, -0.90),
+  projects: new THREE.Vector3(1.05, -0.64, 0.00),
+  works: new THREE.Vector3(-0.90, -1.75, -0.50),
+  credits: new THREE.Vector3(-1.45, -0.95, -0.65),
+};
 
 interface GraffitiHotspotProps {
   texture: THREE.Texture;
   aspect: number;
+  glowing?: boolean;
   onClick?: () => void;
 }
 
-function GraffitiHotspot({ texture, aspect, onClick }: GraffitiHotspotProps) {
+function GraffitiHotspot({ texture, aspect, glowing, onClick }: GraffitiHotspotProps) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
-  const emissiveTarget = hovered ? 0.5 : 0;
+  const emissiveTarget = (hovered || glowing) ? 0.5 : 0;
 
   const alphaData = useMemo(() => {
     const img = texture.image as HTMLImageElement;
@@ -90,13 +100,14 @@ interface WallObjectProps {
   scale: [number, number];
   texture?: THREE.Texture;
   color?: string;
+  glowing?: boolean;
   onClick?: () => void;
 }
 
-function WallObject({ position, rotation, scale: s, texture, color = "#888", onClick }: WallObjectProps) {
+function WallObject({ position, rotation, scale: s, texture, color = "#888", glowing, onClick }: WallObjectProps) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
-  const emissiveTarget = hovered ? 0.5 : 0;
+  const emissiveTarget = (hovered || glowing) ? 0.5 : 0;
 
   useFrame(() => {
     if (!matRef.current) return;
@@ -148,11 +159,44 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888", onC
   );
 }
 
-interface SceneProps {
-  onSectionClick: (section: SectionId) => void;
+function CameraZoom({ target, phase, onDone }: {
+  target: SectionId | null;
+  phase: Phase;
+  onDone: () => void;
+}) {
+  const camera = useThree((s) => s.camera);
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    doneRef.current = false;
+  }, [target, phase]);
+
+  useFrame(() => {
+    if (phase === "idle") {
+      camera.position.lerp(HOME_POS, 0.04);
+      return;
+    }
+    if (phase === "zooming" && target) {
+      const dest = ZOOM_TARGETS[target];
+      camera.position.lerp(dest, 0.06);
+      if (!doneRef.current && camera.position.distanceTo(dest) < 0.05) {
+        doneRef.current = true;
+        onDone();
+      }
+    }
+  });
+
+  return null;
 }
 
-function Scene({ onSectionClick }: SceneProps) {
+interface SceneProps {
+  onSectionClick: (section: SectionId) => void;
+  zoomTarget: SectionId | null;
+  phase: Phase;
+  onZoomDone: () => void;
+}
+
+function Scene({ onSectionClick, zoomTarget, phase, onZoomDone }: SceneProps) {
   const { scene } = useGLTF("/models/dirty_street.glb");
   const graffitiTex = useTexture("/textures/kiri487_graffiti.png");
   const worksTex = useTexture("/textures/works_sticker.png");
@@ -199,6 +243,8 @@ function Scene({ onSectionClick }: SceneProps) {
 
   return (
     <>
+      <CameraZoom target={zoomTarget} phase={phase} onDone={onZoomDone} />
+
       <Environment preset="night" environmentIntensity={0.25} />
       <ambientLight intensity={0.12} />
 
@@ -239,33 +285,37 @@ function Scene({ onSectionClick }: SceneProps) {
 
       <primitive object={scene} />
 
-      {/* About — Kiri487 graffiti */}
-      <GraffitiHotspot texture={graffitiTex} aspect={aspect} onClick={() => onSectionClick("about")} />
+      <GraffitiHotspot
+        texture={graffitiTex}
+        aspect={aspect}
+        glowing={zoomTarget === "about" && phase !== "idle"}
+        onClick={() => onSectionClick("about")}
+      />
 
-      {/* Projects — poster on wall under lamp */}
       <WallObject
         position={[1.10, -0.67, 1.01]}
         rotation={[0, -3.14, 0]}
         scale={[posterAspect * posterScale, posterScale]}
         texture={posterTex}
+        glowing={zoomTarget === "projects" && phase !== "idle"}
         onClick={() => onSectionClick("projects")}
       />
 
-      {/* Works — sticker on box */}
       <WallObject
         position={[-0.94, -1.82, 0.12]}
         rotation={[-0.06, -3.49, 0.01]}
         scale={[worksAspect * worksScale, worksScale]}
         texture={worksTex}
+        glowing={zoomTarget === "works" && phase !== "idle"}
         onClick={() => onSectionClick("works")}
       />
 
-      {/* Credits — sticker on wall */}
       <WallObject
         position={[-1.47, -0.96, 0.53]}
         rotation={[0, -3.14, 0]}
         scale={[creditsAspect * creditsScale, creditsScale]}
         texture={creditsTex}
+        glowing={zoomTarget === "credits" && phase !== "idle"}
         onClick={() => onSectionClick("credits")}
       />
 
@@ -278,7 +328,6 @@ function Scene({ onSectionClick }: SceneProps) {
         />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
       </EffectComposer>
-
     </>
   );
 }
