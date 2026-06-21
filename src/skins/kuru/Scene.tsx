@@ -294,13 +294,15 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
   const gl = useThree((s) => s.gl);
   gl.toneMappingExposure = 1.0;
 
-  const worksAspect = worksTex.image ? worksTex.image.width / worksTex.image.height : 1.5;
+  const img = (tex: THREE.Texture) => tex.image as { width: number; height: number } | undefined;
+
+  const worksAspect = img(worksTex) ? img(worksTex)!.width / img(worksTex)!.height : 1.5;
   const worksScale = 0.17;
 
-  const creditsAspect = creditsTex.image ? creditsTex.image.width / creditsTex.image.height : 0.6;
+  const creditsAspect = img(creditsTex) ? img(creditsTex)!.width / img(creditsTex)!.height : 0.6;
   const creditsScale = 1.06;
 
-  const posterAspect = posterTex.image ? posterTex.image.width / posterTex.image.height : 1.20;
+  const posterAspect = img(posterTex) ? img(posterTex)!.width / img(posterTex)!.height : 1.20;
   const posterScale = 0.90;
 
   useEffect(() => {
@@ -316,7 +318,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
     });
   }, [scene]);
 
-  const aspect = graffitiTex.image ? graffitiTex.image.width / graffitiTex.image.height : 1.5;
+  const aspect = img(graffitiTex) ? img(graffitiTex)!.width / img(graffitiTex)!.height : 1.5;
 
   const lampTarget = useMemo(() => {
     const obj = new THREE.Object3D();
