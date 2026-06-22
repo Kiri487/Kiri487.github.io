@@ -207,6 +207,18 @@ const WALL_VIDEOS: VideoConfig[] = [
     brightness: 0.08,
     tint: [1.0, 0.92, 0.88],
   },
+  {
+    src: { webm: "/kuru/video/KuruSitAFK.webm", mov: "/kuru/video/KuruSitAFK_iOS.mov" },
+    aspect: 1334 / 1440,
+    position: [1.19, -1.54, -0.15],
+    rotation: [0, -3.13, 0],
+    scale: 0.92,
+    shadowOffset: [0.15, -0.35, 0.13],
+    shadowSize: [0.41, 0.28],
+    gamma: 2.0,
+    brightness: 0.08,
+    tint: [1.0, 0.92, 0.88],
+  },
 ];
 
 const projectionVertexShader = /* glsl */ `
@@ -224,6 +236,7 @@ const projectionFragmentShader = /* glsl */ `
   uniform float uGamma;
   uniform float uBrightness;
   uniform vec3 uTint;
+  uniform float uAlpha;
   varying vec2 vUv;
 
   float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -266,13 +279,18 @@ const projectionFragmentShader = /* glsl */ `
     scanline = smoothstep(0.42, 0.58, scanline);
     color.rgb -= scanline * 0.01;
 
-    color.a *= 1.0 - g * 0.3;
+    color.a *= (1.0 - g * 0.3) * uAlpha;
     if (color.a < 0.05) discard;
     gl_FragColor = color;
   }
 `;
 
-function VideoWallObject({ config }: { config: VideoConfig }) {
+function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
+  config: VideoConfig;
+  glitchRef: React.MutableRefObject<{ value: number }>;
+  alphaRef: React.MutableRefObject<number>;
+  videoRef: React.MutableRefObject<HTMLVideoElement | null>;
+}) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
 
   useEffect(() => {
@@ -294,6 +312,7 @@ function VideoWallObject({ config }: { config: VideoConfig }) {
     v.appendChild(webm);
 
     document.body.appendChild(v);
+    videoRef.current = v;
 
     const tex = new THREE.VideoTexture(v);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -305,6 +324,7 @@ function VideoWallObject({ config }: { config: VideoConfig }) {
         uMap: { value: tex },
         uTime: { value: 0 },
         uGlitch: { value: 0 },
+        uAlpha: { value: 1 },
         uGamma: { value: config.gamma },
         uBrightness: { value: config.brightness },
         uTint: { value: new THREE.Vector3(...config.tint) },
@@ -326,38 +346,15 @@ function VideoWallObject({ config }: { config: VideoConfig }) {
       tex.dispose();
       mat.dispose();
       setMaterial(null);
+      videoRef.current = null;
     };
-  }, [config]);
-
-  const glitchState = useRef({
-    active: 0,
-    remaining: 0,
-    nextRandom: 4 + Math.random() * 8,
-  });
+  }, [config, videoRef]);
 
   useFrame((_, delta) => {
     if (!material) return;
     material.uniforms.uTime.value += delta;
-
-    const gs = glitchState.current;
-
-    if (gs.active === 0) {
-      gs.nextRandom -= delta;
-      if (gs.nextRandom <= 0) {
-        gs.active = 0.3 + Math.random() * 0.3;
-        gs.remaining = 0.08 + Math.random() * 0.1;
-        gs.nextRandom = 6 + Math.random() * 6;
-      }
-    }
-
-    if (gs.remaining > 0) {
-      gs.remaining -= delta;
-      if (gs.remaining <= 0) {
-        gs.active = 0;
-      }
-    }
-
-    material.uniforms.uGlitch.value = gs.active;
+    material.uniforms.uGlitch.value = glitchRef.current.value;
+    material.uniforms.uAlpha.value = alphaRef.current;
   });
 
   if (!material) return null;
@@ -621,6 +618,102 @@ function CameraZoom({ target, phase, onDone }: {
 }
 
 function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture }) {
+  const videoElRefs = useRef<(HTMLVideoElement | null)[]>(WALL_VIDEOS.map(() => null));
+  const videoRefCallbacks = useMemo(
+    () => WALL_VIDEOS.map(() => ({ current: null as HTMLVideoElement | null })),
+    [],
+  );
+  const visibleIndexRef = useRef(0);
+  const containerRefs = useRef<(THREE.Group | null)[]>([]);
+  const alphaRefs = useRef(WALL_VIDEOS.map((_, i) => ({ current: i === 0 ? 1 : 0 })));
+
+  const glitchState = useRef({
+    value: 0,
+    phase: "idle" as "idle" | "ramp-up" | "crossfade" | "ramp-down",
+    elapsed: 0,
+    duration: 0,
+    swapAtPeak: false,
+    nextGlitch: 6 + Math.random() * 6,
+    swapCooldown: 0,
+    prevIndex: 0,
+    nextIndex: 0,
+  });
+
+  useFrame((_, delta) => {
+    const gs = glitchState.current;
+
+    for (let i = 0; i < videoRefCallbacks.length; i++) {
+      videoElRefs.current[i] = videoRefCallbacks[i].current;
+    }
+
+    if (gs.phase === "idle") {
+      gs.nextGlitch -= delta;
+      if (gs.swapCooldown > 0) gs.swapCooldown -= delta;
+      if (gs.nextGlitch <= 0) {
+        gs.phase = "ramp-up";
+        gs.elapsed = 0;
+        gs.swapAtPeak = gs.swapCooldown <= 0 && Math.random() < 0.35;
+        gs.duration = gs.swapAtPeak ? 0.7 + Math.random() * 0.2 : 0.15 + Math.random() * 0.1;
+        gs.nextGlitch = 6 + Math.random() * 6;
+      }
+    } else if (gs.phase === "ramp-up") {
+      gs.elapsed += delta;
+      const half = gs.duration / 2;
+      const intensity = gs.swapAtPeak ? 0.8 + Math.random() * 0.2 : 0.4 + Math.random() * 0.4;
+      gs.value = Math.min(1, gs.elapsed / half) * intensity;
+      if (gs.elapsed >= half) {
+        if (gs.swapAtPeak) {
+          gs.prevIndex = visibleIndexRef.current;
+          gs.nextIndex = (visibleIndexRef.current + 1) % WALL_VIDEOS.length;
+          const nextVideo = videoElRefs.current[gs.nextIndex];
+          if (nextVideo) nextVideo.currentTime = 0;
+          gs.phase = "crossfade";
+          gs.elapsed = 0;
+          gs.swapCooldown = 15 + Math.random() * 10;
+        } else {
+          gs.phase = "ramp-down";
+          gs.elapsed = 0;
+        }
+      }
+    } else if (gs.phase === "crossfade") {
+      gs.elapsed += delta;
+      gs.value = 0.7 + Math.random() * 0.3;
+      const CROSSFADE_DUR = 0.05;
+      const t = Math.min(1, gs.elapsed / CROSSFADE_DUR);
+      const noisy = Math.min(1, Math.max(0, t + (Math.random() - 0.5) * 0.15));
+      alphaRefs.current[gs.prevIndex].current = 1 - noisy;
+      alphaRefs.current[gs.nextIndex].current = noisy;
+      if (gs.elapsed >= CROSSFADE_DUR) {
+        alphaRefs.current[gs.prevIndex].current = 0;
+        alphaRefs.current[gs.nextIndex].current = 1;
+        visibleIndexRef.current = gs.nextIndex;
+        gs.phase = "ramp-down";
+        gs.elapsed = 0;
+      }
+    } else if (gs.phase === "ramp-down") {
+      gs.elapsed += delta;
+      const half = gs.duration / 2;
+      const fadeIntensity = gs.swapAtPeak ? 0.5 + Math.random() * 0.3 : 0.3 + Math.random() * 0.2;
+      gs.value = Math.max(0, 1 - gs.elapsed / half) * fadeIntensity;
+      if (gs.elapsed >= half) {
+        gs.value = 0;
+        gs.phase = "idle";
+      }
+    }
+
+    const inCrossfade = gs.phase === "crossfade";
+    for (let i = 0; i < containerRefs.current.length; i++) {
+      const c = containerRefs.current[i];
+      if (!c) continue;
+      if (inCrossfade) {
+        c.visible = i === gs.prevIndex || i === gs.nextIndex;
+      } else {
+        c.visible = i === visibleIndexRef.current;
+        alphaRefs.current[i].current = i === visibleIndexRef.current ? 1 : 0;
+      }
+    }
+  });
+
   return (
     <>
       {WALL_VIDEOS.map((cfg, i) => {
@@ -630,9 +723,14 @@ function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture
           cfg.position[2] + cfg.shadowOffset[2],
         ];
         return (
-          <group key={i}>
-            <group position={cfg.position}>
-              <VideoWallObject config={cfg} />
+          <group key={i} ref={el => { containerRefs.current[i] = el; }}>
+            <group position={cfg.position} scale={cfg.scale}>
+              <VideoWallObject
+                config={cfg}
+                glitchRef={glitchState}
+                alphaRef={alphaRefs.current[i]}
+                videoRef={videoRefCallbacks[i]}
+              />
             </group>
             <mesh position={shadowPos} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={cfg.shadowSize} />
