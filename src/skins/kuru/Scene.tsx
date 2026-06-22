@@ -297,15 +297,21 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
 
   useEffect(() => {
     const v = document.createElement("video");
+    v.autoplay = true;
     v.muted = true;
     v.loop = true;
     v.playsInline = true;
     v.setAttribute("playsinline", "");
-    v.style.display = "none";
+    v.style.position = "fixed";
+    v.style.left = "-9999px";
+    v.style.width = "1px";
+    v.style.height = "1px";
+    v.style.opacity = "0";
+    v.style.pointerEvents = "none";
 
     const mov = document.createElement("source");
     mov.src = config.src.mov;
-    mov.type = 'video/mp4; codecs="hvc1"';
+    mov.type = "video/quicktime";
     v.appendChild(mov);
 
     const webm = document.createElement("source");
