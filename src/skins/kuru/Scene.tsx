@@ -181,6 +181,68 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
+const VIDEO_ASPECT = 934 / 1440;
+
+function VideoWallObject({ position, rotation, scale: s }: {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: number;
+}) {
+  const [texture, setTexture] = useState<THREE.VideoTexture | null>(null);
+
+  useEffect(() => {
+    const v = document.createElement("video");
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;
+    v.setAttribute("playsinline", "");
+    v.style.display = "none";
+
+    const mov = document.createElement("source");
+    mov.src = "/kuru/video/KuruWallAFK_iOS.mov";
+    mov.type = "video/quicktime";
+    v.appendChild(mov);
+
+    const webm = document.createElement("source");
+    webm.src = "/kuru/video/KuruWallAFK.webm";
+    webm.type = "video/webm";
+    v.appendChild(webm);
+
+    document.body.appendChild(v);
+
+    const tex = new THREE.VideoTexture(v);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    setTexture(tex);
+
+    v.load();
+    v.play().catch((e) => {
+      if (e.name !== "AbortError") console.warn("Video play failed:", e);
+    });
+
+    return () => {
+      v.pause();
+      document.body.removeChild(v);
+      tex.dispose();
+      setTexture(null);
+    };
+  }, []);
+
+  if (!texture) return null;
+
+  return (
+    <mesh position={position} rotation={rotation}>
+      <planeGeometry args={[VIDEO_ASPECT * s, s]} />
+      <meshStandardMaterial
+        map={texture}
+        transparent
+        alphaTest={0.05}
+        roughness={0.85}
+        metalness={0}
+      />
+    </mesh>
+  );
+}
+
 // Calibrated safe scene boundaries.
 // +X is visually left and -X is visually right because the camera faces roughly +Z.
 const LEFT_BOUNDARY_POINT = new THREE.Vector3(3.85, HOME_POS.y, 1.0);
@@ -453,7 +515,6 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
     gl.toneMappingExposure = 1.0;
   }, [gl]);
 
-
   const worksAspect = texSize(worksTex) ? texSize(worksTex)!.width / texSize(worksTex)!.height : 1.5;
   const worksScale = 0.17;
 
@@ -614,6 +675,12 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
         texture={creditsTex}
         glowing={zoomTarget === "credits" && phase !== "idle"}
         onClick={() => onSectionClick("credits")}
+      />
+
+      <VideoWallObject
+        position={[-2.25, -1.32, -0.12]}
+        rotation={[0, -3.13, 0]}
+        scale={1.17}
       />
 
       {!IS_MOBILE && (

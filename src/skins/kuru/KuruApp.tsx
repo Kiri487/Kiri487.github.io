@@ -1,5 +1,6 @@
 import { Suspense, useState, useCallback, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
+import * as THREE from "three";
 import { useSkin } from "../../SkinContext";
 import Scene from "./Scene";
 import Overlay from "./Overlay";
@@ -47,7 +48,7 @@ function KuruApp() {
         camera={{ position: [-1.15, -1.1, -2.35], fov: 50, rotation: [0.01, -3.12, 0] }}
         className="kuru-canvas"
         flat
-        shadows
+        shadows={{ type: THREE.PCFShadowMap }}
         gl={{ antialias: true, alpha: false }}
       >
         <Suspense fallback={null}>
