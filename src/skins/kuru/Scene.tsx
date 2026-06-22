@@ -195,20 +195,50 @@ const projectionVertexShader = /* glsl */ `
 const projectionFragmentShader = /* glsl */ `
   uniform sampler2D uMap;
   uniform float uTime;
+  uniform float uGlitch;
   varying vec2 vUv;
+
+  float hash(float n) { return fract(sin(n) * 43758.5453); }
 
   void main() {
     vec2 uv = vUv;
-    vec4 color = texture2D(uMap, uv);
+
+    float g = uGlitch;
+
+    // Horizontal band displacement — many thin strips
+    if (g > 0.0) {
+      float bandSeed = floor(uv.y * 40.0) + floor(uTime * 30.0);
+      float bandRand = hash(bandSeed);
+      if (bandRand > 0.6) {
+        float shift = (hash(bandSeed + 1.0) - 0.5) * 0.05 * g;
+        uv.x += shift;
+      }
+    }
+
+    // RGB separation
+    float sep = g * 0.018;
+    vec4 color;
+    if (g > 0.0) {
+      color.r = texture2D(uMap, uv + vec2(sep, 0.0)).r;
+      color.g = texture2D(uMap, uv).g;
+      color.b = texture2D(uMap, uv - vec2(sep, 0.0)).b;
+      color.a = texture2D(uMap, uv).a;
+    } else {
+      color = texture2D(uMap, uv);
+    }
 
     // Dim to match dark scene lighting, preserve contrast, slight warm tint
     color.rgb = pow(color.rgb, vec3(2.0)) * 0.08 * vec3(1.0, 0.92, 0.88);
+
+    // Brightness spike during glitch
+    color.rgb *= 1.0 + g * 1.0;
 
     // Scanlines: thin horizontal lines, slowly drifting upward
     float scanline = sin((uv.y * 1400.0) + uTime * 2.5) * 0.5 + 0.5;
     scanline = smoothstep(0.42, 0.58, scanline);
     color.rgb -= scanline * 0.01;
 
+    color.a *= 1.0 - g * 0.3;
     if (color.a < 0.05) discard;
     gl_FragColor = color;
   }
@@ -250,6 +280,7 @@ function VideoWallObject({ position, rotation, scale: s }: {
       uniforms: {
         uMap: { value: tex },
         uTime: { value: 0 },
+        uGlitch: { value: 0 },
       },
       transparent: true,
       depthWrite: false,
@@ -271,10 +302,35 @@ function VideoWallObject({ position, rotation, scale: s }: {
     };
   }, []);
 
+  const glitchState = useRef({
+    active: 0,
+    remaining: 0,
+    nextRandom: 4 + Math.random() * 8,
+  });
+
   useFrame((_, delta) => {
-    if (material) {
-      material.uniforms.uTime.value += delta;
+    if (!material) return;
+    material.uniforms.uTime.value += delta;
+
+    const gs = glitchState.current;
+
+    if (gs.active === 0) {
+      gs.nextRandom -= delta;
+      if (gs.nextRandom <= 0) {
+        gs.active = 0.3 + Math.random() * 0.3;
+        gs.remaining = 0.08 + Math.random() * 0.1;
+        gs.nextRandom = 6 + Math.random() * 6;
+      }
     }
+
+    if (gs.remaining > 0) {
+      gs.remaining -= delta;
+      if (gs.remaining <= 0) {
+        gs.active = 0;
+      }
+    }
+
+    material.uniforms.uGlitch.value = gs.active;
   });
 
   if (!material) return null;
