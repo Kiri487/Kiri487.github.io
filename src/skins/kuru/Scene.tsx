@@ -54,11 +54,13 @@ function GraffitiHotspot({ texture, aspect, glowing, onClick }: GraffitiHotspotP
 
   const onMove = useCallback((e: { uv?: THREE.Vector2 }) => {
     if (e.uv && checkAlpha(e.uv)) {
-      if (!hovered) { setHovered(true); document.body.style.cursor = "pointer"; }
+      setHovered(true);
+      document.body.style.cursor = "pointer";
     } else {
-      if (hovered) { setHovered(false); document.body.style.cursor = ""; }
+      setHovered(false);
+      document.body.style.cursor = "";
     }
-  }, [checkAlpha, hovered]);
+  }, [checkAlpha]);
 
   const onOut = useCallback(() => {
     setHovered(false);
@@ -160,11 +162,11 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888", glo
   );
 }
 
-function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBases: React.MutableRefObject<number[]> }) {
+function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBases: number[] }) {
   const [hovered, setHovered] = useState(false);
 
   useFrame(() => {
-    flickerBases.current[1] = hovered ? 25 : 10;
+    flickerBases[1] = hovered ? 25 : 10;
   });
 
   return (
@@ -200,7 +202,7 @@ const WALL_VIDEOS: VideoConfig[] = [
     aspect: 934 / 1440,
     position: [-1.89, -1.32, -0.13],
     rotation: [0, -3.13, 0],
-    scale: 1.17,
+    scale: 1.37,
     shadowOffset: [0.05, -0.53, -0.09],
     shadowSize: [0.49, 0.26],
     gamma: 2.0,
@@ -212,7 +214,7 @@ const WALL_VIDEOS: VideoConfig[] = [
     aspect: 1334 / 1440,
     position: [1.19, -1.54, -0.15],
     rotation: [0, -3.13, 0],
-    scale: 0.92,
+    scale: 0.85,
     shadowOffset: [0.15, -0.35, 0.13],
     shadowSize: [0.41, 0.28],
     gamma: 2.0,
@@ -360,8 +362,8 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
   if (!material) return null;
 
   return (
-    <mesh position={[0, 0, 0]} rotation={config.rotation}>
-      <planeGeometry args={[config.aspect * config.scale, config.scale]} />
+    <mesh rotation={config.rotation}>
+      <planeGeometry args={[config.aspect, 1]} />
       <primitive object={material} attach="material" />
     </mesh>
   );
@@ -618,8 +620,7 @@ function CameraZoom({ target, phase, onDone }: {
 }
 
 function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture }) {
-  const videoElRefs = useRef<(HTMLVideoElement | null)[]>(WALL_VIDEOS.map(() => null));
-  const videoRefCallbacks = useMemo(
+  const videoRefs = useMemo(
     () => WALL_VIDEOS.map(() => ({ current: null as HTMLVideoElement | null })),
     [],
   );
@@ -642,10 +643,6 @@ function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture
   useFrame((_, delta) => {
     const gs = glitchState.current;
 
-    for (let i = 0; i < videoRefCallbacks.length; i++) {
-      videoElRefs.current[i] = videoRefCallbacks[i].current;
-    }
-
     if (gs.phase === "idle") {
       gs.nextGlitch -= delta;
       if (gs.swapCooldown > 0) gs.swapCooldown -= delta;
@@ -665,7 +662,7 @@ function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture
         if (gs.swapAtPeak) {
           gs.prevIndex = visibleIndexRef.current;
           gs.nextIndex = (visibleIndexRef.current + 1) % WALL_VIDEOS.length;
-          const nextVideo = videoElRefs.current[gs.nextIndex];
+          const nextVideo = videoRefs[gs.nextIndex].current;
           if (nextVideo) nextVideo.currentTime = 0;
           gs.phase = "crossfade";
           gs.elapsed = 0;
@@ -729,7 +726,7 @@ function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture
                 config={cfg}
                 glitchRef={glitchState}
                 alphaRef={alphaRefs.current[i]}
-                videoRef={videoRefCallbacks[i]}
+                videoRef={videoRefs[i]}
               />
             </group>
             <mesh position={shadowPos} rotation={[-Math.PI / 2, 0, 0]}>
@@ -765,13 +762,16 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
     gl.toneMappingExposure = 1.0;
   }, [gl]);
 
-  const worksAspect = texSize(worksTex) ? texSize(worksTex)!.width / texSize(worksTex)!.height : 1.5;
+  const worksImg = texSize(worksTex);
+  const worksAspect = worksImg ? worksImg.width / worksImg.height : 1.5;
   const worksScale = 0.17;
 
-  const creditsAspect = texSize(creditsTex) ? texSize(creditsTex)!.width / texSize(creditsTex)!.height : 0.6;
+  const creditsImg = texSize(creditsTex);
+  const creditsAspect = creditsImg ? creditsImg.width / creditsImg.height : 0.6;
   const creditsScale = 1.06;
 
-  const posterAspect = texSize(posterTex) ? texSize(posterTex)!.width / texSize(posterTex)!.height : 1.20;
+  const posterImg = texSize(posterTex);
+  const posterAspect = posterImg ? posterImg.width / posterImg.height : 1.20;
   const posterScale = 0.90;
 
   const contactShadowTex = useMemo(() => {
@@ -801,7 +801,8 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
     });
   }, [scene]);
 
-  const aspect = texSize(graffitiTex) ? texSize(graffitiTex)!.width / texSize(graffitiTex)!.height : 1.5;
+  const graffitiImg = texSize(graffitiTex);
+  const aspect = graffitiImg ? graffitiImg.width / graffitiImg.height : 1.5;
 
   const lampTarget = useMemo(() => {
     const obj = new THREE.Object3D();
@@ -905,7 +906,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
 
       <primitive object={scene} />
 
-      <ExitHotspot onClick={onExit} flickerBases={{ current: flickerState.current.bases }} />
+      <ExitHotspot onClick={onExit} flickerBases={flickerState.current.bases} />
 
       <GraffitiHotspot
         texture={graffitiTex}
