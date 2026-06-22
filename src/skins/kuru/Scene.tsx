@@ -181,7 +181,33 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
-const VIDEO_ASPECT = 934 / 1440;
+interface VideoConfig {
+  src: { webm: string; mov: string };
+  aspect: number;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: number;
+  shadowOffset: [number, number, number];
+  shadowSize: [number, number];
+  gamma: number;
+  brightness: number;
+  tint: [number, number, number];
+}
+
+const WALL_VIDEOS: VideoConfig[] = [
+  {
+    src: { webm: "/kuru/video/KuruWallAFK.webm", mov: "/kuru/video/KuruWallAFK_iOS.mov" },
+    aspect: 934 / 1440,
+    position: [-1.89, -1.32, -0.13],
+    rotation: [0, -3.13, 0],
+    scale: 1.17,
+    shadowOffset: [0.05, -0.53, -0.09],
+    shadowSize: [0.49, 0.26],
+    gamma: 2.0,
+    brightness: 0.08,
+    tint: [1.0, 0.92, 0.88],
+  },
+];
 
 const projectionVertexShader = /* glsl */ `
   varying vec2 vUv;
@@ -195,6 +221,9 @@ const projectionFragmentShader = /* glsl */ `
   uniform sampler2D uMap;
   uniform float uTime;
   uniform float uGlitch;
+  uniform float uGamma;
+  uniform float uBrightness;
+  uniform vec3 uTint;
   varying vec2 vUv;
 
   float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -227,7 +256,7 @@ const projectionFragmentShader = /* glsl */ `
     }
 
     // Dim to match dark scene lighting, preserve contrast, slight warm tint
-    color.rgb = pow(color.rgb, vec3(2.0)) * 0.08 * vec3(1.0, 0.92, 0.88);
+    color.rgb = pow(color.rgb, vec3(uGamma)) * uBrightness * uTint;
 
     // Brightness spike during glitch
     color.rgb *= 1.0 + g * 1.0;
@@ -243,11 +272,7 @@ const projectionFragmentShader = /* glsl */ `
   }
 `;
 
-function VideoWallObject({ position, rotation, scale: s }: {
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: number;
-}) {
+function VideoWallObject({ config }: { config: VideoConfig }) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
 
   useEffect(() => {
@@ -259,12 +284,12 @@ function VideoWallObject({ position, rotation, scale: s }: {
     v.style.display = "none";
 
     const mov = document.createElement("source");
-    mov.src = "/kuru/video/KuruWallAFK_iOS.mov";
+    mov.src = config.src.mov;
     mov.type = "video/quicktime";
     v.appendChild(mov);
 
     const webm = document.createElement("source");
-    webm.src = "/kuru/video/KuruWallAFK.webm";
+    webm.src = config.src.webm;
     webm.type = "video/webm";
     v.appendChild(webm);
 
@@ -280,6 +305,9 @@ function VideoWallObject({ position, rotation, scale: s }: {
         uMap: { value: tex },
         uTime: { value: 0 },
         uGlitch: { value: 0 },
+        uGamma: { value: config.gamma },
+        uBrightness: { value: config.brightness },
+        uTint: { value: new THREE.Vector3(...config.tint) },
       },
       transparent: true,
       depthWrite: false,
@@ -299,7 +327,7 @@ function VideoWallObject({ position, rotation, scale: s }: {
       mat.dispose();
       setMaterial(null);
     };
-  }, []);
+  }, [config]);
 
   const glitchState = useRef({
     active: 0,
@@ -335,8 +363,8 @@ function VideoWallObject({ position, rotation, scale: s }: {
   if (!material) return null;
 
   return (
-    <mesh position={position} rotation={rotation}>
-      <planeGeometry args={[VIDEO_ASPECT * s, s]} />
+    <mesh position={[0, 0, 0]} rotation={config.rotation}>
+      <planeGeometry args={[config.aspect * config.scale, config.scale]} />
       <primitive object={material} attach="material" />
     </mesh>
   );
@@ -592,20 +620,27 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
-const VIDEO_POS: [number, number, number] = [-1.89, -1.32, -0.13];
-const VIDEO_SCALE = 1.17;
-const SHADOW_POS: [number, number, number] = [-1.84, -1.85, -0.22];
-
 function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture }) {
   return (
     <>
-      <group position={VIDEO_POS} scale={VIDEO_SCALE}>
-        <VideoWallObject position={[0, 0, 0]} rotation={[0, -3.13, 0]} scale={1} />
-      </group>
-      <mesh position={SHADOW_POS} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.49, 0.26]} />
-        <meshBasicMaterial map={contactShadowTex} transparent opacity={0.9} depthWrite={false} />
-      </mesh>
+      {WALL_VIDEOS.map((cfg, i) => {
+        const shadowPos: [number, number, number] = [
+          cfg.position[0] + cfg.shadowOffset[0],
+          cfg.position[1] + cfg.shadowOffset[1],
+          cfg.position[2] + cfg.shadowOffset[2],
+        ];
+        return (
+          <group key={i}>
+            <group position={cfg.position}>
+              <VideoWallObject config={cfg} />
+            </group>
+            <mesh position={shadowPos} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={cfg.shadowSize} />
+              <meshBasicMaterial map={contactShadowTex} transparent opacity={0.9} depthWrite={false} />
+            </mesh>
+          </group>
+        );
+      })}
     </>
   );
 }
@@ -740,7 +775,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
         shadow-bias={-0.001}
-        position={[1.15, -0.05, 0.9]}
+        position={[1.11, -0.05, 0.88]}
         target={lampTarget}
         angle={1.0}
         penumbra={0.6}
