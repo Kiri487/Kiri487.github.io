@@ -10,7 +10,7 @@ const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
 const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
 
 const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
-  about: new THREE.Vector3(-2.55, -0.55, -0.90),
+  about: new THREE.Vector3(-2.55, -0.7, -0.90),
   projects: new THREE.Vector3(1.05, -0.64, 0.00),
   works: new THREE.Vector3(-0.90, -1.75, -0.50),
   credits: new THREE.Vector3(-1.45, -0.95, -0.65),
@@ -69,7 +69,7 @@ function GraffitiHotspot({ texture, aspect, glowing, onClick }: GraffitiHotspotP
 
   return (
     <mesh
-      position={[-2.55, -0.55, -0.1]}
+      position={[-2.6, -0.7, -0.08]}
       rotation={[0, -3.13, -0.14]}
       receiveShadow
       onPointerMove={onMove}
@@ -181,14 +181,45 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
+const CALIBRATE_VIDEO = false;
 const VIDEO_ASPECT = 934 / 1440;
+
+const projectionVertexShader = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const projectionFragmentShader = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform float uTime;
+  varying vec2 vUv;
+
+  void main() {
+    vec2 uv = vUv;
+    vec4 color = texture2D(uMap, uv);
+
+    // Dim to match dark scene lighting, preserve contrast, slight warm tint
+    color.rgb = pow(color.rgb, vec3(2.0)) * 0.08 * vec3(1.0, 0.92, 0.88);
+
+    // Scanlines: thin horizontal lines, slowly drifting upward
+    float scanline = sin((uv.y * 1400.0) + uTime * 2.5) * 0.5 + 0.5;
+    scanline = smoothstep(0.42, 0.58, scanline);
+    color.rgb -= scanline * 0.01;
+
+    if (color.a < 0.05) discard;
+    gl_FragColor = color;
+  }
+`;
 
 function VideoWallObject({ position, rotation, scale: s }: {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: number;
 }) {
-  const [texture, setTexture] = useState<THREE.VideoTexture | null>(null);
+  const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
 
   useEffect(() => {
     const v = document.createElement("video");
@@ -212,7 +243,19 @@ function VideoWallObject({ position, rotation, scale: s }: {
 
     const tex = new THREE.VideoTexture(v);
     tex.colorSpace = THREE.SRGBColorSpace;
-    setTexture(tex);
+
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: projectionVertexShader,
+      fragmentShader: projectionFragmentShader,
+      uniforms: {
+        uMap: { value: tex },
+        uTime: { value: 0 },
+      },
+      transparent: true,
+      depthWrite: false,
+    });
+
+    setMaterial(mat);
 
     v.load();
     v.play().catch((e) => {
@@ -223,30 +266,31 @@ function VideoWallObject({ position, rotation, scale: s }: {
       v.pause();
       document.body.removeChild(v);
       tex.dispose();
-      setTexture(null);
+      mat.dispose();
+      setMaterial(null);
     };
   }, []);
 
-  if (!texture) return null;
+  useFrame((_, delta) => {
+    if (material) {
+      material.uniforms.uTime.value += delta;
+    }
+  });
+
+  if (!material) return null;
 
   return (
     <mesh position={position} rotation={rotation}>
       <planeGeometry args={[VIDEO_ASPECT * s, s]} />
-      <meshStandardMaterial
-        map={texture}
-        transparent
-        alphaTest={0.05}
-        roughness={0.85}
-        metalness={0}
-      />
+      <primitive object={material} attach="material" />
     </mesh>
   );
 }
 
 // Calibrated safe scene boundaries.
 // +X is visually left and -X is visually right because the camera faces roughly +Z.
-const LEFT_BOUNDARY_POINT = new THREE.Vector3(3.85, HOME_POS.y, 1.0);
-const RIGHT_BOUNDARY_POINT = new THREE.Vector3(-3.65, HOME_POS.y, -0.02);
+const LEFT_BOUNDARY_POINT = new THREE.Vector3(3.68, HOME_POS.y, 1.0);
+const RIGHT_BOUNDARY_POINT = new THREE.Vector3(-3.4, HOME_POS.y, -0.02);
 
 // Keep the calibrated boundary slightly inside the viewport to avoid a 1px seam.
 const SAFE_NDC_X = 0.98;
@@ -493,6 +537,74 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
+function CalibratedVideo({ contactShadowTex }: { contactShadowTex: THREE.Texture }) {
+  const videoRef = useRef<THREE.Mesh>(null!);
+  const shadowRef = useRef<THREE.Mesh>(null!);
+  const pos = useRef<[number, number, number]>([-1.89, -1.32, -0.13]);
+  const shadowOffset = useRef<[number, number, number]>([0.05, -0.53, -0.09]);
+  const scaleRef = useRef(1.17);
+
+  useEffect(() => {
+    if (!CALIBRATE_VIDEO) return;
+    const onKey = (e: KeyboardEvent) => {
+      const step = e.shiftKey ? 0.001 : 0.01;
+      const p = pos.current;
+      const s = shadowOffset.current;
+      switch (e.key.toLowerCase()) {
+        case "a": p[0] += step; break;
+        case "d": p[0] -= step; break;
+        case "w": p[1] += step; break;
+        case "s": p[1] -= step; break;
+        case "q": p[2] += step; break;
+        case "e": p[2] -= step; break;
+        case "arrowup": scaleRef.current += step; break;
+        case "arrowdown": scaleRef.current -= step; break;
+        case "1": s[0] += step; break;
+        case "2": s[0] -= step; break;
+        case "3": s[1] += step; break;
+        case "4": s[1] -= step; break;
+        case "5": s[2] += step; break;
+        case "6": s[2] -= step; break;
+        default: return;
+      }
+      console.log(
+        `video pos: [${p.map(v => v.toFixed(2))}]`,
+        `scale: ${scaleRef.current.toFixed(2)}`,
+        `shadowOffset: [${s.map(v => v.toFixed(2))}]`,
+        `shadow pos: [${[p[0]+s[0], p[1]+s[1], p[2]+s[2]].map(v => v.toFixed(2))}]`
+      );
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useFrame(() => {
+    if (!videoRef.current || !shadowRef.current) return;
+    const p = pos.current;
+    const s = shadowOffset.current;
+    const sc = scaleRef.current;
+    videoRef.current.position.set(p[0], p[1], p[2]);
+    videoRef.current.scale.set(sc, sc, sc);
+    shadowRef.current.position.set(p[0] + s[0], p[1] + s[1], p[2] + s[2]);
+  });
+
+  return (
+    <>
+      <group ref={videoRef as any}>
+        <VideoWallObject
+          position={[0, 0, 0]}
+          rotation={[0, -3.13, 0]}
+          scale={1}
+        />
+      </group>
+      <mesh ref={shadowRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.49, 0.26]} />
+        <meshBasicMaterial map={contactShadowTex} transparent opacity={0.9} depthWrite={false} />
+      </mesh>
+    </>
+  );
+}
+
 const texSize = (tex: THREE.Texture) => tex.image as { width: number; height: number } | undefined;
 
 interface SceneProps {
@@ -523,6 +635,20 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
 
   const posterAspect = texSize(posterTex) ? texSize(posterTex)!.width / texSize(posterTex)!.height : 1.20;
   const posterScale = 0.90;
+
+  const contactShadowTex = useMemo(() => {
+    const s = 128;
+    const c = document.createElement("canvas");
+    c.width = s; c.height = s;
+    const ctx = c.getContext("2d")!;
+    const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+    g.addColorStop(0, "rgba(6, 14, 10, 0.33)");
+    g.addColorStop(0.45, "rgba(6, 14, 10, 0.14)");
+    g.addColorStop(1, "rgba(6, 14, 10, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, s, s);
+    return new THREE.CanvasTexture(c);
+  }, []);
 
   useEffect(() => {
     scene.traverse((child) => {
@@ -677,11 +803,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
         onClick={() => onSectionClick("credits")}
       />
 
-      <VideoWallObject
-        position={[-2.25, -1.32, -0.12]}
-        rotation={[0, -3.13, 0]}
-        scale={1.17}
-      />
+      <CalibratedVideo contactShadowTex={contactShadowTex} />
 
       {!IS_MOBILE && (
         <EffectComposer>
