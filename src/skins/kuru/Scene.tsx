@@ -181,11 +181,84 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
-const PAN_DESKTOP = { lo: -1.35, hi: 0.45 };
-function getMobileBounds() {
-  const aspect = window.innerWidth / window.innerHeight;
-  const adjust = (16 / 9 - aspect) * 1.2;
-  return { lo: -1.35 - adjust, hi: 1.3 + adjust };
+// Calibrated safe scene boundaries.
+// +X is visually left and -X is visually right because the camera faces roughly +Z.
+const LEFT_BOUNDARY_POINT = new THREE.Vector3(3.85, HOME_POS.y, 1.0);
+const RIGHT_BOUNDARY_POINT = new THREE.Vector3(-3.65, HOME_POS.y, -0.02);
+
+// Keep the calibrated boundary slightly inside the viewport to avoid a 1px seam.
+const SAFE_NDC_X = 0.98;
+const CAMERA_X_SEARCH_MIN = -20;
+const CAMERA_X_SEARCH_MAX = 20;
+const CAMERA_X_SEARCH_STEPS = 60;
+
+/**
+ * Find the camera world-X that projects `point` to `targetNdcX`.
+ *
+ * NDC X:
+ * -1 = viewport left edge
+ *  1 = viewport right edge
+ *
+ * A cloned camera is used so the live camera never moves during calculation.
+ */
+function findCameraXForProjectedX(
+  sourceCamera: THREE.PerspectiveCamera,
+  aspect: number,
+  point: THREE.Vector3,
+  targetNdcX: number,
+) {
+  const testCamera = sourceCamera.clone() as THREE.PerspectiveCamera;
+  const projected = new THREE.Vector3();
+
+  testCamera.position.set(HOME_POS.x, HOME_POS.y, HOME_POS.z);
+  testCamera.aspect = aspect;
+  testCamera.updateProjectionMatrix();
+
+  const evaluate = (cameraX: number) => {
+    testCamera.position.x = cameraX;
+    testCamera.updateMatrixWorld(true);
+    projected.copy(point).project(testCamera);
+    return projected.x - targetNdcX;
+  };
+
+  let low = CAMERA_X_SEARCH_MIN;
+  let high = CAMERA_X_SEARCH_MAX;
+  let lowValue = evaluate(low);
+  let highValue = evaluate(high);
+
+  if (!Number.isFinite(lowValue) || !Number.isFinite(highValue)) {
+    throw new Error("Could not project a scene boundary point.");
+  }
+
+  if (Math.abs(lowValue) < 1e-7) return low;
+  if (Math.abs(highValue) < 1e-7) return high;
+
+  if (lowValue * highValue > 0) {
+    console.warn("Could not bracket camera pan boundary", {
+      point: point.toArray(),
+      targetNdcX,
+      lowValue,
+      highValue,
+    });
+    return HOME_POS.x;
+  }
+
+  for (let i = 0; i < CAMERA_X_SEARCH_STEPS; i++) {
+    const mid = (low + high) / 2;
+    const midValue = evaluate(mid);
+
+    if (Math.abs(midValue) < 1e-7) return mid;
+
+    if (lowValue * midValue <= 0) {
+      high = mid;
+      highValue = midValue;
+    } else {
+      low = mid;
+      lowValue = midValue;
+    }
+  }
+
+  return (low + high) / 2;
 }
 
 function CameraZoom({ target, phase, onDone }: {
@@ -193,52 +266,123 @@ function CameraZoom({ target, phase, onDone }: {
   phase: Phase;
   onDone: () => void;
 }) {
-  const camera = useThree((s) => s.camera);
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const size = useThree((s) => s.size);
+  const gl = useThree((s) => s.gl);
+
   const doneRef = useRef(false);
   const mouseX = useRef(0);
   const panX = useRef(HOME_POS.x);
   const touchRef = useRef({ startX: 0, lastX: 0, active: false });
   const velocityX = useRef(0);
-
-  const bounds = IS_MOBILE ? getMobileBounds() : PAN_DESKTOP;
+  const boundsRef = useRef({ lo: HOME_POS.x, hi: HOME_POS.x });
 
   useEffect(() => {
     doneRef.current = false;
   }, [target, phase]);
 
+  // Recalculate the camera's legal X range whenever the actual Canvas size changes.
   useEffect(() => {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    const aspect = size.width / size.height;
+
+    // Visual right end: right boundary reaches the viewport's right edge.
+    const lo = findCameraXForProjectedX(
+      camera,
+      aspect,
+      RIGHT_BOUNDARY_POINT,
+      SAFE_NDC_X,
+    );
+
+    // Visual left end: left boundary reaches the viewport's left edge.
+    const hi = findCameraXForProjectedX(
+      camera,
+      aspect,
+      LEFT_BOUNDARY_POINT,
+      -SAFE_NDC_X,
+    );
+
+    if (lo <= hi) {
+      boundsRef.current = { lo, hi };
+    } else {
+      // The viewport is wider than the calibrated safe scene.
+      // No X position can keep both sides inside at the same time.
+      const center = (lo + hi) / 2;
+      boundsRef.current = { lo: center, hi: center };
+      console.warn("Viewport is wider than the calibrated safe scene", {
+        aspect,
+        calculatedLo: lo,
+        calculatedHi: hi,
+      });
+    }
+
+    panX.current = THREE.MathUtils.clamp(
+      panX.current,
+      boundsRef.current.lo,
+      boundsRef.current.hi,
+    );
+
+    console.debug("Dynamic camera pan bounds", {
+      aspect,
+      ...boundsRef.current,
+    });
+  }, [camera, size.width, size.height]);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+
     const onMouseMove = (e: MouseEvent) => {
-      mouseX.current = (e.clientX / window.innerWidth) * 2 - 1;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      mouseX.current = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     };
+
     const onTouchStart = (e: TouchEvent) => {
       const t = e.touches[0];
-      touchRef.current = { startX: t.clientX, lastX: t.clientX, active: true };
+      if (!t) return;
+      touchRef.current = {
+        startX: t.clientX,
+        lastX: t.clientX,
+        active: true,
+      };
       velocityX.current = 0;
     };
+
     const onTouchMove = (e: TouchEvent) => {
       if (!touchRef.current.active) return;
       const t = e.touches[0];
+      if (!t) return;
+
       const dx = t.clientX - touchRef.current.lastX;
-      const sensitivity = 2.0 / window.innerWidth;
+      const sensitivity = 2.0 / Math.max(size.width, 1);
+
       velocityX.current = dx * sensitivity;
       panX.current += dx * sensitivity;
-      panX.current = Math.max(bounds.lo, Math.min(bounds.hi, panX.current));
+      panX.current = THREE.MathUtils.clamp(
+        panX.current,
+        boundsRef.current.lo,
+        boundsRef.current.hi,
+      );
       touchRef.current.lastX = t.clientX;
     };
+
     const onTouchEnd = () => {
       touchRef.current.active = false;
     };
+
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: true });
     window.addEventListener("touchend", onTouchEnd);
+
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
     };
-  }, []);
+  }, [gl, size.width]);
 
   useFrame((_, delta) => {
     if (phase === "idle") {
@@ -246,6 +390,7 @@ function CameraZoom({ target, phase, onDone }: {
         const mx = mouseX.current;
         const edge = 0.15;
         const speed = 1.2;
+
         if (mx < -1 + edge) {
           const strength = ((-1 + edge) - mx) / edge;
           panX.current += speed * strength * delta;
@@ -254,19 +399,28 @@ function CameraZoom({ target, phase, onDone }: {
           panX.current -= speed * strength * delta;
         }
       }
+
       if (!touchRef.current.active && Math.abs(velocityX.current) > 0.0001) {
         panX.current += velocityX.current;
         velocityX.current *= 0.92;
       }
-      panX.current = Math.max(bounds.lo, Math.min(bounds.hi, panX.current));
+
+      panX.current = THREE.MathUtils.clamp(
+        panX.current,
+        boundsRef.current.lo,
+        boundsRef.current.hi,
+      );
+
       camera.position.x += (panX.current - camera.position.x) * 0.08;
       camera.position.y += (HOME_POS.y - camera.position.y) * 0.04;
       camera.position.z += (HOME_POS.z - camera.position.z) * 0.04;
       return;
     }
+
     if (phase === "zooming" && target) {
       const dest = ZOOM_TARGETS[target];
       camera.position.lerp(dest, 0.06);
+
       if (!doneRef.current && camera.position.distanceTo(dest) < 0.05) {
         doneRef.current = true;
         onDone();
