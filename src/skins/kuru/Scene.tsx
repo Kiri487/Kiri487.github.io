@@ -305,7 +305,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
 
     const mov = document.createElement("source");
     mov.src = config.src.mov;
-    mov.type = "video/quicktime";
+    mov.type = 'video/mp4; codecs="hvc1"';
     v.appendChild(mov);
 
     const webm = document.createElement("source");
