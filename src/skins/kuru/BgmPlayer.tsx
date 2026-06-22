@@ -28,7 +28,7 @@ function BgmPlayer() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
     const saved = localStorage.getItem("bgmVolume");
-    return saved ? parseFloat(saved) : 0.4;
+    return saved ? parseFloat(saved) : 0.5;
   });
   const prevVolume = useRef(volume);
 
@@ -37,7 +37,7 @@ function BgmPlayer() {
   const toggle = useCallback(() => {
     const next = !playing;
     if (next) {
-      audioRef.current?.play();
+      audioRef.current?.play().catch(() => {});
     } else {
       audioRef.current?.pause();
     }
@@ -74,7 +74,13 @@ function BgmPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
     audio.load();
-    if (playing) audio.play();
+    if (playing) {
+      audio.play().catch((e) => {
+        if (e.name === "AbortError") return;
+        setPlaying(false);
+        localStorage.setItem("bgmEnabled", "false");
+      });
+    }
   }, [trackIdx]);
 
   useEffect(() => {
@@ -133,7 +139,7 @@ function BgmPlayer() {
               prevVolume.current = volume;
               setVolume(0);
             } else {
-              setVolume(prevVolume.current || 0.4);
+              setVolume(prevVolume.current || 0.5);
             }
           }}
         >

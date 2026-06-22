@@ -603,22 +603,21 @@ html[data-skin="kiri"] body {
 }
 
 [data-skin="kiri"] .masonry-container {
-  display: flex;
-  gap: 1.5rem;
-  justify-content: center;
+  column-count: 3;
+  column-gap: 1.5rem;
 }
 
-[data-skin="kiri"] .masonry-column {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  max-width: 100%;
+@media (max-width: 1024px) {
+  [data-skin="kiri"] .masonry-container { column-count: 2; }
+}
+@media (max-width: 840px) {
+  [data-skin="kiri"] .masonry-container { column-count: 1; }
 }
 
 [data-skin="kiri"] .gallery-item {
   display: block;
   break-inside: avoid;
+  margin-bottom: 1.5rem;
   position: relative;
   border-radius: 15px;
   overflow: hidden;

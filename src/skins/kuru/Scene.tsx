@@ -7,7 +7,7 @@ import * as THREE from "three";
 import type { SectionId, Phase } from "./KuruApp";
 
 const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
-const IS_MOBILE = navigator.maxTouchPoints > 0;
+const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
 
 const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
   about: new THREE.Vector3(-2.55, -0.55, -0.90),
@@ -277,6 +277,8 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
+const texSize = (tex: THREE.Texture) => tex.image as { width: number; height: number } | undefined;
+
 interface SceneProps {
   onSectionClick: (section: SectionId) => void;
   onExit: () => void;
@@ -292,17 +294,19 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
   const creditsTex = useTexture("/kuru/textures/cited_sticker.webp");
   const posterTex = useTexture("/kuru/textures/projects_poster.webp");
   const gl = useThree((s) => s.gl);
-  gl.toneMappingExposure = 1.0;
 
-  const img = (tex: THREE.Texture) => tex.image as { width: number; height: number } | undefined;
+  useEffect(() => {
+    gl.toneMappingExposure = 1.0;
+  }, [gl]);
 
-  const worksAspect = img(worksTex) ? img(worksTex)!.width / img(worksTex)!.height : 1.5;
+
+  const worksAspect = texSize(worksTex) ? texSize(worksTex)!.width / texSize(worksTex)!.height : 1.5;
   const worksScale = 0.17;
 
-  const creditsAspect = img(creditsTex) ? img(creditsTex)!.width / img(creditsTex)!.height : 0.6;
+  const creditsAspect = texSize(creditsTex) ? texSize(creditsTex)!.width / texSize(creditsTex)!.height : 0.6;
   const creditsScale = 1.06;
 
-  const posterAspect = img(posterTex) ? img(posterTex)!.width / img(posterTex)!.height : 1.20;
+  const posterAspect = texSize(posterTex) ? texSize(posterTex)!.width / texSize(posterTex)!.height : 1.20;
   const posterScale = 0.90;
 
   useEffect(() => {
@@ -318,7 +322,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
     });
   }, [scene]);
 
-  const aspect = img(graffitiTex) ? img(graffitiTex)!.width / img(graffitiTex)!.height : 1.5;
+  const aspect = texSize(graffitiTex) ? texSize(graffitiTex)!.width / texSize(graffitiTex)!.height : 1.5;
 
   const lampTarget = useMemo(() => {
     const obj = new THREE.Object3D();

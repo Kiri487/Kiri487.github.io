@@ -78,6 +78,56 @@ html[data-skin="kuru"] body {
   --kuru-accent-glow: rgba(255, 34, 34, 0.5);
 }
 
+/* ---- loading screen ---- */
+
+[data-skin="kuru"] .kuru-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  transition: opacity 0.5s ease;
+}
+[data-skin="kuru"] .kuru-loading--fade {
+  opacity: 0;
+}
+[data-skin="kuru"] .kuru-loading__box {
+  width: min(400px, 70vw);
+  border: 1px solid #0af;
+  background: rgba(0, 0, 0, 0.85);
+  box-shadow: 0 0 20px rgba(0, 170, 255, 0.4);
+}
+[data-skin="kuru"] .kuru-loading__content {
+  padding: 10px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem;
+  color: #0af;
+  line-height: 1.6;
+}
+[data-skin="kuru"] .kuru-loading__line {
+  opacity: 0;
+  animation: kuru-line-in 0.15s ease forwards;
+}
+[data-skin="kuru"] .kuru-loading__line--ready {
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(0, 170, 255, 0.5);
+}
+[data-skin="kuru"] .kuru-loading__status {
+  opacity: 0.8;
+}
+[data-skin="kuru"] .kuru-loading__bar-track {
+  height: 2px;
+  background: rgba(0, 170, 255, 0.15);
+}
+[data-skin="kuru"] .kuru-loading__bar-fill {
+  height: 100%;
+  background: #0af;
+  box-shadow: 0 0 6px rgba(0, 170, 255, 0.6);
+  transition: width 0.3s ease;
+}
+
 /* ---- content overlay ---- */
 
 /* ---- connect overlay (line → expand → text → collapse) ---- */
@@ -789,6 +839,10 @@ a[data-skin="kuru"] .kuru-file--link,
   [data-skin="kuru"] .kuru-overlay__footer { font-size: 0.55rem; padding: 0.3rem 0.8rem; }
   [data-skin="kuru"] .kuru-overlay__footer-sep { display: none; }
 
+  /* loading screen */
+  [data-skin="kuru"] .kuru-loading__box { width: min(320px, 85vw); }
+  [data-skin="kuru"] .kuru-loading__content { font-size: 0.72rem; padding: 8px 12px; }
+
   /* connect overlay */
   [data-skin="kuru"] .kuru-connect__box { width: min(320px, 85vw); }
   [data-skin="kuru"] .kuru-connect__content { font-size: 0.72rem; padding: 8px 12px; }
@@ -833,4 +887,7 @@ a[data-skin="kuru"] .kuru-file--link,
   [data-skin="kuru"] .kuru-overlay__frame::after { animation: none; }
   [data-skin="kuru"] .kuru-connect__box { transition: none; }
   [data-skin="kuru"] .kuru-connect__line { animation: none; opacity: 1; }
+  [data-skin="kuru"] .kuru-loading { transition: none; }
+  [data-skin="kuru"] .kuru-loading__line { animation: none; opacity: 1; }
+  [data-skin="kuru"] .kuru-loading__bar-fill { transition: none; }
 }

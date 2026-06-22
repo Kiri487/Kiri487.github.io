@@ -5,6 +5,7 @@ import Scene from "./Scene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
 import BgmPlayer from "./BgmPlayer";
+import LoadingScreen from "./LoadingScreen";
 import "./style.css";
 
 export type SectionId = "about" | "projects" | "works" | "credits";
@@ -70,6 +71,7 @@ function KuruApp() {
         onClose={handleClose}
       />
       <BgmPlayer />
+      <LoadingScreen />
     </div>
   );
 }

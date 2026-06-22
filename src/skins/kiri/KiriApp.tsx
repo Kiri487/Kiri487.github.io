@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { videoBgmPairs, getRandomIndex } from "../../config/assets";
 import Navbar from "./components/Navbar";
@@ -51,11 +51,10 @@ function KiriApp() {
     setCurrentPairIndex(newIndex);
   };
 
-  const initAudioContext = () => {
+  const initAudioContext = useCallback(() => {
     if (!audioRef.current) return;
 
     if (!audioContextRef.current) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
       const ctx = new AudioContext();
       audioContextRef.current = ctx;
 
@@ -75,7 +74,7 @@ function KiriApp() {
     if (audioContextRef.current?.state === 'suspended') {
       audioContextRef.current.resume();
     }
-  };
+  }, []);
 
   const toggleBgm = () => {
     initAudioContext();
@@ -99,18 +98,17 @@ function KiriApp() {
 
   useEffect(() => {
     if (bgmEnabled) {
-      // Build the Web Audio graph before playback so the canvas can visualize it.
       initAudioContext();
       audioRef.current?.play()
         .catch((e) => {
-          console.log("Audio play error:", e);
+          if (e.name === "AbortError") return;
           setBgmEnabled(false);
         });
     }
     else {
       audioRef.current?.pause();
     }
-  }, [bgmEnabled, currentPairIndex]);
+  }, [bgmEnabled, currentPairIndex, initAudioContext]);
 
   return (
     <Router basename="/">
