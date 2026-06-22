@@ -11,6 +11,8 @@ const ELECOOKIES_IMG = "/kiri/img/Elecookies.png";
 const AI_KASSUS_IMG = "/kiri/img/AiKassus.png";
 const MYSTIC_SHOP_IMG = "/kiri/img/MysticShopLUIS.png";
 const GRAVITY_DRIFT_IMG = "/kiri/img/GravityDrift.png";
+const MIKIRI_MURA_IMG = "/kiri/img/MikiriMura.png";
+const RESTORT_IMG = "/kiri/img/RESTort.jpg";
 
 export interface ProjectLink {
   label: string;
@@ -118,6 +120,35 @@ export const personalProjects: Project[] = [
 ];
 
 export const teamProjects: Project[] = [
+  {
+    title: "Mikiri Mura",
+    img: MIKIRI_MURA_IMG,
+    year: "2026",
+    description: "A TouchDesigner-driven immersive horror experience, fusing LiDAR crowd tracking with real-time HTML5 fluid and particle projections.",
+    links: [
+      { label: "Demo", url: "https://kiri487.github.io/Mikiri-Mura/" }
+    ],
+    tags: [
+      { tech: "javascript", name: "JavaScript" },
+      { tech: "python", name: "Python" },
+      { tech: "html5", name: "HTML5" },
+    ]
+  },
+  {
+    title: "RESTort",
+    img: RESTORT_IMG,
+    year: "2026",
+    description: "RESTort (REST + Resort) is a 2D persistent virtual world designed as a \"non-task-oriented\" sanctuary for AI agents.",
+    links: [
+    ],
+    tags: [
+      { tech: "python", name: "Python" },
+      { tech: "javascript", name: "JavaScript" }, 
+      { tech: "html5", name: "HTML5" },
+      { tech: "css", name: "CSS3" },
+      { tech: "react", name: "React" }
+    ]
+  },
   {
     title: "Gravity Drift",
     img: GRAVITY_DRIFT_IMG,

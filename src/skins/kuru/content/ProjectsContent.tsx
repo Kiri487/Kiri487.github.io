@@ -3,7 +3,7 @@ import { personalProjects, teamProjects } from "../../../data/projects";
 const allProjects = [
   ...personalProjects.map((p) => ({ ...p, kind: "Personal" as const })),
   ...teamProjects.map((p) => ({ ...p, kind: "Team" as const })),
-];
+].sort((a, b) => parseInt(String(b.year), 10) - parseInt(String(a.year), 10));
 
 function ProjectsContent() {
   return (
@@ -39,6 +39,7 @@ function ProjectsContent() {
                       <span key={t.tech}> ∙ {t.name}</span>
                     ))}
                   </span>
+                  
                   {p.links.length > 0 && (
                     <span className="kuru-file__links">
                       {p.links.map((l) => (
