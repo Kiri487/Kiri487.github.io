@@ -295,20 +295,20 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
   videoRef: React.MutableRefObject<HTMLVideoElement | null>;
 }) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
-  const drawRef = useRef<{
-    video: HTMLVideoElement;
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-    tex: THREE.CanvasTexture;
-  } | null>(null);
 
   useEffect(() => {
     const v = document.createElement("video");
     v.autoplay = true;
-    v.muted = true;
     v.loop = true;
+    v.muted = true;
+    v.defaultMuted = true;
     v.playsInline = true;
+    v.preload = "auto";
+    v.setAttribute("autoplay", "");
+    v.setAttribute("loop", "");
+    v.setAttribute("muted", "");
     v.setAttribute("playsinline", "");
+    v.setAttribute("webkit-playsinline", "");
     v.style.position = "fixed";
     v.style.left = "-9999px";
     v.style.width = "1px";
@@ -316,37 +316,16 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
     v.style.opacity = "0";
     v.style.pointerEvents = "none";
 
-    const mov = document.createElement("source");
-    mov.src = config.src.mov;
-    mov.type = "video/quicktime";
-    v.appendChild(mov);
-
-    const webm = document.createElement("source");
-    webm.src = config.src.webm;
-    webm.type = "video/webm";
-    v.appendChild(webm);
+    v.src = IS_SAFARI ? config.src.mov : config.src.webm;
 
     document.body.appendChild(v);
     videoRef.current = v;
 
-    let tex: THREE.Texture;
-
-    if (IS_SAFARI) {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d")!;
-      v.addEventListener("loadedmetadata", () => {
-        canvas.width = v.videoWidth;
-        canvas.height = v.videoHeight;
-      });
-      const canvasTex = new THREE.CanvasTexture(canvas);
-      canvasTex.colorSpace = THREE.SRGBColorSpace;
-      drawRef.current = { video: v, canvas, ctx, tex: canvasTex };
-      tex = canvasTex;
-    } else {
-      const videoTex = new THREE.VideoTexture(v);
-      videoTex.colorSpace = THREE.SRGBColorSpace;
-      tex = videoTex;
-    }
+    const tex = new THREE.VideoTexture(v);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
 
     const mat = new THREE.ShaderMaterial({
       vertexShader: projectionVertexShader,
@@ -372,7 +351,6 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
     });
 
     return () => {
-      drawRef.current = null;
       v.pause();
       document.body.removeChild(v);
       tex.dispose();
@@ -384,14 +362,6 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
 
   useFrame((_, delta) => {
     if (!material) return;
-
-    const dc = drawRef.current;
-    if (dc && dc.video.readyState >= dc.video.HAVE_CURRENT_DATA) {
-      dc.ctx.clearRect(0, 0, dc.canvas.width, dc.canvas.height);
-      dc.ctx.drawImage(dc.video, 0, 0);
-      dc.tex.needsUpdate = true;
-    }
-
     material.uniforms.uTime.value += delta;
     material.uniforms.uGlitch.value = glitchRef.current.value;
     material.uniforms.uAlpha.value = alphaRef.current;
