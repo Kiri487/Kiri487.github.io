@@ -511,10 +511,6 @@ function CameraZoom({ target, phase, onDone }: {
       boundsRef.current.hi,
     );
 
-    console.debug("Dynamic camera pan bounds", {
-      aspect,
-      ...boundsRef.current,
-    });
   }, [camera, size.width, size.height]);
 
   useEffect(() => {

@@ -128,8 +128,6 @@ html[data-skin="kuru"] body {
   transition: width 0.3s ease;
 }
 
-/* ---- content overlay ---- */
-
 /* ---- connect overlay (line → expand → text → collapse) ---- */
 
 [data-skin="kuru"] .kuru-connect {
@@ -652,7 +650,6 @@ html[data-skin="kuru"] body {
   text-shadow: 0 0 8px var(--kuru-accent-glow, rgba(255, 230, 0, 0.4));
 }
 
-a[data-skin="kuru"] .kuru-file--link,
 [data-skin="kuru"] a.kuru-file--link {
   text-decoration: none;
   color: inherit;
