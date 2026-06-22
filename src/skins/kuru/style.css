@@ -913,6 +913,7 @@ html[data-skin="kuru"] body {
   [data-skin="kuru"] .kuru-bgm__track { max-width: 100px; font-size: 0.65rem; }
   [data-skin="kuru"] .kuru-bgm__bar { width: 60px; }
   [data-skin="kuru"] .kuru-bgm__time { font-size: 0.58rem; }
+  [data-skin="kuru"] .kuru-bgm__vol { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
