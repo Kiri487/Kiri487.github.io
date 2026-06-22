@@ -258,9 +258,9 @@ const projectionFragmentShader = /* glsl */ `
       }
     }
 
-    // Stacked layout: top half = RGB, bottom half = alpha mask
-    vec2 rgbUv = vec2(uv.x, uv.y * 0.5);
-    vec2 alphaUv = vec2(uv.x, uv.y * 0.5 + 0.5);
+    // Stacked layout (flipY=true): texture top = video top = RGB, texture bottom = alpha
+    vec2 rgbUv = vec2(uv.x, uv.y * 0.5 + 0.5);
+    vec2 alphaUv = vec2(uv.x, uv.y * 0.5);
 
     // RGB separation
     float sep = g * 0.018;
@@ -274,8 +274,10 @@ const projectionFragmentShader = /* glsl */ `
       rgb = texture2D(uMap, rgbUv).rgb;
     }
     a = texture2D(uMap, alphaUv).r;
+    // Undo sRGB decode on alpha mask, then remap YUV limited range (16-235)
+    a = pow(a, 1.0 / 2.2);
+    a = clamp((a - 0.063) / 0.859, 0.0, 1.0);
 
-    // Dim to match dark scene lighting, preserve contrast, slight warm tint
     rgb = pow(rgb, vec3(uGamma)) * uBrightness * uTint;
 
     // Brightness spike during glitch
