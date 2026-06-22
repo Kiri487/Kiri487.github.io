@@ -810,17 +810,21 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
 
       <VideoWithShadow contactShadowTex={contactShadowTex} />
 
-      <EffectComposer>
-        {!IS_MOBILE && (
+      {IS_MOBILE ? (
+        <EffectComposer>
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        </EffectComposer>
+      ) : (
+        <EffectComposer>
           <Bloom
             intensity={1.0}
             luminanceThreshold={0.7}
             luminanceSmoothing={0.4}
             mipmapBlur
           />
-        )}
-        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-      </EffectComposer>
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        </EffectComposer>
+      )}
     </>
   );
 }
