@@ -8,6 +8,7 @@ import type { SectionId, Phase } from "./KuruApp";
 
 const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
 const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
+const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
   about: new THREE.Vector3(-2.55, -0.7, -0.90),
@@ -294,6 +295,12 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
   videoRef: React.MutableRefObject<HTMLVideoElement | null>;
 }) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
+  const drawRef = useRef<{
+    video: HTMLVideoElement;
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    tex: THREE.CanvasTexture;
+  } | null>(null);
 
   useEffect(() => {
     const v = document.createElement("video");
@@ -322,8 +329,24 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
     document.body.appendChild(v);
     videoRef.current = v;
 
-    const tex = new THREE.VideoTexture(v);
-    tex.colorSpace = THREE.SRGBColorSpace;
+    let tex: THREE.Texture;
+
+    if (IS_SAFARI) {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
+      v.addEventListener("loadedmetadata", () => {
+        canvas.width = v.videoWidth;
+        canvas.height = v.videoHeight;
+      });
+      const canvasTex = new THREE.CanvasTexture(canvas);
+      canvasTex.colorSpace = THREE.SRGBColorSpace;
+      drawRef.current = { video: v, canvas, ctx, tex: canvasTex };
+      tex = canvasTex;
+    } else {
+      const videoTex = new THREE.VideoTexture(v);
+      videoTex.colorSpace = THREE.SRGBColorSpace;
+      tex = videoTex;
+    }
 
     const mat = new THREE.ShaderMaterial({
       vertexShader: projectionVertexShader,
@@ -349,6 +372,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
     });
 
     return () => {
+      drawRef.current = null;
       v.pause();
       document.body.removeChild(v);
       tex.dispose();
@@ -360,6 +384,14 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
 
   useFrame((_, delta) => {
     if (!material) return;
+
+    const dc = drawRef.current;
+    if (dc && dc.video.readyState >= dc.video.HAVE_CURRENT_DATA) {
+      dc.ctx.clearRect(0, 0, dc.canvas.width, dc.canvas.height);
+      dc.ctx.drawImage(dc.video, 0, 0);
+      dc.tex.needsUpdate = true;
+    }
+
     material.uniforms.uTime.value += delta;
     material.uniforms.uGlitch.value = glitchRef.current.value;
     material.uniforms.uAlpha.value = alphaRef.current;
