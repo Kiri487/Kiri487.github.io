@@ -8,7 +8,6 @@ import type { SectionId, Phase } from "./KuruApp";
 
 const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
 const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
-const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
   about: new THREE.Vector3(-2.55, -0.7, -0.90),
@@ -185,7 +184,7 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
 }
 
 interface VideoConfig {
-  src: { webm: string; mov: string };
+  src: string;
   aspect: number;
   position: [number, number, number];
   rotation: [number, number, number];
@@ -199,7 +198,7 @@ interface VideoConfig {
 
 const WALL_VIDEOS: VideoConfig[] = [
   {
-    src: { webm: "/kuru/video/KuruWallAFK.webm", mov: "/kuru/video/KuruWallAFK_iOS.mov" },
+    src: "/kuru/video/KuruWallAFK_stacked.webm",
     aspect: 934 / 1440,
     position: [-1.89, -1.32, -0.13],
     rotation: [0, -3.13, 0],
@@ -211,7 +210,7 @@ const WALL_VIDEOS: VideoConfig[] = [
     tint: [1.0, 0.92, 0.88],
   },
   {
-    src: { webm: "/kuru/video/KuruSitAFK.webm", mov: "/kuru/video/KuruSitAFK_iOS.mov" },
+    src: "/kuru/video/KuruSitAFK_stacked.webm",
     aspect: 1334 / 1440,
     position: [1.19, -1.54, -0.15],
     rotation: [0, -3.13, 0],
@@ -259,32 +258,37 @@ const projectionFragmentShader = /* glsl */ `
       }
     }
 
+    // Stacked layout: top half = RGB, bottom half = alpha mask
+    vec2 rgbUv = vec2(uv.x, uv.y * 0.5);
+    vec2 alphaUv = vec2(uv.x, uv.y * 0.5 + 0.5);
+
     // RGB separation
     float sep = g * 0.018;
-    vec4 color;
+    vec3 rgb;
+    float a;
     if (g > 0.0) {
-      color.r = texture2D(uMap, uv + vec2(sep, 0.0)).r;
-      color.g = texture2D(uMap, uv).g;
-      color.b = texture2D(uMap, uv - vec2(sep, 0.0)).b;
-      color.a = texture2D(uMap, uv).a;
+      rgb.r = texture2D(uMap, rgbUv + vec2(sep, 0.0)).r;
+      rgb.g = texture2D(uMap, rgbUv).g;
+      rgb.b = texture2D(uMap, rgbUv - vec2(sep, 0.0)).b;
     } else {
-      color = texture2D(uMap, uv);
+      rgb = texture2D(uMap, rgbUv).rgb;
     }
+    a = texture2D(uMap, alphaUv).r;
 
     // Dim to match dark scene lighting, preserve contrast, slight warm tint
-    color.rgb = pow(color.rgb, vec3(uGamma)) * uBrightness * uTint;
+    rgb = pow(rgb, vec3(uGamma)) * uBrightness * uTint;
 
     // Brightness spike during glitch
-    color.rgb *= 1.0 + g * 1.0;
+    rgb *= 1.0 + g * 1.0;
 
     // Scanlines: thin horizontal lines, slowly drifting upward
     float scanline = sin((uv.y * 1400.0) + uTime * 2.5) * 0.5 + 0.5;
     scanline = smoothstep(0.42, 0.58, scanline);
-    color.rgb -= scanline * 0.01;
+    rgb -= scanline * 0.01;
 
-    color.a *= (1.0 - g * 0.3) * uAlpha;
-    if (color.a < 0.05) discard;
-    gl_FragColor = color;
+    a *= (1.0 - g * 0.3) * uAlpha;
+    if (a < 0.05) discard;
+    gl_FragColor = vec4(rgb, a);
   }
 `;
 
@@ -316,7 +320,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
     v.style.opacity = "0";
     v.style.pointerEvents = "none";
 
-    v.src = IS_SAFARI ? config.src.mov : config.src.webm;
+    v.src = config.src;
 
     document.body.appendChild(v);
     videoRef.current = v;
