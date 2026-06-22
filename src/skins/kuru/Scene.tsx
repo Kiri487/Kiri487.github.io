@@ -181,7 +181,6 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
   );
 }
 
-const CALIBRATE_VIDEO = false;
 const VIDEO_ASPECT = 934 / 1440;
 
 const projectionVertexShader = /* glsl */ `
@@ -593,67 +592,17 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
-function CalibratedVideo({ contactShadowTex }: { contactShadowTex: THREE.Texture }) {
-  const videoRef = useRef<THREE.Mesh>(null!);
-  const shadowRef = useRef<THREE.Mesh>(null!);
-  const pos = useRef<[number, number, number]>([-1.89, -1.32, -0.13]);
-  const shadowOffset = useRef<[number, number, number]>([0.05, -0.53, -0.09]);
-  const scaleRef = useRef(1.17);
+const VIDEO_POS: [number, number, number] = [-1.89, -1.32, -0.13];
+const VIDEO_SCALE = 1.17;
+const SHADOW_POS: [number, number, number] = [-1.84, -1.85, -0.22];
 
-  useEffect(() => {
-    if (!CALIBRATE_VIDEO) return;
-    const onKey = (e: KeyboardEvent) => {
-      const step = e.shiftKey ? 0.001 : 0.01;
-      const p = pos.current;
-      const s = shadowOffset.current;
-      switch (e.key.toLowerCase()) {
-        case "a": p[0] += step; break;
-        case "d": p[0] -= step; break;
-        case "w": p[1] += step; break;
-        case "s": p[1] -= step; break;
-        case "q": p[2] += step; break;
-        case "e": p[2] -= step; break;
-        case "arrowup": scaleRef.current += step; break;
-        case "arrowdown": scaleRef.current -= step; break;
-        case "1": s[0] += step; break;
-        case "2": s[0] -= step; break;
-        case "3": s[1] += step; break;
-        case "4": s[1] -= step; break;
-        case "5": s[2] += step; break;
-        case "6": s[2] -= step; break;
-        default: return;
-      }
-      console.log(
-        `video pos: [${p.map(v => v.toFixed(2))}]`,
-        `scale: ${scaleRef.current.toFixed(2)}`,
-        `shadowOffset: [${s.map(v => v.toFixed(2))}]`,
-        `shadow pos: [${[p[0]+s[0], p[1]+s[1], p[2]+s[2]].map(v => v.toFixed(2))}]`
-      );
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  useFrame(() => {
-    if (!videoRef.current || !shadowRef.current) return;
-    const p = pos.current;
-    const s = shadowOffset.current;
-    const sc = scaleRef.current;
-    videoRef.current.position.set(p[0], p[1], p[2]);
-    videoRef.current.scale.set(sc, sc, sc);
-    shadowRef.current.position.set(p[0] + s[0], p[1] + s[1], p[2] + s[2]);
-  });
-
+function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture }) {
   return (
     <>
-      <group ref={videoRef as any}>
-        <VideoWallObject
-          position={[0, 0, 0]}
-          rotation={[0, -3.13, 0]}
-          scale={1}
-        />
+      <group position={VIDEO_POS} scale={VIDEO_SCALE}>
+        <VideoWallObject position={[0, 0, 0]} rotation={[0, -3.13, 0]} scale={1} />
       </group>
-      <mesh ref={shadowRef} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={SHADOW_POS} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.49, 0.26]} />
         <meshBasicMaterial map={contactShadowTex} transparent opacity={0.9} depthWrite={false} />
       </mesh>
@@ -859,19 +808,19 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
         onClick={() => onSectionClick("credits")}
       />
 
-      <CalibratedVideo contactShadowTex={contactShadowTex} />
+      <VideoWithShadow contactShadowTex={contactShadowTex} />
 
-      {!IS_MOBILE && (
-        <EffectComposer>
+      <EffectComposer>
+        {!IS_MOBILE && (
           <Bloom
             intensity={1.0}
             luminanceThreshold={0.7}
             luminanceSmoothing={0.4}
             mipmapBlur
           />
-          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        </EffectComposer>
-      )}
+        )}
+        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+      </EffectComposer>
     </>
   );
 }
