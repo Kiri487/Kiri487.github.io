@@ -171,7 +171,7 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
 
   return (
     <mesh
-      position={[-0.22, -0.24, 0.67]}
+      position={[-0.13, -0.16, 0.99]}
       rotation={[0, -3.14, 0]}
       onPointerOver={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
       onPointerOut={() => { setHovered(false); document.body.style.cursor = ""; }}
