@@ -371,7 +371,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
 
     v.load();
     v.play().catch((e) => {
-      if (e.name !== "AbortError") console.warn("Video play failed:", e);
+      if (e.name !== "AbortError") { /* autoplay blocked or load aborted */ }
     });
 
     return () => {
@@ -531,12 +531,6 @@ function findCameraXForProjectedX(
   if (Math.abs(highValue) < 1e-7) return high;
 
   if (lowValue * highValue > 0) {
-    console.warn("Could not bracket camera pan boundary", {
-      point: point.toArray(),
-      targetNdcX,
-      lowValue,
-      highValue,
-    });
     return HOME_POS.x;
   }
 
@@ -603,15 +597,8 @@ function CameraZoom({ target, phase, onDone }: {
     if (lo <= hi) {
       boundsRef.current = { lo, hi };
     } else {
-      // The viewport is wider than the calibrated safe scene.
-      // No X position can keep both sides inside at the same time.
       const center = (lo + hi) / 2;
       boundsRef.current = { lo: center, hi: center };
-      console.warn("Viewport is wider than the calibrated safe scene", {
-        aspect,
-        calculatedLo: lo,
-        calculatedHi: hi,
-      });
     }
 
     panX.current = THREE.MathUtils.clamp(

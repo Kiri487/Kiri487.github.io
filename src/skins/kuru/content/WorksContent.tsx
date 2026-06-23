@@ -36,7 +36,7 @@ function WorksContent() {
               <div className="kuru-file-list">
                 {items.map((w, i) => (
                   <a
-                    key={w.url + w.title + i}
+                    key={w.thumbnail}
                     href={w.url}
                     className="kuru-file kuru-file--link"
                     target="_blank"
