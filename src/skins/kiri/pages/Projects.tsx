@@ -10,29 +10,29 @@ const ProjectCard = ({ project }: { project: Project }) => {
         <img src={project.img} alt={project.title} />
         <div className="year-badge">{project.year}</div>
       </div>
-      
+
       <div className="card-content">
         <div className="card-header">
             <p className="card-title">{project.title}</p>
         </div>
-        
+
         <p className="card-desc">{project.description}</p>
-        
+
         <div className="card-footer">
           <div className="card-tags">
-            {project.tags.map((tag, index) => {
+            {project.tags.map((tag) => {
               const Icon = techIcons[tag.tech];
               return (
-                <div className="card-tag" key={index} title={tag.name}>
+                <div className="card-tag" key={tag.tech} title={tag.name}>
                   <Icon />
                 </div>
               );
             })}
           </div>
-          
+
           <div className="card-links">
-            {project.links.map((link, index) => (
-              <a key={index} href={link.url} className="card-link" target="_blank" rel="noopener noreferrer" aria-label={`${link.label} for ${project.title}`}>
+            {project.links.map((link) => (
+              <a key={link.url} href={link.url} className="card-link" target="_blank" rel="noopener noreferrer" aria-label={`${link.label} for ${project.title}`}>
                 {link.label} <RiArrowRightDoubleLine />
               </a>
             ))}
@@ -50,15 +50,15 @@ function Projects() {
       <meta name="description" content="Explore Kiri's personal and team software development projects." />
       <h2 className="title"><BsPersonFill aria-hidden="true"/>Personal</h2>
       <div className="projects-grid">
-        {personalProjects.map((project, index) => (
-          <ProjectCard key={index} project={project} />
+        {personalProjects.map((project) => (
+          <ProjectCard key={project.title} project={project} />
         ))}
      </div>
 
       <h2 className="title"><BsPeopleFill aria-hidden="true"/>Team</h2>
       <div className="projects-grid">
-        {teamProjects.map((project, index) => (
-          <ProjectCard key={index} project={project} />
+        {teamProjects.map((project) => (
+          <ProjectCard key={project.title} project={project} />
         ))}
       </div>
     </div>

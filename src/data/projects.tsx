@@ -143,7 +143,7 @@ export const teamProjects: Project[] = [
     ],
     tags: [
       { tech: "python", name: "Python" },
-      { tech: "javascript", name: "JavaScript" }, 
+      { tech: "javascript", name: "JavaScript" },
       { tech: "html5", name: "HTML5" },
       { tech: "css", name: "CSS3" },
       { tech: "react", name: "React" }

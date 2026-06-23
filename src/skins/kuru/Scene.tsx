@@ -730,7 +730,7 @@ function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture
           cfg.position[2] + cfg.shadowOffset[2],
         ];
         return (
-          <group key={i} ref={el => { containerRefs.current[i] = el; }}>
+          <group key={cfg.src} ref={el => { containerRefs.current[i] = el; }}>
             <group position={cfg.position} scale={cfg.scale}>
               <VideoWallObject
                 config={cfg}

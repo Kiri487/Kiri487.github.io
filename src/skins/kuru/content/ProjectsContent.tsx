@@ -39,7 +39,7 @@ function ProjectsContent() {
                       <span key={t.tech}> ∙ {t.name}</span>
                     ))}
                   </span>
-                  
+
                   {p.links.length > 0 && (
                     <span className="kuru-file__links">
                       {p.links.map((l) => (

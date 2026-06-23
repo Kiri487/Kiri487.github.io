@@ -10,12 +10,7 @@
 html[data-skin="kuru"] {
   --kuru-ink: #1a1a1a;
   --kuru-cream: #f5f0e8;
-  --kuru-blue: #2d5a9f;
   --kuru-red: #c23b22;
-  --kuru-yellow: #e8a838;
-  --kuru-orange: #d4722a;
-  --kuru-purple: #7b4fba;
-  --kuru-green: #3a8050;
 
   background-color: #111;
   color: var(--kuru-ink);
@@ -331,6 +326,14 @@ html[data-skin="kuru"] body {
       rgba(255, 255, 255, 0.012) 3px,
       rgba(255, 255, 255, 0.012) 4px
     );
+}
+
+[data-skin="kuru"] .kuru-overlay__panel {
+  user-select: text;
+}
+[data-skin="kuru"] .kuru-overlay__panel ::selection {
+  background: var(--kuru-accent, #0af);
+  color: #000;
 }
 
 [data-skin="kuru"] .kuru-overlay__body::after {

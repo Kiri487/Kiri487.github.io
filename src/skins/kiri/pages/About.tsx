@@ -24,16 +24,16 @@ function About() {
       <h2 className="title"><FaBook aria-hidden="true"/>Education</h2>
       <div className="content">
         <Timeline position="right">
-          {educationData.map((edu, index) => (
-            <TimelineItem key={index}>
+          {educationData.map((edu) => (
+            <TimelineItem key={edu.school}>
               <TimelineOppositeContent sx={{ display: "none" }}>
               </TimelineOppositeContent>
               <TimelineSeparator>
                 <TimelineConnector sx={{ backgroundColor: "white" }} />
-                <TimelineDot 
-                  variant={index === 0 ? "filled" : "outlined"} 
-                  color="inherit" 
-                  sx={{ backgroundColor: index === 0 ? "white" : "transparent", boxShadow: "none" }} 
+                <TimelineDot
+                  variant={edu === educationData[0] ? "filled" : "outlined"}
+                  color="inherit"
+                  sx={{ backgroundColor: edu === educationData[0] ? "white" : "transparent", boxShadow: "none" }}
                 />
                 <TimelineConnector sx={{ backgroundColor: "white" }} />
               </TimelineSeparator>
@@ -48,20 +48,20 @@ function About() {
           ))}
         </Timeline>
       </div>
-        
+
       <h2 className="title"><FaBriefcase aria-hidden="true"/>Work Experience</h2>
       <div className="content">
         <Timeline position="right">
-          {workData.map((work, index) => (
-            <TimelineItem key={index}>
+          {workData.map((work) => (
+            <TimelineItem key={work.company}>
               <TimelineOppositeContent sx={{ display: "none" }}>
               </TimelineOppositeContent>
               <TimelineSeparator>
                 <TimelineConnector sx={{ backgroundColor: "white" }} />
-                <TimelineDot 
+                <TimelineDot
                   variant="outlined"
-                  color="inherit" 
-                  sx={{ backgroundColor: "transparent", boxShadow: "none" }} 
+                  color="inherit"
+                  sx={{ backgroundColor: "transparent", boxShadow: "none" }}
                 />
                 <TimelineConnector sx={{ backgroundColor: "white" }} />
               </TimelineSeparator>
@@ -79,12 +79,12 @@ function About() {
 
       <h2 className="title"><FaStar aria-hidden="true"/>Highlights</h2>
       <div className="content">
-        {experienceData.map((exp, index) => (
-          <div key={index}>
+        {experienceData.map((exp) => (
+          <div key={exp.category}>
             <p className="subtitle">{exp.category}</p>
             <ul className="experiences-content">
-              {exp.items.map((item, i) => (
-                <li key={i}>{item}</li>
+              {exp.items.map((item) => (
+                <li key={item}>{item}</li>
               ))}
             </ul>
           </div>
@@ -93,14 +93,14 @@ function About() {
 
       <h2 className="title"><FaMagic aria-hidden="true"/>Skills</h2>
       <div className="content">
-        {skillsData.map((section, index) => (
-          <div key={index}>
+        {skillsData.map((section) => (
+          <div key={section.category}>
             <p className="subtitle">{section.category}</p>
             <div className="tags">
-              {section.skills.map((skill, i) => {
+              {section.skills.map((skill) => {
                 const Icon = techIcons[skill.tech];
                 return (
-                  <div className="tag" key={i}>
+                  <div className="tag" key={skill.tech}>
                     <Icon />{skill.name}
                   </div>
                 );

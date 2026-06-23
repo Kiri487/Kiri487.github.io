@@ -7,12 +7,12 @@ function Cited() {
     <div className="cited">
       <title>Kiri487 | Cited</title>
       <meta name="description" content="Sources and credits for the background music and video motions used on this website." />
-      
+
       <h2 className="title"><PiMusicNotesFill />BGM</h2>
       <div className="content">
         <ul className="cited-content">
-          {bgmList.map((item, index) => (
-            <li key={index}>
+          {bgmList.map((item) => (
+            <li key={item.url}>
               <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
             </li>
           ))}
@@ -22,8 +22,8 @@ function Cited() {
       <h2 className="title"><FaRegCirclePlay />Video Motion</h2>
       <div className="content">
         <ul className="cited-content">
-          {videoMotionList.map((item, index) => (
-            <li key={index}>
+          {videoMotionList.map((item) => (
+            <li key={item.url}>
               <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
             </li>
           ))}

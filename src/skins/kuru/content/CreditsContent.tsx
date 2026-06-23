@@ -12,7 +12,7 @@ function CreditsContent() {
             <div className="kuru-term__group-item">
               <span className="kuru-term__prefix">├</span>
               <span>
-                Model ·· <a href="https://sketchfab.com/" target="_blank" rel="noopener noreferrer">Sketchfab</a> — dirty_street.glb
+                Model ·· <a href="https://sketchfab.com/3d-models/dirty-street-6e6b61361f5e483484f4c8b924a0beee" target="_blank" rel="noopener noreferrer">Dirty Street</a> By Melissa Descubes
               </span>
             </div>
             <div className="kuru-term__group-item">
@@ -38,7 +38,7 @@ function CreditsContent() {
             <div className="kuru-term__group-cat">:: FONTS</div>
             <div className="kuru-term__group-item">
               <span className="kuru-term__prefix">└</span>
-              <span>Libre Barcode 39 Extended Text ·· Google Fonts</span>
+              <span><a href="https://fonts.google.com/specimen/Libre+Barcode+39+Extended+Text?preview.script=Latn" target="_blank" rel="noopener noreferrer">Libre Barcode 39 Extended Text</a> ·· Google Fonts</span>
             </div>
           </div>
 
