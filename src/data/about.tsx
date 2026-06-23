@@ -42,6 +42,11 @@ export const educationData: Education[] = [
 
 export const workData: Work[] = [
   {
+    period: "Apr 2026 - Present",
+    company: "TrendAI",
+    position: "Cybersecurity & Cloud Engineering Intern"
+  },
+  {
     period: "Jul 2024 - Jan 2025",
     company: "Galaxy Software Services Corporation (GSS)",
     position: "Software Engineer Intern"

@@ -10,7 +10,7 @@ const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
 const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
 
 const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
-  about: new THREE.Vector3(-2.55, -0.7, -0.90),
+  about: new THREE.Vector3(-2.55, -0.6, -0.90),
   projects: new THREE.Vector3(1.05, -0.64, 0.00),
   works: new THREE.Vector3(-0.90, -1.75, -0.50),
   credits: new THREE.Vector3(-1.45, -0.95, -0.65),
@@ -71,7 +71,7 @@ function GraffitiHotspot({ texture, aspect, glowing, onClick }: GraffitiHotspotP
 
   return (
     <mesh
-      position={[-2.6, -0.7, -0.08]}
+      position={[-2.6, -0.6, -0.08]}
       rotation={[0, -3.13, -0.14]}
       receiveShadow
       onPointerMove={onMove}
@@ -200,7 +200,7 @@ const WALL_VIDEOS: VideoConfig[] = [
   {
     src: "/kuru/video/KuruWallAFK_stacked.webm",
     aspect: 934 / 1440,
-    position: [-1.89, -1.32, -0.13],
+    position: [-1.89, -1.23, -0.13],
     rotation: [0, -3.13, 0],
     scale: 1.37,
     shadowOffset: [0.05, -0.53, -0.09],

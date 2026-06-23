@@ -14,6 +14,22 @@ export const worksData: WorkItem[] = [
   {
     type: "video",
 		icon: "youtube",
+    title: "Lost but cute tho 🥺🎀💀 [Mod DL]",
+    thumbnail: "https://img.youtube.com/vi/9X5QKi2XeH8/maxresdefault.jpg", 
+    url: "https://youtube.com/shorts/9X5QKi2XeH8",
+    date: "2026.05.30",
+  },
+  {
+    type: "illustration",
+		icon: "x",
+    title: "My friend",
+    thumbnail: "https://pbs.twimg.com/media/HC5oNzpbMAAJX_U?format=jpg&name=small", 
+    url: "https://x.com/kiri487_xxx/status/2030675070771921406",
+    date: "2026.03.09",
+  },
+  {
+    type: "video",
+		icon: "youtube",
     title: "The secret behind low budget Perlica's wings... 🪽🐱⁉️",
     thumbnail: "https://img.youtube.com/vi/5c9voDAGMWs/maxresdefault.jpg", 
     url: "https://youtube.com/shorts/5c9voDAGMWs",
