@@ -12,7 +12,7 @@ function CreditsContent() {
             <div className="kuru-term__group-item">
               <span className="kuru-term__prefix">├</span>
               <span>
-                Model ·· <a href="https://sketchfab.com/3d-models/dirty-street-6e6b61361f5e483484f4c8b924a0beee" target="_blank" rel="noopener noreferrer">Dirty Street</a> By Melissa Descubes
+                Model ·· <a href="https://sketchfab.com/3d-models/dirty-street-6e6b61361f5e483484f4c8b924a0beee" target="_blank" rel="noopener noreferrer">Dirty Street</a> by Melissa Descubes
               </span>
             </div>
             <div className="kuru-term__group-item">
