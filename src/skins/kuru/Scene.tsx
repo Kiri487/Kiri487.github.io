@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
-import { useThree, useFrame } from "@react-three/fiber";
+import { useThree, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
@@ -294,13 +294,31 @@ const projectionFragmentShader = /* glsl */ `
   }
 `;
 
-function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
+function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, onClick }: {
   config: VideoConfig;
   glitchRef: React.MutableRefObject<{ value: number }>;
   alphaRef: React.MutableRefObject<number>;
   videoRef: React.MutableRefObject<HTMLVideoElement | null>;
+  interactive: boolean;
+  onClick?: () => void;
 }) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
+  const hitCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hitContextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const hoveringCharacterRef = useRef(false);
+
+  useEffect(() => {
+    if (!interactive && hoveringCharacterRef.current) {
+      hoveringCharacterRef.current = false;
+      document.body.style.cursor = "";
+    }
+    return () => {
+      if (hoveringCharacterRef.current) {
+        hoveringCharacterRef.current = false;
+        document.body.style.cursor = "";
+      }
+    };
+  }, [interactive]);
 
   useEffect(() => {
     const v = document.createElement("video");
@@ -366,6 +384,78 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
     };
   }, [config, videoRef]);
 
+  const checkVideoAlpha = useCallback(
+    (uv?: THREE.Vector2) => {
+      const video = videoRef.current;
+      if (
+        !uv || !video ||
+        video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+        video.videoWidth <= 0 || video.videoHeight <= 0
+      ) {
+        return false;
+      }
+
+      if (!hitCanvasRef.current) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        hitCanvasRef.current = canvas;
+        hitContextRef.current = canvas.getContext("2d", { willReadFrequently: true });
+      }
+
+      const ctx = hitContextRef.current;
+      if (!ctx) return false;
+
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+      const halfHeight = Math.floor(height / 2);
+
+      const sourceX = THREE.MathUtils.clamp(Math.floor(uv.x * width), 0, width - 1);
+      const sourceY = THREE.MathUtils.clamp(
+        halfHeight + Math.floor((1 - uv.y) * halfHeight),
+        halfHeight, height - 1,
+      );
+
+      try {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.drawImage(video, sourceX, sourceY, 1, 1, 0, 0, 1, 1);
+        const pixel = ctx.getImageData(0, 0, 1, 1).data;
+        return pixel[0] > 64;
+      } catch {
+        return false;
+      }
+    },
+    [videoRef],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: ThreeEvent<PointerEvent>) => {
+      if (!interactive) return;
+      const hitCharacter = checkVideoAlpha(e.uv);
+      if (hitCharacter) e.stopPropagation();
+      if (hoveringCharacterRef.current !== hitCharacter) {
+        hoveringCharacterRef.current = hitCharacter;
+        document.body.style.cursor = hitCharacter ? "pointer" : "";
+      }
+    },
+    [interactive, checkVideoAlpha],
+  );
+
+  const handlePointerOut = useCallback(() => {
+    if (!hoveringCharacterRef.current) return;
+    hoveringCharacterRef.current = false;
+    document.body.style.cursor = "";
+  }, []);
+
+  const handleClick = useCallback(
+    (e: ThreeEvent<MouseEvent>) => {
+      if (!interactive || !checkVideoAlpha(e.uv)) return;
+      e.stopPropagation();
+      onClick?.();
+    },
+    [interactive, checkVideoAlpha, onClick],
+  );
+
   useFrame((_, delta) => {
     if (!material) return;
     material.uniforms.uTime.value += delta;
@@ -376,7 +466,12 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef }: {
   if (!material) return null;
 
   return (
-    <mesh rotation={config.rotation}>
+    <mesh
+      rotation={config.rotation}
+      onPointerMove={interactive ? handlePointerMove : undefined}
+      onPointerOut={interactive ? handlePointerOut : undefined}
+      onClick={interactive ? handleClick : undefined}
+    >
       <planeGeometry args={[config.aspect, 1]} />
       <primitive object={material} attach="material" />
     </mesh>
@@ -629,12 +724,13 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
-function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture }) {
+function VideoWithShadow({ contactShadowTex, onCatClick }: { contactShadowTex: THREE.Texture; onCatClick?: () => void }) {
   const videoRefs = useMemo(
     () => WALL_VIDEOS.map(() => ({ current: null as HTMLVideoElement | null })),
     [],
   );
   const visibleIndexRef = useRef(0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const containerRefs = useRef<(THREE.Group | null)[]>([]);
   const alphaRefs = useRef(WALL_VIDEOS.map((_, i) => ({ current: i === 0 ? 1 : 0 })));
 
@@ -694,6 +790,7 @@ function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture
         alphaRefs.current[gs.prevIndex].current = 0;
         alphaRefs.current[gs.nextIndex].current = 1;
         visibleIndexRef.current = gs.nextIndex;
+        setActiveIndex(gs.nextIndex);
         gs.phase = "ramp-down";
         gs.elapsed = 0;
       }
@@ -737,6 +834,8 @@ function VideoWithShadow({ contactShadowTex }: { contactShadowTex: THREE.Texture
                 glitchRef={glitchState}
                 alphaRef={alphaRefs.current[i]}
                 videoRef={videoRefs[i]}
+                interactive={activeIndex === i}
+                onClick={activeIndex === i ? onCatClick : undefined}
               />
             </group>
             <mesh position={shadowPos} rotation={[-Math.PI / 2, 0, 0]}>
@@ -758,9 +857,10 @@ interface SceneProps {
   zoomTarget: SectionId | null;
   phase: Phase;
   onZoomDone: () => void;
+  onCatClick?: () => void;
 }
 
-function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneProps) {
+function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick }: SceneProps) {
   const { scene } = useGLTF("/kuru/models/dirty_street.glb", true);
   const graffitiTex = useTexture("/kuru/textures/kiri487_graffiti.webp");
   const worksTex = useTexture("/kuru/textures/works_sticker.webp");
@@ -952,7 +1052,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone }: SceneP
         onClick={() => onSectionClick("credits")}
       />
 
-      <VideoWithShadow contactShadowTex={contactShadowTex} />
+      <VideoWithShadow contactShadowTex={contactShadowTex} onCatClick={onCatClick} />
 
       {IS_MOBILE ? (
         <EffectComposer>

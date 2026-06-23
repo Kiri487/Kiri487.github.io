@@ -834,6 +834,59 @@ html[data-skin="kuru"] body {
   cursor: pointer;
 }
 
+/* ---- cat dialogue (RPG-style) ---- */
+
+
+[data-skin="kuru"] .kuru-dialogue {
+  position: fixed;
+  bottom: 4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 170;
+  width: min(520px, 85vw);
+  padding: 0.8rem 1.2rem;
+  padding-bottom: 1.4rem;
+  background: rgba(0, 0, 0, 0.88);
+  border: 1px solid #0af;
+  box-shadow: 0 0 15px rgba(0, 170, 255, 0.3);
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  user-select: none;
+  animation: kuru-dialogue-in 0.3s ease forwards;
+}
+[data-skin="kuru"] .kuru-dialogue--closing {
+  animation: kuru-dialogue-out 0.25s ease forwards;
+}
+
+[data-skin="kuru"] .kuru-dialogue__name {
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: #0af;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+  text-shadow: 0 0 6px rgba(0, 170, 255, 0.4);
+}
+
+[data-skin="kuru"] .kuru-dialogue__text {
+  font-size: 0.9rem;
+  color: #d4d0c8;
+  line-height: 1.6;
+  min-height: 1.6em;
+}
+
+[data-skin="kuru"] .kuru-dialogue__cursor {
+  color: #0af;
+}
+
+[data-skin="kuru"] .kuru-dialogue__next {
+  position: absolute;
+  bottom: 0.4rem;
+  right: 0.8rem;
+  font-size: 0.7rem;
+  color: #0af;
+  animation: kuru-next-blink 1s ease-in-out infinite;
+}
+
 /* ---- animations ---- */
 
 @keyframes kuru-expand-in {
@@ -854,6 +907,24 @@ html[data-skin="kuru"] body {
 @keyframes kuru-line-in {
   from { opacity: 0; transform: translateX(-4px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes kuru-dialogue-in {
+  0% { transform: translateX(-50%) translateX(15px); opacity: 0; }
+  15% { transform: translateX(-50%) translateX(-10px); opacity: 0.7; }
+  30% { transform: translateX(-50%) translateX(5px); opacity: 0.9; }
+  100% { transform: translateX(-50%); opacity: 1; }
+}
+
+@keyframes kuru-dialogue-out {
+  0% { transform: translateX(-50%); opacity: 1; }
+  30% { transform: translateX(-50%) translateX(-8px); opacity: 0.7; }
+  100% { transform: translateX(-50%) translateX(20px); opacity: 0; }
+}
+
+@keyframes kuru-next-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.2; }
 }
 
 @keyframes kuru-bracket-pulse {
@@ -917,6 +988,10 @@ html[data-skin="kuru"] body {
   [data-skin="kuru"] .kuru-bgm__bar { width: 60px; }
   [data-skin="kuru"] .kuru-bgm__time { font-size: 0.58rem; }
   [data-skin="kuru"] .kuru-bgm__vol { display: none; }
+
+  /* cat dialogue */
+  [data-skin="kuru"] .kuru-dialogue { bottom: 2.8rem; width: 90vw; padding: 0.6rem 0.9rem; padding-bottom: 1.2rem; }
+  [data-skin="kuru"] .kuru-dialogue__text { font-size: 0.82rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -928,4 +1003,7 @@ html[data-skin="kuru"] body {
   [data-skin="kuru"] .kuru-loading { transition: none; }
   [data-skin="kuru"] .kuru-loading__line { animation: none; opacity: 1; }
   [data-skin="kuru"] .kuru-loading__bar-fill { transition: none; }
+  [data-skin="kuru"] .kuru-dialogue { animation: none; transform: translateX(-50%); opacity: 1; }
+  [data-skin="kuru"] .kuru-dialogue--closing { opacity: 0; }
+  [data-skin="kuru"] .kuru-dialogue__next { animation: none; }
 }

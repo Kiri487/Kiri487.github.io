@@ -5,8 +5,10 @@ import { useSkin } from "../../SkinContext";
 import Scene from "./Scene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
+import CatDialogue, { type CatDialogueHandle } from "./CatDialogue";
 import BgmPlayer from "./BgmPlayer";
 import LoadingScreen from "./LoadingScreen";
+import { CAT_DIALOGUES } from "./data/catDialogues";
 import "./style.css";
 
 export type SectionId = "about" | "projects" | "works" | "credits";
@@ -16,14 +18,17 @@ function KuruApp() {
   const { setSkin } = useSkin();
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
+  const [activeDialogue, setActiveDialogue] = useState<string[] | null>(null);
   const pendingRef = useRef<SectionId | null>(null);
+  const lastDialogueRef = useRef(-1);
+  const dialogueRef = useRef<CatDialogueHandle>(null);
 
   const handleSectionClick = useCallback((section: SectionId) => {
-    if (phase !== "idle") return;
+    if (phase !== "idle" || activeDialogue) return;
     pendingRef.current = section;
     setActiveSection(section);
     setPhase("zooming");
-  }, [phase]);
+  }, [phase, activeDialogue]);
 
   const handleZoomDone = useCallback(() => {
     setPhase("connecting");
@@ -42,6 +47,29 @@ function KuruApp() {
     pendingRef.current = null;
   }, []);
 
+  const handleDialogueClose = useCallback(() => {
+    setActiveDialogue(null);
+  }, []);
+
+  const handleExit = useCallback(() => {
+    if (activeDialogue) return;
+    setSkin("kiri");
+  }, [activeDialogue, setSkin]);
+
+  const handleDialogueAdvance = useCallback(() => {
+    if (phase !== "idle") return;
+    if (activeDialogue) {
+      dialogueRef.current?.advance();
+      return;
+    }
+    let idx: number;
+    do {
+      idx = Math.floor(Math.random() * CAT_DIALOGUES.length);
+    } while (idx === lastDialogueRef.current && CAT_DIALOGUES.length > 1);
+    lastDialogueRef.current = idx;
+    setActiveDialogue(CAT_DIALOGUES[idx]);
+  }, [phase, activeDialogue]);
+
   return (
     <div className="kuru">
       <Canvas
@@ -54,10 +82,11 @@ function KuruApp() {
         <Suspense fallback={null}>
           <Scene
             onSectionClick={handleSectionClick}
-            onExit={() => setSkin("kiri")}
+            onExit={handleExit}
             zoomTarget={activeSection}
             phase={phase}
             onZoomDone={handleZoomDone}
+            onCatClick={handleDialogueAdvance}
           />
         </Suspense>
       </Canvas>
@@ -71,6 +100,13 @@ function KuruApp() {
         phase={phase}
         onClose={handleClose}
       />
+      {activeDialogue && (
+        <CatDialogue
+          ref={dialogueRef}
+          dialogue={activeDialogue}
+          onClose={handleDialogueClose}
+        />
+      )}
       <BgmPlayer />
       <LoadingScreen />
     </div>

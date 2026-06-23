@@ -1,0 +1,15 @@
+export const CAT_DIALOGUES: string[][] = [
+  ["...What."],
+  ["You again?"],
+  ["Don't touch me."],
+  ["I didn't say you could talk to me."],
+  ["Tch."],
+  ["Nice kicks.", "...Just the kicks though."],
+  ["You listen to hip-hop?", "Forget it. You probably don't."],
+  ["...", "......Still here?", "You're persistent. I'll give you that."],
+  ["This alley is my turf.", "You're just visiting."],
+  ["You got taste?", "Show me your playlist.", "...On second thought, don't."],
+  ["Don't stare.", "...I said don't stare."],
+  ["The beat in my head right now?", "Fire.", "No, I won't hum it for you."],
+  ["Yo.", "...That's all you get."],
+];
