@@ -5,6 +5,7 @@ import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing"
 import { ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 import type { SectionId, Phase } from "./KuruApp";
+import useSFX from "./useSFX";
 
 const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
 const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
@@ -711,7 +712,7 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
-function VideoWithShadow({ contactShadowTex, onCatClick }: { contactShadowTex: THREE.Texture; onCatClick?: () => void }) {
+function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch }: { contactShadowTex: THREE.Texture; onCatClick?: () => void; playGlitch: () => void }) {
   const videoRefs = useMemo(
     () => WALL_VIDEOS.map(() => ({ current: null as HTMLVideoElement | null })),
     [],
@@ -760,6 +761,7 @@ function VideoWithShadow({ contactShadowTex, onCatClick }: { contactShadowTex: T
           gs.phase = "crossfade";
           gs.elapsed = 0;
           gs.swapCooldown = 15 + Math.random() * 10;
+          playGlitch();
         } else {
           gs.phase = "ramp-down";
           gs.elapsed = 0;
@@ -848,6 +850,7 @@ interface SceneProps {
 }
 
 function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick }: SceneProps) {
+  const { playGlitch } = useSFX();
   const { scene } = useGLTF("/kuru/models/dirty_street.glb", true);
   const graffitiTex = useTexture("/kuru/textures/kiri487_graffiti.webp");
   const worksTex = useTexture("/kuru/textures/works_sticker.webp");
@@ -1039,7 +1042,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
         onClick={() => onSectionClick("credits")}
       />
 
-      <VideoWithShadow contactShadowTex={contactShadowTex} onCatClick={onCatClick} />
+      <VideoWithShadow contactShadowTex={contactShadowTex} onCatClick={onCatClick} playGlitch={playGlitch} />
 
       {IS_MOBILE ? (
         <EffectComposer>

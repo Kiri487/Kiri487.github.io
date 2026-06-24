@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
+import useSFX from "./useSFX";
 
 export interface CatDialogueHandle {
   advance: () => void;
@@ -16,6 +17,8 @@ const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
     const [closing, setClosing] = useState(false);
     const typewriterRef = useRef<number>(0);
 
+    const { playBlip } = useSFX();
+
     const currentLine = dialogue[lineIndex];
     const isTyping = displayedChars < currentLine.length;
 
@@ -27,14 +30,15 @@ const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
       const id = window.setInterval(() => {
         charIndex++;
         setDisplayedChars(charIndex);
+        if (line[charIndex - 1] !== " ") playBlip();
         if (charIndex >= line.length) {
           clearInterval(id);
         }
-      }, 50);
+      }, 65);
 
       typewriterRef.current = id;
       return () => clearInterval(id);
-    }, [dialogue, lineIndex]);
+    }, [dialogue, lineIndex, playBlip]);
 
     const advance = useCallback(() => {
       if (closing) return;
