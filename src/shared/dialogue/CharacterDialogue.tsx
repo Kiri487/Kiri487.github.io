@@ -17,7 +17,7 @@ interface CharacterDialogueProps {
 type DialoguePhase = "lines" | "choosing" | "response";
 
 const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueProps>(
-  ({ dialogue, characterName, className = "kuru-dialogue", playBlip, onClose, onChoiceScore }, ref) => {
+  ({ dialogue, characterName, className = "character-dialogue", playBlip, onClose, onChoiceScore }, ref) => {
     const isChoice = isDialogueChoice(dialogue);
 
     const [phase, setPhase] = useState<DialoguePhase>("lines");

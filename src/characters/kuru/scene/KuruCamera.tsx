@@ -62,7 +62,7 @@ function findCameraXForProjectedX(
   return (low + high) / 2;
 }
 
-function CameraZoom({ target, phase, onDone }: {
+function KuruCamera({ target, phase, onDone }: {
   target: SectionId | null;
   phase: Phase;
   onDone: () => void;
@@ -218,4 +218,4 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
-export default CameraZoom;
+export default KuruCamera;

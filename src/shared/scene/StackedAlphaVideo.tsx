@@ -3,6 +3,8 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { stackedAlphaVertexShader, stackedAlphaFragmentShader } from "./stackedAlphaShader";
 
+const DEFAULT_TINT: [number, number, number] = [1, 1, 1];
+
 export interface StackedAlphaVideoProps {
   src: string;
   aspect: number;
@@ -19,11 +21,12 @@ export interface StackedAlphaVideoProps {
 }
 
 export function StackedAlphaVideo({
-  src, aspect, rotation, gamma = 1, brightness = 1, tint = [1, 1, 1],
+  src, aspect, rotation, gamma = 1, brightness = 1, tint = DEFAULT_TINT,
   glitchRef, alphaRef, videoRef,
   onPointerMove, onPointerOut, onClick,
 }: StackedAlphaVideoProps) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
+  const [tintR, tintG, tintB] = tint;
 
   useEffect(() => {
     const v = document.createElement("video");
@@ -66,7 +69,7 @@ export function StackedAlphaVideo({
         uAlpha: { value: 1 },
         uGamma: { value: gamma },
         uBrightness: { value: brightness },
-        uTint: { value: new THREE.Vector3(...tint) },
+        uTint: { value: new THREE.Vector3(tintR, tintG, tintB) },
       },
       transparent: true,
       depthWrite: false,
@@ -87,7 +90,7 @@ export function StackedAlphaVideo({
       setMaterial(null);
       videoRef.current = null;
     };
-  }, [src, gamma, brightness, tint, videoRef]);
+  }, [src, gamma, brightness, tintR, tintG, tintB, videoRef]);
 
   useFrame((_, delta) => {
     if (!material) return;

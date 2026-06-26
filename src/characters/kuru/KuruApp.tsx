@@ -2,7 +2,7 @@ import { Suspense, useState, useCallback, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSkin } from "../../SkinContext";
-import Scene from "./scene/KuruScene";
+import KuruScene from "./scene/KuruScene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
 import CharacterDialogue, { type CharacterDialogueHandle } from "../../shared/dialogue/CharacterDialogue";
@@ -95,7 +95,7 @@ function KuruApp() {
         gl={{ antialias: true, alpha: false }}
       >
         <Suspense fallback={null}>
-          <Scene
+          <KuruScene
             onSectionClick={handleSectionClick}
             onExit={handleExit}
             zoomTarget={activeSection}

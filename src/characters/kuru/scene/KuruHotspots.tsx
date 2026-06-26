@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import * as THREE from "three";
 import { InteractivePlane } from "../../../shared/scene/InteractivePlane";
 import { setCursor } from "../../../shared/scene/cursorManager";
@@ -33,12 +34,13 @@ interface WallObjectProps {
   scale: [number, number];
   texture?: THREE.Texture;
   color?: string;
+  cursorOwner: string;
   glowing?: boolean;
   disabled?: boolean;
   onClick?: () => void;
 }
 
-export function WallObject({ position, rotation, scale, texture, color, glowing, disabled, onClick }: WallObjectProps) {
+export function WallObject({ position, rotation, scale, texture, color, cursorOwner, glowing, disabled, onClick }: WallObjectProps) {
   return (
     <InteractivePlane
       position={position}
@@ -46,7 +48,7 @@ export function WallObject({ position, rotation, scale, texture, color, glowing,
       scale={scale}
       texture={texture}
       color={color}
-      cursorOwner="wall"
+      cursorOwner={cursorOwner}
       glowing={glowing}
       disabled={disabled}
       onClick={onClick}
@@ -59,6 +61,10 @@ export function ExitHotspot({ onClick, onHoverChange, disabled }: {
   onHoverChange: (hovered: boolean) => void;
   disabled?: boolean;
 }) {
+  useEffect(() => {
+    return () => { setCursor("exit", false); };
+  }, []);
+
   return (
     <mesh
       position={[-0.13, -0.16, 0.99]}

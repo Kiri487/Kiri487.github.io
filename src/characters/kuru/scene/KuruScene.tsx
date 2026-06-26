@@ -5,7 +5,7 @@ import * as THREE from "three";
 import type { SectionId, Phase } from "../types";
 import useSFX from "../audio/useSFX";
 import KuruPostProcessing from "./KuruPostProcessing";
-import CameraZoom from "./KuruCamera";
+import KuruCamera from "./KuruCamera";
 import KuruLighting from "./KuruLighting";
 import { GraffitiHotspot, WallObject, ExitHotspot } from "./KuruHotspots";
 import { VideoWithShadow } from "./KuruCharacter";
@@ -23,7 +23,7 @@ interface SceneProps {
   pauseAmbient?: boolean;
 }
 
-function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick, forceSwapRef, pauseAmbient }: SceneProps) {
+function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick, forceSwapRef, pauseAmbient }: SceneProps) {
   const [exitHovered, setExitHovered] = useState(false);
   const { playGlitch } = useSFX();
   const { scene } = useGLTF("/kuru/models/dirty_street.glb", true);
@@ -64,6 +64,10 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
   }, []);
 
   useEffect(() => {
+    return () => { contactShadowTex.dispose(); };
+  }, [contactShadowTex]);
+
+  useEffect(() => {
     scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         child.castShadow = true;
@@ -81,7 +85,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
 
   return (
     <>
-      <CameraZoom target={zoomTarget} phase={phase} onDone={onZoomDone} />
+      <KuruCamera target={zoomTarget} phase={phase} onDone={onZoomDone} />
 
       <Environment preset="night" environmentIntensity={0.25} />
       <ambientLight intensity={0.12} />
@@ -105,6 +109,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
         rotation={[0, -3.14, 0]}
         scale={[posterAspect * posterScale, posterScale]}
         texture={posterTex}
+        cursorOwner="projects"
         glowing={zoomTarget === "projects" && phase !== "idle"}
         disabled={pauseAmbient}
         onClick={() => onSectionClick("projects")}
@@ -115,6 +120,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
         rotation={[-0.06, -3.49, 0.01]}
         scale={[worksAspect * worksScale, worksScale]}
         texture={worksTex}
+        cursorOwner="works"
         glowing={zoomTarget === "works" && phase !== "idle"}
         disabled={pauseAmbient}
         onClick={() => onSectionClick("works")}
@@ -125,6 +131,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
         rotation={[0, -3.14, 0]}
         scale={[creditsAspect * creditsScale, creditsScale]}
         texture={creditsTex}
+        cursorOwner="credits"
         glowing={zoomTarget === "credits" && phase !== "idle"}
         disabled={pauseAmbient}
         onClick={() => onSectionClick("credits")}
@@ -139,4 +146,4 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
 
 useGLTF.preload("/kuru/models/dirty_street.glb", true);
 
-export default Scene;
+export default KuruScene;

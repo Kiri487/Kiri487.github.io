@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, useCallback } from "react";
+import { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { setCursor } from "./cursorManager";
@@ -23,6 +23,10 @@ export function InteractivePlane({
   const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
   const emissiveTarget = (hovered || glowing) ? 0.5 : 0;
+
+  useEffect(() => {
+    return () => { setCursor(cursorOwner, false); };
+  }, [cursorOwner]);
 
   const alphaData = useMemo(() => {
     if (!alphaHitTest || !texture) return null;
