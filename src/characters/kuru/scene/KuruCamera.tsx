@@ -171,6 +171,7 @@ function KuruCamera({ target, phase, onDone }: {
     };
   }, [gl, size.width]);
 
+  /* eslint-disable react-hooks/immutability -- R3F camera motion is driven by imperative frame-loop mutation. */
   useFrame((_, delta) => {
     if (phase === "idle") {
       if (!IS_MOBILE) {
@@ -214,6 +215,7 @@ function KuruCamera({ target, phase, onDone }: {
       }
     }
   });
+  /* eslint-enable react-hooks/immutability */
 
   return null;
 }

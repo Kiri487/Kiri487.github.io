@@ -1,3 +1,5 @@
+import type { DialogueEntry } from "../../../shared/dialogue/types";
+
 export type { DialogueChoiceOption, DialogueChoice, DialogueEntry } from "../../../shared/dialogue/types";
 export { isDialogueChoice } from "../../../shared/dialogue/types";
 

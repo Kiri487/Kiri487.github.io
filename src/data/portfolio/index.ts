@@ -1,5 +1,5 @@
 export { educationData, workData, experienceData, skillsData } from "./about";
-export type { Education, Work, Experience, SkillGroup } from "./about";
+export type { Education, Work, Experience, Skill } from "./about";
 export { personalProjects, teamProjects } from "./projects";
 export type { Project } from "./projects";
 export { worksData } from "./works";

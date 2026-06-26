@@ -34,6 +34,7 @@ function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCa
   const gl = useThree((s) => s.gl);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- Three.js renderer configuration is intentionally imperative.
     gl.toneMappingExposure = 1.0;
   }, [gl]);
 

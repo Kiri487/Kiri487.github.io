@@ -75,7 +75,7 @@ export function StackedAlphaVideo({
       depthWrite: false,
     });
 
-    setMaterial(mat);
+    const publishMaterial = window.setTimeout(() => setMaterial(mat), 0);
 
     v.load();
     v.play().catch((e) => {
@@ -84,6 +84,7 @@ export function StackedAlphaVideo({
 
     return () => {
       v.pause();
+      clearTimeout(publishMaterial);
       document.body.removeChild(v);
       tex.dispose();
       mat.dispose();
@@ -92,12 +93,14 @@ export function StackedAlphaVideo({
     };
   }, [src, gamma, brightness, tintR, tintG, tintB, videoRef]);
 
+  /* eslint-disable react-hooks/immutability -- Shader uniforms are intentionally mutated from the R3F frame loop. */
   useFrame((_, delta) => {
     if (!material) return;
     material.uniforms.uTime.value += delta;
     material.uniforms.uGlitch.value = glitchRef.current.value;
     material.uniforms.uAlpha.value = alphaRef.current;
   });
+  /* eslint-enable react-hooks/immutability */
 
   if (!material) return null;
 

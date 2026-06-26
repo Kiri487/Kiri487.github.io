@@ -31,18 +31,20 @@ const LINES: Record<SectionId, string[]> = {
 };
 
 function ConnectOverlay({ section, active, onDone }: ConnectOverlayProps) {
+  if (!active || !section) return null;
+
+  return <ConnectSequence section={section} onDone={onDone} />;
+}
+
+function ConnectSequence({ section, onDone }: {
+  section: SectionId;
+  onDone: () => void;
+}) {
   const [step, setStep] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [collapsing, setCollapsing] = useState(false);
 
   useEffect(() => {
-    if (!active || !section) {
-      setStep(0);
-      setExpanded(false);
-      setCollapsing(false);
-      return;
-    }
-
     const t1 = setTimeout(() => setExpanded(true), 50);
     const lines = LINES[section];
     const timers = lines.map((_, i) =>
@@ -58,9 +60,7 @@ function ConnectOverlay({ section, active, onDone }: ConnectOverlayProps) {
       clearTimeout(tc);
       clearTimeout(td);
     };
-  }, [active, section, onDone]);
-
-  if (!active || !section) return null;
+  }, [section, onDone]);
 
   const lines = LINES[section];
 

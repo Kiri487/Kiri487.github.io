@@ -134,7 +134,10 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
   const visibleIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRefs = useRef<(THREE.Group | null)[]>([]);
-  const alphaRefs = useRef(WALL_VIDEOS.map((_, i) => ({ current: i === 0 ? 1 : 0 })));
+  const alphaRefs = useMemo(
+    () => WALL_VIDEOS.map((_, i) => ({ current: i === 0 ? 1 : 0 })),
+    [],
+  );
 
   const glitchState = useRef({
     value: 0,
@@ -142,12 +145,17 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
     elapsed: 0,
     duration: 0,
     swapAtPeak: false,
-    nextGlitch: 6 + Math.random() * 6,
+    nextGlitch: 6,
     swapCooldown: 0,
     prevIndex: 0,
     nextIndex: 0,
   });
 
+  useEffect(() => {
+    glitchState.current.nextGlitch = 6 + Math.random() * 6;
+  }, []);
+
+  /* eslint-disable react-hooks/immutability -- R3F frame loop intentionally mutates video playback, refs, and Three.js objects. */
   useFrame((_, delta) => {
     const gs = glitchState.current;
 
@@ -196,11 +204,11 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
       const CROSSFADE_DUR = 0.05;
       const t = Math.min(1, gs.elapsed / CROSSFADE_DUR);
       const noisy = Math.min(1, Math.max(0, t + (Math.random() - 0.5) * 0.15));
-      alphaRefs.current[gs.prevIndex].current = 1 - noisy;
-      alphaRefs.current[gs.nextIndex].current = noisy;
+      alphaRefs[gs.prevIndex].current = 1 - noisy;
+      alphaRefs[gs.nextIndex].current = noisy;
       if (gs.elapsed >= CROSSFADE_DUR) {
-        alphaRefs.current[gs.prevIndex].current = 0;
-        alphaRefs.current[gs.nextIndex].current = 1;
+        alphaRefs[gs.prevIndex].current = 0;
+        alphaRefs[gs.nextIndex].current = 1;
         visibleIndexRef.current = gs.nextIndex;
         setActiveIndex(gs.nextIndex);
         gs.phase = "ramp-down";
@@ -225,10 +233,11 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
         c.visible = i === gs.prevIndex || i === gs.nextIndex;
       } else {
         c.visible = i === visibleIndexRef.current;
-        alphaRefs.current[i].current = i === visibleIndexRef.current ? 1 : 0;
+        alphaRefs[i].current = i === visibleIndexRef.current ? 1 : 0;
       }
     }
   });
+  /* eslint-enable react-hooks/immutability */
 
   return (
     <>
@@ -244,7 +253,7 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
               <VideoWallObject
                 config={cfg}
                 glitchRef={glitchState}
-                alphaRef={alphaRefs.current[i]}
+                alphaRef={alphaRefs[i]}
                 videoRef={videoRefs[i]}
                 interactive={activeIndex === i}
                 onClick={activeIndex === i ? onCatClick : undefined}

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -22,11 +22,15 @@ function KuruLighting({ exitHovered }: { exitHovered: boolean }) {
   const flickerState = useRef({
     bases: [4, 10, 1.5],
     dims: [1, 1, 1],
-    next: 6 + Math.random() * 10,
+    next: 6,
     active: -1,
     burst: 0,
     until: 0,
   });
+
+  useEffect(() => {
+    flickerState.current.next = 6 + Math.random() * 10;
+  }, []);
 
   useFrame((_, delta) => {
     const lights = [lampRef.current, exitLightRef.current, redRef.current];

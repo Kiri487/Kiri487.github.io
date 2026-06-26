@@ -20,11 +20,6 @@ function LoadingScreen() {
   }, []);
 
   useEffect(() => {
-    if (progress > 0 && step < 2) setStep(2);
-    if (progress > 30 && step < 3) setStep(3);
-  }, [progress, step]);
-
-  useEffect(() => {
     if (progress >= 100 && !active && !ready) {
       const t = setTimeout(() => setReady(true), 400);
       return () => clearTimeout(t);
@@ -47,11 +42,14 @@ function LoadingScreen() {
 
   if (hidden) return null;
 
+  const progressStep = progress > 30 ? 3 : progress > 0 ? 2 : 0;
+  const visibleStep = Math.max(step, progressStep);
+
   return (
     <div className={`kuru-loading${fadeOut ? " kuru-loading--fade" : ""}`}>
       <div className="kuru-loading__box">
         <div className="kuru-loading__content">
-          {LINES.slice(0, step).map((line, i) => (
+          {LINES.slice(0, visibleStep).map((line, i) => (
             <div key={i} className="kuru-loading__line">
               {line}
               {i >= 1 && i <= 2 && (
@@ -59,7 +57,7 @@ function LoadingScreen() {
                   {i === 1 && progress >= 100 ? " ··· OK" : ""}
                   {i === 2 && progress >= 100
                     ? " ··· OK"
-                    : i === 2 && step >= 3
+                    : i === 2 && visibleStep >= 3
                       ? ` ··· ${Math.round(progress)}%`
                       : ""}
                 </span>

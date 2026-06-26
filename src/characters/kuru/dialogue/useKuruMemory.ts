@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import {
   TIER_DIALOGUES,
   TIME_DIALOGUES,
@@ -50,6 +50,17 @@ function saveMemory(mem: KuruMemory): void {
   } catch { /* storage unavailable */ }
 }
 
+function initializeMemory(): KuruMemory {
+  const mem = loadMemory();
+  const now = Date.now();
+  if (now - mem.lastVisit >= VISIT_INTERVAL_MS) {
+    mem.score += 1;
+    mem.lastVisit = now;
+    saveMemory(mem);
+  }
+  return mem;
+}
+
 function getTier(score: number): FamiliarityTier {
   if (score >= 26) return "trusting";
   if (score >= 13) return "warming";
@@ -72,19 +83,19 @@ export interface RapidClickResult {
 
 const useKuruMemory = () => {
   const memoryRef = useRef<KuruMemory | null>(null);
-  if (!memoryRef.current) {
-    const mem = loadMemory();
-    const now = Date.now();
-    if (now - mem.lastVisit >= VISIT_INTERVAL_MS) {
-      mem.score += 1;
-      mem.lastVisit = now;
-      saveMemory(mem);
-    }
-    memoryRef.current = mem;
-  }
-
   const lastDialogueRef = useRef<string | null>(null);
   const rapidClickRef = useRef({ count: 0, lastTime: 0 });
+
+  useEffect(() => {
+    memoryRef.current = initializeMemory();
+  }, []);
+
+  const getMemory = useCallback(() => {
+    if (!memoryRef.current) {
+      memoryRef.current = initializeMemory();
+    }
+    return memoryRef.current;
+  }, []);
 
   const recordClick = useCallback((): RapidClickResult | null => {
     const now = Date.now();
@@ -107,7 +118,7 @@ const useKuruMemory = () => {
   }, []);
 
   const pickDialogue = useCallback((): DialogueEntry => {
-    const mem = memoryRef.current!;
+    const mem = getMemory();
     const tier = getTier(mem.score);
     const period = getTimePeriod();
 
@@ -127,15 +138,15 @@ const useKuruMemory = () => {
     lastDialogueRef.current = entryKey(selected);
 
     return selected;
-  }, []);
+  }, [getMemory]);
 
   const applyScore = useCallback((choiceId: string, delta: number) => {
-    const mem = memoryRef.current!;
+    const mem = getMemory();
     if (mem.answeredChoices.includes(choiceId)) return;
     mem.answeredChoices.push(choiceId);
     mem.score = Math.max(0, mem.score + delta);
     saveMemory(mem);
-  }, []);
+  }, [getMemory]);
 
   return { recordClick, pickDialogue, applyScore };
 };

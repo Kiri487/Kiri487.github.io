@@ -31,8 +31,13 @@ function BgmPlayer() {
     return saved ? parseFloat(saved) : 0.5;
   });
   const prevVolume = useRef(volume);
+  const playingRef = useRef(playing);
 
   const track = TRACKS[trackIdx];
+
+  useEffect(() => {
+    playingRef.current = playing;
+  }, [playing]);
 
   const toggle = useCallback(() => {
     const next = !playing;
@@ -74,10 +79,11 @@ function BgmPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
     audio.load();
-    if (playing) {
+    if (playingRef.current) {
       audio.play().catch((e) => {
         if (e.name === "AbortError") return;
         setPlaying(false);
+        playingRef.current = false;
         localStorage.setItem("bgmEnabled", "false");
       });
     }

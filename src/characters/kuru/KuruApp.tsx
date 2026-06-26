@@ -21,9 +21,9 @@ function KuruApp() {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [activeDialogue, setActiveDialogue] = useState<DialogueEntry | null>(null);
+  const [dialogueKey, setDialogueKey] = useState(0);
   const { playBlip } = useSFX();
   const dialogueRef = useRef<CharacterDialogueHandle>(null);
-  const dialogueKeyRef = useRef(0);
   const pendingForceSwap = useRef(false);
   const forceSwapRef = useRef(false);
 
@@ -71,7 +71,7 @@ function KuruApp() {
       if (rapidResult.forceSwap) {
         pendingForceSwap.current = true;
       }
-      dialogueKeyRef.current++;
+      setDialogueKey((key) => key + 1);
       setActiveDialogue(rapidResult.dialogue);
       return;
     }
@@ -81,7 +81,7 @@ function KuruApp() {
       return;
     }
 
-    dialogueKeyRef.current++;
+    setDialogueKey((key) => key + 1);
     setActiveDialogue(pickDialogue());
   }, [phase, activeDialogue, recordClick, pickDialogue]);
 
@@ -119,7 +119,7 @@ function KuruApp() {
       />
       {activeDialogue && (
         <CharacterDialogue
-          key={dialogueKeyRef.current}
+          key={dialogueKey}
           ref={dialogueRef}
           dialogue={activeDialogue}
           characterName="> KURU"
