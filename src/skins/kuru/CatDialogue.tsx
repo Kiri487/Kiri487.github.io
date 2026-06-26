@@ -23,6 +23,7 @@ const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
     const [displayedChars, setDisplayedChars] = useState(0);
     const [closing, setClosing] = useState(false);
     const [selectedChoice, setSelectedChoice] = useState(0);
+    const [confirmedChoice, setConfirmedChoice] = useState<number | null>(null);
     const [chosenResponse, setChosenResponse] = useState<string[] | null>(null);
     const typewriterRef = useRef<number>(0);
 
@@ -62,13 +63,17 @@ const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
     }, [closing, onClose]);
 
     const confirmChoice = useCallback((idx: number) => {
-      if (closing) return;
+      if (closing || confirmedChoice !== null) return;
+      setConfirmedChoice(idx);
       const choice = (dialogue as DialogueChoice).choices[idx];
       onChoiceScore?.(choice.score);
-      setChosenResponse(choice.response);
-      setPhase("response");
-      setLineIndex(0);
-    }, [closing, dialogue, onChoiceScore]);
+      setTimeout(() => {
+        setChosenResponse(choice.response);
+        setPhase("response");
+        setLineIndex(0);
+        setConfirmedChoice(null);
+      }, 400);
+    }, [closing, confirmedChoice, dialogue, onChoiceScore]);
 
     const advance = useCallback(() => {
       if (closing || phase === "choosing") return;
@@ -128,9 +133,9 @@ const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
               {(dialogue as DialogueChoice).choices.map((opt, i) => (
                 <button
                   key={i}
-                  className={`kuru-dialogue__choice ${selectedChoice === i ? "kuru-dialogue__choice--active" : ""}`}
+                  className={`kuru-dialogue__choice ${selectedChoice === i ? "kuru-dialogue__choice--active" : ""} ${confirmedChoice !== null ? (confirmedChoice === i ? "kuru-dialogue__choice--confirmed" : "kuru-dialogue__choice--dismissed") : ""}`}
                   onClick={(e) => { e.stopPropagation(); confirmChoice(i); }}
-                  onMouseEnter={() => setSelectedChoice(i)}
+                  onMouseEnter={() => confirmedChoice === null ? setSelectedChoice(i) : undefined}
                 >
                   <span className="kuru-dialogue__choice-marker">
                     {selectedChoice === i ? "▸" : " "}

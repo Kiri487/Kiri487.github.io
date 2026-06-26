@@ -907,6 +907,18 @@ html[data-skin="kuru"] body {
   color: #0af;
 }
 
+[data-skin="kuru"] .kuru-dialogue__choice--confirmed {
+  color: #0af;
+  text-shadow: 0 0 6px rgba(0, 170, 255, 0.4);
+  transform: translateX(4px);
+  transition: color 0.15s, text-shadow 0.15s, transform 0.2s ease-out;
+}
+
+[data-skin="kuru"] .kuru-dialogue__choice--dismissed {
+  opacity: 0.25;
+  transition: opacity 0.25s;
+}
+
 [data-skin="kuru"] .kuru-dialogue__choice-marker {
   margin-right: 0.2rem;
 }
