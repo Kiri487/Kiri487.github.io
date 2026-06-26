@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import { setCursor } from "./cursorManager";
+import { setCursor } from "../../../shared/scene/cursorManager";
 import { WALL_VIDEOS, type VideoConfig } from "./config";
 import { StackedAlphaVideo } from "../../../shared/scene/StackedAlphaVideo";
 

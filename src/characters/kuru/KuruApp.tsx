@@ -5,14 +5,14 @@ import { useSkin } from "../../SkinContext";
 import Scene from "./scene/KuruScene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
-import CatDialogue, { type CatDialogueHandle } from "./CatDialogue";
+import CharacterDialogue, { type CharacterDialogueHandle } from "../../shared/dialogue/CharacterDialogue";
 import type { DialogueEntry } from "./dialogue/catDialogues";
 import BgmPlayer from "./audio/BgmPlayer";
 import LoadingScreen from "./LoadingScreen";
 import useKuruMemory from "./dialogue/useKuruMemory";
+import useSFX from "./audio/useSFX";
 import "./style.css";
 
-export type { SectionId, Phase } from "./types";
 import type { SectionId, Phase } from "./types";
 
 function KuruApp() {
@@ -21,7 +21,8 @@ function KuruApp() {
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [activeDialogue, setActiveDialogue] = useState<DialogueEntry | null>(null);
-  const dialogueRef = useRef<CatDialogueHandle>(null);
+  const { playBlip } = useSFX();
+  const dialogueRef = useRef<CharacterDialogueHandle>(null);
   const dialogueKeyRef = useRef(0);
   const pendingForceSwap = useRef(false);
   const forceSwapRef = useRef(false);
@@ -117,10 +118,13 @@ function KuruApp() {
         onClose={handleClose}
       />
       {activeDialogue && (
-        <CatDialogue
+        <CharacterDialogue
           key={dialogueKeyRef.current}
           ref={dialogueRef}
           dialogue={activeDialogue}
+          characterName="> KURU"
+          className="kuru-dialogue"
+          playBlip={playBlip}
           onClose={handleDialogueClose}
           onChoiceScore={applyScore}
         />

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { InteractivePlane } from "../../../shared/scene/InteractivePlane";
-import { setCursor } from "./cursorManager";
+import { setCursor } from "../../../shared/scene/cursorManager";
 
 interface GraffitiHotspotProps {
   texture: THREE.Texture;
