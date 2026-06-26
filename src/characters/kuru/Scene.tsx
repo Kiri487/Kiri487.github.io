@@ -1,11 +1,10 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useThree, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { useGLTF, useTexture, Environment } from "@react-three/drei";
-import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
-import { ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 import type { SectionId, Phase } from "./types";
 import useSFX from "./useSFX";
+import KuruPostProcessing from "./scene/KuruPostProcessing";
 import {
   HOME_POS, IS_MOBILE, ZOOM_TARGETS, WALL_VIDEOS,
   LEFT_BOUNDARY_POINT, RIGHT_BOUNDARY_POINT,
@@ -943,21 +942,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
 
       <VideoWithShadow contactShadowTex={contactShadowTex} onCatClick={onCatClick} playGlitch={playGlitch} forceSwapRef={forceSwapRef} pauseAmbient={pauseAmbient} />
 
-      {IS_MOBILE ? (
-        <EffectComposer>
-          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        </EffectComposer>
-      ) : (
-        <EffectComposer>
-          <Bloom
-            intensity={1.0}
-            luminanceThreshold={0.7}
-            luminanceSmoothing={0.4}
-            mipmapBlur
-          />
-          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        </EffectComposer>
-      )}
+      <KuruPostProcessing />
     </>
   );
 }
