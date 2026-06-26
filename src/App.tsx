@@ -2,8 +2,8 @@ import { lazy, Suspense, type CSSProperties } from "react";
 import { SkinProvider, useSkin } from "./SkinContext";
 
 const SKINS = {
-  kiri: lazy(() => import("./skins/kiri/KiriApp")),
-  kuru: lazy(() => import("./skins/kuru/KuruApp")),
+  kiri: lazy(() => import("./characters/kiri/KiriApp")),
+  kuru: lazy(() => import("./characters/kuru/KuruApp")),
 } as const;
 
 function ActiveSkin() {
