@@ -1,4 +1,4 @@
-import { worksData } from "../../../data/works";
+import { worksData } from "../../../data/portfolio/works";
 
 const grouped = {
   illustration: worksData.filter((w) => w.type === "illustration"),

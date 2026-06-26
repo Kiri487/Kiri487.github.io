@@ -2,7 +2,7 @@ import type { IconType } from 'react-icons';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { FaXTwitter } from "react-icons/fa6";
 import { FiMail } from "react-icons/fi";
-import { contacts } from "../../../data/contacts";
+import { contacts } from "../../../data/portfolio/contacts";
 
 const ICONS: Record<string, IconType> = {
   github: FaGithub,

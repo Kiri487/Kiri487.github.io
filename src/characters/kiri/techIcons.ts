@@ -5,7 +5,7 @@ import {
 } from "react-icons/si";
 import { DiMsqlServer } from "react-icons/di";
 import { TbBrandCSharp } from "react-icons/tb";
-import type { Tech } from "../../data/tech";
+import type { Tech } from "../../data/portfolio/tech";
 
 /**
  * The kiri skin's icon for each shared tech key. Because this is a

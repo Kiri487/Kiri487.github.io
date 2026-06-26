@@ -7,8 +7,8 @@ import {
   workData,
   experienceData,
   skillsData,
-} from "../../../data/about";
-import { contacts } from "../../../data/contacts";
+} from "../../../data/portfolio/about";
+import { contacts } from "../../../data/portfolio/contacts";
 
 const contactIcons: Record<string, IconType> = {
   github: FaGithub,

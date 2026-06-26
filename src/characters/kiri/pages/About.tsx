@@ -7,7 +7,7 @@ import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
 import TimelineDot from '@mui/lab/TimelineDot';
 import { FaCat, FaBook, FaBriefcase, FaMagic, FaStar } from "react-icons/fa";
 import { FaRegFaceDizzy } from "react-icons/fa6";
-import { educationData, workData, experienceData, skillsData } from "../../../data/about";
+import { educationData, workData, experienceData, skillsData } from "../../../data/portfolio/about";
 import { techIcons } from "../techIcons";
 
 function About() {

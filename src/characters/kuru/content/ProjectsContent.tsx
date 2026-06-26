@@ -1,4 +1,4 @@
-import { personalProjects, teamProjects } from "../../../data/projects";
+import { personalProjects, teamProjects } from "../../../data/portfolio/projects";
 
 const allProjects = [
   ...personalProjects.map((p) => ({ ...p, kind: "Personal" as const })),
