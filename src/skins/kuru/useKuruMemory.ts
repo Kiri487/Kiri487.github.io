@@ -4,8 +4,10 @@ import {
   TIME_DIALOGUES,
   RAPID_CLICK_THRESHOLDS,
   RAPID_CLICK_DIALOGUES,
+  isDialogueChoice,
   type FamiliarityTier,
   type TimePeriod,
+  type DialogueEntry,
 } from "./data/catDialogues";
 
 const STORAGE_KEY = "kuruMemory";
@@ -101,27 +103,36 @@ const useKuruMemory = () => {
     return null;
   }, []);
 
-  const pickDialogue = useCallback((): string[] => {
+  const pickDialogue = useCallback((): DialogueEntry => {
     const mem = memoryRef.current!;
     const tier = getTier(mem.score);
     const period = getTimePeriod();
 
-    const tierPool = TIER_DIALOGUES[tier];
-    const timeExtras = TIME_DIALOGUES[period]
+    const tierPool: DialogueEntry[] = TIER_DIALOGUES[tier];
+    const timeExtras: DialogueEntry[] = TIME_DIALOGUES[period]
       .filter(d => mem.score >= d.minScore)
       .map(d => d.lines);
 
     const pool = [...tierPool, ...timeExtras];
 
-    const available = pool.filter(d => d.join("\0") !== lastDialogueRef.current);
+    const entryKey = (e: DialogueEntry) =>
+      isDialogueChoice(e) ? e.setup.join("\0") : e.join("\0");
+
+    const available = pool.filter(d => entryKey(d) !== lastDialogueRef.current);
     const candidates = available.length > 0 ? available : pool;
     const selected = candidates[Math.floor(Math.random() * candidates.length)];
-    lastDialogueRef.current = selected.join("\0");
+    lastDialogueRef.current = entryKey(selected);
 
     return selected;
   }, []);
 
-  return { recordClick, pickDialogue };
+  const applyScore = useCallback((delta: number) => {
+    const mem = memoryRef.current!;
+    mem.score = Math.max(0, mem.score + delta);
+    saveMemory(mem);
+  }, []);
+
+  return { recordClick, pickDialogue, applyScore };
 };
 
 export default useKuruMemory;

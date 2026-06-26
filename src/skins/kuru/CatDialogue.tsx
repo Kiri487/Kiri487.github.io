@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
+import { isDialogueChoice, type DialogueEntry, type DialogueChoice } from "./data/catDialogues";
 import useSFX from "./useSFX";
 
 export interface CatDialogueHandle {
@@ -6,84 +7,149 @@ export interface CatDialogueHandle {
 }
 
 interface CatDialogueProps {
-  dialogue: string[];
+  dialogue: DialogueEntry;
   onClose: () => void;
+  onChoiceScore?: (delta: number) => void;
 }
 
+type DialoguePhase = "lines" | "choosing" | "response";
+
 const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
-  ({ dialogue, onClose }, ref) => {
+  ({ dialogue, onClose, onChoiceScore }, ref) => {
+    const isChoice = isDialogueChoice(dialogue);
+
+    const [phase, setPhase] = useState<DialoguePhase>("lines");
     const [lineIndex, setLineIndex] = useState(0);
     const [displayedChars, setDisplayedChars] = useState(0);
     const [closing, setClosing] = useState(false);
+    const [selectedChoice, setSelectedChoice] = useState(0);
+    const [chosenResponse, setChosenResponse] = useState<string[] | null>(null);
     const typewriterRef = useRef<number>(0);
 
     const { playBlip } = useSFX();
 
-    const currentLine = dialogue[lineIndex];
-    const isTyping = displayedChars < currentLine.length;
+    const currentLines =
+      phase === "response" && chosenResponse
+        ? chosenResponse
+        : isChoice
+          ? (dialogue as DialogueChoice).setup
+          : (dialogue as string[]);
+
+    const currentLine = currentLines[lineIndex];
+    const isTyping = phase !== "choosing" && displayedChars < currentLine.length;
 
     useEffect(() => {
+      if (phase === "choosing") return;
       setDisplayedChars(0);
-      const line = dialogue[lineIndex];
+      const line = currentLines[lineIndex];
       let charIndex = 0;
 
       const id = window.setInterval(() => {
         charIndex++;
         setDisplayedChars(charIndex);
         if (line[charIndex - 1] !== " ") playBlip();
-        if (charIndex >= line.length) {
-          clearInterval(id);
-        }
+        if (charIndex >= line.length) clearInterval(id);
       }, 65);
 
       typewriterRef.current = id;
       return () => clearInterval(id);
-    }, [dialogue, lineIndex, playBlip]);
+    }, [currentLines, lineIndex, phase, playBlip]);
+
+    const close = useCallback(() => {
+      if (closing) return;
+      setClosing(true);
+      setTimeout(onClose, 250);
+    }, [closing, onClose]);
+
+    const confirmChoice = useCallback((idx: number) => {
+      if (closing) return;
+      const choice = (dialogue as DialogueChoice).choices[idx];
+      onChoiceScore?.(choice.score);
+      setChosenResponse(choice.response);
+      setPhase("response");
+      setLineIndex(0);
+    }, [closing, dialogue, onChoiceScore]);
 
     const advance = useCallback(() => {
-      if (closing) return;
+      if (closing || phase === "choosing") return;
+
       if (isTyping) {
         clearInterval(typewriterRef.current);
         setDisplayedChars(currentLine.length);
-      } else if (lineIndex < dialogue.length - 1) {
+      } else if (lineIndex < currentLines.length - 1) {
         setLineIndex(prev => prev + 1);
+      } else if (phase === "lines" && isChoice) {
+        setPhase("choosing");
       } else {
-        setClosing(true);
-        setTimeout(onClose, 250);
+        close();
       }
-    }, [closing, isTyping, currentLine.length, lineIndex, dialogue.length, onClose]);
+    }, [closing, phase, isTyping, currentLine.length, lineIndex, currentLines.length, isChoice, close]);
 
     useImperativeHandle(ref, () => ({ advance }), [advance]);
 
     useEffect(() => {
       const handleKey = (e: KeyboardEvent) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if (e.key === "Escape") {
           e.preventDefault();
-          advance();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          if (!closing) {
-            setClosing(true);
-            setTimeout(onClose, 250);
+          close();
+          return;
+        }
+
+        if (phase === "choosing") {
+          if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
+            e.preventDefault();
+            setSelectedChoice(prev => (prev === 0 ? 1 : 0));
+          } else if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            confirmChoice(selectedChoice);
+          }
+        } else {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            advance();
           }
         }
       };
       window.addEventListener("keydown", handleKey);
       return () => window.removeEventListener("keydown", handleKey);
-    }, [advance, closing, onClose]);
+    }, [advance, close, phase, selectedChoice, confirmChoice]);
 
     return (
       <div
-        className={`kuru-dialogue ${closing ? "kuru-dialogue--closing" : ""}`}
-        onClick={advance}
+        className={`kuru-dialogue ${closing ? "kuru-dialogue--closing" : ""} ${phase === "choosing" ? "kuru-dialogue--choosing" : ""}`}
+        onClick={phase === "choosing" ? undefined : advance}
       >
         <div className="kuru-dialogue__name">&gt; KURU</div>
-        <div className="kuru-dialogue__text">
-          {currentLine.slice(0, displayedChars)}
-          {isTyping && <span className="kuru-dialogue__cursor">|</span>}
-        </div>
-        {!isTyping && !closing && (
-          <div className="kuru-dialogue__next">▼</div>
+
+        {phase === "choosing" ? (
+          <>
+            <div className="kuru-dialogue__text">{currentLine}</div>
+            <div className="kuru-dialogue__choices">
+              {(dialogue as DialogueChoice).choices.map((opt, i) => (
+                <button
+                  key={i}
+                  className={`kuru-dialogue__choice ${selectedChoice === i ? "kuru-dialogue__choice--active" : ""}`}
+                  onClick={(e) => { e.stopPropagation(); confirmChoice(i); }}
+                  onMouseEnter={() => setSelectedChoice(i)}
+                >
+                  <span className="kuru-dialogue__choice-marker">
+                    {selectedChoice === i ? "▸" : " "}
+                  </span>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="kuru-dialogue__text">
+              {currentLine.slice(0, displayedChars)}
+              {isTyping && <span className="kuru-dialogue__cursor">|</span>}
+            </div>
+            {!isTyping && !closing && (
+              <div className="kuru-dialogue__next">{"▼"}</div>
+            )}
+          </>
         )}
       </div>
     );

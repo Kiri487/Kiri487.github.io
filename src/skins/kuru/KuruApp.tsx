@@ -6,6 +6,7 @@ import Scene from "./Scene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
 import CatDialogue, { type CatDialogueHandle } from "./CatDialogue";
+import type { DialogueEntry } from "./data/catDialogues";
 import BgmPlayer from "./BgmPlayer";
 import LoadingScreen from "./LoadingScreen";
 import useKuruMemory from "./useKuruMemory";
@@ -16,10 +17,10 @@ export type Phase = "idle" | "zooming" | "connecting" | "panel" | "open";
 
 function KuruApp() {
   const { setSkin } = useSkin();
-  const { recordClick, pickDialogue } = useKuruMemory();
+  const { recordClick, pickDialogue, applyScore } = useKuruMemory();
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [activeDialogue, setActiveDialogue] = useState<string[] | null>(null);
+  const [activeDialogue, setActiveDialogue] = useState<DialogueEntry | null>(null);
   const dialogueRef = useRef<CatDialogueHandle>(null);
   const dialogueKeyRef = useRef(0);
   const pendingForceSwap = useRef(false);
@@ -121,6 +122,7 @@ function KuruApp() {
           ref={dialogueRef}
           dialogue={activeDialogue}
           onClose={handleDialogueClose}
+          onChoiceScore={applyScore}
         />
       )}
       <BgmPlayer />

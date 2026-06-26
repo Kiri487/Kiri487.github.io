@@ -845,7 +845,7 @@ html[data-skin="kuru"] body {
   z-index: 170;
   width: min(520px, 85vw);
   padding: 0.8rem 1.2rem;
-  padding-bottom: 1.4rem;
+  padding-bottom: 2.2rem;
   background: rgba(0, 0, 0, 0.88);
   border: 1px solid #0af;
   box-shadow: 0 0 15px rgba(0, 170, 255, 0.3);
@@ -876,6 +876,39 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-dialogue__cursor {
   color: #0af;
+}
+
+[data-skin="kuru"] .kuru-dialogue--choosing {
+  cursor: default;
+}
+
+[data-skin="kuru"] .kuru-dialogue__choices {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  position: absolute;
+  bottom: 0.6rem;
+  right: 0.8rem;
+}
+
+[data-skin="kuru"] .kuru-dialogue__choice {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #6a6560;
+  font-family: 'Courier New', monospace;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+[data-skin="kuru"] .kuru-dialogue__choice--active {
+  color: #0af;
+}
+
+[data-skin="kuru"] .kuru-dialogue__choice-marker {
+  margin-right: 0.2rem;
 }
 
 [data-skin="kuru"] .kuru-dialogue__next {
@@ -990,8 +1023,9 @@ html[data-skin="kuru"] body {
   [data-skin="kuru"] .kuru-bgm__vol { display: none; }
 
   /* cat dialogue */
-  [data-skin="kuru"] .kuru-dialogue { bottom: 2.8rem; width: 90vw; padding: 0.6rem 0.9rem; padding-bottom: 1.2rem; }
+  [data-skin="kuru"] .kuru-dialogue { bottom: 2.8rem; width: 90vw; padding: 0.6rem 0.9rem; padding-bottom: 1.8rem; }
   [data-skin="kuru"] .kuru-dialogue__text { font-size: 0.82rem; }
+  [data-skin="kuru"] .kuru-dialogue__choice { font-size: 0.78rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
