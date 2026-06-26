@@ -9,7 +9,7 @@ export interface CatDialogueHandle {
 interface CatDialogueProps {
   dialogue: DialogueEntry;
   onClose: () => void;
-  onChoiceScore?: (delta: number) => void;
+  onChoiceScore?: (choiceId: string, delta: number) => void;
 }
 
 type DialoguePhase = "lines" | "choosing" | "response";
@@ -66,7 +66,7 @@ const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
       if (closing || confirmedChoice !== null) return;
       setConfirmedChoice(idx);
       const choice = (dialogue as DialogueChoice).choices[idx];
-      onChoiceScore?.(choice.score);
+      onChoiceScore?.((dialogue as DialogueChoice).id, choice.score);
       setTimeout(() => {
         setChosenResponse(choice.response);
         setPhase("response");

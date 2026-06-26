@@ -13,6 +13,7 @@ export interface DialogueChoiceOption {
 }
 
 export interface DialogueChoice {
+  id: string;
   setup: string[];
   choices: [DialogueChoiceOption, DialogueChoiceOption];
 }
@@ -45,6 +46,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
     ["You're blocking my light."],
     ["Did I ask?", "No. I didn't."],
     {
+      id: "h-stand",
       setup: ["You just gonna stand there?"],
       choices: [
         { label: "Yeah.", response: ["...", "...At least you're honest."], score: 1 },
@@ -52,6 +54,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "h-why",
       setup: ["Why are you here?"],
       choices: [
         { label: "No reason.", response: ["...", "Fair enough."], score: 1 },
@@ -59,6 +62,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "h-music",
       setup: ["What kind of music you into?"],
       choices: [
         { label: "Whatever hits right.", response: ["Vague.", "...But not the worst answer."], score: 1 },
@@ -84,6 +88,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
     ["You always stand in the same spot.", "...I'm not complaining. Just noticing."],
     ["Other people walk past this alley.", "You walk in.", "...Weird."],
     {
+      id: "n-comeback",
       setup: ["You ever think about why you keep coming back?"],
       choices: [
         { label: "It's a good alley.", response: ["...", "It is."], score: 1 },
@@ -91,6 +96,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "n-beat",
       setup: ["I found this beat the other day.", "...Nah, you wouldn't get it."],
       choices: [
         { label: "Try me.", response: ["...", "Maybe next time."], score: 1 },
@@ -98,6 +104,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "n-vending",
       setup: ["There's a vending machine around the corner.", "...It's broken though."],
       choices: [
         { label: "How long?", response: ["...Dunno.", "Longer than me."], score: 1 },
@@ -123,6 +130,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
     ["Don't come tomorrow.", "...I'm kidding.", "...Maybe."],
     ["I saved a spot.", "Not for you.", "It's just... empty."],
     {
+      id: "w-tag",
       setup: ["You notice the tag on that wall?", "...Someone wrote over mine."],
       choices: [
         { label: "You tag?", response: ["Used to.", "...Doesn't matter."], score: 1 },
@@ -130,6 +138,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "w-sound",
       setup: ["If this alley had a sound...", "What would it be?"],
       choices: [
         { label: "A low hum.", response: ["...Yeah.", "That's exactly it."], score: 1 },
@@ -137,6 +146,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "w-list",
       setup: ["I keep a list.", "...Of things I wanna learn.", "It's getting long."],
       choices: [
         { label: "That's cool.", response: ["...Don't patronize me.", "...But thanks."], score: 1 },
@@ -162,6 +172,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
     ["I made something.", "...It's not finished.", "Maybe next time."],
     ["Some nights I replay the same bar over and over.", "Forty, fifty times.", "...Tonight's one of those nights."],
     {
+      id: "t-song",
       setup: ["You ever have a song you can't finish?", "Like... you know exactly how it should end.", "But you won't let it."],
       choices: [
         { label: "Yeah.", response: ["...", "Okay."], score: 1 },
@@ -169,6 +180,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "t-where",
       setup: ["If I wasn't in this alley...", "Where do you think I'd be?"],
       choices: [
         { label: "Right here.", response: ["...", "Yeah.", "Probably."], score: 1 },
@@ -176,6 +188,7 @@ export const TIER_DIALOGUES: Record<FamiliarityTier, DialogueEntry[]> = {
       ],
     },
     {
+      id: "t-cat",
       setup: ["I named a stray cat once.", "...It stopped coming after that.", "Like it knew."],
       choices: [
         { label: "Do you miss it?", response: ["...Tch.", "It was just a cat."], score: 1 },

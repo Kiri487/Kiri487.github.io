@@ -16,12 +16,13 @@ const VISIT_INTERVAL_MS = 3 * 60 * 60 * 1000;
 interface KuruMemory {
   score: number;
   lastVisit: number;
+  answeredChoices: string[];
 }
 
 function loadMemory(): KuruMemory {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { score: 0, lastVisit: 0 };
+    if (!raw) return { score: 0, lastVisit: 0, answeredChoices: [] };
 
     const parsed: unknown = JSON.parse(raw);
     if (
@@ -32,13 +33,15 @@ function loadMemory(): KuruMemory {
       typeof (parsed as KuruMemory).lastVisit === "number" &&
       Number.isFinite((parsed as KuruMemory).lastVisit)
     ) {
+      const ac = (parsed as Record<string, unknown>).answeredChoices;
       return {
         score: Math.max(0, (parsed as KuruMemory).score),
         lastVisit: Math.max(0, (parsed as KuruMemory).lastVisit),
+        answeredChoices: Array.isArray(ac) ? ac.filter((v): v is string => typeof v === "string") : [],
       };
     }
   } catch { /* corrupt or unavailable storage */ }
-  return { score: 0, lastVisit: 0 };
+  return { score: 0, lastVisit: 0, answeredChoices: [] };
 }
 
 function saveMemory(mem: KuruMemory): void {
@@ -126,8 +129,10 @@ const useKuruMemory = () => {
     return selected;
   }, []);
 
-  const applyScore = useCallback((delta: number) => {
+  const applyScore = useCallback((choiceId: string, delta: number) => {
     const mem = memoryRef.current!;
+    if (mem.answeredChoices.includes(choiceId)) return;
+    mem.answeredChoices.push(choiceId);
     mem.score = Math.max(0, mem.score + delta);
     saveMemory(mem);
   }, []);
