@@ -83,24 +83,34 @@ function BgmPlayer() {
     }
   }, [trackIdx]);
 
+  const rafRef = useRef(0);
+  const lastSecRef = useRef(-1);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onTime = () => {
-      setCurrentTime(audio.currentTime);
-      if (audio.duration) setDuration(audio.duration);
-    };
     const onMeta = () => setDuration(audio.duration || 0);
     const onEnd = () => next();
-    audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("ended", onEnd);
+
+    const tick = () => {
+      const sec = Math.floor(audio.currentTime);
+      if (sec !== lastSecRef.current) {
+        lastSecRef.current = sec;
+        setCurrentTime(audio.currentTime);
+        if (audio.duration) setDuration(audio.duration);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    if (playing) rafRef.current = requestAnimationFrame(tick);
+
     return () => {
-      audio.removeEventListener("timeupdate", onTime);
+      cancelAnimationFrame(rafRef.current);
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("ended", onEnd);
     };
-  }, [next]);
+  }, [next, playing]);
 
   const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current;

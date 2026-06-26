@@ -885,6 +885,7 @@ html[data-skin="kuru"] body {
 [data-skin="kuru"] .kuru-dialogue__choices {
   display: flex;
   justify-content: flex-end;
+  align-items: baseline;
   gap: 1rem;
   position: absolute;
   bottom: 0.6rem;
@@ -905,6 +906,11 @@ html[data-skin="kuru"] body {
 
 [data-skin="kuru"] .kuru-dialogue__choice--active {
   color: #0af;
+}
+
+[data-skin="kuru"] .kuru-dialogue__choice:focus-visible {
+  color: #0af;
+  outline: none;
 }
 
 [data-skin="kuru"] .kuru-dialogue__choice--confirmed {

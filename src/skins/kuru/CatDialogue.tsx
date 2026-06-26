@@ -137,9 +137,7 @@ const CatDialogue = forwardRef<CatDialogueHandle, CatDialogueProps>(
                   onClick={(e) => { e.stopPropagation(); confirmChoice(i); }}
                   onMouseEnter={() => confirmedChoice === null ? setSelectedChoice(i) : undefined}
                 >
-                  <span className="kuru-dialogue__choice-marker">
-                    {selectedChoice === i ? "▸" : " "}
-                  </span>
+                  <span className="kuru-dialogue__choice-marker" style={selectedChoice === i ? undefined : { visibility: "hidden" }}>&#9656;</span>
                   {opt.label}
                 </button>
               ))}

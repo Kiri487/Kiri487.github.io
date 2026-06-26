@@ -10,6 +10,17 @@ import useSFX from "./useSFX";
 const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
 const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
 
+let _cursorOwner: string | null = null;
+function setCursor(owner: string, hover: boolean) {
+  if (hover) {
+    _cursorOwner = owner;
+    document.body.style.cursor = "pointer";
+  } else if (_cursorOwner === owner) {
+    _cursorOwner = null;
+    document.body.style.cursor = "";
+  }
+}
+
 const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
   about: new THREE.Vector3(-2.55, -0.6, -0.90),
   projects: new THREE.Vector3(1.05, -0.64, 0.00),
@@ -55,18 +66,14 @@ function GraffitiHotspot({ texture, aspect, glowing, disabled, onClick }: Graffi
   });
 
   const onMove = useCallback((e: { uv?: THREE.Vector2 }) => {
-    if (e.uv && checkAlpha(e.uv)) {
-      setHovered(true);
-      document.body.style.cursor = "pointer";
-    } else {
-      setHovered(false);
-      document.body.style.cursor = "";
-    }
+    const hit = !!(e.uv && checkAlpha(e.uv));
+    setHovered(hit);
+    setCursor("graffiti", hit);
   }, [checkAlpha]);
 
   const onOut = useCallback(() => {
     setHovered(false);
-    document.body.style.cursor = "";
+    setCursor("graffiti", false);
   }, []);
 
   const scale = 0.55;
@@ -122,11 +129,11 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888", glo
 
   const onOver = useCallback(() => {
     setHovered(true);
-    document.body.style.cursor = "pointer";
+    setCursor("wall", true);
   }, []);
   const onOut = useCallback(() => {
     setHovered(false);
-    document.body.style.cursor = "";
+    setCursor("wall", false);
   }, []);
 
   return (
@@ -176,8 +183,8 @@ function ExitHotspot({ onClick, flickerBases, disabled }: { onClick: () => void;
     <mesh
       position={[-0.13, -0.16, 0.99]}
       rotation={[0, -3.14, 0]}
-      onPointerOver={disabled ? undefined : () => { setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={disabled ? undefined : () => { setHovered(false); document.body.style.cursor = ""; }}
+      onPointerOver={disabled ? undefined : () => { setHovered(true); setCursor("exit", true); }}
+      onPointerOut={disabled ? undefined : () => { setHovered(false); setCursor("exit", false); }}
       onClick={disabled ? undefined : (e) => { e.stopPropagation(); onClick(); }}
     >
       <planeGeometry args={[0.32, 0.12]} />
@@ -313,12 +320,12 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
   useEffect(() => {
     if (!interactive && hoveringCharacterRef.current) {
       hoveringCharacterRef.current = false;
-      document.body.style.cursor = "";
+      setCursor("video", false);
     }
     return () => {
       if (hoveringCharacterRef.current) {
         hoveringCharacterRef.current = false;
-        document.body.style.cursor = "";
+        setCursor("video", false);
       }
     };
   }, [interactive]);
@@ -438,7 +445,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
       if (hitCharacter) e.stopPropagation();
       if (hoveringCharacterRef.current !== hitCharacter) {
         hoveringCharacterRef.current = hitCharacter;
-        document.body.style.cursor = hitCharacter ? "pointer" : "";
+        setCursor("video", hitCharacter);
       }
     },
     [interactive, checkVideoAlpha],
@@ -447,7 +454,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
   const handlePointerOut = useCallback(() => {
     if (!hoveringCharacterRef.current) return;
     hoveringCharacterRef.current = false;
-    document.body.style.cursor = "";
+    setCursor("video", false);
   }, []);
 
   const handleClick = useCallback(
