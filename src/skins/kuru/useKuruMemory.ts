@@ -119,7 +119,7 @@ const useKuruMemory = () => {
     const pool = [...tierPool, ...timeExtras];
 
     const entryKey = (e: DialogueEntry) =>
-      isDialogueChoice(e) ? e.setup.join("\0") : e.join("\0");
+      isDialogueChoice(e) ? e.id : e.join("\0");
 
     const available = pool.filter(d => entryKey(d) !== lastDialogueRef.current);
     const candidates = available.length > 0 ? available : pool;
