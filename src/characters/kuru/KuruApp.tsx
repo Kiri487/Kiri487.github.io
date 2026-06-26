@@ -2,7 +2,7 @@ import { Suspense, useState, useCallback, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { useSkin } from "../../SkinContext";
-import Scene from "./Scene";
+import Scene from "./scene/KuruScene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
 import CatDialogue, { type CatDialogueHandle } from "./CatDialogue";

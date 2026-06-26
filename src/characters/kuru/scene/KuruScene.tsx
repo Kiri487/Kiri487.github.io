@@ -2,13 +2,13 @@ import { useMemo, useEffect, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import * as THREE from "three";
-import type { SectionId, Phase } from "./types";
-import useSFX from "./useSFX";
-import KuruPostProcessing from "./scene/KuruPostProcessing";
-import CameraZoom from "./scene/KuruCamera";
-import KuruLighting from "./scene/KuruLighting";
-import { GraffitiHotspot, WallObject, ExitHotspot } from "./scene/KuruHotspots";
-import { VideoWithShadow } from "./scene/KuruCharacter";
+import type { SectionId, Phase } from "../types";
+import useSFX from "../useSFX";
+import KuruPostProcessing from "./KuruPostProcessing";
+import CameraZoom from "./KuruCamera";
+import KuruLighting from "./KuruLighting";
+import { GraffitiHotspot, WallObject, ExitHotspot } from "./KuruHotspots";
+import { VideoWithShadow } from "./KuruCharacter";
 
 const texSize = (tex: THREE.Texture) => tex.image as { width: number; height: number } | undefined;
 
