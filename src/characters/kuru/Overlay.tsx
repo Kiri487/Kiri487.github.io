@@ -2,7 +2,7 @@ import type { SectionId, Phase } from "./types";
 import AboutContent from "./content/AboutContent";
 import ProjectsContent from "./content/ProjectsContent";
 import WorksContent from "./content/WorksContent";
-import CreditsContent from "./content/CreditsContent";
+import CreditsContent from "./credits";
 
 const CONTENT: Record<SectionId, React.FC> = {
   about: AboutContent,

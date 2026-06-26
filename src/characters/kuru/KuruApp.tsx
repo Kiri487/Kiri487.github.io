@@ -6,10 +6,10 @@ import Scene from "./scene/KuruScene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
 import CatDialogue, { type CatDialogueHandle } from "./CatDialogue";
-import type { DialogueEntry } from "./data/catDialogues";
-import BgmPlayer from "./BgmPlayer";
+import type { DialogueEntry } from "./dialogue/catDialogues";
+import BgmPlayer from "./audio/BgmPlayer";
 import LoadingScreen from "./LoadingScreen";
-import useKuruMemory from "./useKuruMemory";
+import useKuruMemory from "./dialogue/useKuruMemory";
 import "./style.css";
 
 export type { SectionId, Phase } from "./types";

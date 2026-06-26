@@ -8,7 +8,7 @@ import {
   type FamiliarityTier,
   type TimePeriod,
   type DialogueEntry,
-} from "./data/catDialogues";
+} from "./catDialogues";
 
 const STORAGE_KEY = "kuruMemory";
 const VISIT_INTERVAL_MS = 3 * 60 * 60 * 1000;

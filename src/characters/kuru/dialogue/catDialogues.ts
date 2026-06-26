@@ -1,27 +1,12 @@
+export type { DialogueChoiceOption, DialogueChoice, DialogueEntry } from "../../../shared/dialogue/types";
+export { isDialogueChoice } from "../../../shared/dialogue/types";
+
 export type FamiliarityTier = "hostile" | "neutral" | "warming" | "trusting";
 export type TimePeriod = "night" | "morning" | "afternoon" | "evening";
 
 export interface ContextDialogue {
   lines: string[];
   minScore: number;
-}
-
-export interface DialogueChoiceOption {
-  label: string;
-  response: string[];
-  score: number;
-}
-
-export interface DialogueChoice {
-  id: string;
-  setup: string[];
-  choices: [DialogueChoiceOption, DialogueChoiceOption];
-}
-
-export type DialogueEntry = string[] | DialogueChoice;
-
-export function isDialogueChoice(entry: DialogueEntry): entry is DialogueChoice {
-  return "setup" in entry;
 }
 
 // Familiarity tier dialogues — pool selection based on hidden score

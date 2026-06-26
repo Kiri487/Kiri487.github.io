@@ -3,7 +3,7 @@ import { useThree } from "@react-three/fiber";
 import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import * as THREE from "three";
 import type { SectionId, Phase } from "../types";
-import useSFX from "../useSFX";
+import useSFX from "../audio/useSFX";
 import KuruPostProcessing from "./KuruPostProcessing";
 import CameraZoom from "./KuruCamera";
 import KuruLighting from "./KuruLighting";
