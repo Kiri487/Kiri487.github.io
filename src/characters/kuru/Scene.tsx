@@ -4,11 +4,15 @@ import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import { EffectComposer, Bloom, ToneMapping } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
-import type { SectionId, Phase } from "./KuruApp";
+import type { SectionId, Phase } from "./types";
 import useSFX from "./useSFX";
-
-const HOME_POS = new THREE.Vector3(-1.15, -1.1, -2.35);
-const IS_MOBILE = window.matchMedia("(pointer: coarse)").matches;
+import {
+  HOME_POS, IS_MOBILE, ZOOM_TARGETS, WALL_VIDEOS,
+  LEFT_BOUNDARY_POINT, RIGHT_BOUNDARY_POINT,
+  SAFE_NDC_X, CAMERA_X_SEARCH_MIN, CAMERA_X_SEARCH_MAX, CAMERA_X_SEARCH_STEPS,
+  type VideoConfig,
+} from "./scene/config";
+import { projectionVertexShader, projectionFragmentShader } from "./scene/shaders";
 
 let _cursorOwner: string | null = null;
 function setCursor(owner: string, hover: boolean) {
@@ -20,13 +24,6 @@ function setCursor(owner: string, hover: boolean) {
     document.body.style.cursor = "";
   }
 }
-
-const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
-  about: new THREE.Vector3(-2.55, -0.6, -0.90),
-  projects: new THREE.Vector3(1.05, -0.64, 0.00),
-  works: new THREE.Vector3(-0.90, -1.75, -0.50),
-  credits: new THREE.Vector3(-1.45, -0.95, -0.65),
-};
 
 interface GraffitiHotspotProps {
   texture: THREE.Texture;
@@ -192,117 +189,6 @@ function ExitHotspot({ onClick, flickerBases, disabled }: { onClick: () => void;
     </mesh>
   );
 }
-
-interface VideoConfig {
-  src: string;
-  aspect: number;
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: number;
-  shadowOffset: [number, number, number];
-  shadowSize: [number, number];
-  gamma: number;
-  brightness: number;
-  tint: [number, number, number];
-}
-
-const WALL_VIDEOS: VideoConfig[] = [
-  {
-    src: "/kuru/video/KuruWallAFK_stacked.webm",
-    aspect: 934 / 1440,
-    position: [-1.89, -1.23, -0.13],
-    rotation: [0, -3.13, 0],
-    scale: 1.37,
-    shadowOffset: [0.05, -0.53, -0.09],
-    shadowSize: [0.49, 0.26],
-    gamma: 2.0,
-    brightness: 0.08,
-    tint: [1.0, 0.92, 0.88],
-  },
-  {
-    src: "/kuru/video/KuruSitAFK_stacked.webm",
-    aspect: 1334 / 1440,
-    position: [1.19, -1.54, -0.15],
-    rotation: [0, -3.13, 0],
-    scale: 0.85,
-    shadowOffset: [0.15, -0.35, 0.13],
-    shadowSize: [0.41, 0.28],
-    gamma: 2.0,
-    brightness: 0.08,
-    tint: [1.0, 0.92, 0.88],
-  },
-];
-
-const projectionVertexShader = /* glsl */ `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const projectionFragmentShader = /* glsl */ `
-  uniform sampler2D uMap;
-  uniform float uTime;
-  uniform float uGlitch;
-  uniform float uGamma;
-  uniform float uBrightness;
-  uniform vec3 uTint;
-  uniform float uAlpha;
-  varying vec2 vUv;
-
-  float hash(float n) { return fract(sin(n) * 43758.5453); }
-
-  void main() {
-    vec2 uv = vUv;
-
-    float g = uGlitch;
-
-    // Horizontal band displacement — many thin strips
-    if (g > 0.0) {
-      float bandSeed = floor(uv.y * 40.0) + floor(uTime * 30.0);
-      float bandRand = hash(bandSeed);
-      if (bandRand > 0.6) {
-        float shift = (hash(bandSeed + 1.0) - 0.5) * 0.05 * g;
-        uv.x += shift;
-      }
-    }
-
-    // Stacked layout (flipY=true): texture top = video top = RGB, texture bottom = alpha
-    vec2 rgbUv = vec2(uv.x, uv.y * 0.5 + 0.5);
-    vec2 alphaUv = vec2(uv.x, uv.y * 0.5);
-
-    // RGB separation
-    float sep = g * 0.018;
-    vec3 rgb;
-    float a;
-    if (g > 0.0) {
-      rgb.r = texture2D(uMap, rgbUv + vec2(sep, 0.0)).r;
-      rgb.g = texture2D(uMap, rgbUv).g;
-      rgb.b = texture2D(uMap, rgbUv - vec2(sep, 0.0)).b;
-    } else {
-      rgb = texture2D(uMap, rgbUv).rgb;
-    }
-    a = texture2D(uMap, alphaUv).r;
-    // Undo sRGB decode on alpha mask, then remap YUV limited range (16-235)
-    a = pow(a, 1.0 / 2.2);
-    a = clamp((a - 0.063) / 0.859, 0.0, 1.0);
-
-    rgb = pow(rgb, vec3(uGamma)) * uBrightness * uTint;
-
-    // Brightness spike during glitch
-    rgb *= 1.0 + g * 1.0;
-
-    // Scanlines: thin horizontal lines, slowly drifting upward
-    float scanline = sin((uv.y * 1400.0) + uTime * 2.5) * 0.5 + 0.5;
-    scanline = smoothstep(0.42, 0.58, scanline);
-    rgb -= scanline * 0.01;
-
-    a *= (1.0 - g * 0.3) * uAlpha;
-    if (a < 0.05) discard;
-    gl_FragColor = vec4(rgb, a);
-  }
-`;
 
 function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, onClick }: {
   config: VideoConfig;
@@ -487,17 +373,6 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
     </mesh>
   );
 }
-
-// Calibrated safe scene boundaries.
-// +X is visually left and -X is visually right because the camera faces roughly +Z.
-const LEFT_BOUNDARY_POINT = new THREE.Vector3(3.68, HOME_POS.y, 1.0);
-const RIGHT_BOUNDARY_POINT = new THREE.Vector3(-3.4, HOME_POS.y, -0.02);
-
-// Keep the calibrated boundary slightly inside the viewport to avoid a 1px seam.
-const SAFE_NDC_X = 0.98;
-const CAMERA_X_SEARCH_MIN = -20;
-const CAMERA_X_SEARCH_MAX = 20;
-const CAMERA_X_SEARCH_STEPS = 60;
 
 /**
  * Find the camera world-X that projects `point` to `targetNdcX`.

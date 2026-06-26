@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { SectionId } from "./KuruApp";
+import type { SectionId } from "./types";
 
 interface ConnectOverlayProps {
   section: SectionId | null;

@@ -1,4 +1,4 @@
-import type { SectionId, Phase } from "./KuruApp";
+import type { SectionId, Phase } from "./types";
 import AboutContent from "./content/AboutContent";
 import ProjectsContent from "./content/ProjectsContent";
 import WorksContent from "./content/WorksContent";

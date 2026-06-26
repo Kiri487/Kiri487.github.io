@@ -12,8 +12,8 @@ import LoadingScreen from "./LoadingScreen";
 import useKuruMemory from "./useKuruMemory";
 import "./style.css";
 
-export type SectionId = "about" | "projects" | "works" | "credits";
-export type Phase = "idle" | "zooming" | "connecting" | "panel" | "open";
+export type { SectionId, Phase } from "./types";
+import type { SectionId, Phase } from "./types";
 
 function KuruApp() {
   const { setSkin } = useSkin();
