@@ -3,7 +3,7 @@ import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { setCursor } from "./cursorManager";
 import { WALL_VIDEOS, type VideoConfig } from "./config";
-import { projectionVertexShader, projectionFragmentShader } from "./shaders";
+import { StackedAlphaVideo } from "../../../shared/scene/StackedAlphaVideo";
 
 function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, onClick }: {
   config: VideoConfig;
@@ -13,7 +13,6 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
   interactive: boolean;
   onClick?: () => void;
 }) {
-  const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
   const hitCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hitContextRef = useRef<CanvasRenderingContext2D | null>(null);
   const hoveringCharacterRef = useRef(false);
@@ -30,70 +29,6 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
       }
     };
   }, [interactive]);
-
-  useEffect(() => {
-    const v = document.createElement("video");
-    v.autoplay = true;
-    v.loop = true;
-    v.muted = true;
-    v.defaultMuted = true;
-    v.playsInline = true;
-    v.preload = "auto";
-    v.setAttribute("autoplay", "");
-    v.setAttribute("loop", "");
-    v.setAttribute("muted", "");
-    v.setAttribute("playsinline", "");
-    v.setAttribute("webkit-playsinline", "");
-    v.style.position = "fixed";
-    v.style.left = "-9999px";
-    v.style.width = "1px";
-    v.style.height = "1px";
-    v.style.opacity = "0";
-    v.style.pointerEvents = "none";
-
-    v.src = config.src;
-
-    document.body.appendChild(v);
-    videoRef.current = v;
-
-    const tex = new THREE.VideoTexture(v);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.minFilter = THREE.LinearFilter;
-    tex.magFilter = THREE.LinearFilter;
-    tex.generateMipmaps = false;
-
-    const mat = new THREE.ShaderMaterial({
-      vertexShader: projectionVertexShader,
-      fragmentShader: projectionFragmentShader,
-      uniforms: {
-        uMap: { value: tex },
-        uTime: { value: 0 },
-        uGlitch: { value: 0 },
-        uAlpha: { value: 1 },
-        uGamma: { value: config.gamma },
-        uBrightness: { value: config.brightness },
-        uTint: { value: new THREE.Vector3(...config.tint) },
-      },
-      transparent: true,
-      depthWrite: false,
-    });
-
-    setMaterial(mat);
-
-    v.load();
-    v.play().catch((e) => {
-      if (e.name !== "AbortError") { /* autoplay blocked or load aborted */ }
-    });
-
-    return () => {
-      v.pause();
-      document.body.removeChild(v);
-      tex.dispose();
-      mat.dispose();
-      setMaterial(null);
-      videoRef.current = null;
-    };
-  }, [config, videoRef]);
 
   const checkVideoAlpha = useCallback(
     (uv?: THREE.Vector2) => {
@@ -167,25 +102,21 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
     [interactive, checkVideoAlpha, onClick],
   );
 
-  useFrame((_, delta) => {
-    if (!material) return;
-    material.uniforms.uTime.value += delta;
-    material.uniforms.uGlitch.value = glitchRef.current.value;
-    material.uniforms.uAlpha.value = alphaRef.current;
-  });
-
-  if (!material) return null;
-
   return (
-    <mesh
+    <StackedAlphaVideo
+      src={config.src}
+      aspect={config.aspect}
       rotation={config.rotation}
+      gamma={config.gamma}
+      brightness={config.brightness}
+      tint={config.tint}
+      glitchRef={glitchRef}
+      alphaRef={alphaRef}
+      videoRef={videoRef}
       onPointerMove={interactive ? handlePointerMove : undefined}
       onPointerOut={interactive ? handlePointerOut : undefined}
       onClick={interactive ? handleClick : undefined}
-    >
-      <planeGeometry args={[config.aspect, 1]} />
-      <primitive object={material} attach="material" />
-    </mesh>
+    />
   );
 }
 

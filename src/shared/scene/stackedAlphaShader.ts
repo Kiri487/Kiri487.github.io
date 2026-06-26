@@ -1,4 +1,4 @@
-export const projectionVertexShader = /* glsl */ `
+export const stackedAlphaVertexShader = /* glsl */ `
   varying vec2 vUv;
   void main() {
     vUv = uv;
@@ -6,7 +6,7 @@ export const projectionVertexShader = /* glsl */ `
   }
 `;
 
-export const projectionFragmentShader = /* glsl */ `
+export const stackedAlphaFragmentShader = /* glsl */ `
   uniform sampler2D uMap;
   uniform float uTime;
   uniform float uGlitch;
