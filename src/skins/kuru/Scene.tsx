@@ -21,10 +21,11 @@ interface GraffitiHotspotProps {
   texture: THREE.Texture;
   aspect: number;
   glowing?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }
 
-function GraffitiHotspot({ texture, aspect, glowing, onClick }: GraffitiHotspotProps) {
+function GraffitiHotspot({ texture, aspect, glowing, disabled, onClick }: GraffitiHotspotProps) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
   const emissiveTarget = (hovered || glowing) ? 0.5 : 0;
@@ -75,9 +76,9 @@ function GraffitiHotspot({ texture, aspect, glowing, onClick }: GraffitiHotspotP
       position={[-2.6, -0.6, -0.08]}
       rotation={[0, -3.13, -0.14]}
       receiveShadow
-      onPointerMove={onMove}
-      onPointerOut={onOut}
-      onClick={(e) => {
+      onPointerMove={disabled ? undefined : onMove}
+      onPointerOut={disabled ? undefined : onOut}
+      onClick={disabled ? undefined : (e) => {
         e.stopPropagation();
         if (e.uv && checkAlpha(e.uv) && onClick) onClick();
       }}
@@ -105,10 +106,11 @@ interface WallObjectProps {
   texture?: THREE.Texture;
   color?: string;
   glowing?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
 }
 
-function WallObject({ position, rotation, scale: s, texture, color = "#888", glowing, onClick }: WallObjectProps) {
+function WallObject({ position, rotation, scale: s, texture, color = "#888", glowing, disabled, onClick }: WallObjectProps) {
   const matRef = useRef<THREE.MeshStandardMaterial>(null!);
   const [hovered, setHovered] = useState(false);
   const emissiveTarget = (hovered || glowing) ? 0.5 : 0;
@@ -132,9 +134,9 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888", glo
       position={position}
       rotation={rotation}
       receiveShadow
-      onPointerOver={onOver}
-      onPointerOut={onOut}
-      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+      onPointerOver={disabled ? undefined : onOver}
+      onPointerOut={disabled ? undefined : onOut}
+      onClick={disabled ? undefined : (e) => { e.stopPropagation(); onClick?.(); }}
     >
       <planeGeometry args={[s[0], s[1]]} />
       {texture ? (
@@ -163,7 +165,7 @@ function WallObject({ position, rotation, scale: s, texture, color = "#888", glo
   );
 }
 
-function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBases: number[] }) {
+function ExitHotspot({ onClick, flickerBases, disabled }: { onClick: () => void; flickerBases: number[]; disabled?: boolean }) {
   const [hovered, setHovered] = useState(false);
 
   useFrame(() => {
@@ -174,9 +176,9 @@ function ExitHotspot({ onClick, flickerBases }: { onClick: () => void; flickerBa
     <mesh
       position={[-0.13, -0.16, 0.99]}
       rotation={[0, -3.14, 0]}
-      onPointerOver={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = ""; }}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onPointerOver={disabled ? undefined : () => { setHovered(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={disabled ? undefined : () => { setHovered(false); document.body.style.cursor = ""; }}
+      onClick={disabled ? undefined : (e) => { e.stopPropagation(); onClick(); }}
     >
       <planeGeometry args={[0.32, 0.12]} />
       <meshStandardMaterial transparent opacity={0} />
@@ -712,7 +714,7 @@ function CameraZoom({ target, phase, onDone }: {
   return null;
 }
 
-function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch }: { contactShadowTex: THREE.Texture; onCatClick?: () => void; playGlitch: () => void }) {
+function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forceSwapRef, pauseAmbient }: { contactShadowTex: THREE.Texture; onCatClick?: () => void; playGlitch: () => void; forceSwapRef?: React.MutableRefObject<boolean>; pauseAmbient?: boolean }) {
   const videoRefs = useMemo(
     () => WALL_VIDEOS.map(() => ({ current: null as HTMLVideoElement | null })),
     [],
@@ -737,7 +739,16 @@ function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch }: { contact
   useFrame((_, delta) => {
     const gs = glitchState.current;
 
-    if (gs.phase === "idle") {
+    if (forceSwapRef?.current && gs.phase === "idle") {
+      forceSwapRef.current = false;
+      gs.phase = "ramp-up";
+      gs.elapsed = 0;
+      gs.swapAtPeak = true;
+      gs.duration = 0.7 + Math.random() * 0.2;
+      gs.nextGlitch = 6 + Math.random() * 6;
+    }
+
+    if (gs.phase === "idle" && !pauseAmbient) {
       gs.nextGlitch -= delta;
       if (gs.swapCooldown > 0) gs.swapCooldown -= delta;
       if (gs.nextGlitch <= 0) {
@@ -847,9 +858,11 @@ interface SceneProps {
   phase: Phase;
   onZoomDone: () => void;
   onCatClick?: () => void;
+  forceSwapRef?: React.MutableRefObject<boolean>;
+  pauseAmbient?: boolean;
 }
 
-function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick }: SceneProps) {
+function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick, forceSwapRef, pauseAmbient }: SceneProps) {
   const { playGlitch } = useSFX();
   const { scene } = useGLTF("/kuru/models/dirty_street.glb", true);
   const graffitiTex = useTexture("/kuru/textures/kiri487_graffiti.webp");
@@ -1006,12 +1019,13 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
 
       <primitive object={scene} />
 
-      <ExitHotspot onClick={onExit} flickerBases={flickerState.current.bases} />
+      <ExitHotspot onClick={onExit} flickerBases={flickerState.current.bases} disabled={pauseAmbient} />
 
       <GraffitiHotspot
         texture={graffitiTex}
         aspect={aspect}
         glowing={zoomTarget === "about" && phase !== "idle"}
+        disabled={pauseAmbient}
         onClick={() => onSectionClick("about")}
       />
 
@@ -1021,6 +1035,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
         scale={[posterAspect * posterScale, posterScale]}
         texture={posterTex}
         glowing={zoomTarget === "projects" && phase !== "idle"}
+        disabled={pauseAmbient}
         onClick={() => onSectionClick("projects")}
       />
 
@@ -1030,6 +1045,7 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
         scale={[worksAspect * worksScale, worksScale]}
         texture={worksTex}
         glowing={zoomTarget === "works" && phase !== "idle"}
+        disabled={pauseAmbient}
         onClick={() => onSectionClick("works")}
       />
 
@@ -1039,10 +1055,11 @@ function Scene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatCli
         scale={[creditsAspect * creditsScale, creditsScale]}
         texture={creditsTex}
         glowing={zoomTarget === "credits" && phase !== "idle"}
+        disabled={pauseAmbient}
         onClick={() => onSectionClick("credits")}
       />
 
-      <VideoWithShadow contactShadowTex={contactShadowTex} onCatClick={onCatClick} playGlitch={playGlitch} />
+      <VideoWithShadow contactShadowTex={contactShadowTex} onCatClick={onCatClick} playGlitch={playGlitch} forceSwapRef={forceSwapRef} pauseAmbient={pauseAmbient} />
 
       {IS_MOBILE ? (
         <EffectComposer>

@@ -8,7 +8,7 @@ import ConnectOverlay from "./ConnectOverlay";
 import CatDialogue, { type CatDialogueHandle } from "./CatDialogue";
 import BgmPlayer from "./BgmPlayer";
 import LoadingScreen from "./LoadingScreen";
-import { CAT_DIALOGUES } from "./data/catDialogues";
+import useKuruMemory from "./useKuruMemory";
 import "./style.css";
 
 export type SectionId = "about" | "projects" | "works" | "credits";
@@ -16,16 +16,17 @@ export type Phase = "idle" | "zooming" | "connecting" | "panel" | "open";
 
 function KuruApp() {
   const { setSkin } = useSkin();
+  const { recordClick, pickDialogue } = useKuruMemory();
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [activeDialogue, setActiveDialogue] = useState<string[] | null>(null);
-  const pendingRef = useRef<SectionId | null>(null);
-  const lastDialogueRef = useRef(-1);
   const dialogueRef = useRef<CatDialogueHandle>(null);
+  const dialogueKeyRef = useRef(0);
+  const pendingForceSwap = useRef(false);
+  const forceSwapRef = useRef(false);
 
   const handleSectionClick = useCallback((section: SectionId) => {
     if (phase !== "idle" || activeDialogue) return;
-    pendingRef.current = section;
     setActiveSection(section);
     setPhase("zooming");
   }, [phase, activeDialogue]);
@@ -44,11 +45,14 @@ function KuruApp() {
   const handleClose = useCallback(() => {
     setPhase("idle");
     setActiveSection(null);
-    pendingRef.current = null;
   }, []);
 
   const handleDialogueClose = useCallback(() => {
     setActiveDialogue(null);
+    if (pendingForceSwap.current) {
+      pendingForceSwap.current = false;
+      forceSwapRef.current = true;
+    }
   }, []);
 
   const handleExit = useCallback(() => {
@@ -58,17 +62,26 @@ function KuruApp() {
 
   const handleDialogueAdvance = useCallback(() => {
     if (phase !== "idle") return;
+
+    const rapidResult = recordClick();
+
+    if (rapidResult) {
+      if (rapidResult.forceSwap) {
+        pendingForceSwap.current = true;
+      }
+      dialogueKeyRef.current++;
+      setActiveDialogue(rapidResult.dialogue);
+      return;
+    }
+
     if (activeDialogue) {
       dialogueRef.current?.advance();
       return;
     }
-    let idx: number;
-    do {
-      idx = Math.floor(Math.random() * CAT_DIALOGUES.length);
-    } while (idx === lastDialogueRef.current && CAT_DIALOGUES.length > 1);
-    lastDialogueRef.current = idx;
-    setActiveDialogue(CAT_DIALOGUES[idx]);
-  }, [phase, activeDialogue]);
+
+    dialogueKeyRef.current++;
+    setActiveDialogue(pickDialogue());
+  }, [phase, activeDialogue, recordClick, pickDialogue]);
 
   return (
     <div className="kuru">
@@ -87,6 +100,8 @@ function KuruApp() {
             phase={phase}
             onZoomDone={handleZoomDone}
             onCatClick={handleDialogueAdvance}
+            forceSwapRef={forceSwapRef}
+            pauseAmbient={activeDialogue !== null}
           />
         </Suspense>
       </Canvas>
@@ -102,6 +117,7 @@ function KuruApp() {
       />
       {activeDialogue && (
         <CatDialogue
+          key={dialogueKeyRef.current}
           ref={dialogueRef}
           dialogue={activeDialogue}
           onClose={handleDialogueClose}
