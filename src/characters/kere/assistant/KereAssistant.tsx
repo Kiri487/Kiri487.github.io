@@ -31,6 +31,7 @@ function KereAssistant() {
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
 
   // Don't deliver a pending reply after the skin unmounts.
@@ -44,6 +45,33 @@ function KereAssistant() {
     const log = logRef.current;
     if (log) log.scrollTop = log.scrollHeight;
   }, [messages, thinking, open]);
+
+  // Phones: the panel goes full screen. Mobile browsers lay the on-screen keyboard over the page instead of
+  // shrinking it, so size the panel to the part of the screen that's actually visible, and lock the page behind it.
+  useEffect(() => {
+    if (!open || !window.matchMedia(MOBILE_QUERY).matches) return;
+    const panel = panelRef.current;
+    const viewport = window.visualViewport;
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+
+    const fitToViewport = () => {
+      if (!panel || !viewport) return;
+      panel.style.setProperty("--kere-viewport-height", `${viewport.height}px`);
+      panel.style.setProperty("--kere-viewport-top", `${viewport.offsetTop}px`);
+      const log = logRef.current;
+      if (log) log.scrollTop = log.scrollHeight;
+    };
+    fitToViewport();
+    viewport?.addEventListener("resize", fitToViewport);
+    viewport?.addEventListener("scroll", fitToViewport);
+    return () => {
+      root.style.overflow = previousOverflow;
+      viewport?.removeEventListener("resize", fitToViewport);
+      viewport?.removeEventListener("scroll", fitToViewport);
+    };
+  }, [open]);
 
   // Move focus with the panel: into the input on open, back to the cat on close, so keyboard users don't get lost.
   useEffect(() => {
@@ -109,6 +137,7 @@ function KereAssistant() {
 
   return (
     <div
+      ref={panelRef}
       className="kere-chat"
       role="dialog"
       aria-label="Kere assistant"

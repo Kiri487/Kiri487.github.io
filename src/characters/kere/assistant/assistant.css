@@ -215,7 +215,6 @@
 
 /* Matches MOBILE_QUERY in src/shared/breakpoints.ts. */
 @media (max-width: 640px) {
-  /* Bottom sheet on phones. */
   [data-skin="kere"] .kere-launcher {
     right: 16px;
     bottom: 16px;
@@ -225,16 +224,19 @@
     font-size: 0.95rem;
   }
 
+  /*
+   * Full screen on phones, like a messaging app. Top and height follow the visible viewport (set from
+   * KereAssistant), so the input sits right above the on-screen keyboard instead of under it.
+   */
   [data-skin="kere"] .kere-chat {
+    top: var(--kere-viewport-top, 0);
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: auto;
     width: auto;
-    height: 70vh;
+    height: var(--kere-viewport-height, 100dvh);
     max-height: none;
-    border-left: none;
-    border-right: none;
-    border-bottom: none;
+    border: none;
   }
 
   /* iOS Safari zooms into inputs smaller than 16px on focus. */
