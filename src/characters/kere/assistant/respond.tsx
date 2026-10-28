@@ -136,7 +136,12 @@ export function respond(input: string, memory: ReplyMemory): Reply {
 
   const egg = EASTER_EGGS.find((rule) => matches(text, rule.phrases));
   if (egg) {
-    return { lines: [pick(memory, egg.id, egg.replies)], expression: egg.expression, jump: egg.jump };
+    return {
+      lines: [pick(memory, egg.id, egg.replies)],
+      expression: egg.expression,
+      jump: egg.jump,
+      action: egg.action,
+    };
   }
 
   const project = findProject(text);

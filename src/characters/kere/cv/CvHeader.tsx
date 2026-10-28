@@ -3,6 +3,7 @@ import { FaGithub, FaLinkedin } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { FiMail } from "react-icons/fi";
 import { contacts } from "../../../data/portfolio";
+import { useSkin } from "../../../SkinContext";
 import { CONTACT_IDS, CV_NAME, displayUrl } from "./layout";
 
 const ICONS: Record<string, IconType> = {
@@ -15,9 +16,15 @@ const ICONS: Record<string, IconType> = {
 const shown = CONTACT_IDS.map((id) => contacts.find((c) => c.id === id)).filter((c) => c !== undefined);
 
 function CvHeader() {
+  const { setSkin } = useSkin();
   return (
     <header id="top" className="kere-header">
-      <h1 className="kere-header__name">{CV_NAME}</h1>
+      <h1 className="kere-header__name">
+        {/* The name doubles as the way back to the main (Kiri) site, like a logo linking home. */}
+        <button type="button" className="kere-header__home" onClick={() => setSkin("kiri")} title="Back to Kiri">
+          {CV_NAME}
+        </button>
+      </h1>
       <ul className="kere-header__contacts">
         {shown.map((c) => {
           const Icon = ICONS[c.id];

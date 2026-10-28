@@ -40,6 +40,17 @@ export const FALLBACK_REPLIES = [
 /** Checked before anything else, top to bottom. */
 export const EASTER_EGGS: ScriptedRule[] = [
   {
+    // Before "kiri", so "back to kiri" leaves instead of getting Kere's opinion of Kiri.
+    id: "exit",
+    phrases: ["exit", "leave", "quit", "log out", "logout", "clock out", "go back", "back to kiri"],
+    action: "exit",
+    replies: [
+      "Clocking out.",
+      "Logging off. Please don't break anything while I'm gone.",
+      "Understood. Returning you to Kiri.",
+    ],
+  },
+  {
     id: "job",
     phrases: ["like your job", "like your work", "enjoy your job", "love your job", "like working"],
     replies: [

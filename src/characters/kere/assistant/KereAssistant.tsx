@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useSkin } from "../../../SkinContext";
 import KereAvatar from "./KereAvatar";
 import { THINKING_MS } from "./faces";
 import { respond, type ReplyMemory } from "./respond";
@@ -6,12 +7,15 @@ import { GREETING, GREETING_OPTIONS } from "./script";
 import type { Expression, Reply } from "./types";
 
 const MOBILE_QUERY = "(max-width: 640px)";
+/** Long enough to read the sign-off line before the skin switches. */
+const EXIT_DELAY_MS = 1000;
 
 type Message =
   | { id: number; from: "you"; text: string }
   | { id: number; from: "kere"; reply: Reply };
 
 function KereAssistant() {
+  const { setSkin } = useSkin();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -62,6 +66,9 @@ function KereAssistant() {
       setMessages((m) => [...m, { id: nextId.current++, from: "kere", reply }]);
       setExpression(reply.expression ?? "normal");
       setThinking(false);
+      if (reply.action === "exit") {
+        timer.current = window.setTimeout(() => setSkin("kiri"), EXIT_DELAY_MS);
+      }
     }, THINKING_MS);
   };
 
