@@ -22,6 +22,7 @@
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",
     "p5": "^2.1.2",
+    "postprocessing": "^6.39.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-icons": "^5.5.0",
