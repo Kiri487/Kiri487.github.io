@@ -68,7 +68,7 @@ export const personalProjects: Project[] = [
     period: "Oct 2024 - Dec 2024",
     description: "A series of projects developed as part of the \"Computer Animation\" course.",
     links: [
-      { label: "Github", url: "https://github.com/Kiri487/ca2024f" },
+      { label: "GitHub", url: "https://github.com/Kiri487/ca2024f" },
       { label: "View", url: "https://kiri487.github.io/ca2024f/" }
     ],
     tags: [
@@ -85,7 +85,7 @@ export const personalProjects: Project[] = [
     period: "Mar 2024 - Apr 2024",
     description: "A series of projects developed as part of the \"Computer Typography and Character Encoding\" course.",
     links: [
-      { label: "Github", url: "https://github.com/Kiri487/ct2024s" },
+      { label: "GitHub", url: "https://github.com/Kiri487/ct2024s" },
       { label: "View", url: "https://kiri487.github.io/ct2024s/hw00/index.html" }
     ],
     tags: [
@@ -101,7 +101,7 @@ export const personalProjects: Project[] = [
     period: "Nov 2023 - Dec 2023",
     description: "A series of projects developed as part of the \"Data Visualization\" course.",
     links: [
-      { label: "Github", url: "https://github.com/Kiri487/vis2023f" },
+      { label: "GitHub", url: "https://github.com/Kiri487/vis2023f" },
       { label: "View", url: "https://kiri487.github.io/vis2023f/hw00/index.html" }
     ],
     tags: [
@@ -118,7 +118,7 @@ export const personalProjects: Project[] = [
     period: "Sep 2023 - Jan 2024",
     description: "Software similar to PowerPoint but simpler, with its main features divided into four sections: menu, slide selection, drawing area, and graphical data display.",
     links: [
-      { label: "Github", url: "https://github.com/Kiri487/2023-Fall-Windows-PowerPoint" }
+      { label: "GitHub", url: "https://github.com/Kiri487/2023-Fall-Windows-PowerPoint" }
     ],
     tags: [
       { tech: "csharp", name: "C#" }
@@ -178,7 +178,7 @@ export const teamProjects: Project[] = [
     period: "Jul 2024 - Feb 2025",
     description: "A CNN-Transformer model for malware detection based on API call sequences.",
     links: [
-      { label: "Github", url: "https://github.com/stwater20/RANsomCheck" },
+      { label: "GitHub", url: "https://github.com/stwater20/RANsomCheck" },
       { label: "Paper", url: "https://link.springer.com/chapter/10.1007/978-981-96-8892-0_10" },
     ],
     tags: [
@@ -199,7 +199,7 @@ export const teamProjects: Project[] = [
       </>
     ),
     links: [
-      { label: "Github", url: "https://github.com/Kiri487/2024-Spring-NLP-Reddit-Sentiment-Analysis" },
+      { label: "GitHub", url: "https://github.com/Kiri487/2024-Spring-NLP-Reddit-Sentiment-Analysis" },
       { label: "View", url: "https://kiri487.github.io/2024-Spring-NLP-Reddit-Sentiment-Analysis/" }
     ],
     tags: [
@@ -216,7 +216,7 @@ export const teamProjects: Project[] = [
     period: "Sep 2023 - Jan 2024",
     description: "An online cookie store that offers features such as product management, user management, and order management.",
     links: [
-      { label: "Github", url: "https://github.com/Zch720/NTUT_112_1_DatabaseProject_frontend" }
+      { label: "GitHub", url: "https://github.com/Zch720/NTUT_112_1_DatabaseProject_frontend" }
     ],
     tags: [
       { tech: "typescript", name: "TypeScript" },
@@ -237,7 +237,7 @@ export const teamProjects: Project[] = [
       </>
     ),
     links: [
-      { label: "Github", url: "https://github.com/Kiri487/2022-Spring-OOPL/releases/tag/v1.0" }
+      { label: "GitHub", url: "https://github.com/Kiri487/2022-Spring-OOPL/releases/tag/v1.0" }
     ],
     tags: [
       { tech: "cplusplus", name: "C++" }
