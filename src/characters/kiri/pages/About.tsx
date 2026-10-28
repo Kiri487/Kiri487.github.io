@@ -18,7 +18,7 @@ function About() {
 
       <h2 className="title"><FaCat aria-hidden="true"/>whoami</h2>
       <div className="content">
-        <p>Hi, I'm Kiri. I'm a first-year master's student at National Taiwan University Graduate Institute of Networking and Multimedia.<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing with 3D models!<br />But I have no experience with 3D modeling yet—it's challenging... <FaRegFaceDizzy aria-hidden="true"/></p>
+        <p>Hi, I'm Kiri. I'm a second-year master's student at National Taiwan University Graduate Institute of Networking and Multimedia.<br />I'm interested in software development, web front-end design, and information security. Furthermore, I enjoy drawing and playing with 3D models!<br />But I have no experience with 3D modeling yet—it's challenging... <FaRegFaceDizzy aria-hidden="true"/></p>
       </div>
 
       <h2 className="title"><FaBook aria-hidden="true"/>Education</h2>
