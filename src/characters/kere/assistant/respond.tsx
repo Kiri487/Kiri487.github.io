@@ -5,13 +5,17 @@ import { formatPeriod, skillNames } from "../cv/format";
 import { CV_CONTACTS, SECTIONS } from "../cv/layout";
 import { allProjects, projectAnchor, type CvProject } from "../cv/projects";
 import {
+  CONFUSED_STREAK,
+  CONFUSED_STREAK_REPLIES,
   EASTER_EGGS,
   FALLBACK_REPLIES,
   HELLO_REPLIES,
   HELP_INTRO,
   HELP_OPTIONS,
   PROJECT_ALIASES,
+  TIME_REPLIES,
   TOPIC_PHRASES,
+  type TimePeriod,
 } from "./script";
 import type { Reply } from "./types";
 
@@ -24,16 +28,34 @@ function matches(normalized: string, phrases: readonly string[]): boolean {
   return phrases.some((p) => normalized.includes(normalize(p)));
 }
 
-/** Remembers the last variant per rule so the same line never fires twice in a row. */
-export type ReplyMemory = Map<string, number>;
+/** Per-conversation state; cleared on reload. */
+export interface ReplyMemory {
+  /** Last variant picked per rule, so the same line never fires twice in a row. */
+  lastPick: Map<string, number>;
+  /** Unmatched inputs in a row. */
+  missStreak: number;
+}
 
-function pick(memory: ReplyMemory, key: string, options: readonly string[]): string {
+export function createReplyMemory(): ReplyMemory {
+  return { lastPick: new Map(), missStreak: 0 };
+}
+
+export function pick(memory: ReplyMemory, key: string, options: readonly string[]): string {
   if (options.length === 1) return options[0];
-  const last = memory.get(key);
+  const last = memory.lastPick.get(key);
   let i = Math.floor(Math.random() * options.length);
   if (i === last) i = (i + 1) % options.length;
-  memory.set(key, i);
+  memory.lastPick.set(key, i);
   return options[i];
+}
+
+/** Period of the visitor's own local time. */
+export function currentPeriod(date = new Date()): TimePeriod {
+  const hour = date.getHours();
+  if (hour < 6) return "night";
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  return "evening";
 }
 
 function sectionJump(id: string): Reply["jump"] {
@@ -114,8 +136,24 @@ function findProject(normalized: string): CvProject | undefined {
 
 /** Easter eggs → project names → topics → fallback. */
 export function respond(input: string, memory: ReplyMemory): Reply {
-  const text = normalize(input);
+  const reply = match(normalize(input), memory);
+  if (reply) {
+    memory.missStreak = 0;
+    return reply;
+  }
 
+  memory.missStreak += 1;
+  if (memory.missStreak >= CONFUSED_STREAK) {
+    return {
+      lines: [pick(memory, "confused-streak", CONFUSED_STREAK_REPLIES)],
+      expression: "overwhelmed",
+      options: HELP_OPTIONS,
+    };
+  }
+  return { lines: [pick(memory, "fallback", FALLBACK_REPLIES)], expression: "confused", options: HELP_OPTIONS };
+}
+
+function match(text: string, memory: ReplyMemory): Reply | undefined {
   const egg = EASTER_EGGS.find((rule) => matches(text, rule.phrases));
   if (egg) {
     return {
@@ -135,7 +173,9 @@ export function respond(input: string, memory: ReplyMemory): Reply {
   if (matches(text, TOPIC_PHRASES.projects)) return projectsReply();
   if (matches(text, TOPIC_PHRASES.skills)) return skillsReply();
   if (matches(text, TOPIC_PHRASES.contact)) return contactReply();
-  if (matches(text, TOPIC_PHRASES.hello)) return { lines: [pick(memory, "hello", HELLO_REPLIES)] };
+  if (matches(text, TOPIC_PHRASES.hello)) {
+    return { lines: [pick(memory, "hello", [...HELLO_REPLIES, ...TIME_REPLIES[currentPeriod()]])] };
+  }
 
-  return { lines: [pick(memory, "fallback", FALLBACK_REPLIES)], expression: "confused", options: HELP_OPTIONS };
+  return undefined;
 }

@@ -3,8 +3,8 @@ import { useSkin } from "../../../SkinContext";
 import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
-import { respond, type ReplyMemory } from "./respond";
-import { GREETINGS, GREETING_OPTIONS } from "./script";
+import { createReplyMemory, currentPeriod, pick, respond } from "./respond";
+import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES } from "./script";
 import type { Expression, Reply } from "./types";
 import "./assistant.css";
 
@@ -26,7 +26,7 @@ function KereAssistant() {
   const [hintSeen, setHintSeen] = useState(false);
 
   const nextId = useRef(0);
-  const memory = useRef<ReplyMemory>(new Map());
+  const memory = useRef(createReplyMemory());
   const timer = useRef<number | undefined>(undefined);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -54,8 +54,10 @@ function KereAssistant() {
 
   const openPanel = () => {
     if (messages.length === 0) {
-      const greeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-      setMessages([{ id: nextId.current++, from: "kere", reply: { lines: [greeting], options: GREETING_OPTIONS } }]);
+      const lines = [pick(memory.current, "greeting", GREETINGS)];
+      // Late at night is the one time Kere remarks on the hour without being asked.
+      if (currentPeriod() === "night") lines.push(pick(memory.current, "night-greeting", TIME_REPLIES.night));
+      setMessages([{ id: nextId.current++, from: "kere", reply: { lines, options: GREETING_OPTIONS } }]);
     }
     setOpen(true);
     setHintSeen(true);

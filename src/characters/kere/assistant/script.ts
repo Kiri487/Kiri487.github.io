@@ -41,6 +41,40 @@ export const FALLBACK_REPLIES = [
   "No matching entry. Try education, experience, projects, skills, or contact.",
 ];
 
+/** After this many misses in a row, Kere gets overwhelmed — but blames herself, never the visitor. */
+export const CONFUSED_STREAK = 3;
+
+export const CONFUSED_STREAK_REPLIES = [
+  "Still not following, sorry. Maybe one of these will help?",
+  "My parser and I are doing our best. Here's what I know.",
+];
+
+/** Time periods follow the visitor's own clock; lines never name an exact hour. Same split as Kuru. */
+export type TimePeriod = "night" | "morning" | "afternoon" | "evening";
+
+export const TIME_REPLIES: Record<TimePeriod, string[]> = {
+  // 0:00–5:59 — also added to the opening greeting, the only period Kere brings up unprompted.
+  night: [
+    "It's late. Why are we both still here?",
+    "This is well outside office hours. I'll make an exception.",
+  ],
+  // 6:00–11:59
+  morning: [
+    "Good morning. Coffee first, then questions.",
+    "Morning. The day is still full of potential. And unread emails.",
+  ],
+  // 12:00–17:59
+  afternoon: [
+    "Good afternoon. Peak productivity hours. Let's use them.",
+    "Afternoon. The post-lunch meeting just ended. I'm available.",
+  ],
+  // 18:00–23:59
+  evening: [
+    "Good evening. Technically I'm off the clock, but go ahead.",
+    "Evening. Wrapping up the last tasks of the day. What do you need?",
+  ],
+};
+
 /** Checked before anything else, top to bottom. */
 export const EASTER_EGGS: ScriptedRule[] = [
   {
@@ -52,6 +86,16 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "Clocking out.",
       "Logging off. Please don't break anything while I'm gone.",
       "Understood. Returning you to Kiri.",
+    ],
+  },
+  {
+    // Early, so "your skills are useless" gets this instead of the skills list. Kere stays calm and polite.
+    id: "rude",
+    phrases: ["fuck", "fucking", "shit", "stupid", "idiot", "dumb", "useless", "shut up", "wtf", "sucks", "trash", "garbage"],
+    replies: [
+      "Let's keep this professional.",
+      "Noted. Moving on.",
+      "I'll file that under feedback.",
     ],
   },
   {
