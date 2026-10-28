@@ -1,11 +1,25 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 /** Add a new id here whenever you create another character under src/characters/. */
-export type Skin = "kiri" | "kuru";
+export type Skin = "kiri" | "kuru" | "kere";
 
-const SKIN_IDS: Skin[] = ["kiri", "kuru"];
+const SKIN_IDS: Skin[] = ["kiri", "kuru", "kere"];
 const DEFAULT_SKIN: Skin = "kiri";
 const STORAGE_KEY = "skin";
+/** `?skin=kere` opens that skin directly, so any character can be shared as a link. */
+const URL_PARAM = "skin";
+
+function isSkin(value: string | null): value is Skin {
+  return value !== null && SKIN_IDS.includes(value as Skin);
+}
+
+/** The URL wins over the last visit, so a shared link always opens the intended skin. */
+function readInitialSkin(): Skin {
+  const fromUrl = new URLSearchParams(window.location.search).get(URL_PARAM);
+  if (isSkin(fromUrl)) return fromUrl;
+  const saved = localStorage.getItem(STORAGE_KEY);
+  return isSkin(saved) ? saved : DEFAULT_SKIN;
+}
 
 interface SkinContextValue {
   skin: Skin;
@@ -15,16 +29,20 @@ interface SkinContextValue {
 const SkinContext = createContext<SkinContextValue | undefined>(undefined);
 
 export function SkinProvider({ children }: { children: ReactNode }) {
-  const [skin, setSkin] = useState<Skin>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved && SKIN_IDS.includes(saved as Skin) ? (saved as Skin) : DEFAULT_SKIN;
-  });
+  const [skin, setSkin] = useState<Skin>(readInitialSkin);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, skin);
     // Scopes each skin's CSS — every skin's stylesheet is written under
     // [data-skin="<id>"], so only the active skin's rules apply.
     document.documentElement.dataset.skin = skin;
+
+    // Mirror the skin in the address bar, so copying it always gives a link to what's on screen.
+    // The default skin needs no parameter. replaceState keeps the history (and kiri's router) untouched.
+    const url = new URL(window.location.href);
+    if (skin === DEFAULT_SKIN) url.searchParams.delete(URL_PARAM);
+    else url.searchParams.set(URL_PARAM, skin);
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url);
   }, [skin]);
 
   return (

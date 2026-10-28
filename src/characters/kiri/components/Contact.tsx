@@ -2,9 +2,10 @@ import type { IconType } from 'react-icons';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 import { FaXTwitter } from "react-icons/fa6";
 import { FiMail } from "react-icons/fi";
-import { contacts } from "../../../data/portfolio/contacts";
+// Aliased: this file's component is also called Contact.
+import { contacts, type Contact as ContactData } from "../../../data/portfolio/contacts";
 
-const ICONS: Record<string, IconType> = {
+const ICONS: Record<ContactData["id"], IconType> = {
   github: FaGithub,
   linkedin: FaLinkedin,
   x: FaXTwitter,

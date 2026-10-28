@@ -87,6 +87,7 @@ function KuruApp() {
 
   return (
     <div className="kuru">
+      <title>Kuru's Hideout</title>
       <Canvas
         camera={{ position: [-1.15, -1.1, -2.35], fov: 50, rotation: [0.01, -3.12, 0] }}
         className="kuru-canvas"

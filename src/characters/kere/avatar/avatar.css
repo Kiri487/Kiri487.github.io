@@ -1,0 +1,54 @@
+/* ============================================================
+   Kere's text face. Not scoped under [data-skin="kere"] (only
+   kere- prefixed) because it also appears on kiri's skin switcher.
+   ============================================================ */
+
+.kere-avatar {
+  display: inline-block;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 0.8rem;
+  line-height: 1.05;
+  white-space: pre;
+  text-align: left;
+}
+
+/*
+ * White backing cut to the cat-head silhouette, so content behind it is only hidden inside the face.
+ * The face is monospace, so ear tips sit exactly at 2ch and 5ch (" /\_/\" over "[ •_• ]").
+ */
+.kere-avatar--backed {
+  position: relative;
+  z-index: 0;
+}
+
+.kere-avatar--backed::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #fff;
+  clip-path: polygon(
+    0 100%, 0 50%, 1ch 50%, 2ch 0, 3ch 50%, 4ch 50%, 5ch 0, 6ch 50%, 7ch 50%, 7ch 100%
+  );
+}
+
+/* ---- entry badge on kiri's skin switcher ---- */
+
+.kere-badge {
+  display: block;
+  color: #000;
+  /* Side by side, the face reads low next to the graffiti; nudge it up to center optically. */
+  position: relative;
+  top: -4px;
+}
+
+.kere-badge .kere-avatar {
+  font-size: 0.95rem;
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts — the switcher stacks vertically here. */
+@media (max-width: 640px) {
+  .kere-badge {
+    top: 0;
+  }
+}

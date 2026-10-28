@@ -4,12 +4,14 @@ export interface Education {
   period: string;
   school: string;
   department: string;
+  location?: string;
 }
 
 export interface Work {
   period: string;
   company: string;
   position: string;
+  location?: string;
 }
 
 export interface Experience {
@@ -26,17 +28,20 @@ export const educationData: Education[] = [
   {
     period: "Sep 2025 - Present",
     school: "National Taiwan University (NTU)",
-    department: "Graduate Institute of Networking and Multimedia (M.S.)"
+    department: "Graduate Institute of Networking and Multimedia (M.S.)",
+    location: "Taipei, Taiwan"
   },
   {
     period: "Sep 2021 - Jun 2025",
     school: "National Taipei University of Technology (NTUT)",
     department: "Electrical Engineering and Computer Science (B.S.)",
+    location: "Taipei, Taiwan"
   },
   {
     period: "Sep 2018 - Jun 2021",
     school: "The Affiliated Senior High School of National Taiwan Normal University (HSNU)",
     department: "Class 1489",
+    location: "Taipei, Taiwan"
   }
 ];
 
@@ -44,17 +49,20 @@ export const workData: Work[] = [
   {
     period: "Apr 2026 - Present",
     company: "TrendAI",
-    position: "Cybersecurity & Cloud Engineering Intern"
+    position: "Cybersecurity & Cloud Engineering Intern",
+    location: "Taipei, Taiwan"
   },
   {
     period: "Jul 2024 - Jan 2025",
     company: "Galaxy Software Services Corporation (GSS)",
-    position: "Software Engineer Intern"
+    position: "Software Engineer Intern",
+    location: "Taipei, Taiwan"
   },
   {
     period: "Jul 2022 - Jun 2024",
     company: "NTUT Computer & Network Center",
-    position: "IT Support Assistant"
+    position: "IT Support Assistant",
+    location: "Taipei, Taiwan"
   },
 ];
 
