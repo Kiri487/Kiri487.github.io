@@ -6,6 +6,7 @@ import "./style.css";
 function KereApp() {
   return (
     <>
+      <title>Kiri Wu | CV</title>
       <main className="kere">
         <CvHeader />
         <CvSections />
