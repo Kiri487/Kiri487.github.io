@@ -18,3 +18,9 @@ Original Bitstream Free font license:
   below on all unmodified copies of the 4 Charter Type 1 fonts.
 
     BITSTREAM CHARTER is a registered trademark of Bitstream Inc.
+
+# Kere Face
+
+`KereFace.woff2` is a subset of Cascadia Mono (Microsoft, SIL Open Font
+License 1.1) with only the characters of Kere's text face, so it renders the
+same on every device. See `KereFace-LICENSE.txt`.
