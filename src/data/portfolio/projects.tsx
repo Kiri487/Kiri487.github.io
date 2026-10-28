@@ -28,6 +28,7 @@ export interface Project {
   title: string;
   img: string;
   year: string;
+  period?: string;
   description: React.ReactNode;
   links: ProjectLink[];
   tags: ProjectTag[];
@@ -38,6 +39,7 @@ export const personalProjects: Project[] = [
     title: "Mystic Shop LUIS",
     img: MYSTIC_SHOP_IMG,
     year: "2025",
+    period: "Sep 2025 - Oct 2025",
     description: "A cute puzzle game playable in the browser.",
     links: [
       { label: "Play", url: "https://kiri487.itch.io/mystic-shop-luis" }
@@ -50,6 +52,7 @@ export const personalProjects: Project[] = [
     title: "AI Vtuber - Kassus",
     img: AI_KASSUS_IMG,
     year: "2025",
+    period: "Nov 2025 - Dec 2025",
     description: "An AI-powered Virtual YouTuber. It integrates Large Language Models (LLM) to enable real-time, interactive conversations with the audience.",
     links: [
       { label: "Demo VOD", url: "https://youtube.com/live/qfJ_Ch7Z-wM" }
@@ -62,6 +65,7 @@ export const personalProjects: Project[] = [
     title: "Computer Animation Projects",
     img: CA_IMG,
     year: "2024",
+    period: "Oct 2024 - Dec 2024",
     description: "A series of projects developed as part of the \"Computer Animation\" course.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/ca2024f" },
@@ -78,6 +82,7 @@ export const personalProjects: Project[] = [
     title: "Computer Typography and Character Encoding Projects",
     img: CT_AND_CE_IMG,
     year: "2024",
+    period: "Mar 2024 - Apr 2024",
     description: "A series of projects developed as part of the \"Computer Typography and Character Encoding\" course.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/ct2024s" },
@@ -93,6 +98,7 @@ export const personalProjects: Project[] = [
     title: "Data Visualization Projects",
     img: DATA_VIS_IMG,
     year: "2023",
+    period: "Nov 2023 - Dec 2023",
     description: "A series of projects developed as part of the \"Data Visualization\" course.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/vis2023f" },
@@ -109,6 +115,7 @@ export const personalProjects: Project[] = [
     title: "Simple PowerPoint",
     img: SIMPLE_PPT_IMG,
     year: "2023",
+    period: "Sep 2023 - Jan 2024",
     description: "Software similar to PowerPoint but simpler, with its main features divided into four sections: menu, slide selection, drawing area, and graphical data display.",
     links: [
       { label: "Github", url: "https://github.com/Kiri487/2023-Fall-Windows-PowerPoint" }
@@ -124,6 +131,7 @@ export const teamProjects: Project[] = [
     title: "Mikiri Mura",
     img: MIKIRI_MURA_IMG,
     year: "2026",
+    period: "May 2026 - Jun 2026",
     description: "A TouchDesigner-driven immersive horror experience, fusing LiDAR crowd tracking with real-time HTML5 fluid and particle projections.",
     links: [
       { label: "Demo", url: "https://kiri487.github.io/Mikiri-Mura/" }
@@ -138,6 +146,7 @@ export const teamProjects: Project[] = [
     title: "RESTort",
     img: RESTORT_IMG,
     year: "2026",
+    period: "Apr 2026 - Jun 2026",
     description: "RESTort (REST + Resort) is a 2D persistent virtual world designed as a \"non-task-oriented\" sanctuary for AI agents.",
     links: [
     ],
@@ -153,6 +162,7 @@ export const teamProjects: Project[] = [
     title: "Gravity Drift",
     img: GRAVITY_DRIFT_IMG,
     year: "2025",
+    period: "Oct 2025 - Dec 2025",
     description: "A gravity-shifting puzzle game playable in the browser.",
     links: [
       { label: "Play", url: "https://tofudoctorr.itch.io/gravitydrift" }
@@ -165,6 +175,7 @@ export const teamProjects: Project[] = [
     title: "RANsomCheck",
     img: RANSOMCHECK_IMG,
     year: "2025",
+    period: "Jul 2024 - Feb 2025",
     description: "A CNN-Transformer model for malware detection based on API call sequences.",
     links: [
       { label: "Github", url: "https://github.com/stwater20/RANsomCheck" },
@@ -181,6 +192,7 @@ export const teamProjects: Project[] = [
     title: "Reddit Sentiment Analysis",
     img: REDDIT_IMG,
     year: "2024",
+    period: "Jun 2024",
     description: (
       <>
         The purpose of this project is to analyze user comments on various subreddits on <a href="https://www.reddit.com/">Reddit</a> to determine the predominant emotional tendencies of the comments in each subreddit.
@@ -201,6 +213,7 @@ export const teamProjects: Project[] = [
     title: "Elecookies-Frontend",
     img: ELECOOKIES_IMG,
     year: "2023",
+    period: "Sep 2023 - Jan 2024",
     description: "An online cookie store that offers features such as product management, user management, and order management.",
     links: [
       { label: "Github", url: "https://github.com/Zch720/NTUT_112_1_DatabaseProject_frontend" }
@@ -215,7 +228,8 @@ export const teamProjects: Project[] = [
   {
     title: "BOXBOB",
     img: BOXBOB_IMG,
-    year: "2022",
+    year: "2023",
+    period: "Feb 2023 - Jun 2023",
     description: (
       <>
         A simple and cute Sokoban game with 16 levels. The player can use up, down, left, right, and WASD to control the character. <br />
