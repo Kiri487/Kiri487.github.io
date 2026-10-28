@@ -30,6 +30,8 @@ function KereAssistant() {
   const timer = useRef<number | undefined>(undefined);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const launcherRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
 
   // Don't deliver a pending reply after the skin unmounts.
   useEffect(() => {
@@ -43,8 +45,11 @@ function KereAssistant() {
     if (log) log.scrollTop = log.scrollHeight;
   }, [messages, thinking, open]);
 
+  // Move focus with the panel: into the input on open, back to the cat on close, so keyboard users don't get lost.
   useEffect(() => {
     if (open) inputRef.current?.focus();
+    else if (wasOpen.current) launcherRef.current?.focus({ preventScroll: true });
+    wasOpen.current = open;
   }, [open]);
 
   const openPanel = () => {
@@ -87,7 +92,13 @@ function KereAssistant() {
 
   if (!open) {
     return (
-      <button type="button" className="kere-launcher" onClick={openPanel} aria-label="Open Kere assistant">
+      <button
+        ref={launcherRef}
+        type="button"
+        className="kere-launcher"
+        onClick={openPanel}
+        aria-label="Open Kere assistant"
+      >
         {!hintSeen && <span className="kere-launcher__hint">Ask Kere</span>}
         <KereAvatar backed expression={expression === "thinking" ? "normal" : expression} />
       </button>
