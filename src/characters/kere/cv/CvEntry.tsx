@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 interface CvEntryProps {
+  id?: string;
   title: ReactNode;
   date: string;
   subtitle?: ReactNode;
@@ -9,12 +10,17 @@ interface CvEntryProps {
 }
 
 /** Classic two-row CV entry: bold title / date, then italic subtitle / location. */
-function CvEntry({ title, date, subtitle, location, children }: CvEntryProps) {
+function CvEntry({ id, title, date, subtitle, location, children }: CvEntryProps) {
   return (
-    <div className="kere-entry">
+    <div id={id} className="kere-entry">
       <div className="kere-entry__row">
         <span className="kere-entry__title">{title}</span>
         <span className="kere-entry__date">{date}</span>
+      </div>
+      {/* Phones only: date and location share one line under the title. */}
+      <div className="kere-entry__meta">
+        {date}
+        {location && ` · ${location}`}
       </div>
       {(subtitle || location) && (
         <div className="kere-entry__row kere-entry__row--sub">

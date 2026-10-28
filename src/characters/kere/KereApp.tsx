@@ -4,19 +4,14 @@ import {
   workData,
   experienceData,
   skillsData,
-  personalProjects,
-  teamProjects,
 } from "../../data/portfolio";
 import CvHeader from "./cv/CvHeader";
 import CvSection from "./cv/CvSection";
 import CvEntry from "./cv/CvEntry";
-import { SECTIONS, formatPeriod, periodStart, type SectionId } from "./cv/layout";
+import { SECTIONS, formatPeriod, type SectionId } from "./cv/layout";
+import { allProjects, projectAnchor } from "./cv/projects";
+import KereAssistant from "./assistant/KereAssistant";
 import "./style.css";
-
-const allProjects = [
-  ...personalProjects.map((p) => ({ ...p, kind: "Personal" as const })),
-  ...teamProjects.map((p) => ({ ...p, kind: "Team" as const })),
-].sort((a, b) => periodStart(b.period, b.year) - periodStart(a.period, a.year));
 
 function Education() {
   return educationData.map((e) => (
@@ -46,6 +41,7 @@ function Projects() {
   return allProjects.map((p) => (
     <CvEntry
       key={p.title}
+      id={projectAnchor(p.title)}
       title={
         <>
           {p.title}
@@ -109,17 +105,20 @@ const RENDERERS: Partial<Record<SectionId, () => ReactNode>> = {
 
 function KereApp() {
   return (
-    <main className="kere">
-      <CvHeader />
-      {SECTIONS.map(({ id, title, category }) => {
-        const Body = RENDERERS[id];
-        return (
-          <CvSection key={id} id={id} title={title}>
-            {Body ? <Body /> : category && <CategoryList category={category} />}
-          </CvSection>
-        );
-      })}
-    </main>
+    <>
+      <main className="kere">
+        <CvHeader />
+        {SECTIONS.map(({ id, title, category }) => {
+          const Body = RENDERERS[id];
+          return (
+            <CvSection key={id} id={id} title={title}>
+              {Body ? <Body /> : category && <CategoryList category={category} />}
+            </CvSection>
+          );
+        })}
+      </main>
+      <KereAssistant />
+    </>
   );
 }
 

@@ -16,7 +16,7 @@ const shown = CONTACT_IDS.map((id) => contacts.find((c) => c.id === id)).filter(
 
 function CvHeader() {
   return (
-    <header className="kere-header">
+    <header id="top" className="kere-header">
       <h1 className="kere-header__name">{CV_NAME}</h1>
       <ul className="kere-header__contacts">
         {shown.map((c) => {
