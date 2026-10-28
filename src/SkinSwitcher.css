@@ -1,0 +1,38 @@
+/* ============================================================
+   Skin switcher — entries from kiri to the other skins, in the
+   bottom-right corner. Side by side on desktop; stacked on phones
+   so they cover less of the page width.
+   ============================================================ */
+
+[data-skin="kiri"] .skin-switcher {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Block + no line height, so each button is exactly its badge's size and centers cleanly. */
+[data-skin="kiri"] .skin-switcher__entry {
+  display: block;
+  line-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+[data-skin="kiri"] .skin-switcher__entry:hover {
+  transform: scale(1.05);
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. */
+@media (max-width: 640px) {
+  [data-skin="kiri"] .skin-switcher {
+    flex-direction: column;
+    gap: 14px;
+  }
+}

@@ -1,5 +1,8 @@
-import { contacts, educationData, skillsData, workData } from "../../../data/portfolio";
-import { CONTACT_IDS, SECTIONS, displayUrl, formatPeriod, type SectionId } from "../cv/layout";
+import { educationData, skillsData, workData } from "../../../data/portfolio";
+import ContactLink from "../cv/ContactLink";
+import ProjectLinks from "../cv/ProjectLinks";
+import { formatPeriod, skillNames } from "../cv/format";
+import { CV_CONTACTS, SECTIONS } from "../cv/layout";
 import { allProjects, projectAnchor, type CvProject } from "../cv/projects";
 import {
   EASTER_EGGS,
@@ -33,17 +36,9 @@ function pick(memory: ReplyMemory, key: string, options: readonly string[]): str
   return options[i];
 }
 
-function sectionJump(id: SectionId): Reply["jump"] {
+function sectionJump(id: string): Reply["jump"] {
   const title = SECTIONS.find((s) => s.id === id)?.title ?? id;
   return { id, label: `View ${title}` };
-}
-
-function externalLink(url: string, label: string) {
-  return (
-    <a href={url} target="_blank" rel="noopener noreferrer">
-      {label}
-    </a>
-  );
 }
 
 /* ---- replies generated from portfolio data ---- */
@@ -87,18 +82,7 @@ function projectReply(p: CvProject): Reply {
     lines: [
       `${p.title}. ${p.kind} project, ${formatPeriod(p.period ?? p.year)}.`,
       p.description,
-      ...(p.links.length > 0
-        ? [
-            <>
-              {p.links.map((l, i) => (
-                <span key={l.url}>
-                  {i > 0 && " · "}
-                  {externalLink(l.url, l.label)}
-                </span>
-              ))}
-            </>,
-          ]
-        : []),
+      ...(p.links.length > 0 ? [<ProjectLinks links={p.links} />] : []),
     ],
     jump: { id: projectAnchor(p.title), label: "View on the CV" },
   };
@@ -106,20 +90,18 @@ function projectReply(p: CvProject): Reply {
 
 function skillsReply(): Reply {
   return {
-    lines: skillsData.map((c) => `${c.category}: ${c.skills.map((s) => s.name).join(", ")}`),
+    lines: skillsData.map((c) => `${c.category}: ${skillNames(c.skills)}`),
     jump: sectionJump("skills"),
   };
 }
 
 function contactReply(): Reply {
-  const shown = CONTACT_IDS.map((id) => contacts.find((c) => c.id === id)).filter((c) => c !== undefined);
   return {
     lines: [
       "Professional channels:",
-      ...shown.map((c) => (
+      ...CV_CONTACTS.map((c) => (
         <>
-          {c.label}:{" "}
-          {c.id === "mail" ? <a href={c.url}>{displayUrl(c.url)}</a> : externalLink(c.url, displayUrl(c.url))}
+          {c.label}: <ContactLink contact={c} />
         </>
       )),
     ],

@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { EARS, FACES, FRAME_MS, THINKING_FRAMES, TYPING_FRAMES } from "./faces";
-import type { Expression } from "./types";
+import { EARS, FACES, FRAME_MS, THINKING_FRAMES, TYPING_FRAMES, type Expression } from "./faces";
+import "./avatar.css";
 
 interface KereAvatarProps {
   expression?: Expression;
   /** No ears or glasses, just the dots — the typing indicator inside the chat log. */
   bare?: boolean;
+  /** White cat-head silhouette behind the face, for when it floats over other content. */
+  backed?: boolean;
 }
 
-function KereAvatar({ expression = "normal", bare = false }: KereAvatarProps) {
+function KereAvatar({ expression = "normal", bare = false, backed = false }: KereAvatarProps) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -21,7 +23,11 @@ function KereAvatar({ expression = "normal", bare = false }: KereAvatarProps) {
   const face = expression === "thinking" ? frames[tick % frames.length] : FACES[expression];
 
   return (
-    <span className="kere-avatar" data-expression={expression} aria-hidden="true">
+    <span
+      className={backed ? "kere-avatar kere-avatar--backed" : "kere-avatar"}
+      data-expression={expression}
+      aria-hidden="true"
+    >
       {!bare && (
         <>
           {EARS}

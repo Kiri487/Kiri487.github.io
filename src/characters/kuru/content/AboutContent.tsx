@@ -8,9 +8,9 @@ import {
   experienceData,
   skillsData,
 } from "../../../data/portfolio/about";
-import { contacts } from "../../../data/portfolio/contacts";
+import { contacts, type Contact } from "../../../data/portfolio/contacts";
 
-const contactIcons: Record<string, IconType> = {
+const contactIcons: Record<Contact["id"], IconType> = {
   github: FaGithub,
   linkedin: FaLinkedin,
   x: FaXTwitter,

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
+import type { Expression } from "../avatar/faces";
 
-export type Expression = "normal" | "thinking" | "confused" | "annoyed" | "overwhelmed";
+export type { Expression };
 
 /** A ▸ quick option: shown as `label`, sent as if the visitor typed `query`. */
 export interface QuickOption {

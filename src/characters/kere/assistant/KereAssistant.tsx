@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSkin } from "../../../SkinContext";
-import KereAvatar from "./KereAvatar";
-import { THINKING_MS } from "./faces";
+import { MOBILE_QUERY } from "../../../shared/breakpoints";
+import KereAvatar from "../avatar/KereAvatar";
+import { THINKING_MS } from "../avatar/faces";
 import { respond, type ReplyMemory } from "./respond";
 import { GREETING, GREETING_OPTIONS } from "./script";
 import type { Expression, Reply } from "./types";
+import "./assistant.css";
 
-const MOBILE_QUERY = "(max-width: 640px)";
 /** Long enough to read the sign-off line before the skin switches. */
 const EXIT_DELAY_MS = 1000;
 
@@ -87,7 +88,7 @@ function KereAssistant() {
     return (
       <button type="button" className="kere-launcher" onClick={openPanel} aria-label="Open Kere assistant">
         {!hintSeen && <span className="kere-launcher__hint">Ask Kere</span>}
-        <KereAvatar expression={expression === "thinking" ? "normal" : expression} />
+        <KereAvatar backed expression={expression === "thinking" ? "normal" : expression} />
       </button>
     );
   }

@@ -1,4 +1,4 @@
-import type { Expression } from "./types";
+export type Expression = "normal" | "thinking" | "confused" | "annoyed" | "overwhelmed";
 
 /** Kere's face: cat ears over glasses. Two lines, rendered in monospace so they stay aligned. */
 export const EARS = " /\\_/\\";

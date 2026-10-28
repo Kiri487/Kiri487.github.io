@@ -1,24 +1,23 @@
-import type { Contact } from "../../../data/portfolio";
+import { contacts, experienceData, type Contact } from "../../../data/portfolio";
+import { slugify } from "./format";
 
 /** Kere's presentation config — what the CV shows and in which order. Data lives in src/data/portfolio/. */
 
 export const CV_NAME = "Kiri Wu";
 
 /** X stays in shared contacts for other skins, but a formal CV leaves it out. */
-export const CONTACT_IDS: Contact["id"][] = ["mail", "github", "linkedin"];
+const CONTACT_IDS: Contact["id"][] = ["mail", "github", "linkedin"];
 
-export type SectionId =
-  | "education"
-  | "experience"
-  | "projects"
-  | "honors"
-  | "certifications"
-  | "skills"
-  | "leadership"
-  | "community";
+export const CV_CONTACTS = CONTACT_IDS.map((id) => contacts.find((c) => c.id === id)).filter((c) => c !== undefined);
 
-/** `category` links a section to an `experienceData` group; the rest have dedicated renderers. */
-export const SECTIONS: { id: SectionId; title: string; category?: string }[] = [
+export interface CvSectionConfig {
+  id: string;
+  title: string;
+  /** Links the section to an `experienceData` group; sections without it have dedicated renderers. */
+  category?: string;
+}
+
+const LISTED: CvSectionConfig[] = [
   { id: "education", title: "Education" },
   { id: "experience", title: "Experience" },
   { id: "projects", title: "Projects" },
@@ -29,21 +28,20 @@ export const SECTIONS: { id: SectionId; title: string; category?: string }[] = [
   { id: "community", title: "Community Involvement", category: "Community Involvement" },
 ];
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const listedCategories = new Set(LISTED.flatMap((s) => (s.category ? [s.category] : [])));
 
-/** Sortable start of a "Mon YYYY - Mon YYYY" period (year * 12 + month); falls back to the bare year. */
-export function periodStart(period: string | undefined, year: string): number {
-  const match = period?.match(/^([A-Z][a-z]{2}) (\d{4})/);
-  if (match) return parseInt(match[2], 10) * 12 + MONTHS.indexOf(match[1]);
-  return parseInt(year, 10) * 12;
+if (import.meta.env.DEV) {
+  for (const category of listedCategories) {
+    if (!experienceData.some((e) => e.category === category)) {
+      console.warn(`[kere] CV section "${category}" has no matching category in experienceData.`);
+    }
+  }
 }
 
-/** Data uses "Sep 2025 - Present"; typeset with an en dash like LaTeX's `--`. */
-export function formatPeriod(period: string): string {
-  return period.replace(" - ", " – ");
-}
-
-/** "https://www.linkedin.com/in/x/" → "linkedin.com/in/x", "mailto:a@b" → "a@b". */
-export function displayUrl(url: string): string {
-  return url.replace(/^mailto:/, "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
-}
+/** Listed sections first; any experienceData category added later still shows up, appended at the end. */
+export const SECTIONS: CvSectionConfig[] = [
+  ...LISTED,
+  ...experienceData
+    .filter((e) => !listedCategories.has(e.category))
+    .map((e) => ({ id: slugify(e.category), title: e.category, category: e.category })),
+];
