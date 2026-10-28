@@ -4,7 +4,7 @@ import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
 import { respond, type ReplyMemory } from "./respond";
-import { GREETING, GREETING_OPTIONS } from "./script";
+import { GREETINGS, GREETING_OPTIONS } from "./script";
 import type { Expression, Reply } from "./types";
 import "./assistant.css";
 
@@ -49,7 +49,8 @@ function KereAssistant() {
 
   const openPanel = () => {
     if (messages.length === 0) {
-      setMessages([{ id: nextId.current++, from: "kere", reply: { lines: [GREETING], options: GREETING_OPTIONS } }]);
+      const greeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+      setMessages([{ id: nextId.current++, from: "kere", reply: { lines: [greeting], options: GREETING_OPTIONS } }]);
     }
     setOpen(true);
     setHintSeen(true);

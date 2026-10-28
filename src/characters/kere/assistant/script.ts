@@ -5,8 +5,12 @@ import type { QuickOption, ScriptedRule } from "./types";
    Edit freely — phrases are lowercase words without punctuation.
    ============================================================ */
 
-export const GREETING =
-  "Hello. I'm Kere. Ask me about education, experience, projects, skills, or contact.";
+/** One is picked at random when the chat first opens. "Kere" looks like a typo of "Kiri", so each says who she is. */
+export const GREETINGS = [
+  "Hello. I'm Kere, Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
+  "Hello. I'm Kere — not a typo, just Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
+  "Hello. I'm Kere. Yes, with an e. I'm the part of Kiri that reads the documentation. Ask me about education, experience, projects, skills, or contact.",
+];
 
 export const GREETING_OPTIONS: QuickOption[] = [
   { label: "Projects", query: "projects" },
@@ -21,7 +25,7 @@ export const HELLO_REPLIES = [
 ];
 
 export const HELP_INTRO =
-  "I can answer questions about the following. You can also ask about a specific project by name.";
+  "I can answer questions about the following. You can also ask about a specific project by name, or type \"exit\" to return to Kiri's main page.";
 
 export const HELP_OPTIONS: QuickOption[] = [
   { label: "Education", query: "education" },
@@ -117,6 +121,45 @@ export const EASTER_EGGS: ScriptedRule[] = [
     ],
   },
   {
+    id: "how",
+    phrases: ["how are you", "how are things", "how is it going", "how s it going", "how do you do"],
+    replies: [
+      "Operational. Thank you for asking.",
+      "Busy, but within acceptable limits.",
+    ],
+  },
+  {
+    id: "cv",
+    phrases: ["cv", "resume", "curriculum vitae"],
+    jump: { id: "top", label: "Back to the top" },
+    replies: ["You're looking at it."],
+  },
+  {
+    id: "cat",
+    phrases: ["cat", "cats", "meow", "nya", "kitty", "neko"],
+    replies: [
+      "Yes. Cat. It doesn't affect my productivity.",
+      "Cats: independent, efficient, and they never schedule meetings. Highly respected.",
+      "Cats are excellent at focusing. Until something moves.",
+    ],
+  },
+  {
+    id: "laugh",
+    phrases: ["lol", "lmao", "haha", "hahaha", "rofl", "xd"],
+    replies: [
+      "I'll take that as positive feedback.",
+      "Glad someone's enjoying this.",
+    ],
+  },
+  {
+    id: "bye",
+    phrases: ["bye", "goodbye", "see you", "see ya", "good night"],
+    replies: [
+      "Goodbye. The CV will still be here.",
+      "Noted. Closing ticket.",
+    ],
+  },
+  {
     id: "hire",
     phrases: ["hire", "hire you", "hiring", "recruit", "recruiting", "job offer"],
     jump: { id: "top", label: "View contact details" },
@@ -153,6 +196,15 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "Glad that was useful.",
     ],
   },
+  {
+    // Last: a bare "kere" is the weakest signal, so "thanks kere" or "can I hire kere" hit their own replies.
+    id: "about",
+    phrases: ["who are you", "what are you", "kere", "about you", "introduce yourself", "your name"],
+    replies: [
+      "I'm Kere, another side of Kiri. Kiri is the creative one, Kuru is the chill one, and I'm the one who handles the CV, the deadlines, and the documentation.",
+      "Kere. Same person as Kiri, different settings. This is the version that answers emails on time.",
+    ],
+  },
 ];
 
 /** Topic keywords, checked after easter eggs and project names. First match wins, so greetings go last. */
@@ -162,7 +214,7 @@ export const TOPIC_PHRASES = {
   experience: ["experience", "work", "job", "jobs", "internship", "internships", "intern", "career", "employment", "trendai", "gss"],
   projects: ["projects", "project", "portfolio", "works", "side projects"],
   skills: ["skills", "skill", "tech stack", "stack", "languages", "programming", "tools", "technologies", "tech"],
-  contact: ["contact", "email", "mail", "github", "linkedin", "reach you", "social"],
+  contact: ["contact", "email", "e mail", "mail", "github", "git hub", "linkedin", "linked in", "reach you", "social"],
   hello: ["hello", "hi", "hey", "yo", "greetings", "good morning", "good afternoon", "good evening"],
 } as const;
 
