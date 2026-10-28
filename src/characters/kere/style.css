@@ -1,0 +1,245 @@
+/* ============================================================
+   kere skin — a classic LaTeX software-engineer CV.
+   White paper, black ink, Charter. No cards, no gradients.
+   Every rule scoped under [data-skin="kere"].
+   ============================================================ */
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/kere/fonts/XCharter-Roman.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/kere/fonts/XCharter-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/kere/fonts/XCharter-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "XCharter";
+  src: url("/kere/fonts/XCharter-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ---- document ---- */
+
+html[data-skin="kere"] {
+  color-scheme: light;
+  background-color: #fff;
+  color: #000;
+  font-family: "XCharter", Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.55;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+html[data-skin="kere"] body {
+  margin: 0;
+}
+
+[data-skin="kere"] ::selection {
+  background: #000;
+  color: #fff;
+}
+
+[data-skin="kere"] a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+/* ---- page ---- */
+
+[data-skin="kere"] .kere {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+
+/* ---- header ---- */
+
+[data-skin="kere"] .kere-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+[data-skin="kere"] .kere-header__name {
+  font-variant-caps: small-caps;
+  font-weight: 400;
+  font-size: 2.4rem;
+  line-height: 1.1;
+  margin: 0 0 12px;
+}
+
+[data-skin="kere"] .kere-header__contacts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 0;
+  font-size: 0.95rem;
+}
+
+[data-skin="kere"] .kere-header__contacts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+[data-skin="kere"] .kere-header__contacts li + li::before {
+  content: "|";
+  margin: 0 10px;
+}
+
+[data-skin="kere"] .kere-header__icon {
+  font-size: 0.9em;
+  flex-shrink: 0;
+}
+
+/* ---- sections ---- */
+
+[data-skin="kere"] .kere-section {
+  margin-top: 32px;
+}
+
+[data-skin="kere"] .kere-section__title {
+  font-size: 1.4rem;
+  font-weight: 400;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.03em;
+  margin: 0 0 12px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid #000;
+}
+
+/* ---- entries ---- */
+
+[data-skin="kere"] .kere-entry {
+  margin-bottom: 16px;
+}
+
+[data-skin="kere"] .kere-entry__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 16px;
+  align-items: baseline;
+}
+
+[data-skin="kere"] .kere-entry__title {
+  font-weight: 700;
+  font-size: 1.06rem;
+}
+
+[data-skin="kere"] .kere-entry__date,
+[data-skin="kere"] .kere-entry__location {
+  text-align: right;
+  white-space: nowrap;
+}
+
+[data-skin="kere"] .kere-entry__row--sub {
+  font-style: italic;
+  font-size: 0.94rem;
+  color: #444;
+}
+
+[data-skin="kere"] .kere-entry__stack {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 0.94rem;
+  color: #444;
+}
+
+[data-skin="kere"] .kere-entry__body {
+  font-size: 0.95rem;
+}
+
+[data-skin="kere"] .kere-entry__kind {
+  font-style: italic;
+  color: #444;
+}
+
+[data-skin="kere"] .kere-entry__links {
+  font-size: 0.88rem;
+  color: #444;
+  margin-top: 2px;
+  padding-left: 1.4em;
+}
+
+/* ---- lists ---- */
+
+[data-skin="kere"] .kere-list {
+  margin: 4px 0;
+  padding-left: 1.4em;
+}
+
+[data-skin="kere"] .kere-list li {
+  margin: 4px 0;
+}
+
+[data-skin="kere"] .kere-skills {
+  list-style: none;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  padding-left: 0.6em;
+}
+
+/* ---- mobile ---- */
+
+@media (max-width: 640px) {
+  html[data-skin="kere"] {
+    font-size: 15px;
+  }
+
+  [data-skin="kere"] .kere {
+    padding: 28px 16px 48px;
+  }
+
+  [data-skin="kere"] .kere-header__name {
+    font-size: 2rem;
+  }
+
+  /* Stack contacts one per line; the "|" separators only make sense inline. */
+  [data-skin="kere"] .kere-header__contacts {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  [data-skin="kere"] .kere-header__contacts li + li::before {
+    content: none;
+  }
+
+  [data-skin="kere"] .kere-entry__row {
+    grid-template-columns: 1fr;
+  }
+
+  [data-skin="kere"] .kere-entry__date,
+  [data-skin="kere"] .kere-entry__location {
+    text-align: left;
+    font-size: 0.9rem;
+  }
+
+  [data-skin="kere"] .kere-entry__title {
+    overflow-wrap: anywhere;
+  }
+}

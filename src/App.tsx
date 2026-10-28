@@ -4,6 +4,7 @@ import { SkinProvider, useSkin } from "./SkinContext";
 const SKINS = {
   kiri: lazy(() => import("./characters/kiri/KiriApp")),
   kuru: lazy(() => import("./characters/kuru/KuruApp")),
+  kere: lazy(() => import("./characters/kere/KereApp")),
 } as const;
 
 function ActiveSkin() {

@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 /** Add a new id here whenever you create another character under src/characters/. */
-export type Skin = "kiri" | "kuru";
+export type Skin = "kiri" | "kuru" | "kere";
 
-const SKIN_IDS: Skin[] = ["kiri", "kuru"];
+const SKIN_IDS: Skin[] = ["kiri", "kuru", "kere"];
 const DEFAULT_SKIN: Skin = "kiri";
 const STORAGE_KEY = "skin";
 
