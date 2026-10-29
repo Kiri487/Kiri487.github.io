@@ -42,6 +42,11 @@
   white-space: nowrap;
 }
 
+/* A lone "!" would make the bubble tall and thin; widen it to roughly square. */
+[data-skin="kere"] .kere-launcher__hint--alert {
+  padding-inline: 12px;
+}
+
 [data-skin="kere"] .kere-launcher__hint::after {
   content: "";
   position: absolute;

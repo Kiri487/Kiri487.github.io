@@ -25,7 +25,7 @@ export const HELLO_REPLIES = [
 ];
 
 export const HELP_INTRO =
-  "I can answer questions about the following. You can also ask about a specific project by name, or type \"exit\" to return to Kiri's main page.";
+  "I can answer questions about the following. You can also ask about a specific project by name, type \"exit\" to return to Kiri's main page, or \"mute\" to turn off sound effects.";
 
 export const HELP_OPTIONS: QuickOption[] = [
   { label: "Education", query: "education" },
@@ -48,6 +48,26 @@ export const CONFUSED_STREAK_REPLIES = [
   "Still not following, sorry. Maybe one of these will help?",
   "My parser and I are doing our best. Here's what I know.",
 ];
+
+/** Sound effect commands, checked before everything else. "shut up" lives here, not in the rude egg: in a chat that beeps, it means "mute". */
+export const SFX_PHRASES = {
+  on: ["unmute", "sound on", "sounds on", "turn on sound", "turn on the sound", "enable sound"],
+  off: ["mute", "sound off", "sounds off", "turn off sound", "turn off the sound", "disable sound", "be quiet", "quiet", "silence"],
+  shutUp: ["shut up"],
+  /** Bare mentions just report the current state. Not "sounds" — "sounds good" would hijack a thank-you. */
+  status: ["sound", "sound effects", "sfx"],
+} as const;
+
+export const SFX_REPLIES = {
+  on: ["Sound effects on.", "Sound effects on. Office-appropriate volume."],
+  alreadyOn: ["Sound effects are already on."],
+  off: ["Understood. Sound effects off.", "Muted. Thank you for keeping the office quiet."],
+  /** With the [×_×] face — Kere takes it on the chin, never snaps back. */
+  shutUp: ["...Understood. Sound effects off.", "Apologies. Muting now."],
+  alreadyOff: ["Sound effects are already off."],
+  statusOn: ["Sound effects are on. Type \"mute\" to turn them off."],
+  statusOff: ["Sound effects are off. Type \"unmute\" to turn them back on."],
+};
 
 /** Time periods follow the visitor's own clock; lines never name an exact hour. Same split as Kuru. */
 export type TimePeriod = "night" | "morning" | "afternoon" | "evening";
@@ -91,7 +111,7 @@ export const EASTER_EGGS: ScriptedRule[] = [
   {
     // Early, so "your skills are useless" gets this instead of the skills list. Kere stays calm and polite.
     id: "rude",
-    phrases: ["fuck", "fucking", "shit", "stupid", "idiot", "dumb", "useless", "shut up", "wtf", "sucks", "trash", "garbage"],
+    phrases: ["fuck", "fucking", "shit", "stupid", "idiot", "dumb", "useless", "wtf", "sucks", "trash", "garbage"],
     replies: [
       "Let's keep this professional.",
       "Noted. Moving on.",
