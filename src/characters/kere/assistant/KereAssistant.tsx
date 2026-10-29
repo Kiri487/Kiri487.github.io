@@ -3,8 +3,8 @@ import { useSkin } from "../../../SkinContext";
 import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
-import { createReplyMemory, currentPeriod, pick, respond } from "./respond";
-import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES } from "./script";
+import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./respond";
+import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
 import type { Expression, Reply } from "./types";
 import "./assistant.css";
@@ -92,9 +92,10 @@ function KereAssistant() {
 
   const openPanel = () => {
     if (messages.length === 0) {
-      const lines = [pick(memory.current, "greeting", GREETINGS)];
+      const lines: Reply["lines"] = [pick(memory.current, "greeting", GREETINGS)];
       // Late at night is the one time Kere remarks on the hour without being asked.
-      if (currentPeriod() === "night") lines.push(pick(memory.current, "night-greeting", TIME_REPLIES.night));
+      if (currentPeriod() === "night") lines.push(pick(memory.current, "night-greeting", TIME_REPLIES.en.night));
+      lines.push(<span lang="zh-Hant">{GREETING_CHINESE_HINT}</span>);
       setMessages([{ id: nextId.current++, from: "kere", reply: { lines, options: GREETING_OPTIONS } }]);
     }
     setOpen(true);
@@ -184,7 +185,7 @@ function KereAssistant() {
           m.from === "you" ? (
             <div key={m.id} className="kere-msg kere-msg--you">
               <span className="kere-msg__who">You</span>
-              <div className="kere-msg__body">
+              <div className="kere-msg__body" lang={detectLang(m.text) === "zh" ? "zh-Hant" : undefined}>
                 <p>{m.text}</p>
               </div>
             </div>
@@ -232,7 +233,8 @@ function KereMessage({ reply, onOption, onJump, disabled }: KereMessageProps) {
   return (
     <div className="kere-msg">
       <span className="kere-msg__who">Kere</span>
-      <div className="kere-msg__body">
+      {/* zh-Hant so browsers pick Traditional Chinese glyph shapes, not Japanese or Simplified ones. */}
+      <div className="kere-msg__body" lang={reply.lang === "zh" ? "zh-Hant" : undefined}>
         {reply.lines.map((line, i) => (
           <p key={i}>{line}</p>
         ))}
