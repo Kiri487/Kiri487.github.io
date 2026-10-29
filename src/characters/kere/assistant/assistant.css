@@ -131,8 +131,24 @@
   margin: 0 0 4px;
 }
 
-[data-skin="kere"] .kere-msg__body p:last-child {
+[data-skin="kere"] .kere-msg__body p:last-child,
+[data-skin="kere"] .kere-msg__list:last-child {
   margin-bottom: 0;
+}
+
+/* Same disc bullets and hanging indent as the CV's .kere-list. */
+[data-skin="kere"] .kere-msg__list {
+  margin: 0 0 4px;
+  padding-left: 1.2em;
+}
+
+[data-skin="kere"] .kere-msg__list li + li {
+  margin-top: 2px;
+}
+
+/* On a narrow screen a URL moves to the next line whole, rather than splitting at "yi-xuan-". */
+[data-skin="kere"] .kere-msg__body .kere-contact-link {
+  white-space: nowrap;
 }
 
 [data-skin="kere"] .kere-msg__body--thinking {
@@ -191,6 +207,14 @@
   background: transparent;
   color: #000;
   outline: none;
+  /* It's a textarea (see KereAssistant): look and behave like a one-line input. */
+  resize: none;
+  white-space: nowrap;
+  height: 1lh;
+  /* Scrolls sideways to follow the caret, like an input, but without showing a scrollbar. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
 
 [data-skin="kere"] .kere-chat__input:focus {

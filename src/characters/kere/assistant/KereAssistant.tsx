@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSkin } from "../../../SkinContext";
 import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
-import { createReplyMemory, currentPeriod, pick, respond } from "./respond";
-import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES } from "./script";
+import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./respond";
+import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
-import type { Expression, Reply } from "./types";
+import { isReplyList, type Expression, type Reply } from "./types";
 import "./assistant.css";
 
 /** Long enough to read the sign-off line before the skin switches. */
@@ -33,7 +33,7 @@ function KereAssistant() {
   const memory = useRef(createReplyMemory());
   const timer = useRef<number | undefined>(undefined);
   const logRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
@@ -92,9 +92,10 @@ function KereAssistant() {
 
   const openPanel = () => {
     if (messages.length === 0) {
-      const lines = [pick(memory.current, "greeting", GREETINGS)];
+      const lines: Reply["lines"] = [pick(memory.current, "greeting", GREETINGS)];
       // Late at night is the one time Kere remarks on the hour without being asked.
-      if (currentPeriod() === "night") lines.push(pick(memory.current, "night-greeting", TIME_REPLIES.night));
+      if (currentPeriod() === "night") lines.push(pick(memory.current, "night-greeting", TIME_REPLIES.en.night));
+      lines.push(<span lang="zh-Hant">{GREETING_CHINESE_HINT}</span>);
       setMessages([{ id: nextId.current++, from: "kere", reply: { lines, options: GREETING_OPTIONS } }]);
     }
     setOpen(true);
@@ -134,6 +135,14 @@ function KereAssistant() {
   };
 
   const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    send(input);
+  };
+
+  // A textarea's Enter adds a line break; here it sends. Not while an IME is composing, where Enter picks the
+  // characters (Safari reports that keypress as keyCode 229 with isComposing already false).
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
     e.preventDefault();
     send(input);
   };
@@ -184,7 +193,7 @@ function KereAssistant() {
           m.from === "you" ? (
             <div key={m.id} className="kere-msg kere-msg--you">
               <span className="kere-msg__who">You</span>
-              <div className="kere-msg__body">
+              <div className="kere-msg__body" lang={detectLang(m.text) === "zh" ? "zh-Hant" : undefined}>
                 <p>{m.text}</p>
               </div>
             </div>
@@ -203,16 +212,29 @@ function KereAssistant() {
       </div>
 
       <form className="kere-chat__form" onSubmit={handleSubmit}>
-        <input
+        {/* A textarea, not an input: Chrome on phones puts its address/card/password bar above the keyboard for
+            any text input (autocomplete="off" doesn't stop it), but never for a textarea. Kept to one line. */}
+        <textarea
           ref={inputRef}
           className="kere-chat__input"
+          rows={1}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          // Single-line chat: pasted line breaks become spaces.
+          onChange={(e) => setInput(e.target.value.replace(/\r?\n/g, " "))}
+          onKeyDown={handleKeyDown}
           placeholder="Ask Kere something…"
           aria-label="Message"
           maxLength={200}
+          autoComplete="off"
+          enterKeyHint="send"
         />
-        <button type="submit" className="kere-chat__send" disabled={thinking || !input.trim()}>
+        <button
+          type="submit"
+          className="kere-chat__send"
+          disabled={thinking || !input.trim()}
+          // Don't take focus from the message box, so the phone keyboard stays up — same as its own send key.
+          onMouseDown={(e) => e.preventDefault()}
+        >
           Send
         </button>
       </form>
@@ -232,10 +254,19 @@ function KereMessage({ reply, onOption, onJump, disabled }: KereMessageProps) {
   return (
     <div className="kere-msg">
       <span className="kere-msg__who">Kere</span>
-      <div className="kere-msg__body">
-        {reply.lines.map((line, i) => (
-          <p key={i}>{line}</p>
-        ))}
+      {/* zh-Hant so browsers pick Traditional Chinese glyph shapes, not Japanese or Simplified ones. */}
+      <div className="kere-msg__body" lang={reply.lang === "zh" ? "zh-Hant" : undefined}>
+        {reply.lines.map((line, i) =>
+          isReplyList(line) ? (
+            <ul key={i} className="kere-msg__list">
+              {line.list.map((item, j) => (
+                <li key={j}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p key={i}>{line}</p>
+          ),
+        )}
         {jump && (
           <button type="button" className="kere-msg__jump" onClick={() => onJump(jump.id)}>
             → {jump.label}

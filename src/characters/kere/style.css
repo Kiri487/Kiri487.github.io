@@ -46,7 +46,8 @@ html[data-skin="kere"] {
   color-scheme: light;
   background-color: #fff;
   color: #000;
-  font-family: "XCharter", Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
+  /* Noto Serif TC only renders Chinese (none of the fonts before it have any); see KereApp for how it loads. */
+  font-family: "XCharter", Charter, "Bitstream Charter", Georgia, "Times New Roman", "Noto Serif TC", serif;
   font-size: 16px;
   line-height: 1.55;
   font-synthesis: none;

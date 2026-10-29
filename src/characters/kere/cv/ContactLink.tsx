@@ -6,6 +6,7 @@ function ContactLink({ contact }: { contact: Contact }) {
   const external = contact.id !== "mail";
   return (
     <a
+      className="kere-contact-link"
       href={contact.url}
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
