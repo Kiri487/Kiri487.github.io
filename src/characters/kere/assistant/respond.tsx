@@ -13,6 +13,8 @@ import {
   HELP_INTRO,
   HELP_OPTIONS,
   PROJECT_ALIASES,
+  SFX_PHRASES,
+  SFX_REPLIES,
   TIME_REPLIES,
   TOPIC_PHRASES,
   type TimePeriod,
@@ -130,13 +132,37 @@ function contactReply(): Reply {
   };
 }
 
+/** Sound commands. Already-set states get a plain statement — Kere never sounds impatient with the visitor. */
+function sfxReply(text: string, memory: ReplyMemory, sfxEnabled: boolean): Reply | undefined {
+  if (matches(text, SFX_PHRASES.on)) {
+    return sfxEnabled
+      ? { lines: [pick(memory, "sfx-already-on", SFX_REPLIES.alreadyOn)] }
+      : { lines: [pick(memory, "sfx-on", SFX_REPLIES.on)], action: "sfx-on" };
+  }
+  if (matches(text, SFX_PHRASES.shutUp)) {
+    return sfxEnabled
+      ? { lines: [pick(memory, "sfx-shut-up", SFX_REPLIES.shutUp)], expression: "overwhelmed", action: "sfx-off" }
+      : { lines: [pick(memory, "sfx-already-off", SFX_REPLIES.alreadyOff)], expression: "overwhelmed" };
+  }
+  if (matches(text, SFX_PHRASES.off)) {
+    return sfxEnabled
+      ? { lines: [pick(memory, "sfx-off", SFX_REPLIES.off)], action: "sfx-off" }
+      : { lines: [pick(memory, "sfx-already-off", SFX_REPLIES.alreadyOff)] };
+  }
+  if (matches(text, SFX_PHRASES.status)) {
+    return { lines: [pick(memory, "sfx-status", sfxEnabled ? SFX_REPLIES.statusOn : SFX_REPLIES.statusOff)] };
+  }
+  return undefined;
+}
+
 function findProject(normalized: string): CvProject | undefined {
   return allProjects.find((p) => matches(normalized, [p.title, ...(PROJECT_ALIASES[p.title] ?? [])]));
 }
 
-/** Easter eggs → project names → topics → fallback. */
-export function respond(input: string, memory: ReplyMemory): Reply {
-  const reply = match(normalize(input), memory);
+/** Sound commands → easter eggs → project names → topics → fallback. */
+export function respond(input: string, memory: ReplyMemory, sfxEnabled: boolean): Reply {
+  const text = normalize(input);
+  const reply = sfxReply(text, memory, sfxEnabled) ?? match(text, memory);
   if (reply) {
     memory.missStreak = 0;
     return reply;

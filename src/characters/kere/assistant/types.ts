@@ -15,8 +15,8 @@ export interface Reply {
   /** Element id on the CV page to scroll to, with the link text. */
   jump?: { id: string; label: string };
   options?: QuickOption[];
-  /** Side effect after the reply is shown — "exit" sends the visitor back to Kiri. */
-  action?: "exit";
+  /** Side effect after the reply is shown — "exit" sends the visitor back to Kiri; "sfx-*" toggles sound effects. */
+  action?: "exit" | "sfx-on" | "sfx-off";
 }
 
 /** Hand-written reply: one of `replies` is picked at random each time it fires. */
@@ -27,5 +27,5 @@ export interface ScriptedRule {
   replies: string[];
   expression?: Expression;
   jump?: Reply["jump"];
-  action?: Reply["action"];
+  action?: "exit";
 }

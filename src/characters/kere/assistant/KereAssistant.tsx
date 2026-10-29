@@ -5,6 +5,7 @@ import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
 import { createReplyMemory, currentPeriod, pick, respond } from "./respond";
 import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES } from "./script";
+import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
 import type { Expression, Reply } from "./types";
 import "./assistant.css";
 
@@ -24,6 +25,9 @@ function KereAssistant() {
   const [expression, setExpression] = useState<Expression>("normal");
   // Once opened, the visitor knows Kere is clickable — drop the "Ask Kere" hint until the next page load.
   const [hintSeen, setHintSeen] = useState(false);
+  const [sfxEnabled, setSfxEnabled] = useState(loadSfxEnabled);
+  // A reply landed while the panel was minimized — show "!" over the cat until it's reopened.
+  const [unread, setUnread] = useState(false);
 
   const nextId = useRef(0);
   const memory = useRef(createReplyMemory());
@@ -33,6 +37,12 @@ function KereAssistant() {
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
+  // Read by the reply timer, which outlives the render that started it.
+  const openRef = useRef(open);
+
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   // Don't deliver a pending reply after the skin unmounts.
   useEffect(() => {
@@ -89,6 +99,8 @@ function KereAssistant() {
     }
     setOpen(true);
     setHintSeen(true);
+    setUnread(false);
+    if (sfxEnabled) playOpenSfx();
   };
 
   const send = (text: string) => {
@@ -98,11 +110,23 @@ function KereAssistant() {
     setInput("");
     setThinking(true);
     setExpression("thinking");
+    // Submitting is a user gesture; the tick plays after the timeout, which some browsers would otherwise block.
+    unlockSfx();
     timer.current = window.setTimeout(() => {
-      const reply = respond(trimmed, memory.current);
+      const reply = respond(trimmed, memory.current, sfxEnabled);
       setMessages((m) => [...m, { id: nextId.current++, from: "kere", reply }]);
       setExpression(reply.expression ?? "normal");
       setThinking(false);
+      if (!openRef.current) setUnread(true);
+
+      let soundOn = sfxEnabled;
+      if (reply.action === "sfx-on" || reply.action === "sfx-off") {
+        soundOn = reply.action === "sfx-on";
+        setSfxEnabled(soundOn);
+        saveSfxEnabled(soundOn);
+      }
+      // "sound on" confirms itself with the tick; "mute" stays silent.
+      if (soundOn) playReplySfx();
       if (reply.action === "exit") {
         timer.current = window.setTimeout(() => setSkin("kiri"), EXIT_DELAY_MS);
       }
@@ -127,9 +151,10 @@ function KereAssistant() {
         type="button"
         className="kere-launcher"
         onClick={openPanel}
-        aria-label="Open Kere assistant"
+        aria-label={unread ? "Open Kere assistant, new message" : "Open Kere assistant"}
       >
         {!hintSeen && <span className="kere-launcher__hint">Ask Kere</span>}
+        {hintSeen && unread && <span className="kere-launcher__hint kere-launcher__hint--alert">!</span>}
         <KereAvatar backed expression={expression === "thinking" ? "normal" : expression} />
       </button>
     );
