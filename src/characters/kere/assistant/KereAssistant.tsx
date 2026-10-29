@@ -228,7 +228,13 @@ function KereAssistant() {
           autoComplete="off"
           enterKeyHint="send"
         />
-        <button type="submit" className="kere-chat__send" disabled={thinking || !input.trim()}>
+        <button
+          type="submit"
+          className="kere-chat__send"
+          disabled={thinking || !input.trim()}
+          // Don't take focus from the message box, so the phone keyboard stays up — same as its own send key.
+          onMouseDown={(e) => e.preventDefault()}
+        >
           Send
         </button>
       </form>
