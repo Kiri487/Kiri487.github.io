@@ -131,8 +131,19 @@
   margin: 0 0 4px;
 }
 
-[data-skin="kere"] .kere-msg__body p:last-child {
+[data-skin="kere"] .kere-msg__body p:last-child,
+[data-skin="kere"] .kere-msg__list:last-child {
   margin-bottom: 0;
+}
+
+/* Same disc bullets and hanging indent as the CV's .kere-list. */
+[data-skin="kere"] .kere-msg__list {
+  margin: 0 0 4px;
+  padding-left: 1.2em;
+}
+
+[data-skin="kere"] .kere-msg__list li + li {
+  margin-top: 2px;
 }
 
 [data-skin="kere"] .kere-msg__body--thinking {

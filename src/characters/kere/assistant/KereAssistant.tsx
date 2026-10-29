@@ -6,7 +6,7 @@ import { THINKING_MS } from "../avatar/faces";
 import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./respond";
 import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
-import type { Expression, Reply } from "./types";
+import { isReplyList, type Expression, type Reply } from "./types";
 import "./assistant.css";
 
 /** Long enough to read the sign-off line before the skin switches. */
@@ -235,9 +235,17 @@ function KereMessage({ reply, onOption, onJump, disabled }: KereMessageProps) {
       <span className="kere-msg__who">Kere</span>
       {/* zh-Hant so browsers pick Traditional Chinese glyph shapes, not Japanese or Simplified ones. */}
       <div className="kere-msg__body" lang={reply.lang === "zh" ? "zh-Hant" : undefined}>
-        {reply.lines.map((line, i) => (
-          <p key={i}>{line}</p>
-        ))}
+        {reply.lines.map((line, i) =>
+          isReplyList(line) ? (
+            <ul key={i} className="kere-msg__list">
+              {line.list.map((item, j) => (
+                <li key={j}>{item}</li>
+              ))}
+            </ul>
+          ) : (
+            <p key={i}>{line}</p>
+          ),
+        )}
         {jump && (
           <button type="button" className="kere-msg__jump" onClick={() => onJump(jump.id)}>
             → {jump.label}

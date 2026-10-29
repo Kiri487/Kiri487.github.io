@@ -92,7 +92,7 @@ function educationReply(lang: Lang): Reply {
   return {
     lines: [
       lang === "zh" ? "學歷，從最新的開始：" : "Education, most recent first:",
-      ...educationData.map((e) => `${e.school}: ${e.department} (${formatPeriod(e.period)})`),
+      { list: educationData.map((e) => `${e.school}: ${e.department} (${formatPeriod(e.period)})`) },
     ],
     jump: sectionJump("education", lang),
   };
@@ -104,16 +104,24 @@ function experienceReply(lang: Lang): Reply {
   if (lang === "zh") {
     return {
       lines: [
-        ...current.map((w) => `目前在 ${w.company} 擔任 ${w.position}（${formatPeriod(w.period)}）。`),
-        ...previous.map((w) => `之前在 ${w.company} 擔任 ${w.position}（${formatPeriod(w.period)}）。`),
+        {
+          list: [
+            ...current.map((w) => `目前在 ${w.company} 擔任 ${w.position}（${formatPeriod(w.period)}）。`),
+            ...previous.map((w) => `之前在 ${w.company} 擔任 ${w.position}（${formatPeriod(w.period)}）。`),
+          ],
+        },
       ],
       jump: sectionJump("experience", lang),
     };
   }
   return {
     lines: [
-      ...current.map((w) => `Currently: ${w.position} at ${w.company} (${formatPeriod(w.period)}).`),
-      ...previous.map((w) => `Previously: ${w.position} at ${w.company} (${formatPeriod(w.period)}).`),
+      {
+        list: [
+          ...current.map((w) => `Currently: ${w.position} at ${w.company} (${formatPeriod(w.period)}).`),
+          ...previous.map((w) => `Previously: ${w.position} at ${w.company} (${formatPeriod(w.period)}).`),
+        ],
+      },
     ],
     jump: sectionJump("experience", lang),
   };
@@ -125,7 +133,7 @@ function projectsReply(lang: Lang): Reply {
   return {
     lines: [
       zh ? `目前總共有 ${allProjects.length} 個專案，最近的是這幾個：` : `${allProjects.length} projects on file. Most recent:`,
-      ...recent.map((p) => `${p.title} (${formatPeriod(p.period ?? p.year)})`),
+      { list: recent.map((p) => `${p.title} (${formatPeriod(p.period ?? p.year)})`) },
       zh ? "想知道哪一個，可以直接打名稱問我。" : "Ask me about any of them by name.",
     ],
     jump: sectionJump("projects", lang),
@@ -148,7 +156,7 @@ function projectReply(p: CvProject, lang: Lang): Reply {
 
 function skillsReply(lang: Lang): Reply {
   return {
-    lines: skillsData.map((c) => `${c.category}: ${skillNames(c.skills)}`),
+    lines: [{ list: skillsData.map((c) => `${c.category}: ${skillNames(c.skills)}`) }],
     jump: sectionJump("skills", lang),
   };
 }
@@ -157,6 +165,7 @@ function contactReply(lang: Lang): Reply {
   return {
     lines: [
       lang === "zh" ? "工作上可以用這些方式聯絡：" : "Professional channels:",
+      // Not a bulleted list: each channel fits on one line and its label already marks it.
       ...CV_CONTACTS.map((c) => (
         <>
           {c.label}: <ContactLink contact={c} />

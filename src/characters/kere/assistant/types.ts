@@ -15,8 +15,19 @@ export interface QuickOption {
   query: string;
 }
 
+/** A bulleted list inside a reply, drawn like the CV's own lists. */
+export interface ReplyList {
+  list: ReactNode[];
+}
+
+export type ReplyLine = ReactNode | ReplyList;
+
+export function isReplyList(line: ReplyLine): line is ReplyList {
+  return typeof line === "object" && line !== null && "list" in line;
+}
+
 export interface Reply {
-  lines: ReactNode[];
+  lines: ReplyLine[];
   expression?: Expression;
   /** Element id on the CV page to scroll to, with the link text. */
   jump?: { id: string; label: string };
