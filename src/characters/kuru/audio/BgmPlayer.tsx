@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { IoPlaySharp, IoPauseSharp, IoPlaySkipBackSharp, IoPlaySkipForwardSharp, IoVolumeHighSharp, IoVolumeMuteSharp } from "react-icons/io5";
+import { readBoolean, readNumber, writeBoolean, writeString } from "../../../shared/storage";
 
 const TRACKS = [
   { file: "/kuru/bgm/tunetank-lo-fi-hip-hop-background-347200.mp3", title: "Lo-Fi Hip Hop Background" },
@@ -20,15 +21,13 @@ function fmt(sec: number) {
 function BgmPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(() => {
-    const saved = localStorage.getItem("bgmEnabled");
-    return saved ? JSON.parse(saved) === true : false;
+    return readBoolean("bgmEnabled", false);
   });
   const [trackIdx, setTrackIdx] = useState(randomIdx);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(() => {
-    const saved = localStorage.getItem("bgmVolume");
-    return saved ? parseFloat(saved) : 0.5;
+    return readNumber("bgmVolume", 0.5, { min: 0, max: 1 });
   });
   const prevVolume = useRef(volume);
   const playingRef = useRef(playing);
@@ -47,7 +46,7 @@ function BgmPlayer() {
       audioRef.current?.pause();
     }
     setPlaying(next);
-    localStorage.setItem("bgmEnabled", JSON.stringify(next));
+    writeBoolean("bgmEnabled", next);
   }, [playing]);
 
   const next = useCallback(() => {
@@ -55,7 +54,7 @@ function BgmPlayer() {
     while (idx === trackIdx && TRACKS.length > 1) idx = randomIdx();
     setTrackIdx(idx);
     setPlaying(true);
-    localStorage.setItem("bgmEnabled", "true");
+    writeBoolean("bgmEnabled", true);
   }, [trackIdx]);
 
   const prev = useCallback(() => {
@@ -66,13 +65,13 @@ function BgmPlayer() {
       const idx = (trackIdx - 1 + TRACKS.length) % TRACKS.length;
       setTrackIdx(idx);
       setPlaying(true);
-      localStorage.setItem("bgmEnabled", "true");
+      writeBoolean("bgmEnabled", true);
     }
   }, [trackIdx]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
-    localStorage.setItem("bgmVolume", volume.toString());
+    writeString("bgmVolume", volume.toString());
   }, [volume]);
 
   useEffect(() => {
@@ -84,7 +83,7 @@ function BgmPlayer() {
         if (e.name === "AbortError") return;
         setPlaying(false);
         playingRef.current = false;
-        localStorage.setItem("bgmEnabled", "false");
+        writeBoolean("bgmEnabled", false);
       });
     }
   }, [trackIdx]);

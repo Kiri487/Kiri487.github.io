@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { readString, writeString } from "./shared/storage";
 
 /** Add a new id here whenever you create another character under src/characters/. */
 export type Skin = "kiri" | "kuru" | "kere";
@@ -17,7 +18,7 @@ function isSkin(value: string | null): value is Skin {
 function readInitialSkin(): Skin {
   const fromUrl = new URLSearchParams(window.location.search).get(URL_PARAM);
   if (isSkin(fromUrl)) return fromUrl;
-  const saved = localStorage.getItem(STORAGE_KEY);
+  const saved = readString(STORAGE_KEY);
   return isSkin(saved) ? saved : DEFAULT_SKIN;
 }
 
@@ -32,7 +33,7 @@ export function SkinProvider({ children }: { children: ReactNode }) {
   const [skin, setSkin] = useState<Skin>(readInitialSkin);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, skin);
+    writeString(STORAGE_KEY, skin);
     // Scopes each skin's CSS — every skin's stylesheet is written under
     // [data-skin="<id>"], so only the active skin's rules apply.
     document.documentElement.dataset.skin = skin;

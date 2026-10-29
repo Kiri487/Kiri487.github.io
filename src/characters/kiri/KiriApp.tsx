@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { videoBgmPairs, getRandomIndex } from "../../config/assets";
+import { readBoolean, readNumber, readString, writeBoolean, writeString } from "../../shared/storage";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
@@ -19,17 +20,15 @@ function KiriApp() {
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
 
   const [bgmEnabled, setBgmEnabled] = useState(() => {
-    const saved = localStorage.getItem("bgmEnabled");
-    return saved ? JSON.parse(saved) : false;
+    return readBoolean("bgmEnabled", false);
   });
 
   const [volume, setVolume] = useState(() => {
-    const saved = localStorage.getItem("bgmVolume");
-    return saved ? parseFloat(saved) : 0.5;
+    return readNumber("bgmVolume", 0.5, { min: 0, max: 1 });
   });
 
   const [currentPairIndex, setCurrentPairIndex] = useState(() => {
-    const savedIndex = sessionStorage.getItem("bgmIndex");
+    const savedIndex = readString("bgmIndex", "session");
 
     if (savedIndex !== null) {
       const index = parseInt(savedIndex, 10);
@@ -82,18 +81,18 @@ function KiriApp() {
   };
 
   useEffect(() => {
-    localStorage.setItem("bgmEnabled", JSON.stringify(bgmEnabled));
+    writeBoolean("bgmEnabled", bgmEnabled);
   }, [bgmEnabled]);
 
   useEffect(() => {
-    localStorage.setItem("bgmVolume", volume.toString());
+    writeString("bgmVolume", volume.toString());
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
 
   useEffect(() => {
-    sessionStorage.setItem("bgmIndex", currentPairIndex.toString());
+    writeString("bgmIndex", currentPairIndex.toString(), "session");
   }, [currentPairIndex]);
 
   useEffect(() => {
