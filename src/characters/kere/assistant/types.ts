@@ -33,9 +33,11 @@ export interface ScriptedRule {
   /** English phrases match whole words; Chinese ones match anywhere in the message (see `matches`). */
   phrases: string[];
   replies: string[];
-  /** Chinese replies. Until a rule has them, a Chinese message that matches it gets the English replies. */
+  /** Chinese replies. A rule without them answers a Chinese message in English. */
   repliesZh?: string[];
   expression?: Expression;
   jump?: Reply["jump"];
+  /** Link text for `jump` in Chinese replies. */
+  jumpLabelZh?: string;
   action?: "exit";
 }

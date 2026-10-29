@@ -29,7 +29,7 @@ export const HELLO_REPLIES: Localized<string[]> = {
     "Hello. Ready when you are.",
   ],
   zh: [
-    "您好。有什麼可以幫您的？",
+    "您好，有什麼可以幫您的？",
     "嗨，需要什麼就跟我說。",
     "您好，我在，請說。",
   ],
@@ -39,11 +39,11 @@ export const HELLO_REPLIES: Localized<string[]> = {
 export const CHINESE_PHRASES = ["中文"];
 
 export const CHINESE_INTRO =
-  "可以。我是 Kere，工作模式的 Kiri。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。";
+  "可以，我是 Kere，工作模式的 Kiri。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。";
 
 export const HELP_INTRO: Localized<string> = {
   en: "I can answer questions about the following. You can also ask about a specific project by name, type \"exit\" to return to Kiri's main page, or \"mute\" to turn off sound effects.",
-  zh: "我可以回答下面這些主題。您也可以直接問專案名稱；輸入「離開」會回到 Kiri 的首頁，輸入「靜音」可以關掉音效。",
+  zh: "我可以回答下面這些主題，您也可以直接問專案名稱；輸入「離開」會回到 Kiri 的首頁，輸入「靜音」可以關掉音效。",
 };
 
 export const HELP_OPTIONS: Localized<QuickOption[]> = {
@@ -71,9 +71,9 @@ export const FALLBACK_REPLIES: Localized<string[]> = {
     "No matching entry. Try education, experience, projects, skills, or contact.",
   ],
   zh: [
-    "這題超出我的業務範圍。輸入「幫助」看看我能回答什麼。",
+    "這題超出我的業務範圍，輸入「幫助」看看我能回答什麼。",
     "我沒看懂，用關鍵字問會比較準。",
-    "查不到相關資料。可以試試學歷、經歷、專案、技能或聯絡方式。",
+    "查不到相關資料，可以試試學歷、經歷、專案、技能或聯絡方式。",
   ],
 };
 
@@ -86,7 +86,7 @@ export const CONFUSED_STREAK_REPLIES: Localized<string[]> = {
     "My parser and I are doing our best. Here's what I know.",
   ],
   zh: [
-    "抱歉，我還是沒看懂。要不要從這幾個開始？",
+    "抱歉，我還是沒看懂，要不要從這幾個開始？",
     "我跟我的程式都盡力了，目前會的就這些。",
   ],
 };
@@ -124,7 +124,7 @@ export const SFX_REPLIES: Localized<Record<
   zh: {
     on: ["音效打開了。", "音效打開了，音量應該不會吵到同事。"],
     alreadyOn: ["音效本來就開著。"],
-    off: ["好，音效關掉了。", "靜音了。謝謝您幫忙維持辦公室安靜。"],
+    off: ["好，音效關掉了。", "靜音了，謝謝您幫忙維持辦公室安靜。"],
     shutUp: ["……好，音效關掉了。", "抱歉，馬上關。"],
     alreadyOff: ["音效本來就關著。"],
     statusOn: ["音效現在是開的，輸入「靜音」可以關掉。"],
@@ -164,17 +164,17 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
       "已經過了上班時間很久了，這次就破例一下。",
     ],
     morning: [
-      "早安。先讓我喝杯咖啡，再來回答問題。",
-      "早。今天還有無限可能，還有一堆未讀信件。",
+      "早安，先讓我喝杯咖啡，再來回答問題。",
+      "早，今天還有無限可能，還有一堆未讀信件。",
     ],
     afternoon: [
-      "午安。現在是效率最好的時段，有問題趁現在問。",
-      "午安。午餐後的會剛開完，我現在有空。",
+      "午安，現在是效率最好的時段，有問題趁現在問。",
+      "午安，午餐後的會剛開完，我現在有空。",
     ],
     // No greeting word: in Taiwan 晚安 means good night, and 晚上好 sounds mainland.
     evening: [
       "嚴格說起來我已經下班了，不過您說吧。",
-      "我正在把今天的工作收尾。有什麼需要幫忙的嗎？",
+      "我正在把今天的工作收尾，有什麼需要幫忙的嗎？",
     ],
   },
 };
@@ -201,40 +201,60 @@ export const EASTER_EGGS: ScriptedRule[] = [
   {
     // Early, so "your skills are useless" gets this instead of the skills list. Kere stays calm and polite.
     id: "rude",
-    phrases: ["fuck", "fucking", "shit", "stupid", "idiot", "dumb", "useless", "wtf", "sucks", "trash", "garbage"],
+    phrases: ["fuck", "fucking", "shit", "stupid", "idiot", "dumb", "useless", "wtf", "sucks", "trash", "garbage", "白痴", "白癡", "笨蛋", "智障", "廢物", "垃圾", "去死", "幹你", "靠北", "很爛", "好爛"],
     replies: [
       "Let's keep this professional.",
       "Noted. Moving on.",
       "I'll file that under feedback.",
     ],
+    repliesZh: [
+      "我們還是保持專業吧。",
+      "收到，我們繼續。",
+      "我先把這個歸類在意見回饋。",
+    ],
   },
   {
     id: "job",
-    phrases: ["like your job", "like your work", "enjoy your job", "love your job", "like working"],
+    phrases: ["like your job", "like your work", "enjoy your job", "love your job", "like working", "喜歡你的工作", "喜歡您的工作", "喜歡工作", "喜歡上班"],
     replies: [
       "I enjoy solving problems. Preferably ones with clearly defined requirements.",
       "Yes. Especially on days when the requirements don't change.",
       "It's fine. The tests pass. Most of them.",
     ],
+    repliesZh: [
+      "我喜歡解決問題，最好是需求寫得很清楚的那種。",
+      "喜歡，尤其是需求沒有改的那幾天。",
+      "還可以，測試都有過。大部分。",
+    ],
   },
   {
     id: "overtime",
-    phrases: ["overtime", "work late", "stay late", "work on weekends", "work weekends"],
+    phrases: ["overtime", "work late", "stay late", "work on weekends", "work weekends", "加班", "週末上班", "周末上班", "假日上班"],
     expression: "annoyed",
     replies: [
       "I'd prefer to discuss the scope first.",
       "Is this an emergency, or a planning issue?",
       "I checked my calendar. It says no.",
     ],
+    repliesZh: [
+      "我想先確認一下工作範圍。",
+      "這是緊急狀況，還是時程規劃的問題？",
+      "我看了一下行事曆，答案是不行。",
+    ],
   },
   {
     id: "feature",
-    phrases: ["add a feature", "add another feature", "add feature", "new feature", "one more feature", "feature request"],
+    phrases: ["add a feature", "add another feature", "add feature", "new feature", "one more feature", "feature request", "加功能", "加個功能", "新功能", "再一個功能", "功能需求"],
     expression: "annoyed",
     replies: [
       "Please submit a change request.",
       "Noted. It's in the backlog. Position: 47.",
       "Sure. Which existing feature should we remove?",
+    ],
+    repliesZh: [
+      "請走需求變更流程。",
+      "收到，已經排進待辦清單了，目前排第 47 個。",
+      "可以，那現有的功能要拿掉哪一個？",
     ],
   },
   {
@@ -244,6 +264,11 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "Creative. Ambitious. Occasionally unrealistic about development estimates.",
       "Kiri has ideas. Many ideas. I maintain the backlog.",
       "Kiri started this website. I'm the one keeping the data files up to date.",
+    ],
+    repliesZh: [
+      "有創意，有野心，只是估工時的時候偶爾不太實際。",
+      "Kiri 有很多點子，非常多，但是待辦清單是我在管的。",
+      "網站是 Kiri 開的，資料檔是我在更新。",
     ],
   },
   {
@@ -256,107 +281,164 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "\"Always Chill and Cool.\" Skips every standup. Ships at 3 a.m. Writes no documentation. Annoyingly, it works.",
       "\"Always Chill and Cool.\" I sent Kuru a meeting invite. Declined. No message.",
     ],
+    repliesZh: [
+      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問她進度了。",
+      "「Always Chill and Cool.」平均回訊息長度：一個字，急的時候兩個字。",
+      "「Always Chill and Cool.」早會從來不出席，凌晨三點才上線，文件一個字都沒寫，偏偏東西都能動，而且還不錯。",
+      "「Always Chill and Cool.」我寄會議邀請給 Kuru，被拒絕了，連一句回覆都沒有。",
+    ],
   },
   {
     id: "deadline",
-    phrases: ["deadline", "deadlines", "asap"],
+    phrases: ["deadline", "deadlines", "asap", "截止", "死線", "期限", "趕件", "急件", "越快越好"],
     expression: "overwhelmed",
     replies: [
       "Is that a deadline, or a wish?",
       "Deadlines are fine. Surprise deadlines are not.",
     ],
+    repliesZh: [
+      "這是截止日，還是許願？",
+      "有截止日沒關係，突然冒出來的截止日才有關係。",
+    ],
   },
   {
     id: "bot",
-    phrases: ["are you ai", "are you an ai", "are you a bot", "are you a robot", "are you human", "are you real", "chatgpt", "chat gpt"],
+    phrases: ["are you ai", "are you an ai", "are you a bot", "are you a robot", "are you human", "are you real", "chatgpt", "chat gpt", "你是ai", "您是ai", "機器人", "你是真人", "真人嗎"],
     replies: [
       "Rule-based. Every reply here was written by hand.",
       "No AI. Just keyword matching and a lot of if statements. It's honest work.",
     ],
+    repliesZh: [
+      "我是規則式的，這裡每一句回覆都是手寫的。",
+      "沒有 AI，只有關鍵字比對跟一大堆 if，很腳踏實地。",
+    ],
   },
   {
     id: "how",
-    phrases: ["how are you", "how are things", "how is it going", "how s it going", "how do you do"],
+    phrases: ["how are you", "how are things", "how is it going", "how s it going", "how do you do", "你好嗎", "您好嗎", "最近好嗎", "最近如何", "過得好嗎"],
     replies: [
       "Operational. Thank you for asking.",
       "Busy, but within acceptable limits.",
     ],
+    repliesZh: [
+      "運作正常，謝謝關心。",
+      "有點忙，但還在可以接受的範圍。",
+    ],
   },
   {
     id: "cv",
-    phrases: ["cv", "resume", "curriculum vitae"],
+    phrases: ["cv", "resume", "curriculum vitae", "履歷", "簡歷"],
     jump: { id: "top", label: "Back to the top" },
+    jumpLabelZh: "回到最上面",
     replies: ["You're looking at it."],
+    repliesZh: ["您正在看的就是。"],
   },
   {
     id: "cat",
-    phrases: ["cat", "cats", "meow", "nya", "kitty", "neko"],
+    phrases: ["cat", "cats", "meow", "nya", "kitty", "neko", "貓", "喵"],
     replies: [
       "Yes. Cat. It doesn't affect my productivity.",
       "Cats: independent, efficient, and they never schedule meetings. Highly respected.",
       "Cats are excellent at focusing. Until something moves.",
     ],
+    repliesZh: [
+      "對，是貓，不影響工作效率。",
+      "貓：獨立、有效率，而且從來不約開會，非常值得尊敬。",
+      "貓的專注力很強，除非有東西在動。",
+    ],
   },
   {
     id: "laugh",
-    phrases: ["lol", "lmao", "haha", "hahaha", "rofl", "xd"],
+    phrases: ["lol", "lmao", "haha", "hahaha", "rofl", "xd", "哈哈", "笑死", "呵呵", "好笑"],
     replies: [
       "I'll take that as positive feedback.",
       "Glad someone's enjoying this.",
     ],
+    repliesZh: [
+      "我就當作是正面回饋了。",
+      "有人看得開心就好。",
+    ],
   },
   {
     id: "bye",
-    phrases: ["bye", "goodbye", "see you", "see ya", "good night"],
+    phrases: ["bye", "goodbye", "see you", "see ya", "good night", "掰掰", "拜拜", "再見", "晚安", "下次見"],
     replies: [
       "Goodbye. The CV will still be here.",
       "Noted. Closing ticket.",
     ],
+    repliesZh: [
+      "再見，CV 會一直在這裡。",
+      "收到，這張單我先結案了。",
+    ],
   },
   {
     id: "hire",
-    phrases: ["hire", "hire you", "hiring", "recruit", "recruiting", "job offer"],
+    phrases: ["hire", "hire you", "hiring", "recruit", "recruiting", "job offer", "僱用", "雇用", "聘請", "錄取", "招募", "徵才", "挖角", "面試", "工作機會"],
     jump: { id: "top", label: "View contact details" },
+    jumpLabelZh: "查看聯絡方式",
     replies: [
       "Reasonable decision. Contact details are at the top.",
       "Noted. Contact details are at the top. Response time is usually reasonable.",
     ],
+    repliesZh: [
+      "很合理的決定，聯絡方式在最上面。",
+      "收到，聯絡方式在最上面，回覆速度通常還算快。",
+    ],
   },
   {
     id: "meeting",
-    phrases: ["meeting", "meetings", "quick call", "quick sync", "hop on a call"],
+    phrases: ["meeting", "meetings", "quick call", "quick sync", "hop on a call", "開會", "會議", "通個電話", "約個時間"],
     expression: "annoyed",
     replies: [
       "Could this have been an email?",
       "Is there an agenda?",
       "I'll attend if there's an agenda. And an end time.",
     ],
+    repliesZh: [
+      "這件事寄封信是不是就可以了？",
+      "有議程嗎？",
+      "有議程我就參加，還要有結束時間。",
+    ],
   },
   {
     id: "coffee",
-    phrases: ["coffee"],
+    phrases: ["coffee", "咖啡"],
     replies: [
       "Yes.",
       "Already on my second one.",
       "Black. No sugar. Thank you.",
     ],
+    repliesZh: [
+      "要。",
+      "已經在喝第二杯了。",
+      "黑咖啡，不加糖，謝謝。",
+    ],
   },
   {
     id: "thanks",
-    phrases: ["thanks", "thank you", "thx", "ty"],
+    phrases: ["thanks", "thank you", "thx", "ty", "謝謝", "感謝", "多謝", "謝啦"],
     replies: [
       "You're welcome.",
       "Anytime. Within office hours.",
       "Glad that was useful.",
     ],
+    repliesZh: [
+      "不客氣。",
+      "隨時都可以（限上班時間）。",
+      "有幫上忙就好。",
+    ],
   },
   {
     // Last: a bare "kere" is the weakest signal, so "thanks kere" or "can I hire kere" hit their own replies.
     id: "about",
-    phrases: ["who are you", "what are you", "kere", "about you", "introduce yourself", "your name"],
+    phrases: ["who are you", "what are you", "kere", "about you", "introduce yourself", "your name", "你是誰", "您是誰", "自我介紹", "你叫什麼", "介紹一下你"],
     replies: [
       "I'm Kere, another side of Kiri. Kiri is the creative one, Kuru is the chill one, and I'm the one who handles the CV, the deadlines, and the documentation.",
       "Kere. Same person as Kiri, different settings. This is the version that answers emails on time.",
+    ],
+    repliesZh: [
+      "我是 Kere，Kiri 的另一面。Kiri 負責創意，Kuru 負責 chill，我負責 CV、截止日和文件。",
+      "Kere，跟 Kiri 是同一個人，只是設定不一樣。這是會準時回信的版本。",
     ],
   },
 ];

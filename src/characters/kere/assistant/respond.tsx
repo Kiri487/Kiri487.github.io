@@ -124,7 +124,7 @@ function projectsReply(lang: Lang): Reply {
   const zh = lang === "zh";
   return {
     lines: [
-      zh ? `總共有 ${allProjects.length} 個專案，最近的是這幾個：` : `${allProjects.length} projects on file. Most recent:`,
+      zh ? `目前總共有 ${allProjects.length} 個專案，最近的是這幾個：` : `${allProjects.length} projects on file. Most recent:`,
       ...recent.map((p) => `${p.title} (${formatPeriod(p.period ?? p.year)})`),
       zh ? "想知道哪一個，可以直接打名稱問我。" : "Ask me about any of them by name.",
     ],
@@ -226,12 +226,12 @@ function match(text: string, memory: ReplyMemory, lang: Lang): Reply | undefined
 
   const egg = EASTER_EGGS.find((rule) => matches(text, rule.phrases));
   if (egg) {
-    // An egg without Chinese lines yet answers in English, even to a Chinese message.
+    // An egg without Chinese lines answers in English, even to a Chinese message.
     const zh = lang === "zh" ? egg.repliesZh : undefined;
     return {
       lines: [zh ? pick(memory, `${egg.id}-zh`, zh) : pick(memory, egg.id, egg.replies)],
       expression: egg.expression,
-      jump: egg.jump,
+      jump: zh && egg.jump && egg.jumpLabelZh ? { ...egg.jump, label: egg.jumpLabelZh } : egg.jump,
       action: egg.action,
       lang: zh ? "zh" : "en",
     };
