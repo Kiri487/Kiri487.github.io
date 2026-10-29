@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { readNumber } from "../../../shared/storage";
 
 let ctx: AudioContext | null = null;
 
@@ -13,13 +14,7 @@ function getCtx(): AudioContext {
 }
 
 function getVolume(): number {
-  const value = localStorage.getItem("bgmVolume");
-  if (!value) return 0;
-
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed)) return 0;
-
-  return Math.max(0, Math.min(1, parsed)) * 0.5;
+  return Math.max(0, Math.min(1, readNumber("bgmVolume", 0))) * 0.5;
 }
 
 function clampSample(value: number): number {

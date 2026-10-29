@@ -1,3 +1,5 @@
+import { readBoolean, writeBoolean } from "../../../shared/storage";
+
 /* Kere's chat sound effects: two short synthesized tones, no audio files.
    On by default; visitors toggle them by telling Kere ("mute" / "unmute"). */
 
@@ -8,11 +10,11 @@ const STORAGE_KEY = "kereSfxEnabled";
 const VOLUME = 0.08;
 
 export function loadSfxEnabled(): boolean {
-  return localStorage.getItem(STORAGE_KEY) !== "false";
+  return readBoolean(STORAGE_KEY, true);
 }
 
 export function saveSfxEnabled(enabled: boolean) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(enabled));
+  writeBoolean(STORAGE_KEY, enabled);
 }
 
 let ctx: AudioContext | null = null;
