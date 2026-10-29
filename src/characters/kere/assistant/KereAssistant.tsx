@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSkin } from "../../../SkinContext";
 import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
@@ -33,7 +33,7 @@ function KereAssistant() {
   const memory = useRef(createReplyMemory());
   const timer = useRef<number | undefined>(undefined);
   const logRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
@@ -139,6 +139,14 @@ function KereAssistant() {
     send(input);
   };
 
+  // A textarea's Enter adds a line break; here it sends. Not while an IME is composing, where Enter picks the
+  // characters (Safari reports that keypress as keyCode 229 with isComposing already false).
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    send(input);
+  };
+
   const jumpTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     // On phones the panel covers the page, so get out of the way.
@@ -204,14 +212,21 @@ function KereAssistant() {
       </div>
 
       <form className="kere-chat__form" onSubmit={handleSubmit}>
-        <input
+        {/* A textarea, not an input: Chrome on phones puts its address/card/password bar above the keyboard for
+            any text input (autocomplete="off" doesn't stop it), but never for a textarea. Kept to one line. */}
+        <textarea
           ref={inputRef}
           className="kere-chat__input"
+          rows={1}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          // Single-line chat: pasted line breaks become spaces.
+          onChange={(e) => setInput(e.target.value.replace(/\r?\n/g, " "))}
+          onKeyDown={handleKeyDown}
           placeholder="Ask Kere something…"
           aria-label="Message"
           maxLength={200}
+          autoComplete="off"
+          enterKeyHint="send"
         />
         <button type="submit" className="kere-chat__send" disabled={thinking || !input.trim()}>
           Send

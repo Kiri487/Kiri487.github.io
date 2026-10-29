@@ -207,6 +207,14 @@
   background: transparent;
   color: #000;
   outline: none;
+  /* It's a textarea (see KereAssistant): look and behave like a one-line input. */
+  resize: none;
+  white-space: nowrap;
+  height: 1lh;
+  /* Scrolls sideways to follow the caret, like an input, but without showing a scrollbar. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
 
 [data-skin="kere"] .kere-chat__input:focus {
