@@ -146,6 +146,11 @@
   margin-top: 2px;
 }
 
+/* On a narrow screen a URL moves to the next line whole, rather than splitting at "yi-xuan-". */
+[data-skin="kere"] .kere-msg__body .kere-contact-link {
+  white-space: nowrap;
+}
+
 [data-skin="kere"] .kere-msg__body--thinking {
   color: #444;
 }
