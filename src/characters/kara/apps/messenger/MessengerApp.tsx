@@ -17,9 +17,9 @@ const STATUS: Record<Contact["id"], { label: string; presence: Presence }> = {
 /** Kara's other sides, plus things that went missing elsewhere on this computer. Only the characters open a chat. */
 const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId }[] = [
   { name: "Kiri", status: "Asleep. Allegedly.", partner: "kiri" },
-  { name: "Kuru", status: "Appear Offline", partner: "kuru" },
+  { name: "Kuru", status: "Chill", partner: "kuru" },
   { name: "Kere", status: "Out of office", partner: "kere" },
-  { name: "Koro", status: "Blocked you", partner: "koro" },
+  { name: "Koro", status: "Won't read it yet :P", partner: "koro" },
   { name: "Tuesday", status: "Uninstalled" },
   { name: "The Printer", status: "Rumored" },
 ];

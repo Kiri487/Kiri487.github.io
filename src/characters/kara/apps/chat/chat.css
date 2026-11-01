@@ -23,8 +23,14 @@
   line-height: 1.45;
 }
 
-[data-skin="kara"] .kara-chat__history-title {
-  margin: 0 0 8px;
+[data-skin="kara"] .kara-chat__conversation {
+  margin-bottom: 14px;
+}
+
+[data-skin="kara"] .kara-chat__date {
+  margin: 0 0 6px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #e3e1d2;
   color: #5c6147;
   font-size: 12px;
   font-weight: normal;

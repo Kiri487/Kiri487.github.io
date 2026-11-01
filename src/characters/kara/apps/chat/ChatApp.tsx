@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
-import { CHAT_PARTNERS, type ChatArgs, type ChatPartnerId } from "./conversations";
+import { CHAT_PARTNERS, chatTime, pickNudgeReply, type ChatArgs, type ChatPartnerId } from "./conversations";
 import "./chat.css";
 
 const SHAKE: Keyframe[] = [
@@ -18,38 +18,46 @@ function Conversation({ partnerId }: { partnerId: ChatPartnerId }) {
   const partner = CHAT_PARTNERS[partnerId];
   const rootRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
+  const lastReplyRef = useRef<string | null>(null);
   const [notices, setNotices] = useState<string[]>([]);
 
+  // Opens at the top so the history reads from the start. Only a nudge jumps to the bottom, where its notice lands.
   useEffect(() => {
-    if (historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight;
+    if (notices.length > 0 && historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight;
   }, [notices]);
 
   const nudge = () => {
-    setNotices((current) => [
-      ...current,
-      "You have just sent a nudge.",
-      ...(partner.nudgeReply ? [partner.nudgeReply] : []),
-    ]);
+    const reply = pickNudgeReply(partner.nudgeReplies, lastReplyRef.current);
+    lastReplyRef.current = reply;
+    setNotices((current) => [...current, "You have just sent a nudge.", reply]);
+
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     // `translate` is separate from the transform that holds the window's position, so the two don't fight.
     rootRef.current?.closest(".kara-window")?.animate(SHAKE, { duration: 420 });
   };
 
-  const isEmpty = partner.messages.length === 0 && notices.length === 0;
-
   return (
     <div ref={rootRef} className="kara-chat">
       <div className="kara-chat__main">
         <div ref={historyRef} className="kara-chat__history">
-          <h3 className="kara-chat__history-title">Message history</h3>
-          {isEmpty && <p className="kara-chat__notice">No messages yet.</p>}
-          {partner.messages.map((message, index) => (
-            <p key={index} className="kara-chat__message">
-              <span className="kara-chat__sender">
-                {message.from === "kara" ? "Kara" : partner.name} ({message.time}):
-              </span>{" "}
-              {message.text}
-            </p>
+          {partner.conversations.map((conversation, conversationIndex) => (
+            <section key={conversation.date} className="kara-chat__conversation">
+              <h3 className="kara-chat__date">{conversation.date}</h3>
+              {conversation.lines.map((line, lineIndex) =>
+                "system" in line ? (
+                  <p key={lineIndex} className="kara-chat__notice">
+                    {line.system}
+                  </p>
+                ) : (
+                  <p key={lineIndex} className="kara-chat__message">
+                    <span className="kara-chat__sender">
+                      {line.from === "kara" ? "Kara" : partner.name} ({chatTime(conversationIndex, lineIndex)}):
+                    </span>{" "}
+                    {line.text}
+                  </p>
+                ),
+              )}
+            </section>
           ))}
           {notices.map((notice, index) => (
             <p key={index} className="kara-chat__notice">

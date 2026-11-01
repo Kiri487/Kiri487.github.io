@@ -97,7 +97,7 @@
 }
 
 [data-skin="kara"] .kara-messenger__status {
-  flex: none;
+  min-width: 0;
   color: #5c6147;
 }
 
