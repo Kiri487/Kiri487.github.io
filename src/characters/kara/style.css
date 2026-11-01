@@ -1,0 +1,493 @@
+/* ============================================================
+   kara skin — an XP-era desktop in olive green.
+   Gradients and plastic shine, never pixel art (that's Koro).
+   Every rule scoped under [data-skin="kara"]. Apps keep their
+   own stylesheets in their folders.
+   ============================================================ */
+
+[data-skin="kara"] {
+  /* Swap this one value for a wallpaper later. */
+  --kara-wallpaper: #6d5f85;
+  /* Sizes below are repeated in os/windowManager.ts and os/Desktop.tsx. Keep them in sync. */
+  --kara-taskbar-height: 32px;
+  --kara-title-bar-height: 27px;
+  --kara-icon-width: 88px;
+
+  --kara-ink: #1c1f12;
+  --kara-window-face: #e9e7d8;
+  --kara-menu-face: #f1efe2;
+  --kara-olive-dark: #4e5e28;
+  --kara-font: Tahoma, Verdana, "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+  --kara-title-font: "Trebuchet MS", Tahoma, "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+}
+
+[data-skin="kara"] body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--kara-wallpaper);
+}
+
+[data-skin="kara"] .kara-os {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--kara-wallpaper);
+  color: var(--kara-ink);
+  font-family: var(--kara-font);
+  font-size: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-skin="kara"] .kara-os *,
+[data-skin="kara"] .kara-os *::before,
+[data-skin="kara"] .kara-os *::after {
+  box-sizing: border-box;
+}
+
+[data-skin="kara"] .kara-os button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+[data-skin="kara"] .kara-os--dragging iframe {
+  pointer-events: none;
+}
+
+/* ---- desktop ---- */
+
+[data-skin="kara"] .kara-desktop,
+[data-skin="kara"] .kara-windows {
+  position: absolute;
+  inset: 0 0 var(--kara-taskbar-height) 0;
+}
+
+[data-skin="kara"] .kara-icon {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: var(--kara-icon-width);
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: #fff;
+  line-height: 1.2;
+  text-align: center;
+}
+
+[data-skin="kara"] .kara-icon__image {
+  position: relative;
+  display: block;
+  height: 40px;
+}
+
+[data-skin="kara"] .kara-icon__shortcut {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+
+[data-skin="kara"] .kara-icon__label {
+  padding: 0 2px;
+  text-shadow: 1px 1px 2px #000, 0 0 2px #000;
+}
+
+[data-skin="kara"] .kara-icon--selected .kara-icon__image {
+  filter: brightness(0.7) sepia(0.6) hue-rotate(40deg);
+}
+
+[data-skin="kara"] .kara-icon--selected .kara-icon__label {
+  background: #5f7136;
+  text-shadow: none;
+}
+
+[data-skin="kara"] .kara-icon:focus-visible {
+  outline: 1px dotted #fff;
+}
+
+/* ---- windows ---- */
+
+/* An own stacking context, so window z-indexes can grow forever and still sit under the taskbar. */
+[data-skin="kara"] .kara-windows {
+  z-index: 1;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  padding: 0 3px 3px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(#b4bb9c, #a3ab89 45%, #959d7b);
+  box-shadow: 2px 3px 10px rgba(30, 30, 10, 0.45);
+  pointer-events: auto;
+}
+
+[data-skin="kara"] .kara-window--focused {
+  background: linear-gradient(#7f9150, #5f7136 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
+}
+
+/* visibility, not display: a hidden window keeps its size, so a 3D canvas doesn't collapse and video keeps playing. */
+[data-skin="kara"] .kara-window--minimized {
+  visibility: hidden;
+}
+
+[data-skin="kara"] .kara-window--maximized {
+  padding: 0;
+  border-radius: 0;
+}
+
+[data-skin="kara"] .kara-window__title-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: var(--kara-title-bar-height);
+  margin: 0 -3px;
+  padding: 0 3px 0 7px;
+  color: #fff;
+  font: bold 13px var(--kara-title-font);
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+  touch-action: none;
+}
+
+[data-skin="kara"] .kara-window--maximized .kara-window__title-bar {
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-window__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-window__button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid #f3f5e6;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #a0b070, #68793c);
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-window__button--close {
+  background: linear-gradient(135deg, #ec8e72, #c23a17);
+}
+
+[data-skin="kara"] .kara-window:not(.kara-window--focused) .kara-window__button {
+  opacity: 0.65;
+}
+
+[data-skin="kara"] .kara-window__button:hover {
+  filter: brightness(1.15);
+}
+
+[data-skin="kara"] .kara-window__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid #8c9270;
+  background: #fff;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+[data-skin="kara"] .kara-window__loading {
+  margin: 0;
+  padding: 12px;
+}
+
+[data-skin="kara"] .kara-window__shield {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- taskbar ---- */
+
+[data-skin="kara"] .kara-taskbar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--kara-taskbar-height);
+  background: linear-gradient(#a4b276, #7f9150 12%, #71833f 55%, #64763a 90%, #55662e);
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-start {
+  flex: none;
+  height: 100%;
+}
+
+[data-skin="kara"] .kara-os .kara-start__button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 20px 0 8px;
+  border: 0;
+  border-radius: 0 12px 12px 0;
+  background: linear-gradient(#6fc24d, #3f9a2e 15%, #35852a 70%, #2b6f22);
+  box-shadow: inset -2px 0 3px rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font: italic bold 18px var(--kara-title-font);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+[data-skin="kara"] .kara-start__button:hover,
+[data-skin="kara"] .kara-start__button[aria-expanded="true"] {
+  filter: brightness(1.1);
+}
+
+[data-skin="kara"] .kara-taskbar__windows {
+  display: flex;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+}
+
+[data-skin="kara"] .kara-taskbar__window {
+  display: flex;
+  flex: 0 1 160px;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 25px;
+  padding: 0 8px;
+  border: 1px solid var(--kara-olive-dark);
+  border-radius: 3px;
+  background: linear-gradient(#94a564, #7c8e4c);
+  color: #fff;
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-taskbar__window > svg {
+  flex: none;
+}
+
+[data-skin="kara"] .kara-taskbar__window:hover {
+  filter: brightness(1.08);
+}
+
+[data-skin="kara"] .kara-taskbar__window--active {
+  background: linear-gradient(#55662e, #64763a);
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-taskbar__window-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-tray {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  height: 100%;
+  padding: 0 12px;
+  border-left: 1px solid var(--kara-olive-dark);
+  background: linear-gradient(#8a9c5e, #68793c);
+}
+
+[data-skin="kara"] .kara-tray__clock {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- start menu ---- */
+
+[data-skin="kara"] .kara-start-menu {
+  position: absolute;
+  bottom: var(--kara-taskbar-height);
+  left: 0;
+  width: min(380px, 100vw);
+  overflow: hidden;
+  border-radius: 7px 7px 0 0;
+  background: #fff;
+  box-shadow: 2px -2px 10px rgba(30, 30, 10, 0.45);
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-start-menu__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: linear-gradient(#7f9150, #5f7136 30%, #6c7e42);
+  color: #fff;
+  font: bold 15px var(--kara-title-font);
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+[data-skin="kara"] .kara-start-menu__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid #f3f5e6;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #8f83a6, #51466a);
+}
+
+[data-skin="kara"] .kara-start-menu__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-skin="kara"] .kara-start-menu__column {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 190px;
+  padding: 6px;
+}
+
+[data-skin="kara"] .kara-start-menu__column--side {
+  border-left: 1px solid #cfccb8;
+  background: #e6e8d3;
+}
+
+[data-skin="kara"] .kara-start-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-start-menu__item > svg {
+  flex: none;
+}
+
+[data-skin="kara"] .kara-start-menu__item:hover,
+[data-skin="kara"] .kara-start-menu__item:focus-visible {
+  background: #5f7136;
+  color: #fff;
+  outline: none;
+}
+
+[data-skin="kara"] .kara-start-menu__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 5px 8px;
+  background: linear-gradient(#7f9150, #5f7136);
+}
+
+[data-skin="kara"] .kara-start-menu__power {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-start-menu__power:hover,
+[data-skin="kara"] .kara-start-menu__power:focus-visible {
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+}
+
+/* ---- turn off dialog ---- */
+
+[data-skin="kara"] .kara-shutdown {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  /* XP drained the color from the screen behind this dialog. */
+  backdrop-filter: grayscale(1);
+}
+
+[data-skin="kara"] .kara-shutdown__dialog {
+  width: min(340px, 100%);
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--kara-window-face);
+  box-shadow: 2px 3px 14px rgba(0, 0, 0, 0.5);
+}
+
+[data-skin="kara"] .kara-shutdown__title {
+  margin: 0;
+  padding: 10px 12px;
+  background: linear-gradient(#5f7136, #4a5a26);
+  color: #fff;
+  font: normal 16px var(--kara-title-font);
+}
+
+[data-skin="kara"] .kara-shutdown__options {
+  display: flex;
+  justify-content: center;
+  gap: 36px;
+  padding: 22px 12px;
+  background: linear-gradient(#a3b27a, #8a9b5e);
+}
+
+[data-skin="kara"] .kara-shutdown__option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: #fff;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+[data-skin="kara"] .kara-shutdown__option-icon {
+  display: block;
+  line-height: 0;
+}
+
+[data-skin="kara"] .kara-shutdown__option:hover .kara-shutdown__option-icon {
+  filter: brightness(1.2);
+}
+
+[data-skin="kara"] .kara-shutdown__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  background: linear-gradient(#5f7136, #4a5a26);
+}
+
+[data-skin="kara"] .kara-shutdown__cancel {
+  min-width: 70px;
+  padding: 3px 10px;
+  border: 1px solid #3d4a1f;
+  border-radius: 3px;
+  background: linear-gradient(#fff, #e5e3d3);
+  color: var(--kara-ink);
+}

@@ -2,9 +2,9 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { readString, writeString } from "./shared/storage";
 
 /** Add a new id here whenever you create another character under src/characters/. */
-export type Skin = "kiri" | "kuru" | "kere";
+export type Skin = "kiri" | "kuru" | "kere" | "kara";
 
-const SKIN_IDS: Skin[] = ["kiri", "kuru", "kere"];
+const SKIN_IDS: Skin[] = ["kiri", "kuru", "kere", "kara"];
 const DEFAULT_SKIN: Skin = "kiri";
 const STORAGE_KEY = "skin";
 /** `?skin=kere` opens that skin directly, so any character can be shared as a link. */

@@ -6,6 +6,7 @@ const SKINS = {
   kiri: lazy(() => import("./characters/kiri/KiriApp")),
   kuru: lazy(() => import("./characters/kuru/KuruApp")),
   kere: lazy(() => import("./characters/kere/KereApp")),
+  kara: lazy(() => import("./characters/kara/KaraApp")),
 } as const;
 
 function ActiveSkin() {

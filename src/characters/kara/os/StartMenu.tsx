@@ -1,0 +1,89 @@
+import { useEffect, useRef, useState } from "react";
+import { APP_IDS, APPS, type AppId } from "../apps/registry";
+import { CatMarkIcon, PowerIcon } from "../icons";
+import { useOs } from "./context";
+
+const LEFT_APPS = APP_IDS.filter((id) => APPS[id].startMenu === "left");
+const RIGHT_APPS = APP_IDS.filter((id) => APPS[id].startMenu === "right");
+
+function StartMenu({ onTurnOff }: { onTurnOff: () => void }) {
+  const os = useOs();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  const launch = (appId: AppId) => {
+    setOpen(false);
+    os.openApp(appId);
+  };
+
+  const renderItems = (ids: AppId[]) =>
+    ids.map((appId) => {
+      const { title, icon: Icon } = APPS[appId];
+      return (
+        <button key={appId} type="button" className="kara-start-menu__item" onClick={() => launch(appId)}>
+          <Icon size={24} />
+          <span>{title}</span>
+        </button>
+      );
+    });
+
+  return (
+    <div ref={rootRef} className="kara-start">
+      <button
+        type="button"
+        className="kara-start__button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <CatMarkIcon size={20} />
+        start?
+      </button>
+
+      {open && (
+        <div className="kara-start-menu">
+          <div className="kara-start-menu__header">
+            <span className="kara-start-menu__avatar">
+              <CatMarkIcon size={30} />
+            </span>
+            Kara
+          </div>
+          <div className="kara-start-menu__columns">
+            <div className="kara-start-menu__column">{renderItems(LEFT_APPS)}</div>
+            <div className="kara-start-menu__column kara-start-menu__column--side">{renderItems(RIGHT_APPS)}</div>
+          </div>
+          <div className="kara-start-menu__footer">
+            <button
+              type="button"
+              className="kara-start-menu__power"
+              onClick={() => {
+                setOpen(false);
+                onTurnOff();
+              }}
+            >
+              <PowerIcon size={22} />
+              Turn Off Computer
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default StartMenu;
