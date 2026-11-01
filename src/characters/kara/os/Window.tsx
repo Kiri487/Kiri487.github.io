@@ -19,13 +19,14 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
   const dragRef = useRef<DragState | null>(null);
   const closeGuardRef = useRef<CloseGuard | null>(null);
 
-  const { id, minimized, maximized } = win;
+  const { id, args, minimized, maximized } = win;
   const Icon = APPS[win.appId].icon;
   const App = APPS[win.appId].component;
 
   const api = useMemo<WindowApi>(
     () => ({
       windowId: id,
+      args,
       isFocused: focused,
       isMinimized: minimized,
       close: () => os.closeWindow(id),
@@ -37,7 +38,7 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
         closeGuardRef.current = guard;
       },
     }),
-    [id, focused, minimized, os],
+    [id, args, focused, minimized, os],
   );
 
   const handleClose = () => {

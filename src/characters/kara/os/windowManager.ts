@@ -24,6 +24,8 @@ export interface WindowState {
   id: string;
   appId: AppId;
   title: string;
+  /** Whatever the opener handed the app, such as which picture to show. Read through useWindow(). */
+  args: unknown;
   x: number;
   y: number;
   width: number;
@@ -45,7 +47,7 @@ export interface OsState {
 }
 
 export type OsAction =
-  | { type: "open"; appId: AppId; title: string; size: WindowSize; viewport: Viewport }
+  | { type: "open"; appId: AppId; title: string; args: unknown; size: WindowSize; viewport: Viewport }
   | { type: "close"; id: string }
   | { type: "focus"; id: string }
   | { type: "blur" }
@@ -101,7 +103,9 @@ export function osReducer(state: OsState, action: OsAction): OsState {
   switch (action.type) {
     case "open": {
       const existing = state.windows.find((win) => win.appId === action.appId);
-      if (existing) return raise(state, existing.id, { minimized: false });
+      if (existing) {
+        return raise(state, existing.id, { minimized: false, title: action.title, args: action.args });
+      }
 
       const width = Math.min(action.size.width, action.viewport.width);
       const height = Math.min(action.size.height, action.viewport.height);
@@ -112,6 +116,7 @@ export function osReducer(state: OsState, action: OsAction): OsState {
         id,
         appId: action.appId,
         title: action.title,
+        args: action.args,
         x: clamp(offset, 0, action.viewport.width - width),
         y: clamp(offset, 0, action.viewport.height - height),
         width,

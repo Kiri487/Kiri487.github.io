@@ -8,9 +8,16 @@ function OsProvider({ children }: { children: ReactNode }) {
 
   const actions = useMemo<OsActions>(
     () => ({
-      openApp: (appId) => {
-        const { title, size } = APPS[appId];
-        dispatch({ type: "open", appId, title, size, viewport: readViewport() });
+      openApp: (appId, options) => {
+        const { title, windowTitle, size } = APPS[appId];
+        dispatch({
+          type: "open",
+          appId,
+          title: options?.title ?? windowTitle ?? title,
+          args: options?.args,
+          size,
+          viewport: readViewport(),
+        });
       },
       closeWindow: (id) => dispatch({ type: "close", id }),
       focusWindow: (id) => dispatch({ type: "focus", id }),

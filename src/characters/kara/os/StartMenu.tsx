@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { APP_IDS, APPS, type AppId } from "../apps/registry";
 import { CatMarkIcon, PowerIcon } from "../icons";
 import { useOs } from "./context";
+import { useDismiss } from "./useDismiss";
 
 const LEFT_APPS = APP_IDS.filter((id) => APPS[id].startMenu === "left");
 const RIGHT_APPS = APP_IDS.filter((id) => APPS[id].startMenu === "right");
@@ -11,21 +12,8 @@ function StartMenu({ onTurnOff }: { onTurnOff: () => void }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const closeOnOutsidePress = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", closeOnOutsidePress);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePress);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss(rootRef, open, close);
 
   const launch = (appId: AppId) => {
     setOpen(false);

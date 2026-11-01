@@ -6,6 +6,15 @@ import terminal from "./assets/tango/utilities-terminal.svg";
 import trash from "./assets/tango/user-trash.svg";
 import refresh from "./assets/tango/view-refresh.svg";
 import speaker from "./assets/tango/audio-volume-high.svg";
+import dialogError from "./assets/tango/dialog-error.svg";
+import imageMissing from "./assets/tango/image-missing.svg";
+import imageFile from "./assets/tango/image-x-generic.svg";
+import videoFile from "./assets/tango/video-x-generic.svg";
+import linkFile from "./assets/tango/text-html.svg";
+import goBack from "./assets/tango/go-previous.svg";
+import goForward from "./assets/tango/go-next.svg";
+import goUp from "./assets/tango/go-up.svg";
+import search from "./assets/tango/system-search.svg";
 
 /**
  * App and system icons come from the Tango icon theme 0.8.90 (public domain, see assets/tango/COPYING).
@@ -50,6 +59,42 @@ export function PowerIcon({ size }: IconProps) {
 
 export function RestartIcon({ size }: IconProps) {
   return <TangoIcon src={refresh} size={size} />;
+}
+
+export function ErrorIcon({ size }: IconProps) {
+  return <TangoIcon src={dialogError} size={size} />;
+}
+
+export function BrokenImageIcon({ size }: IconProps) {
+  return <TangoIcon src={imageMissing} size={size} />;
+}
+
+export function ImageFileIcon({ size }: IconProps) {
+  return <TangoIcon src={imageFile} size={size} />;
+}
+
+export function VideoFileIcon({ size }: IconProps) {
+  return <TangoIcon src={videoFile} size={size} />;
+}
+
+export function LinkFileIcon({ size }: IconProps) {
+  return <TangoIcon src={linkFile} size={size} />;
+}
+
+export function BackIcon({ size }: IconProps) {
+  return <TangoIcon src={goBack} size={size} />;
+}
+
+export function ForwardIcon({ size }: IconProps) {
+  return <TangoIcon src={goForward} size={size} />;
+}
+
+export function UpIcon({ size }: IconProps) {
+  return <TangoIcon src={goUp} size={size} />;
+}
+
+export function SearchIcon({ size }: IconProps) {
+  return <TangoIcon src={search} size={size} />;
 }
 
 /** Kara's mark on the start button. A cat head instead of a certain four-colour flag. */

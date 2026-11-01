@@ -2,9 +2,15 @@ import { createContext, useContext } from "react";
 import type { AppId } from "../apps/registry";
 import type { OsState } from "./windowManager";
 
+export interface OpenAppOptions {
+  title?: string;
+  args?: unknown;
+}
+
 /** Stable for the life of the desktop, so components that only act on windows never re-render from state changes. */
 export interface OsActions {
-  openApp: (appId: AppId) => void;
+  /** An app has one window: opening it again brings that window back, with these options applied. */
+  openApp: (appId: AppId, options?: OpenAppOptions) => void;
   closeWindow: (id: string) => void;
   focusWindow: (id: string) => void;
   blurWindows: () => void;
@@ -21,6 +27,8 @@ export type CloseGuard = () => boolean;
 /** What an app can do to its own window. Unusual behaviour belongs in the app, built on these. */
 export interface WindowApi {
   windowId: string;
+  /** What the opener passed to openApp. Each app knows the shape it expects. */
+  args: unknown;
   isFocused: boolean;
   /** Minimized windows stay mounted, so an app with a render loop should pause while this is true. */
   isMinimized: boolean;
@@ -29,7 +37,7 @@ export interface WindowApi {
   minimize: () => void;
   setTitle: (title: string) => void;
   moveTo: (x: number, y: number) => void;
-  openApp: (appId: AppId) => void;
+  openApp: OsActions["openApp"];
   setCloseGuard: (guard: CloseGuard | null) => void;
 }
 
