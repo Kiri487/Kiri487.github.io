@@ -16,18 +16,6 @@
   background: linear-gradient(#dfe3c8, #fff);
 }
 
-[data-skin="kara"] .kara-messenger__avatar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border: 2px solid #a0b070;
-  border-radius: 5px;
-  background: linear-gradient(135deg, #8f83a6, #51466a);
-}
-
 [data-skin="kara"] .kara-messenger__my-name {
   display: block;
   font-size: 14px;
@@ -74,8 +62,8 @@
   outline: none;
 }
 
-[data-skin="kara"] .kara-messenger__contact--offline,
-[data-skin="kara"] .kara-messenger__contact--offline .kara-messenger__status {
+[data-skin="kara"] .kara-messenger__contact--inert,
+[data-skin="kara"] .kara-messenger__contact--inert .kara-messenger__status {
   color: #77796a;
 }
 

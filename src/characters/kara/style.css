@@ -213,6 +213,22 @@
   padding: 12px;
 }
 
+[data-skin="kara"] .kara-window__crash {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  line-height: 1.4;
+}
+
+[data-skin="kara"] .kara-window__crash > img {
+  flex: none;
+}
+
+[data-skin="kara"] .kara-window__crash p {
+  margin: 0 0 4px;
+}
+
 [data-skin="kara"] .kara-window__shield {
   position: absolute;
   inset: 0;
@@ -340,15 +356,16 @@
   text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
 }
 
-[data-skin="kara"] .kara-start-menu__avatar {
+[data-skin="kara"] .kara-avatar {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
   border: 2px solid #f3f5e6;
   border-radius: 4px;
-  background: linear-gradient(135deg, #8f83a6, #51466a);
+  /* The color comes from CharacterAvatar. This only adds the plastic shine on top of it. */
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 55%);
+  box-shadow: 0 0 0 1px rgba(30, 30, 10, 0.25);
 }
 
 [data-skin="kara"] .kara-start-menu__columns {

@@ -1,5 +1,7 @@
 import { contacts, type Contact } from "../../../../data/portfolio";
-import { CatMarkIcon } from "../../icons";
+import CharacterAvatar from "../../CharacterAvatar";
+import { useWindow } from "../../os/context";
+import { chatTitle, type ChatArgs, type ChatPartnerId } from "../chat/conversations";
 import "./messenger.css";
 
 type Presence = "online" | "busy" | "away";
@@ -12,12 +14,12 @@ const STATUS: Record<Contact["id"], { label: string; presence: Presence }> = {
   linkedin: { label: "Busy", presence: "busy" },
 };
 
-/** Kara's other sides, plus things that went missing elsewhere on this computer. Nothing here can be opened. */
-const OFFLINE_CONTACTS: { name: string; status: string }[] = [
-  { name: "Kiri", status: "Asleep. Allegedly." },
-  { name: "Kuru", status: "Appear Offline" },
-  { name: "Kere", status: "Out of office" },
-  { name: "Koro", status: "Blocked you" },
+/** Kara's other sides, plus things that went missing elsewhere on this computer. Only the characters open a chat. */
+const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId }[] = [
+  { name: "Kiri", status: "Asleep. Allegedly.", partner: "kiri" },
+  { name: "Kuru", status: "Appear Offline", partner: "kuru" },
+  { name: "Kere", status: "Out of office", partner: "kere" },
+  { name: "Koro", status: "Blocked you", partner: "koro" },
   { name: "Tuesday", status: "Uninstalled" },
   { name: "The Printer", status: "Rumored" },
 ];
@@ -56,13 +58,52 @@ function ContactGroup({ title, members }: { title: string; members: Contact[] })
   );
 }
 
+function OfflineGroup() {
+  const { openApp } = useWindow();
+
+  const openChat = (partner: ChatPartnerId) => {
+    const args: ChatArgs = { partner };
+    openApp("chat", { title: chatTitle(partner), args });
+  };
+
+  return (
+    <section className="kara-messenger__group">
+      <h3 className="kara-messenger__group-title">Offline ({OFFLINE_CONTACTS.length})</h3>
+      {OFFLINE_CONTACTS.map(({ name, status, partner }) => {
+        const content = (
+          <>
+            <span className="kara-messenger__dot kara-messenger__dot--offline" />
+            <span className="kara-messenger__name">{name}</span>
+            <span className="kara-messenger__status">({status})</span>
+          </>
+        );
+        return partner ? (
+          <button
+            key={name}
+            type="button"
+            className="kara-messenger__contact"
+            onDoubleClick={() => openChat(partner)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") openChat(partner);
+            }}
+          >
+            {content}
+          </button>
+        ) : (
+          <div key={name} className="kara-messenger__contact kara-messenger__contact--inert">
+            {content}
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 function MessengerApp() {
   return (
     <div className="kara-messenger">
       <div className="kara-messenger__me">
-        <span className="kara-messenger__avatar">
-          <CatMarkIcon size={30} />
-        </span>
+        <CharacterAvatar character="kara" size={42} />
         <span>
           <span className="kara-messenger__my-name">Kara</span>
           <span className="kara-messenger__mood">is thinking about a door</span>
@@ -71,16 +112,7 @@ function MessengerApp() {
 
       <div className="kara-messenger__list">
         <ContactGroup title="Online" members={contacts} />
-        <section className="kara-messenger__group">
-          <h3 className="kara-messenger__group-title">Offline ({OFFLINE_CONTACTS.length})</h3>
-          {OFFLINE_CONTACTS.map(({ name, status }) => (
-            <div key={name} className="kara-messenger__contact kara-messenger__contact--offline">
-              <span className="kara-messenger__dot kara-messenger__dot--offline" />
-              <span className="kara-messenger__name">{name}</span>
-              <span className="kara-messenger__status">({status})</span>
-            </div>
-          ))}
-        </section>
+        <OfflineGroup />
       </div>
 
       <p className="kara-messenger__hint">Double-click a contact to bother them.</p>

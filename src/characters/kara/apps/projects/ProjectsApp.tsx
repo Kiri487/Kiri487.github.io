@@ -13,6 +13,12 @@ const REMOVE_REFUSALS: ((title: string) => string)[] = [
   () => "Removed successfully. It came back.",
 ];
 
+/** Never the same line twice in a row, so pressing Remove again always gets a new answer. */
+function pickRefusal(previous: number | null): number {
+  const choices = REMOVE_REFUSALS.map((_, index) => index).filter((index) => index !== previous);
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
 /** Links inside shared descriptions are plain anchors, which would navigate away from the whole desktop. */
 function openLinksInNewTab(event: MouseEvent<HTMLDivElement>) {
   const link = (event.target as Element).closest("a");
@@ -80,10 +86,8 @@ function ProjectsApp() {
   const [message, setMessage] = useState<string | null>(null);
   const lastRefusalRef = useRef<number | null>(null);
 
-  // Never the same line twice in a row, so pressing Remove again always gets a new answer.
   const refuseRemoval = (title: string) => {
-    const choices = REMOVE_REFUSALS.map((_, index) => index).filter((index) => index !== lastRefusalRef.current);
-    const pick = choices[Math.floor(Math.random() * choices.length)];
+    const pick = pickRefusal(lastRefusalRef.current);
     lastRefusalRef.current = pick;
     setMessage(REMOVE_REFUSALS[pick](title));
   };

@@ -2,6 +2,7 @@ import { memo, Suspense, useMemo, useRef, type PointerEvent as ReactPointerEvent
 import { APPS } from "../apps/registry";
 import { useOs, WindowContext, type CloseGuard, type WindowApi } from "./context";
 import { clampPosition, readViewport, type WindowState } from "./windowManager";
+import WindowErrorBoundary from "./WindowErrorBoundary";
 
 interface DragState {
   pointerId: number;
@@ -159,9 +160,11 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
 
       <div className="kara-window__body">
         <WindowContext.Provider value={api}>
-          <Suspense fallback={<p className="kara-window__loading">Loading...</p>}>
-            <App />
-          </Suspense>
+          <WindowErrorBoundary>
+            <Suspense fallback={<p className="kara-window__loading">Loading...</p>}>
+              <App />
+            </Suspense>
+          </WindowErrorBoundary>
         </WindowContext.Provider>
         {/* Clicks inside an iframe never reach this document, so an unfocused window needs a cover to catch them. */}
         {!focused && <div className="kara-window__shield" />}

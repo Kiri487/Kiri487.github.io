@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { APP_IDS, APPS, type AppId } from "../apps/registry";
+import CharacterAvatar from "../CharacterAvatar";
 import { CatMarkIcon, PowerIcon } from "../icons";
 import { useOs } from "./context";
 import { useDismiss } from "./useDismiss";
@@ -46,9 +47,7 @@ function StartMenu({ onTurnOff }: { onTurnOff: () => void }) {
       {open && (
         <div className="kara-start-menu">
           <div className="kara-start-menu__header">
-            <span className="kara-start-menu__avatar">
-              <CatMarkIcon size={30} />
-            </span>
+            <CharacterAvatar character="kara" size={42} />
             Kara
           </div>
           <div className="kara-start-menu__columns">

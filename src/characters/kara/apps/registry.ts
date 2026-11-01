@@ -16,6 +16,7 @@ export type AppId =
   | "projects"
   | "about"
   | "messenger"
+  | "chat"
   | "radio"
   | "newFolder"
   | "asdf"
@@ -49,6 +50,7 @@ const ImageViewerApp = lazy(() => import("./imageViewer/ImageViewerApp"));
 const ProjectsApp = lazy(() => import("./projects/ProjectsApp"));
 const AboutApp = lazy(() => import("./about/AboutApp"));
 const MessengerApp = lazy(() => import("./messenger/MessengerApp"));
+const ChatApp = lazy(() => import("./chat/ChatApp"));
 
 /** To add an app: give it a folder here, then an entry below (and optionally a desktop icon). */
 export const APPS: Record<AppId, AppDefinition> = {
@@ -60,6 +62,7 @@ export const APPS: Record<AppId, AppDefinition> = {
   projects: { title: "Projects", windowTitle: "Add or Remove Programs", icon: TerminalIcon, component: ProjectsApp, size: { width: 720, height: 520 }, startMenu: "right" },
   about: { title: "About", windowTitle: "System Properties", icon: ComputerIcon, component: AboutApp, size: { width: 520, height: 480 }, startMenu: "right" },
   recycleBin: { title: "Recycle Bin", icon: BinIcon, component: Placeholder, size: { width: 460, height: 300 }, startMenu: "right" },
+  chat: { title: "Conversation", icon: MessengerIcon, component: ChatApp, size: { width: 460, height: 400 } },
   imageViewer: { title: "Kara Picture Viewer", icon: ImageFileIcon, component: ImageViewerApp, size: { width: 640, height: 560 } },
 };
 
