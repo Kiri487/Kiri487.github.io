@@ -363,66 +363,6 @@
   white-space: nowrap;
 }
 
-/* ---- error box ---- */
-
-[data-skin="kara"] .kara-message {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-}
-
-[data-skin="kara"] .kara-message__box {
-  width: min(340px, 100%);
-  padding: 0 3px 3px;
-  border-radius: 7px 7px 0 0;
-  background: linear-gradient(#7f9150, #5f7136 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
-  box-shadow: 2px 3px 10px rgba(30, 30, 10, 0.45);
-}
-
-[data-skin="kara"] .kara-message__title {
-  padding: 5px 5px 6px;
-  color: #fff;
-  font: bold 13px var(--kara-title-font);
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
-}
-
-[data-skin="kara"] .kara-message__body {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 14px 10px;
-  background: var(--kara-window-face);
-}
-
-[data-skin="kara"] .kara-message__body > img {
-  flex: none;
-}
-
-[data-skin="kara"] .kara-message__text {
-  margin: 0;
-  line-height: 1.4;
-}
-
-[data-skin="kara"] .kara-message__actions {
-  display: flex;
-  justify-content: center;
-  padding: 4px 14px 12px;
-  background: var(--kara-window-face);
-}
-
-[data-skin="kara"] .kara-message__ok {
-  min-width: 72px;
-  padding: 3px 10px;
-  border: 1px solid #3d4a1f;
-  border-radius: 3px;
-  background: linear-gradient(#fff, #e5e3d3);
-  color: var(--kara-ink);
-}
-
 /* Too narrow for the pane to leave any room for the files. */
 @container (max-width: 480px) {
   [data-skin="kara"] .kara-explorer__tasks {

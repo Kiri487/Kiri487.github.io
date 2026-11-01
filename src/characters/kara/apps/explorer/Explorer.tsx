@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { BackIcon, ErrorIcon, FolderIcon, ForwardIcon, SearchIcon, UpIcon } from "../../icons";
+import { BackIcon, FolderIcon, ForwardIcon, SearchIcon, UpIcon } from "../../icons";
 import { useDismiss } from "../../os/useDismiss";
+import MessageBox from "../common/MessageBox";
 import FileItem from "./FileItem";
 import { sortFiles } from "./sortFiles";
 import type { ExplorerFile, ExplorerSort, ExplorerSortKey, ExplorerTaskGroup, ExplorerView } from "./types";
@@ -224,30 +225,7 @@ function Explorer({ folderName, files, taskGroups, defaultSort, onOpenFile }: Ex
         {selected ? `${selected.name} (${selected.typeName})` : `${files.length} objects`}
       </div>
 
-      {message && (
-        <div className="kara-message">
-          <div className="kara-message__box" role="alertdialog" aria-modal="true" aria-label={folderName}>
-            <div className="kara-message__title">{folderName}</div>
-            <div className="kara-message__body">
-              <ErrorIcon size={32} />
-              <p className="kara-message__text">{message}</p>
-            </div>
-            <div className="kara-message__actions">
-              <button
-                type="button"
-                className="kara-message__ok"
-                autoFocus
-                onClick={() => setMessage(null)}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") setMessage(null);
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {message && <MessageBox title={folderName} message={message} onClose={() => setMessage(null)} />}
     </div>
   );
 }

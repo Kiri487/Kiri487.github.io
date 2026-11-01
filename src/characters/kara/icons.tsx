@@ -15,6 +15,8 @@ import goBack from "./assets/tango/go-previous.svg";
 import goForward from "./assets/tango/go-next.svg";
 import goUp from "./assets/tango/go-up.svg";
 import search from "./assets/tango/system-search.svg";
+import computer from "./assets/tango/computer.svg";
+import groupChat from "./assets/tango/internet-group-chat.svg";
 
 /**
  * App and system icons come from the Tango icon theme 0.8.90 (public domain, see assets/tango/COPYING).
@@ -59,6 +61,14 @@ export function PowerIcon({ size }: IconProps) {
 
 export function RestartIcon({ size }: IconProps) {
   return <TangoIcon src={refresh} size={size} />;
+}
+
+export function ComputerIcon({ size }: IconProps) {
+  return <TangoIcon src={computer} size={size} />;
+}
+
+export function MessengerIcon({ size }: IconProps) {
+  return <TangoIcon src={groupChat} size={size} />;
 }
 
 export function ErrorIcon({ size }: IconProps) {

@@ -1,0 +1,194 @@
+[data-skin="kara"] .kara-programs {
+  position: relative;
+  display: flex;
+  height: 100%;
+  container-type: inline-size;
+  background: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-skin="kara"] .kara-programs__rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  width: 104px;
+  padding: 6px 0;
+  overflow-y: auto;
+  background: linear-gradient(#7f9150, #5f7136);
+}
+
+[data-skin="kara"] .kara-programs__rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  border: 0;
+  background: none;
+  color: #fff;
+  text-align: center;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+[data-skin="kara"] .kara-programs__rail-item:hover,
+[data-skin="kara"] .kara-programs__rail-item--current {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-skin="kara"] .kara-programs__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+[data-skin="kara"] .kara-programs__toolbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #b4b19e;
+  background: var(--kara-menu-face);
+}
+
+[data-skin="kara"] .kara-programs__sort {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+[data-skin="kara"] .kara-programs__sort select {
+  font: inherit;
+}
+
+[data-skin="kara"] .kara-programs__list {
+  flex: 1;
+  min-height: 0;
+  padding: 2px;
+  overflow-y: auto;
+}
+
+[data-skin="kara"] .kara-program--expanded {
+  background: #5f7136;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-program__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-program:not(.kara-program--expanded) .kara-program__head:hover {
+  background: #e6e8d3;
+}
+
+[data-skin="kara"] .kara-program__icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #c6c4b4;
+  object-fit: cover;
+}
+
+[data-skin="kara"] .kara-program__name {
+  flex: 1;
+  min-width: 0;
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-program__kind {
+  flex: none;
+}
+
+[data-skin="kara"] .kara-program__details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 2px 8px 10px 46px;
+}
+
+[data-skin="kara"] .kara-program__image {
+  flex: none;
+  width: 150px;
+  max-width: 100%;
+  height: 100px;
+  border: 1px solid #c6c4b4;
+  background: #fff;
+  object-fit: contain;
+}
+
+[data-skin="kara"] .kara-program__info {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+[data-skin="kara"] .kara-program__description {
+  line-height: 1.45;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+[data-skin="kara"] .kara-program__description a {
+  color: #eef3c9;
+}
+
+[data-skin="kara"] .kara-program__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-program__facts dt {
+  color: #e3e8c5;
+}
+
+[data-skin="kara"] .kara-program__facts dd {
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-program__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+[data-skin="kara"] .kara-program__button {
+  min-width: 72px;
+  padding: 3px 10px;
+  border: 1px solid #3d4a1f;
+  border-radius: 3px;
+  background: linear-gradient(#fff, #e5e3d3);
+  color: var(--kara-ink);
+  font: inherit;
+  line-height: 1.3;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* The rail takes too much of a narrow window. */
+@container (max-width: 480px) {
+  [data-skin="kara"] .kara-programs__rail {
+    display: none;
+  }
+
+  [data-skin="kara"] .kara-program__details {
+    padding-left: 8px;
+  }
+}
