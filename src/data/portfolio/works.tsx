@@ -12,6 +12,14 @@ export interface WorkItem {
 export const worksData: WorkItem[] = [
 
   {
+    type: "illustration",
+    icon: "x",
+    title: "My OC: Kassus",
+    thumbnail: "https://pbs.twimg.com/media/HV5EOXUa8AAsObf?format=jpg&name=small",
+    url: "https://x.com/kiri487_xxx/status/2116203896821764399",
+    date: "2026.10.31",
+  },
+  {
     type: "video",
     icon: "youtube",
     title: "Lost but cute tho 🥺🎀💀 [Mod DL]",
