@@ -281,7 +281,7 @@
   text-align: left;
 }
 
-[data-skin="kara"] .kara-taskbar__window > svg {
+[data-skin="kara"] .kara-taskbar__window > img {
   flex: none;
 }
 
@@ -382,7 +382,7 @@
   text-align: left;
 }
 
-[data-skin="kara"] .kara-start-menu__item > svg {
+[data-skin="kara"] .kara-start-menu__item > img {
   flex: none;
 }
 

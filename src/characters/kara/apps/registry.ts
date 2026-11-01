@@ -1,5 +1,5 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
-import { BinIcon, ComputerIcon, FolderIcon, NotepadIcon, RadioIcon, type IconProps } from "../icons";
+import { BinIcon, FolderIcon, NotepadIcon, RadioIcon, TerminalIcon, type IconProps } from "../icons";
 
 export type AppId = "works" | "projects" | "radio" | "newFolder" | "asdf" | "recycleBin";
 
@@ -30,7 +30,7 @@ export const APPS: Record<AppId, AppDefinition> = {
   asdf: { title: "asdf.txt - Notepad", icon: NotepadIcon, component: Placeholder, size: { width: 420, height: 300 }, startMenu: "left" },
   newFolder: { title: "新增資料夾 (3)", icon: FolderIcon, component: Placeholder, size: { width: 460, height: 300 }, startMenu: "left" },
   works: { title: "Works", icon: FolderIcon, component: Placeholder, size: { width: 560, height: 380 }, startMenu: "right" },
-  projects: { title: "Projects", icon: ComputerIcon, component: Placeholder, size: { width: 560, height: 380 }, startMenu: "right" },
+  projects: { title: "Projects", icon: TerminalIcon, component: Placeholder, size: { width: 560, height: 380 }, startMenu: "right" },
   recycleBin: { title: "Recycle Bin", icon: BinIcon, component: Placeholder, size: { width: 460, height: 300 }, startMenu: "right" },
 };
 
