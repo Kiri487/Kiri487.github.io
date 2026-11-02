@@ -70,6 +70,23 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
         ],
       },
       {
+        date: "Wednesday, we think",
+        lines: [
+          kiri('Why does this computer say "Registered to: Kiri"?'),
+          kara("because it is"),
+          kiri("So it's mine?"),
+          kara("no"),
+          kiri("Then why is it registered to me?"),
+          kara("someone has to take the blame"),
+          kiri("Blame for what?"),
+          kara("you'll get a letter"),
+          kiri("What kind of letter?"),
+          kara("a very formal one"),
+          kiri("Wait, is there a burger inside?"),
+          kiri("Is it warm?"),
+        ],
+      },
+      {
         date: "Today, so far",
         lines: [
           kiri("Do you think people will like the new page?"),
@@ -161,6 +178,20 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
   kere: {
     name: "Kere",
     conversations: [
+      {
+        date: "Before Monday",
+        lines: [
+          kere("Kara, your clock says 25:61."),
+          kara("yes :3"),
+          kere("That's not a valid time."),
+          kara("it is here"),
+          kere("I'm filing a bug report."),
+          kara("works on my machine :3"),
+          kere("Kara. I'm looking at your machine."),
+          kara("then you can see it working"),
+          kere("..."),
+        ],
+      },
       {
         date: "Monday",
         lines: [
@@ -265,6 +296,20 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
           fileSent("eat_something.txt"),
           kara("it just says eat something"),
           koro("yeah. reading is hard for you, i know :P"),
+        ],
+      },
+      {
+        date: "While offline",
+        lines: [
+          kara("you're on my offline list"),
+          koro("yeah. because i'm offline. duh"),
+          kara("but you're talking to me"),
+          koro("no i'm not"),
+          kara("ok"),
+          kara("goodnight, offline koro"),
+          koro("..."),
+          koro("night, loser"),
+          koro("you didn't see this"),
         ],
       },
       {
