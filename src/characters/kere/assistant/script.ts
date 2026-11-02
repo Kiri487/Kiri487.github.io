@@ -6,7 +6,7 @@ import type { Localized, QuickOption, ScriptedRule } from "./types";
    characters (one character hides inside too many other words) and written in Traditional Chinese.
    ============================================================ */
 
-/** One is picked at random when the chat first opens. "Kere" looks like a typo of "Kiri", so each says who she is. */
+/** One is picked at random when the chat first opens. "Kere" looks like a typo of "Kiri", so each says who he is. */
 export const GREETINGS = [
   "Hello. I'm Kere, Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
   "Hello. I'm Kere — not a typo, just Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
@@ -279,13 +279,26 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "\"Always Chill and Cool.\" Has been almost done with the same track since last quarter. I've stopped asking for an ETA.",
       "\"Always Chill and Cool.\" Average reply length: one word. Two, if it's urgent.",
       "\"Always Chill and Cool.\" Skips every standup. Ships at 3 a.m. Writes no documentation. Annoyingly, it works.",
-      "\"Always Chill and Cool.\" I sent Kuru a meeting invite. Declined. No message.",
     ],
     repliesZh: [
-      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問她進度了。",
+      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問他進度了。",
       "「Always Chill and Cool.」平均回訊息長度：一個字，急的時候兩個字。",
       "「Always Chill and Cool.」早會從來不出席，凌晨三點才上線，文件一個字都沒寫，偏偏東西都能動，而且還不錯。",
-      "「Always Chill and Cool.」我寄會議邀請給 Kuru，被拒絕了，連一句回覆都沒有。",
+    ],
+  },
+  {
+    id: "kara",
+    phrases: ["kara"],
+    expression: "annoyed",
+    replies: [
+      "Kara's behavior is currently outside the predictable range.",
+      "Kara's clock says 25:61. I filed a bug report. It was closed as \"works on my machine.\"",
+      "Kara's desktop is outside my jurisdiction.",
+    ],
+    repliesZh: [
+      "Kara 的行為目前不在可預測範圍內。",
+      "Kara 的時鐘顯示 25:61，我回報了 bug，結果被標成「我這邊可以跑」。",
+      "Kara 的桌面不在我的管轄範圍內。",
     ],
   },
   {
@@ -433,11 +446,11 @@ export const EASTER_EGGS: ScriptedRule[] = [
     id: "about",
     phrases: ["who are you", "what are you", "kere", "about you", "introduce yourself", "your name", "你是誰", "您是誰", "自我介紹", "你叫什麼", "介紹一下你"],
     replies: [
-      "I'm Kere, another side of Kiri. Kiri is the creative one, Kuru is the chill one, and I'm the one who handles the CV, the deadlines, and the documentation.",
+      "I'm Kere, another side of Kiri. Kiri is the creative one, Kuru is the chill one, Kara is unpredictable, and I'm the one who handles the CV, the deadlines, and the documentation.",
       "Kere. Same person as Kiri, different settings. This is the version that answers emails on time.",
     ],
     repliesZh: [
-      "我是 Kere，Kiri 的另一面。Kiri 負責創意，Kuru 負責 chill，我負責 CV、截止日和文件。",
+      "我是 Kere，Kiri 的另一面。Kiri 負責創意，Kuru 負責 chill，Kara 無法預測，我負責 CV、截止日和文件。",
       "Kere，跟 Kiri 是同一個人，只是設定不一樣。這是會準時回信的版本。",
     ],
   },
