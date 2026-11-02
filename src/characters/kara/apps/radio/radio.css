@@ -14,10 +14,16 @@
   font-weight: bold;
 }
 
-/* YouTube requires at least 200px by 200px. The app's minSize in the registry leaves room for it. */
+/*
+ * 16:9, so extra height goes to the list rather than to black bars around the video. It only shrinks when the
+ * window is too wide and short to fit that. YouTube requires at least 200px by 200px: the app's minSize in the
+ * registry leaves room for it.
+ */
 [data-skin="kara"] .kara-radio__stage {
-  flex: 1;
+  flex: 0 1 auto;
+  width: 100%;
   min-height: 200px;
+  aspect-ratio: 16 / 9;
   background: #000;
 }
 
@@ -91,29 +97,13 @@
 }
 
 [data-skin="kara"] .kara-radio__tracks {
-  flex: none;
-  height: 76px;
+  flex: 1 0 76px;
   margin: 0;
   padding: 0;
   overflow-y: auto;
   border-top: 1px solid #b4b19e;
   background: #fff;
   list-style: none;
-}
-
-/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. A tall screen goes to the list, not to black bars around the video. */
-@media (max-width: 640px) {
-  [data-skin="kara"] .kara-radio__stage {
-    flex: none;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-  }
-
-  [data-skin="kara"] .kara-radio__tracks {
-    flex: 1;
-    height: auto;
-    min-height: 76px;
-  }
 }
 
 [data-skin="kara"] .kara-radio__track {
