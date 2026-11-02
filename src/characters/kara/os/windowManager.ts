@@ -95,17 +95,23 @@ export function clampPosition(x: number, y: number, width: number, viewport: Vie
 }
 
 /** The window after dragging one edge or corner by (dx, dy). The opposite side stays where it was. */
-export function resizeRect(start: WindowRect, direction: ResizeDirection, dx: number, dy: number): WindowRect {
+export function resizeRect(
+  start: WindowRect,
+  direction: ResizeDirection,
+  dx: number,
+  dy: number,
+  minSize: WindowSize = { width: MIN_WINDOW_WIDTH, height: MIN_WINDOW_HEIGHT },
+): WindowRect {
   const rect = { ...start };
 
-  if (direction.includes("e")) rect.width = Math.max(MIN_WINDOW_WIDTH, start.width + dx);
+  if (direction.includes("e")) rect.width = Math.max(minSize.width, start.width + dx);
   if (direction.includes("w")) {
-    rect.width = Math.max(MIN_WINDOW_WIDTH, start.width - dx);
+    rect.width = Math.max(minSize.width, start.width - dx);
     rect.x = start.x + start.width - rect.width;
   }
-  if (direction.includes("s")) rect.height = Math.max(MIN_WINDOW_HEIGHT, start.height + dy);
+  if (direction.includes("s")) rect.height = Math.max(minSize.height, start.height + dy);
   if (direction.includes("n")) {
-    rect.height = Math.max(MIN_WINDOW_HEIGHT, start.height - dy);
+    rect.height = Math.max(minSize.height, start.height - dy);
     rect.y = start.y + start.height - rect.height;
   }
 

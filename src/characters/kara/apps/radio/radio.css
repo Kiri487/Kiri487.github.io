@@ -1,0 +1,134 @@
+[data-skin="kara"] .kara-radio {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--kara-menu-face);
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-radio__station {
+  flex: none;
+  padding: 3px 7px;
+  border-bottom: 1px solid #d8d5c3;
+  color: #3f4d1f;
+  font-weight: bold;
+}
+
+/* YouTube requires at least 200px by 200px. The app's minSize in the registry leaves room for it. */
+[data-skin="kara"] .kara-radio__stage {
+  flex: 1;
+  min-height: 200px;
+  background: #000;
+}
+
+[data-skin="kara"] .kara-radio__stage iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+[data-skin="kara"] .kara-radio__status {
+  flex: none;
+  padding: 3px 7px;
+  overflow: hidden;
+  border-top: 1px solid #b4b19e;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-radio__controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+}
+
+[data-skin="kara"] .kara-radio__button {
+  flex: none;
+  min-width: 34px;
+  padding: 2px 6px;
+  border: 1px solid #3d4a1f;
+  border-radius: 3px;
+  background: linear-gradient(#fff, #e5e3d3);
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-radio__button:disabled {
+  border-color: #a7a58f;
+  color: #a7a58f;
+}
+
+[data-skin="kara"] .kara-radio__progress {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 7px 0;
+}
+
+[data-skin="kara"] .kara-radio__time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin="kara"] .kara-radio__seek {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  accent-color: #5f7136;
+}
+
+[data-skin="kara"] .kara-radio__volume {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+[data-skin="kara"] .kara-radio__volume-slider {
+  width: 80px;
+  margin: 0;
+  accent-color: #5f7136;
+}
+
+[data-skin="kara"] .kara-radio__tracks {
+  flex: none;
+  height: 76px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border-top: 1px solid #b4b19e;
+  background: #fff;
+  list-style: none;
+}
+
+[data-skin="kara"] .kara-radio__track {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 7px;
+  border: 0;
+  background: none;
+  color: var(--kara-ink);
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-radio__track:focus {
+  outline: 1px dotted #5f7136;
+  outline-offset: -1px;
+}
+
+[data-skin="kara"] .kara-radio__track--current {
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-radio__track-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

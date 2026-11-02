@@ -139,6 +139,7 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
       direction,
       clamp(event.clientX + edgeX - pointerX, 0, viewport.width) - edgeX,
       clamp(event.clientY + edgeY - pointerY, 0, viewport.height) - edgeY,
+      APPS[win.appId].minSize,
     );
     resize.rect = rect;
 

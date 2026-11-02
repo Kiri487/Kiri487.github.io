@@ -1,0 +1,261 @@
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { SpeakerIcon } from "../../icons";
+import { useWindow } from "../../os/context";
+import { RADIO_TRACKS } from "./tracks";
+import { loadYouTubeApi, PLAYER_STATE, type YouTubePlayer } from "./youtubePlayer";
+import "./radio.css";
+
+type RadioStatus = "tuning" | "ready" | "playing" | "paused" | "skipping" | "noSignal";
+
+const INITIAL_VOLUME = 70;
+const PROGRESS_INTERVAL_MS = 500;
+
+const STATUS_TEXT: Record<Exclude<RadioStatus, "playing">, string> = {
+  tuning: "Tuning...",
+  ready: "Ready when you are.",
+  paused: "Taking a break. It's not you.",
+  skipping: "This station doesn't want to be here. Skipping.",
+  noSignal: "No signal.",
+};
+
+/** Past the end of its range, like the taskbar's clock: 1 minute 14 seconds reads 1:74. */
+function formatKaraDuration(seconds: number): string {
+  const whole = Math.floor(seconds);
+  return `${Math.floor(whole / 60)}:${(whole % 60) + 60}`;
+}
+
+function RadioApp() {
+  const { isMinimized } = useWindow();
+  const hostRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
+  const indexRef = useRef(0);
+  const failuresRef = useRef(0);
+  const resumeOnRestoreRef = useRef(false);
+
+  const [index, setIndex] = useState(0);
+  const [status, setStatus] = useState<RadioStatus>("tuning");
+  const [volume, setVolume] = useState(INITIAL_VOLUME);
+  const [progress, setProgress] = useState({ current: 0, duration: 0 });
+  /** Where the visitor is dragging to. The video only jumps on release, so dragging doesn't buffer at every step. */
+  const [scrub, setScrub] = useState<number | null>(null);
+
+  const syncProgress = useCallback(() => {
+    const player = playerRef.current;
+    // Right after an error the player can answer with nothing at all, whatever its documentation says.
+    if (player) setProgress({ current: player.getCurrentTime() || 0, duration: player.getDuration() || 0 });
+  }, []);
+
+  const playTrack = useCallback((next: number) => {
+    const wrapped = (next + RADIO_TRACKS.length) % RADIO_TRACKS.length;
+    indexRef.current = wrapped;
+    setIndex(wrapped);
+    setProgress({ current: 0, duration: 0 });
+    setScrub(null);
+    playerRef.current?.loadVideoById(RADIO_TRACKS[wrapped].videoId);
+  }, []);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let cancelled = false;
+
+    loadYouTubeApi()
+      .then((api) => {
+        if (cancelled) return;
+        // The API replaces this element with its iframe, so React must never own it.
+        const target = document.createElement("div");
+        host.appendChild(target);
+
+        playerRef.current = new api.Player(target, {
+          width: "100%",
+          height: "100%",
+          videoId: RADIO_TRACKS[indexRef.current].videoId,
+          playerVars: { controls: 0, playsinline: 1, rel: 0, origin: window.location.origin },
+          events: {
+            onReady: () => {
+              playerRef.current?.setVolume(INITIAL_VOLUME);
+              syncProgress();
+              setStatus("ready");
+            },
+            onStateChange: ({ data }) => {
+              if (data === PLAYER_STATE.PLAYING) {
+                failuresRef.current = 0;
+                syncProgress();
+                setStatus("playing");
+              } else if (data === PLAYER_STATE.PAUSED) {
+                syncProgress();
+                setStatus("paused");
+              } else if (data === PLAYER_STATE.ENDED) {
+                playTrack(indexRef.current + 1);
+              }
+            },
+            // Mostly videos whose owner doesn't allow embedding. Stop once every track has failed in a row.
+            onError: () => {
+              failuresRef.current += 1;
+              if (failuresRef.current >= RADIO_TRACKS.length) {
+                setStatus("noSignal");
+                return;
+              }
+              setStatus("skipping");
+              playTrack(indexRef.current + 1);
+            },
+            onAutoplayBlocked: () => setStatus("ready"),
+          },
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("noSignal");
+      });
+
+    return () => {
+      cancelled = true;
+      playerRef.current?.destroy();
+      playerRef.current = null;
+      host.replaceChildren();
+    };
+  }, [playTrack, syncProgress]);
+
+  // YouTube's policies don't allow playing from a player that isn't on screen, so a minimized radio waits.
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    if (isMinimized) {
+      const state = player.getPlayerState();
+      resumeOnRestoreRef.current = state === PLAYER_STATE.PLAYING || state === PLAYER_STATE.BUFFERING;
+      if (resumeOnRestoreRef.current) player.pauseVideo();
+    } else if (resumeOnRestoreRef.current) {
+      resumeOnRestoreRef.current = false;
+      player.playVideo();
+    }
+  }, [isMinimized]);
+
+  const canControl = status !== "tuning" && status !== "noSignal";
+  const playing = status === "playing";
+
+  useEffect(() => {
+    if (!playing) return;
+    const timer = window.setInterval(syncProgress, PROGRESS_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [playing, syncProgress]);
+
+  const commitScrub = () => {
+    if (scrub === null) return;
+    playerRef.current?.seekTo(scrub, true);
+    setProgress((current) => ({ ...current, current: scrub }));
+    setScrub(null);
+  };
+
+  const handleScrubPointerDown = (event: ReactPointerEvent<HTMLInputElement>) => {
+    // Keeps the release on this slider even if the pointer has wandered off it.
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleScrubKeyUp = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Tab") commitScrub();
+  };
+
+  const shownTime = scrub ?? progress.current;
+
+  return (
+    <div className="kara-radio">
+      <div className="kara-radio__station">FM 25.61 (visual radio)</div>
+      <div ref={hostRef} className="kara-radio__stage" />
+
+      <div className="kara-radio__status" aria-live="polite">
+        {playing ? `Now playing: ${RADIO_TRACKS[index].label}` : STATUS_TEXT[status]}
+      </div>
+
+      <div className="kara-radio__progress">
+        <span className="kara-radio__time">{formatKaraDuration(shownTime)}</span>
+        <input
+          type="range"
+          className="kara-radio__seek"
+          aria-label="Position"
+          aria-valuetext={formatKaraDuration(shownTime)}
+          min={0}
+          max={progress.duration}
+          step={1}
+          value={shownTime}
+          disabled={!canControl || progress.duration === 0}
+          onChange={(event) => setScrub(Number(event.target.value))}
+          onPointerDown={handleScrubPointerDown}
+          onPointerUp={commitScrub}
+          onPointerCancel={commitScrub}
+          onKeyUp={handleScrubKeyUp}
+        />
+        <span className="kara-radio__time">{formatKaraDuration(progress.duration)}</span>
+      </div>
+
+      <div className="kara-radio__controls">
+        <button
+          type="button"
+          className="kara-radio__button"
+          aria-label="Previous track"
+          disabled={!canControl}
+          onClick={() => playTrack(index - 1)}
+        >
+          |◀
+        </button>
+        <button
+          type="button"
+          className="kara-radio__button"
+          aria-label={playing ? "Pause" : "Play"}
+          disabled={!canControl}
+          onClick={() => (playing ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo())}
+        >
+          {playing ? "❚❚" : "▶"}
+        </button>
+        <button
+          type="button"
+          className="kara-radio__button"
+          aria-label="Next track"
+          disabled={!canControl}
+          onClick={() => playTrack(index + 1)}
+        >
+          ▶|
+        </button>
+        <span className="kara-radio__volume">
+          <SpeakerIcon size={16} />
+          <input
+            type="range"
+            className="kara-radio__volume-slider"
+            aria-label="Volume"
+            min={0}
+            max={100}
+            value={volume}
+            disabled={!canControl}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              setVolume(next);
+              playerRef.current?.setVolume(next);
+            }}
+          />
+        </span>
+      </div>
+
+      <ol className="kara-radio__tracks">
+        {RADIO_TRACKS.map((track, trackIndex) => (
+          <li key={track.videoId}>
+            <button
+              type="button"
+              className={`kara-radio__track${trackIndex === index ? " kara-radio__track--current" : ""}`}
+              disabled={!canControl}
+              onDoubleClick={() => playTrack(trackIndex)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") playTrack(trackIndex);
+              }}
+            >
+              <span className="kara-radio__track-name">
+                {trackIndex + 1}. {track.label}
+              </span>
+              {trackIndex === index && <span aria-hidden="true">◀</span>}
+            </button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+export default RadioApp;

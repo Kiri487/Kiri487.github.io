@@ -34,6 +34,8 @@ export interface AppDefinition {
   /** Lazy, so opening the desktop never downloads an app's code. */
   component: LazyExoticComponent<ComponentType>;
   size: { width: number; height: number };
+  /** Leave out for the desktop's usual minimum. */
+  minSize?: { width: number; height: number };
   /** Leave out for apps that only other apps open. */
   startMenu?: "left" | "right";
 }
@@ -47,7 +49,7 @@ export interface DesktopIconDefinition {
   shortcut?: boolean;
 }
 
-const Placeholder = lazy(() => import("./placeholder/PlaceholderApp"));
+const RadioApp = lazy(() => import("./radio/RadioApp"));
 const FolderApp = lazy(() => import("./folder/FolderApp"));
 const ImageViewerApp = lazy(() => import("./imageViewer/ImageViewerApp"));
 const ProjectsApp = lazy(() => import("./projects/ProjectsApp"));
@@ -58,7 +60,7 @@ const NotepadApp = lazy(() => import("./notepad/NotepadApp"));
 
 /** To add an app: give it a folder here, then an entry below (and optionally a desktop icon). */
 export const APPS: Record<AppId, AppDefinition> = {
-  radio: { title: "Kara Radio", icon: RadioIcon, component: Placeholder, size: { width: 480, height: 320 }, startMenu: "left" },
+  radio: { title: "Kara Radio", icon: RadioIcon, component: RadioApp, size: { width: 520, height: 600 }, minSize: { width: 260, height: 450 }, startMenu: "left" },
   messenger: { title: "Kara Messenger", icon: MessengerIcon, component: MessengerApp, size: { width: 300, height: 440 }, startMenu: "left" },
   asdf: { title: "asdf.txt - Notepad", icon: NotepadIcon, component: NotepadApp, size: { width: 440, height: 480 }, startMenu: "left" },
   newFolder: { title: "新增資料夾 (3)", defaultArgs: { folderId: "newFolder" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "left" },
