@@ -62,6 +62,8 @@ const WALK_OFF_LINES = ["i meant to do that", "that edge was new", "the floor mo
 const WALK_OFF_LINE_CHANCE = 0.5;
 /** Long enough to look like she's thought about what to say. */
 const WALK_OFF_LINE_DELAY_MS = 400;
+/** Stepping off something barely above the ground isn't a fall worth explaining. */
+const WALK_OFF_LINE_MIN_DROP = 60;
 const SHUTDOWN_REACTION = "that's a light switch";
 const FOUR_TWENTY_LINE = "it's time";
 
@@ -101,6 +103,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     ledge: null as Ledge | null,
     ledgeTops: new Map<HTMLElement, number>(),
     walkedOff: false,
+    walkedOffY: 0,
   });
   const lastWalkOffLineRef = useRef<string | null>(null);
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number; moved: boolean } | null>(null);
@@ -157,6 +160,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         const centerX = motion.x + WIDTH / 2;
         if (!ledge || ledge.top > motion.ledge.top || centerX < ledge.left || centerX > ledge.right) {
           motion.walkedOff = motion.mode === "walk" && ledge !== null && ledge.top <= motion.ledge.top;
+          motion.walkedOffY = motion.y;
           motion.mode = "fall";
           motion.velocityY = 0;
           motion.ledge = null;
@@ -222,7 +226,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
             motion.ledge = ledge;
             if (motion.walkedOff) {
               motion.walkedOff = false;
-              setWalkOffLandings((count) => count + 1);
+              if (motion.y - motion.walkedOffY >= WALK_OFF_LINE_MIN_DROP) setWalkOffLandings((count) => count + 1);
             }
           }
         }
