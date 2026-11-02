@@ -24,7 +24,7 @@ const AVATAR_COLORS: Record<CharacterId, string> = {
   kiri: "#9da2b2",
   kere: "#fff",
   kuru: "#1f1f22",
-  koro: "#f3b6c8",
+  koro: "#a88bc9",
   kara: "#97a786",
 };
 
@@ -44,7 +44,7 @@ function CharacterAvatar({ character, size }: { character: CharacterId; size: nu
       ) : art ? (
         <img src={art.src} width={artSize} height={artSize} alt="" draggable={false} />
       ) : (
-        <PawIcon size={Math.round(size * 0.55)} />
+        <PawIcon size={Math.round(size * 0.55)} color="#2b2631" />
       )}
     </span>
   );

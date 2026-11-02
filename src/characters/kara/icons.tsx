@@ -119,6 +119,6 @@ export function SearchIcon({ size }: IconProps) {
 }
 
 /** Kara's mark on the start button, a paw instead of a certain four-colour flag. Also the avatars' placeholder. */
-export function PawIcon({ size }: IconProps) {
-  return <IoPaw size={size} color="#fff" aria-hidden="true" />;
+export function PawIcon({ size, color = "#fff" }: IconProps & { color?: string }) {
+  return <IoPaw size={size} color={color} aria-hidden="true" />;
 }
