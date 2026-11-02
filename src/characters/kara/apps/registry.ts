@@ -10,6 +10,7 @@ import {
   TerminalIcon,
   type IconProps,
 } from "../icons";
+import type { FolderArgs } from "./folder/types";
 
 export type AppId =
   | "works"
@@ -27,6 +28,8 @@ export interface AppDefinition {
   /** The real name, used by the start menu and, unless windowTitle says otherwise, the window. */
   title: string;
   windowTitle?: string;
+  /** The args when the opener passes none, such as from the desktop or the start menu. */
+  defaultArgs?: object;
   icon: ComponentType<IconProps>;
   /** Lazy, so opening the desktop never downloads an app's code. */
   component: LazyExoticComponent<ComponentType>;
@@ -45,26 +48,24 @@ export interface DesktopIconDefinition {
 }
 
 const Placeholder = lazy(() => import("./placeholder/PlaceholderApp"));
-const WorksApp = lazy(() => import("./works/WorksApp"));
+const FolderApp = lazy(() => import("./folder/FolderApp"));
 const ImageViewerApp = lazy(() => import("./imageViewer/ImageViewerApp"));
 const ProjectsApp = lazy(() => import("./projects/ProjectsApp"));
 const AboutApp = lazy(() => import("./about/AboutApp"));
 const MessengerApp = lazy(() => import("./messenger/MessengerApp"));
 const ChatApp = lazy(() => import("./chat/ChatApp"));
 const NotepadApp = lazy(() => import("./notepad/NotepadApp"));
-const NewFolderApp = lazy(() => import("./newFolder/NewFolderApp"));
-const RecycleBinApp = lazy(() => import("./recycleBin/RecycleBinApp"));
 
 /** To add an app: give it a folder here, then an entry below (and optionally a desktop icon). */
 export const APPS: Record<AppId, AppDefinition> = {
   radio: { title: "Kara Radio", icon: RadioIcon, component: Placeholder, size: { width: 480, height: 320 }, startMenu: "left" },
   messenger: { title: "Kara Messenger", icon: MessengerIcon, component: MessengerApp, size: { width: 300, height: 440 }, startMenu: "left" },
   asdf: { title: "asdf.txt - Notepad", icon: NotepadIcon, component: NotepadApp, size: { width: 440, height: 480 }, startMenu: "left" },
-  newFolder: { title: "新增資料夾 (3)", icon: FolderIcon, component: NewFolderApp, size: { width: 640, height: 440 }, startMenu: "left" },
-  works: { title: "Works", windowTitle: "stuff i made", icon: FolderIcon, component: WorksApp, size: { width: 780, height: 520 }, startMenu: "right" },
+  newFolder: { title: "新增資料夾 (3)", defaultArgs: { folderId: "newFolder" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "left" },
+  works: { title: "Works", windowTitle: "stuff i made", defaultArgs: { folderId: "works" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 780, height: 520 }, startMenu: "right" },
   projects: { title: "Projects", windowTitle: "Add or Remove Programs", icon: TerminalIcon, component: ProjectsApp, size: { width: 720, height: 520 }, startMenu: "right" },
   about: { title: "About", windowTitle: "System Properties", icon: ComputerIcon, component: AboutApp, size: { width: 520, height: 480 }, startMenu: "right" },
-  recycleBin: { title: "Recycle Bin", icon: BinIcon, component: RecycleBinApp, size: { width: 640, height: 440 }, startMenu: "right" },
+  recycleBin: { title: "Recycle Bin", defaultArgs: { folderId: "recycleBin" } satisfies FolderArgs, icon: BinIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "right" },
   chat: { title: "Conversation", icon: MessengerIcon, component: ChatApp, size: { width: 460, height: 400 } },
   imageViewer: { title: "Kara Picture Viewer", icon: ImageFileIcon, component: ImageViewerApp, size: { width: 640, height: 560 } },
 };

@@ -9,12 +9,13 @@ function OsProvider({ children }: { children: ReactNode }) {
   const actions = useMemo<OsActions>(
     () => ({
       openApp: (appId, options) => {
-        const { title, windowTitle, size } = APPS[appId];
+        const { title, windowTitle, size, defaultArgs } = APPS[appId];
         dispatch({
           type: "open",
           appId,
           title: options?.title ?? windowTitle ?? title,
-          args: options?.args,
+          // A new object each time, so an app can tell it was opened again.
+          args: options?.args ?? (defaultArgs && { ...defaultArgs }),
           size,
           viewport: readViewport(),
         });

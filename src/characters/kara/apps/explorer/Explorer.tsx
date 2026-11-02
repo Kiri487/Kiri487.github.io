@@ -30,20 +30,36 @@ const FAKE_MENUS_AFTER_VIEW: { label: string; message: string }[] = [
   { label: "Help", message: "Help is not coming." },
 ];
 
-interface ExplorerProps {
-  /** Last segment of the fake path in the address bar and the title of the message box. */
+interface ExplorerProps<F extends ExplorerFile> {
+  /** The title of the message box. */
   folderName: string;
-  files: ExplorerFile[];
+  /** Shown after C:\Kara\ in the address bar. */
+  path: string;
+  files: F[];
   taskGroups: ExplorerTaskGroup[];
   defaultSort: ExplorerSort;
+  /** Leave out when there is nowhere to go: Back and Forward turn off, and Up says so. */
+  onBack?: () => void;
+  onForward?: () => void;
+  onUp?: () => void;
   /**
    * `ordered` is the folder as currently sorted, so a viewer can step through it in the same order.
    * Return a string to show it in the folder's message box.
    */
-  onOpenFile: (file: ExplorerFile, ordered: ExplorerFile[]) => string | void;
+  onOpenFile: (file: F, ordered: F[]) => string | void;
 }
 
-function Explorer({ folderName, files, taskGroups, defaultSort, onOpenFile }: ExplorerProps) {
+function Explorer<F extends ExplorerFile>({
+  folderName,
+  path,
+  files,
+  taskGroups,
+  defaultSort,
+  onBack,
+  onForward,
+  onUp,
+  onOpenFile,
+}: ExplorerProps<F>) {
   const [view, setView] = useState<ExplorerView>("thumbnails");
   const [sort, setSort] = useState<ExplorerSort>(defaultSort);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -116,18 +132,18 @@ function Explorer({ folderName, files, taskGroups, defaultSort, onOpenFile }: Ex
         </div>
 
         <div className="kara-explorer__toolbar">
-          <button type="button" className="kara-explorer__tool" disabled aria-label="Back">
+          <button type="button" className="kara-explorer__tool" disabled={!onBack} aria-label="Back" onClick={onBack}>
             <BackIcon size={22} />
             Back
           </button>
-          <button type="button" className="kara-explorer__tool" disabled aria-label="Forward">
+          <button type="button" className="kara-explorer__tool" disabled={!onForward} aria-label="Forward" onClick={onForward}>
             <ForwardIcon size={22} />
           </button>
           <button
             type="button"
             className="kara-explorer__tool"
             aria-label="Up"
-            onClick={() => setMessage("There is nothing above this folder. Kara checked.")}
+            onClick={onUp ?? (() => setMessage("There is nothing above this folder. Kara checked."))}
           >
             <UpIcon size={22} />
           </button>
@@ -162,7 +178,7 @@ function Explorer({ folderName, files, taskGroups, defaultSort, onOpenFile }: Ex
           <span className="kara-explorer__address-label">Address</span>
           <span className="kara-explorer__address-path">
             <FolderIcon size={16} />
-            C:\Kara\{folderName}
+            C:\Kara\{path}
           </span>
         </div>
       </div>
