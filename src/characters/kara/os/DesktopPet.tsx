@@ -5,13 +5,12 @@ import muteSprite from "../assets/pet/kara-mute.webp";
 import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
 import { isFourTwenty } from "./fourTwenty";
+import { useIsPhone } from "./useIsPhone";
 import { readViewport } from "./windowManager";
 
 /** Half the sprite files' size, so they stay sharp on high-density screens. */
 const WIDTH = 126;
 const HEIGHT = 130;
-/** Wide enough for the balloon: closer to the left edge than this, it opens to the right instead. */
-const BALLOON_WIDTH = 240;
 
 const WALK_SPEED = 55;
 const GRAVITY = 2400;
@@ -57,6 +56,8 @@ function restDuration(): number {
 function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const os = useOs();
   const { windows, focusedId } = useOsState();
+  const isPhone = useIsPhone();
+  const pausedRef = useRef(false);
   const rootRef = useRef<HTMLButtonElement>(null);
   // The position lives here and goes straight to the DOM, so walking never re-renders anything.
   const motionRef = useRef({ mode: "idle" as Mode, x: 0, y: 0, targetX: 0, velocityY: 0, nextDecision: 0 });
@@ -100,8 +101,13 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       const maxX = Math.max(0, viewport.width - WIDTH);
       const ground = viewport.height - HEIGHT;
 
+      if (pausedRef.current && motion.mode === "walk") {
+        motion.mode = "idle";
+        setWalking(false);
+      }
+
       if (motion.mode === "idle") {
-        if (!stayStill && now >= motion.nextDecision) {
+        if (!stayStill && !pausedRef.current && now >= motion.nextDecision) {
           const targetX = Math.random() * maxX;
           if (Math.abs(targetX - motion.x) >= MIN_WALK_DISTANCE) {
             motion.mode = "walk";
@@ -163,7 +169,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     motion.mode = "idle";
     motion.nextDecision = performance.now() + TALK_MS + restDuration();
     setWalking(false);
-    setBalloonOnRight(motion.x < BALLOON_WIDTH);
+    // Toward whichever side of the screen has more room.
+    setBalloonOnRight(motion.x + WIDTH / 2 < window.innerWidth / 2);
     setLine(text);
   }, []);
 
@@ -189,15 +196,22 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
 
   useEffect(() => () => window.clearTimeout(reactionTimerRef.current), []);
 
+  // On a phone every window fills the screen, so she's out of sight behind it: nowhere to walk, nobody to hear her.
+  const hiddenByWindow = isPhone && windows.some((win) => !win.minimized);
+
+  useEffect(() => {
+    pausedRef.current = hiddenByWindow;
+  }, [hiddenByWindow]);
+
   useEffect(() => {
     const seen = seenWindowsRef.current;
     for (const win of windows) {
       if (seen.has(win.id)) continue;
       seen.add(win.id);
       const reaction = OPEN_REACTIONS[win.appId];
-      if (reaction && !win.instanceKey) reactOnce(win.appId, reaction);
+      if (reaction && !win.instanceKey && !isPhone) reactOnce(win.appId, reaction);
     }
-  }, [windows, reactOnce]);
+  }, [windows, isPhone, reactOnce]);
 
   useEffect(() => {
     if (shuttingDown) reactOnce("shutdown", SHUTDOWN_REACTION);

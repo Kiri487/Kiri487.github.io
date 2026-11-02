@@ -626,6 +626,13 @@
   right: 41px;
 }
 
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. Narrow enough to fit beside her on any phone. */
+@media (max-width: 640px) {
+  [data-skin="kara"] .kara-pet__balloon {
+    max-width: 180px;
+  }
+}
+
 [data-skin="kara"] .kara-balloon--right {
   right: auto;
   left: 30px;
