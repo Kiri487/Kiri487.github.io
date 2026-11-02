@@ -24,7 +24,7 @@ function KaraOs() {
   return (
     <div className="kara-os">
       <Desktop />
-      <DesktopPet />
+      <DesktopPet shuttingDown={shuttingDown} />
       <WindowLayer />
       <Taskbar onTurnOff={() => setShuttingDown(true)} />
       {shuttingDown && <ShutdownDialog onCancel={() => setShuttingDown(false)} />}

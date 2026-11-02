@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
+import { isFourTwenty } from "./fourTwenty";
 
 /**
  * Runs at the right speed, but every hour and minute is past the end of its range: 01:01 reads 25:61.
  * The one exception is 4:20, twice a day.
  */
 function formatKaraTime(now: Date): string {
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  if (hours % 12 === 4 && minutes === 20) return "4:20";
-  return `${hours + 24}:${minutes + 60}`;
+  if (isFourTwenty(now)) return "4:20";
+  return `${now.getHours() + 24}:${now.getMinutes() + 60}`;
 }
 
 function Clock() {

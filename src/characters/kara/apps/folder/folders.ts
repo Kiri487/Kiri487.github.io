@@ -1,3 +1,5 @@
+import doNotOpenClicked from "../../assets/do-not-open-clicked.webp";
+import doNotOpen from "../../assets/do-not-open.webp";
 import { BrokenImageIcon, ComputerIcon, FolderIcon, ImageFileIcon, NotepadIcon } from "../../icons";
 import type { ExplorerSort, ExplorerTaskGroup } from "../explorer/types";
 import { WORK_FILES } from "../works/workFiles";
@@ -89,7 +91,8 @@ export const FOLDERS: Record<FolderId, Folder> = {
   notAFolder: {
     name: "not a folder",
     parent: "newFolder",
-    defaultSort: BY_NAME,
+    // Text before pictures: the warning comes after the confession.
+    defaultSort: { key: "type", descending: true },
     taskGroups: NEW_FOLDER_TASKS,
     files: [
       {
@@ -99,6 +102,15 @@ export const FOLDERS: Record<FolderId, Folder> = {
         date: "The 32nd",
         icon: NotepadIcon,
         action: { kind: "text", text: "don't tell anyone" },
+      },
+      {
+        // No thumbnail on purpose: the name is all the warning anyone gets.
+        id: "do-not-open",
+        name: "do not open.png",
+        typeName: "PNG Image",
+        date: "The 32nd",
+        icon: ImageFileIcon,
+        action: { kind: "image", src: doNotOpen, clickedSrc: doNotOpenClicked },
       },
     ],
   },

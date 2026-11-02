@@ -23,6 +23,15 @@
   object-fit: contain;
 }
 
+[data-skin="kara"] .kara-viewer__clickable {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 [data-skin="kara"] .kara-viewer__missing {
   display: flex;
   flex-direction: column;

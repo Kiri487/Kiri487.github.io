@@ -6,6 +6,7 @@ import "./imageViewer.css";
 
 function Picture({ image }: { image: ViewerImage }) {
   const [failed, setFailed] = useState(false);
+  const [clicked, setClicked] = useState(false);
 
   if (failed) {
     return (
@@ -15,14 +16,23 @@ function Picture({ image }: { image: ViewerImage }) {
       </div>
     );
   }
-  return (
+  const picture = (
     <img
       className="kara-viewer__image"
-      src={image.src}
+      src={clicked && image.clickedSrc ? image.clickedSrc : image.src}
       alt={image.name}
       draggable={false}
       onError={() => setFailed(true)}
     />
+  );
+  if (!image.clickedSrc) return picture;
+
+  return (
+    <button type="button" className="kara-viewer__clickable" aria-pressed={clicked} onClick={() => setClicked(!clicked)}>
+      {picture}
+      {/* Loaded in advance, so the first click answers right away. */}
+      <img src={image.clickedSrc} alt="" hidden />
+    </button>
   );
 }
 
@@ -52,9 +62,11 @@ function ImageViewerApp() {
         <span className="kara-viewer__position">
           {index + 1} / {images.length}
         </span>
-        <a className="kara-viewer__link" href={image.url} target="_blank" rel="noreferrer">
-          View original post
-        </a>
+        {image.url && (
+          <a className="kara-viewer__link" href={image.url} target="_blank" rel="noreferrer">
+            View original post
+          </a>
+        )}
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { pickDifferent } from "../apps/common/pickDifferent";
+import type { AppId } from "../apps/registry";
 import muteSprite from "../assets/pet/kara-mute.webp";
 import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
+import { isFourTwenty } from "./fourTwenty";
 import { readViewport } from "./windowManager";
 
 /** Half the sprite files' size, so they stay sharp on high-density screens. */
@@ -20,6 +22,9 @@ const MIN_WALK_DISTANCE = 80;
 const MIN_REST_MS = 2500;
 const MAX_REST_MS = 7000;
 const TALK_MS = 4200;
+/** Long enough for a new window to appear first, as if she noticed it. */
+const REACTION_DELAY_MS = 500;
+const CLOCK_CHECK_MS = 1000;
 
 const LINES = [
   "smoke weed everyday",
@@ -29,6 +34,19 @@ const LINES = [
   "i live here now",
 ];
 
+/** Said the first time each one opens, once per visit. Only her own asdf.txt counts as the notepad. */
+const OPEN_REACTIONS: Partial<Record<AppId, string>> = {
+  radio: "the washing machine is my favorite part",
+  messenger: "if kuru asks, i'm asleep",
+  projects: "you can't remove them. i tried",
+  about: "yes it's registered to kiri. no i won't explain",
+  works: "i'm in there. probably",
+  recycleBin: "don't touch greg's web",
+  notepad: "that letter is very formal. be careful",
+};
+const SHUTDOWN_REACTION = "that's a light switch";
+const FOUR_TWENTY_LINE = "it's time";
+
 type Mode = "idle" | "walk" | "drag" | "fall";
 
 function restDuration(): number {
@@ -36,19 +54,23 @@ function restDuration(): number {
 }
 
 /** Kara herself. She lives on the desktop, behind the windows, until somebody picks her up and puts her in front. */
-function DesktopPet() {
+function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const os = useOs();
+  const { windows, focusedId } = useOsState();
   const rootRef = useRef<HTMLButtonElement>(null);
   // The position lives here and goes straight to the DOM, so walking never re-renders anything.
   const motionRef = useRef({ mode: "idle" as Mode, x: 0, y: 0, targetX: 0, velocityY: 0, nextDecision: 0 });
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number; moved: boolean } | null>(null);
   const lastLineRef = useRef<string | null>(null);
+  const isSpeakingRef = useRef(false);
+  const seenWindowsRef = useRef(new Set<string>());
+  const spokenRef = useRef(new Set<string>());
+  const reactionTimerRef = useRef<number | undefined>(undefined);
 
   const [walking, setWalking] = useState(false);
   const [dragging, setDragging] = useState(false);
   // Once carried she stays in front of the windows, until one of them is focused and covers her like any other window would.
   const [inFront, setInFront] = useState(false);
-  const { focusedId } = useOsState();
   if (inFront && focusedId !== null) setInFront(false);
   const [facingRight, setFacingRight] = useState(false);
   const [line, setLine] = useState<string | null>(null);
@@ -130,21 +152,71 @@ function DesktopPet() {
   }, []);
 
   useEffect(() => {
+    isSpeakingRef.current = line !== null;
     if (line === null) return;
     const end = window.setTimeout(() => setLine(null), TALK_MS);
     return () => window.clearTimeout(end);
   }, [line]);
 
-  const talk = () => {
+  const speak = useCallback((text: string) => {
     const motion = motionRef.current;
     motion.mode = "idle";
     motion.nextDecision = performance.now() + TALK_MS + restDuration();
     setWalking(false);
     setBalloonOnRight(motion.x < BALLOON_WIDTH);
+    setLine(text);
+  }, []);
 
+  /** Unprompted remarks never interrupt: not while she's in the air, and not over something she's already saying. */
+  const remark = useCallback(
+    (text: string) => {
+      const { mode } = motionRef.current;
+      if (mode === "drag" || mode === "fall" || isSpeakingRef.current) return;
+      speak(text);
+    },
+    [speak],
+  );
+
+  const reactOnce = useCallback(
+    (key: string, text: string) => {
+      if (spokenRef.current.has(key)) return;
+      spokenRef.current.add(key);
+      window.clearTimeout(reactionTimerRef.current);
+      reactionTimerRef.current = window.setTimeout(() => remark(text), REACTION_DELAY_MS);
+    },
+    [remark],
+  );
+
+  useEffect(() => () => window.clearTimeout(reactionTimerRef.current), []);
+
+  useEffect(() => {
+    const seen = seenWindowsRef.current;
+    for (const win of windows) {
+      if (seen.has(win.id)) continue;
+      seen.add(win.id);
+      const reaction = OPEN_REACTIONS[win.appId];
+      if (reaction && !win.instanceKey) reactOnce(win.appId, reaction);
+    }
+  }, [windows, reactOnce]);
+
+  useEffect(() => {
+    if (shuttingDown) reactOnce("shutdown", SHUTDOWN_REACTION);
+  }, [shuttingDown, reactOnce]);
+
+  useEffect(() => {
+    let wasFourTwenty = false;
+    const timer = window.setInterval(() => {
+      const now = isFourTwenty(new Date());
+      if (now && !wasFourTwenty) remark(FOUR_TWENTY_LINE);
+      wasFourTwenty = now;
+    }, CLOCK_CHECK_MS);
+    return () => window.clearInterval(timer);
+  }, [remark]);
+
+  const talk = () => {
     const next = pickDifferent(LINES, lastLineRef.current);
     lastLineRef.current = next;
-    setLine(next);
+    speak(next);
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {

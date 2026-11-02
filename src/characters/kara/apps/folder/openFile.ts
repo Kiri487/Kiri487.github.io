@@ -24,7 +24,9 @@ export function openFile(file: FolderFile, context: OpenFileContext): string | v
     }
     case "image": {
       const images: ViewerImage[] = context.ordered.flatMap(({ name, action: candidate }) =>
-        candidate.kind === "image" ? [{ name, src: candidate.src, url: candidate.url }] : [],
+        candidate.kind === "image"
+          ? [{ name, src: candidate.src, url: candidate.url, clickedSrc: candidate.clickedSrc }]
+          : [],
       );
       const args: ImageViewerArgs = { images, index: images.findIndex((image) => image.src === action.src) };
       context.openApp("imageViewer", { title: viewerTitle(file.name), args });
