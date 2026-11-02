@@ -192,10 +192,12 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
           }
         }
       } else if (motion.mode === "walk") {
-        const remaining = motion.targetX - motion.x;
+        // The screen may have shrunk since she set off, which would leave the target out of reach.
+        const targetX = Math.min(motion.targetX, maxX);
+        const remaining = targetX - motion.x;
         const step = WALK_SPEED * seconds;
         if (Math.abs(remaining) <= step) {
-          motion.x = motion.targetX;
+          motion.x = targetX;
           motion.mode = "idle";
           motion.nextDecision = now + restDuration();
           setWalking(false);
