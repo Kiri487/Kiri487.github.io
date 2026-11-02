@@ -31,6 +31,8 @@ function General() {
         <dd>Kiri</dd>
         <dt>Currently used by</dt>
         <dd>Kara</dd>
+        <dt>Motto</dt>
+        <dd>smoke weed everyday</dd>
         {educationData.filter(isCurrent).map((school) => (
           <Fragment key={school.school}>
             <dt>Studying at</dt>
