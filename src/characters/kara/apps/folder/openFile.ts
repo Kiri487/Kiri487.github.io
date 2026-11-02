@@ -18,7 +18,7 @@ export function openFile(file: FolderFile, context: OpenFileContext): string | v
   switch (action.kind) {
     case "text": {
       const args: NotepadArgs = { text: action.text };
-      context.openApp("asdf", { title: notepadTitle(file.name), args });
+      context.openApp("asdf", { instanceKey: file.id, title: notepadTitle(file.name), args });
       return;
     }
     case "image": {

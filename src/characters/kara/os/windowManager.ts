@@ -23,6 +23,8 @@ export interface WindowSize {
 export interface WindowState {
   id: string;
   appId: AppId;
+  /** Tells apart windows of the same app, such as one per chat partner. */
+  instanceKey?: string;
   title: string;
   /** Whatever the opener handed the app, such as which picture to show. Read through useWindow(). */
   args: unknown;
@@ -47,7 +49,7 @@ export interface OsState {
 }
 
 export type OsAction =
-  | { type: "open"; appId: AppId; title: string; args: unknown; size: WindowSize; viewport: Viewport }
+  | { type: "open"; appId: AppId; instanceKey?: string; title: string; args: unknown; size: WindowSize; viewport: Viewport }
   | { type: "close"; id: string }
   | { type: "focus"; id: string }
   | { type: "blur" }
@@ -102,7 +104,9 @@ function topVisibleWindowId(windows: WindowState[]): string | null {
 export function osReducer(state: OsState, action: OsAction): OsState {
   switch (action.type) {
     case "open": {
-      const existing = state.windows.find((win) => win.appId === action.appId);
+      const existing = state.windows.find(
+        (win) => win.appId === action.appId && win.instanceKey === action.instanceKey,
+      );
       if (existing) {
         return raise(state, existing.id, { minimized: false, title: action.title, args: action.args });
       }
@@ -115,6 +119,7 @@ export function osReducer(state: OsState, action: OsAction): OsState {
       const win: WindowState = {
         id,
         appId: action.appId,
+        instanceKey: action.instanceKey,
         title: action.title,
         args: action.args,
         x: clamp(offset, 0, action.viewport.width - width),

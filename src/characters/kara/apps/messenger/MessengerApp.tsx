@@ -63,7 +63,7 @@ function OfflineGroup() {
 
   const openChat = (partner: ChatPartnerId) => {
     const args: ChatArgs = { partner };
-    openApp("chat", { title: chatTitle(partner), args });
+    openApp("chat", { instanceKey: partner, title: chatTitle(partner), args });
   };
 
   return (

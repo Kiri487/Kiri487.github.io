@@ -13,6 +13,7 @@ function OsProvider({ children }: { children: ReactNode }) {
         dispatch({
           type: "open",
           appId,
+          instanceKey: options?.instanceKey,
           title: options?.title ?? windowTitle ?? title,
           // A new object each time, so an app can tell it was opened again.
           args: options?.args ?? (defaultArgs && { ...defaultArgs }),

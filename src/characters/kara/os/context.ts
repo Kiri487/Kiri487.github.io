@@ -3,13 +3,15 @@ import type { AppId } from "../apps/registry";
 import type { OsState } from "./windowManager";
 
 export interface OpenAppOptions {
+  /** Leave out for the app's one window. Each different key gets a window of its own. */
+  instanceKey?: string;
   title?: string;
   args?: unknown;
 }
 
 /** Stable for the life of the desktop, so components that only act on windows never re-render from state changes. */
 export interface OsActions {
-  /** An app has one window: opening it again brings that window back, with these options applied. */
+  /** Opening the same app and instanceKey again brings that window back, with these options applied. */
   openApp: (appId: AppId, options?: OpenAppOptions) => void;
   closeWindow: (id: string) => void;
   focusWindow: (id: string) => void;
