@@ -1,3 +1,4 @@
+import { IoPaw } from "react-icons/io5";
 import folder from "./assets/tango/folder.svg";
 import multimediaPlayer from "./assets/tango/multimedia-player.svg";
 import systemShutdown from "./assets/tango/system-shutdown.svg";
@@ -117,11 +118,7 @@ export function SearchIcon({ size }: IconProps) {
   return <TangoIcon src={search} size={size} />;
 }
 
-/** Kara's mark on the start button. A cat head instead of a certain four-colour flag. */
-export function CatMarkIcon({ size }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M3 2l4 4a7 7 0 0 1 6 0l4-4v10a7 7 0 0 1-14 0z" fill="#fff" />
-    </svg>
-  );
+/** Kara's mark on the start button, a paw instead of a certain four-colour flag. Also the avatars' placeholder. */
+export function PawIcon({ size }: IconProps) {
+  return <IoPaw size={size} color="#fff" aria-hidden="true" />;
 }

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { APP_IDS, APPS, type AppId } from "../apps/registry";
 import CharacterAvatar from "../CharacterAvatar";
-import { CatMarkIcon, PowerIcon } from "../icons";
+import { PawIcon, PowerIcon } from "../icons";
 import { useOs } from "./context";
 import { useDismiss } from "./useDismiss";
 
@@ -40,7 +40,7 @@ function StartMenu({ onTurnOff }: { onTurnOff: () => void }) {
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <CatMarkIcon size={20} />
+        <PawIcon size={18} />
         start?
       </button>
 
