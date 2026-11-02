@@ -1,0 +1,40 @@
+[data-skin="kara"] .kara-notepad {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+}
+
+[data-skin="kara"] .kara-notepad__menu-bar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  padding: 1px 3px;
+  border-bottom: 1px solid #d8d5c3;
+  background: var(--kara-menu-face);
+}
+
+[data-skin="kara"] .kara-notepad__menu {
+  padding: 2px 7px;
+  border: 0;
+  background: none;
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-notepad__menu:hover {
+  background: #5f7136;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-notepad__text {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 6px;
+  overflow: auto;
+  color: #000;
+  font-family: "Lucida Console", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.3;
+}

@@ -36,8 +36,11 @@ interface ExplorerProps {
   files: ExplorerFile[];
   taskGroups: ExplorerTaskGroup[];
   defaultSort: ExplorerSort;
-  /** `ordered` is the folder as currently sorted, so a viewer can step through it in the same order. */
-  onOpenFile: (file: ExplorerFile, ordered: ExplorerFile[]) => void;
+  /**
+   * `ordered` is the folder as currently sorted, so a viewer can step through it in the same order.
+   * Return a string to show it in the folder's message box.
+   */
+  onOpenFile: (file: ExplorerFile, ordered: ExplorerFile[]) => string | void;
 }
 
 function Explorer({ folderName, files, taskGroups, defaultSort, onOpenFile }: ExplorerProps) {
@@ -214,7 +217,10 @@ function Explorer({ folderName, files, taskGroups, defaultSort, onOpenFile }: Ex
                 view={view}
                 selected={file.id === selectedId}
                 onSelect={() => setSelectedId(file.id)}
-                onOpen={() => onOpenFile(file, ordered)}
+                onOpen={() => {
+                  const reply = onOpenFile(file, ordered);
+                  if (reply) setMessage(reply);
+                }}
               />
             ))}
           </div>
