@@ -323,6 +323,90 @@
   }
 }
 
+/* ---- Kara herself ---- */
+
+/* Above the icons and under the windows, because .kara-windows has a higher z-index. */
+[data-skin="kara"] .kara-pet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Above the windows, still under the taskbar, which comes later in the DOM. */
+[data-skin="kara"] .kara-pet--in-front {
+  z-index: 2;
+}
+
+/* Carried over everything, taskbar included, until she's dropped. */
+[data-skin="kara"] .kara-pet--dragging {
+  z-index: 3;
+  cursor: grabbing;
+}
+
+[data-skin="kara"] .kara-pet:focus-visible {
+  outline: 1px dotted #fff;
+}
+
+[data-skin="kara"] .kara-pet__sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+}
+
+[data-skin="kara"] .kara-pet__sprite img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+[data-skin="kara"] .kara-pet__sprite img[hidden] {
+  display: none;
+}
+
+[data-skin="kara"] .kara-pet--facing-right .kara-pet__sprite {
+  scale: -1 1;
+}
+
+[data-skin="kara"] .kara-pet--walking .kara-pet__sprite {
+  animation: kara-pet-hop 0.42s ease-in-out infinite alternate;
+}
+
+[data-skin="kara"] .kara-pet--dragging .kara-pet__sprite {
+  animation: kara-pet-dangle 0.5s ease-in-out infinite alternate;
+  transform-origin: 50% 0;
+}
+
+@keyframes kara-pet-hop {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 0 -12px;
+  }
+}
+
+@keyframes kara-pet-dangle {
+  from {
+    rotate: -7deg;
+  }
+  to {
+    rotate: 7deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin="kara"] .kara-pet__sprite {
+    animation: none !important;
+  }
+}
+
 /* ---- taskbar ---- */
 
 [data-skin="kara"] .kara-taskbar {
@@ -483,6 +567,44 @@
   margin-top: -1px;
   border-width: 8px 0 0 8px;
   border-top-color: #ffffe1;
+}
+
+/* For Kara's own balloon: she walks, so its width follows the words and it can open on either side. */
+[data-skin="kara"] .kara-pet__balloon {
+  right: 30px;
+  width: max-content;
+  max-width: 230px;
+  padding: 8px 10px;
+  font: 12px var(--kara-font);
+  text-align: left;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Her tail points at her mouth, about 56px from the sprite's left edge. */
+[data-skin="kara"] .kara-pet__balloon::before {
+  right: 40px;
+}
+
+[data-skin="kara"] .kara-pet__balloon::after {
+  right: 41px;
+}
+
+[data-skin="kara"] .kara-balloon--right {
+  right: auto;
+  left: 30px;
+}
+
+[data-skin="kara"] .kara-balloon--right::before {
+  right: auto;
+  left: 26px;
+  border-width: 10px 10px 0 0;
+}
+
+[data-skin="kara"] .kara-balloon--right::after {
+  right: auto;
+  left: 27px;
+  border-width: 8px 8px 0 0;
 }
 
 [data-skin="kara"] .kara-balloon__text {
