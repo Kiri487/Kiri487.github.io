@@ -25,7 +25,7 @@ class WindowErrorBoundary extends Component<WindowErrorBoundaryProps, WindowErro
         <ErrorIcon size={32} />
         <div>
           <p>This program has performed an illegal operation.</p>
-          <p>Close this window to continue.</p>
+          <p>Reload the page to continue.</p>
         </div>
       </div>
     );
