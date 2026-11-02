@@ -51,6 +51,8 @@ export function loadYouTubeApi(): Promise<YouTubeApi> {
     const fail = (message: string) => {
       window.clearTimeout(timeout);
       script.remove();
+      // The first script leaves this behind, and seeing it makes the next attempt skip loading the second one.
+      delete window.YT;
       apiPromise = null;
       reject(new Error(message));
     };
