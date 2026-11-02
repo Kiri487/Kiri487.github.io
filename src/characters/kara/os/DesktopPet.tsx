@@ -263,22 +263,31 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     setLine(text);
   }, []);
 
-  /** Unprompted remarks never interrupt: not while she's in the air, and not over something she's already saying. */
+  /**
+   * Unprompted remarks never interrupt: not while she's in the air, and not over something she's already saying.
+   * Returns whether she actually said it.
+   */
   const remark = useCallback(
     (text: string) => {
       const { mode } = motionRef.current;
-      if (mode === "drag" || mode === "fall" || isSpeakingRef.current) return;
+      if (mode === "drag" || mode === "fall" || isSpeakingRef.current) return false;
       speak(text);
+      return true;
     },
     [speak],
   );
 
+  /**
+   * Only counts as said once she has said it, so a missed reaction gets another chance next time. There's no queue
+   * on purpose: opening several windows at once gets a remark about the latest, not twelve seconds about all of them.
+   */
   const reactOnce = useCallback(
     (key: string, text: string) => {
       if (spokenRef.current.has(key)) return;
-      spokenRef.current.add(key);
       window.clearTimeout(reactionTimerRef.current);
-      reactionTimerRef.current = window.setTimeout(() => remark(text), REACTION_DELAY_MS);
+      reactionTimerRef.current = window.setTimeout(() => {
+        if (remark(text)) spokenRef.current.add(key);
+      }, REACTION_DELAY_MS);
     },
     [remark],
   );
