@@ -279,13 +279,11 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "\"Always Chill and Cool.\" Has been almost done with the same track since last quarter. I've stopped asking for an ETA.",
       "\"Always Chill and Cool.\" Average reply length: one word. Two, if it's urgent.",
       "\"Always Chill and Cool.\" Skips every standup. Ships at 3 a.m. Writes no documentation. Annoyingly, it works.",
-      "\"Always Chill and Cool.\" I sent Kuru a meeting invite. Declined. No message.",
     ],
     repliesZh: [
       "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問他進度了。",
       "「Always Chill and Cool.」平均回訊息長度：一個字，急的時候兩個字。",
       "「Always Chill and Cool.」早會從來不出席，凌晨三點才上線，文件一個字都沒寫，偏偏東西都能動，而且還不錯。",
-      "「Always Chill and Cool.」我寄會議邀請給 Kuru，被拒絕了，連一句回覆都沒有。",
     ],
   },
   {
