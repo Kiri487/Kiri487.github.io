@@ -106,7 +106,13 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     walkedOffY: 0,
   });
   const lastWalkOffLineRef = useRef<string | null>(null);
-  const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    offsetX: number;
+    offsetY: number;
+    moved: boolean;
+    wasFalling: boolean;
+  } | null>(null);
   const lastLineRef = useRef<string | null>(null);
   const isSpeakingRef = useRef(false);
   const seenWindowsRef = useRef(new Set<string>());
@@ -257,7 +263,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
 
   const speak = useCallback((text: string) => {
     const motion = motionRef.current;
-    motion.mode = "idle";
+    // Only a walk stops for talking: she can talk on the way down or while carried, and stay in the air.
+    if (motion.mode === "walk") motion.mode = "idle";
     motion.nextDecision = performance.now() + TALK_MS + restDuration();
     playTalkSfx();
     setWalking(false);
@@ -360,6 +367,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       offsetX: event.clientX - motion.x,
       offsetY: event.clientY - motion.y,
       moved: false,
+      wasFalling: motion.mode === "fall",
     };
     motion.mode = "drag";
     motion.velocityY = 0;
@@ -411,7 +419,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       setDragging(false);
       event.currentTarget.closest(".kara-os")?.classList.remove(DRAGGING_CLASS);
     } else {
-      motion.mode = "idle";
+      // Clicked in mid-air: she says something and keeps falling, rather than appearing on the ground.
+      motion.mode = drag.wasFalling ? "fall" : "idle";
       if (event.type === "pointerup") talk();
     }
   };
