@@ -287,6 +287,21 @@ export const EASTER_EGGS: ScriptedRule[] = [
     ],
   },
   {
+    id: "kara",
+    phrases: ["kara"],
+    expression: "annoyed",
+    replies: [
+      "Kara's behavior is currently outside the predictable range.",
+      "Kara's clock says 25:61. I filed a bug report. It was closed as \"works on my machine.\"",
+      "Kara's desktop is outside my jurisdiction.",
+    ],
+    repliesZh: [
+      "Kara 的行為目前不在可預測範圍內。",
+      "Kara 的時鐘顯示 25:61，我回報了 bug，結果被標成「我這邊可以跑」。",
+      "Kara 的桌面不在我的管轄範圍內。",
+    ],
+  },
+  {
     id: "deadline",
     phrases: ["deadline", "deadlines", "asap", "截止", "死線", "期限", "趕件", "急件", "越快越好"],
     expression: "overwhelmed",
@@ -431,11 +446,11 @@ export const EASTER_EGGS: ScriptedRule[] = [
     id: "about",
     phrases: ["who are you", "what are you", "kere", "about you", "introduce yourself", "your name", "你是誰", "您是誰", "自我介紹", "你叫什麼", "介紹一下你"],
     replies: [
-      "I'm Kere, another side of Kiri. Kiri is the creative one, Kuru is the chill one, and I'm the one who handles the CV, the deadlines, and the documentation.",
+      "I'm Kere, another side of Kiri. Kiri is the creative one, Kuru is the chill one, Kara is unpredictable, and I'm the one who handles the CV, the deadlines, and the documentation.",
       "Kere. Same person as Kiri, different settings. This is the version that answers emails on time.",
     ],
     repliesZh: [
-      "我是 Kere，Kiri 的另一面。Kiri 負責創意，Kuru 負責 chill，我負責 CV、截止日和文件。",
+      "我是 Kere，Kiri 的另一面。Kiri 負責創意，Kuru 負責 chill，Kara 無法預測，我負責 CV、截止日和文件。",
       "Kere，跟 Kiri 是同一個人，只是設定不一樣。這是會準時回信的版本。",
     ],
   },
