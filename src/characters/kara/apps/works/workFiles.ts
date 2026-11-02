@@ -14,6 +14,12 @@ function toFileStem(title: string): string {
   return title.replace(/\s*:\s*/g, " - ").replace(/[\\/*?"<>|]/g, "").trim();
 }
 
+/** The data's previews are far larger than a thumbnail's 96px box. Both hosts keep the proportions at these sizes. */
+function toThumbnail(url: string): string {
+  if (url.includes("pbs.twimg.com")) return url.replace(/name=[^&]+/, "name=240x240");
+  return url.replace("maxresdefault", "mqdefault");
+}
+
 function buildWorkFiles(): FolderFile[] {
   const timesUsed = new Map<string, number>();
 
@@ -30,7 +36,7 @@ function buildWorkFiles(): FolderFile[] {
       typeName,
       date: work.date,
       icon,
-      thumbnail: work.thumbnail,
+      thumbnail: toThumbnail(work.thumbnail),
       // Pictures open in the viewer, everything else leaves. The data holds X's small preview, and the viewer has room for the large one.
       action:
         icon === ImageFileIcon
