@@ -6,7 +6,7 @@ import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
 import { isFourTwenty } from "./fourTwenty";
 import { findLedge, refreshLedge, type Ledge } from "./petLedges";
-import { playGrabSfx, playLandSfx, playTalkSfx, unlockPetSfx } from "./petSfx";
+import { playGrabSfx, playLandSfx, playTalkSfx } from "./petSfx";
 import { useIsPhone } from "./useIsPhone";
 import { readViewport } from "./windowManager";
 
@@ -349,7 +349,6 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     os.blurWindows();
     if (event.button !== 0) return;
 
-    unlockPetSfx();
     const motion = motionRef.current;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {

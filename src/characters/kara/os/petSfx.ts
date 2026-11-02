@@ -1,4 +1,4 @@
-/* Kara's sound effects: short synthesized tones, no audio files. Only ever a reaction to being touched. */
+/* Kara's sound effects: short synthesized tones, no audio files. If the browser blocks one, it's simply not heard. */
 
 /** Fixed level, no volume control, well under the radio. */
 const VOLUME = 0.1;
@@ -11,11 +11,6 @@ function getCtx(): AudioContext {
   if (!ctx) ctx = new AudioContext();
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
-}
-
-/** Call on a press, so a sound played later, when she lands, isn't blocked by the browser. */
-export function unlockPetSfx() {
-  getCtx();
 }
 
 /** One note sliding between two pitches: quick attack, exponential decay. */
