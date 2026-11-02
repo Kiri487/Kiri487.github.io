@@ -60,7 +60,7 @@ const NotepadApp = lazy(() => import("./notepad/NotepadApp"));
 
 /** To add an app: give it a folder here, then an entry below (and optionally a desktop icon). */
 export const APPS: Record<AppId, AppDefinition> = {
-  radio: { title: "Kara Radio", icon: RadioIcon, component: RadioApp, size: { width: 520, height: 600 }, minSize: { width: 260, height: 450 }, startMenu: "left" },
+  radio: { title: "Kara Radio", icon: RadioIcon, component: RadioApp, size: { width: 520, height: 485 }, minSize: { width: 260, height: 450 }, startMenu: "left" },
   messenger: { title: "Kara Messenger", icon: MessengerIcon, component: MessengerApp, size: { width: 300, height: 440 }, startMenu: "left" },
   notepad: { title: "asdf.txt - Notepad", icon: NotepadIcon, component: NotepadApp, size: { width: 440, height: 480 }, startMenu: "left" },
   newFolder: { title: "新增資料夾 (3)", defaultArgs: { folderId: "newFolder" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "left" },

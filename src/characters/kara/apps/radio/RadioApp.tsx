@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Poin
 import { SpeakerIcon } from "../../icons";
 import { useWindow } from "../../os/context";
 import { openGesture } from "../../os/openGesture";
-import { RADIO_TRACKS } from "./tracks";
+import { shuffledTracks } from "./tracks";
 import { loadYouTubeApi, PLAYER_STATE, type YouTubePlayer } from "./youtubePlayer";
 import "./radio.css";
 
 type RadioStatus = "tuning" | "ready" | "playing" | "paused" | "skipping" | "noSignal";
 
-const INITIAL_VOLUME = 70;
+const INITIAL_VOLUME = 50;
 const PROGRESS_INTERVAL_MS = 500;
 
 const STATUS_TEXT: Record<Exclude<RadioStatus, "playing">, string> = {
@@ -60,6 +60,8 @@ function RadioApp() {
   const resumeOnRestoreRef = useRef(false);
   const isMinimizedRef = useRef(isMinimized);
 
+  // Kept for as long as the window stays open: only closing it and coming back reshuffles.
+  const [tracks] = useState(shuffledTracks);
   const [index, setIndex] = useState(0);
   const [status, setStatus] = useState<RadioStatus>("tuning");
   const [volume, setVolume] = useState(INITIAL_VOLUME);
@@ -82,13 +84,13 @@ function RadioApp() {
   }, []);
 
   const playTrack = useCallback((next: number) => {
-    const wrapped = (next + RADIO_TRACKS.length) % RADIO_TRACKS.length;
+    const wrapped = (next + tracks.length) % tracks.length;
     indexRef.current = wrapped;
     setIndex(wrapped);
     setProgress({ current: 0, duration: 0 });
     setScrub(null);
-    playerRef.current?.loadVideoById(RADIO_TRACKS[wrapped].videoId);
-  }, []);
+    playerRef.current?.loadVideoById(tracks[wrapped].videoId);
+  }, [tracks]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -105,7 +107,7 @@ function RadioApp() {
         new api.Player(target, {
           width: "100%",
           height: "100%",
-          videoId: RADIO_TRACKS[indexRef.current].videoId,
+          videoId: tracks[indexRef.current].videoId,
           playerVars: { controls: 0, playsinline: 1, rel: 0, origin: window.location.origin },
           events: {
             onReady: ({ target: player }) => {
@@ -113,6 +115,8 @@ function RadioApp() {
               player.setVolume(INITIAL_VOLUME);
               syncProgress();
               setStatus("ready");
+              // A radio is already on when you get to it. If the browser refuses, the Play button is right there.
+              player.playVideo();
             },
             onStateChange: ({ data }) => {
               if (data === PLAYER_STATE.PLAYING) {
@@ -134,9 +138,9 @@ function RadioApp() {
             },
             // Mostly videos whose owner doesn't allow embedding. Stop once every track has failed in a row.
             onError: ({ data }) => {
-              console.warn(`Kara Radio: YouTube error ${data} on ${RADIO_TRACKS[indexRef.current].videoId}`);
+              console.warn(`Kara Radio: YouTube error ${data} on ${tracks[indexRef.current].videoId}`);
               failuresRef.current += 1;
-              if (failuresRef.current >= RADIO_TRACKS.length) {
+              if (failuresRef.current >= tracks.length) {
                 setStatus("noSignal");
                 return;
               }
@@ -157,7 +161,7 @@ function RadioApp() {
       playerRef.current = null;
       host.replaceChildren();
     };
-  }, [playTrack, syncProgress]);
+  }, [playTrack, syncProgress, tracks]);
 
   // YouTube's policies don't allow playing from a player that isn't on screen, so a minimized radio waits.
   useEffect(() => {
@@ -208,7 +212,7 @@ function RadioApp() {
       <div ref={hostRef} className="kara-radio__stage" />
 
       <div className="kara-radio__status" aria-live="polite">
-        {playing ? `Now playing: ${RADIO_TRACKS[index].label}` : STATUS_TEXT[status]}
+        {playing ? `Now playing: ${tracks[index].label}` : STATUS_TEXT[status]}
       </div>
 
       <div className="kara-radio__progress">
@@ -280,7 +284,7 @@ function RadioApp() {
       </div>
 
       <ol className="kara-radio__tracks">
-        {RADIO_TRACKS.map((track, trackIndex) => (
+        {tracks.map((track, trackIndex) => (
           <TrackRow
             key={track.videoId}
             name={`${trackIndex + 1}. ${track.label}`}
