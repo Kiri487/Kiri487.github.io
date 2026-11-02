@@ -2,6 +2,9 @@ import { createContext, useContext } from "react";
 import type { AppId } from "../apps/registry";
 import type { OsState, WindowRect } from "./windowManager";
 
+/** Set on the desktop's root while a drag is under way, so iframes let the pointer through. */
+export const DRAGGING_CLASS = "kara-os--dragging";
+
 export interface OpenAppOptions {
   /** Leave out for the app's one window. Each different key gets a window of its own. */
   instanceKey?: string;

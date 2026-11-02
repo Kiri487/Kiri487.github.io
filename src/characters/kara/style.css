@@ -103,13 +103,16 @@
   text-shadow: 1px 1px 2px #000, 0 0 2px #000;
 }
 
-[data-skin="kara"] .kara-icon--selected .kara-icon__image {
-  filter: brightness(0.7) sepia(0.6) hue-rotate(40deg);
+[data-skin="kara"] .kara-icon--selected {
+  background: rgba(37, 46, 18, 0.55);
+  box-shadow: inset 0 0 0 1px #252e12;
 }
 
-[data-skin="kara"] .kara-icon--selected .kara-icon__label {
-  background: #5f7136;
-  text-shadow: none;
+[data-skin="kara"] .kara-desktop__selection {
+  position: absolute;
+  border: 1px solid #252e12;
+  background: rgba(37, 46, 18, 0.45);
+  pointer-events: none;
 }
 
 [data-skin="kara"] .kara-icon:focus-visible {

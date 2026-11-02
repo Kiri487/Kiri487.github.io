@@ -1,6 +1,6 @@
 import { memo, Suspense, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS } from "../apps/registry";
-import { useOs, WindowContext, type WindowApi } from "./context";
+import { DRAGGING_CLASS, useOs, WindowContext, type WindowApi } from "./context";
 import {
   clamp,
   clampPosition,
@@ -29,7 +29,6 @@ interface ResizeState {
   rect: WindowRect;
 }
 
-const DRAGGING_CLASS = "kara-os--dragging";
 const RESIZE_DIRECTIONS: ResizeDirection[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
 function Window({ win, focused }: { win: WindowState; focused: boolean }) {
