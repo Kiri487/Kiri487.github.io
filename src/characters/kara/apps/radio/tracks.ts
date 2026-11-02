@@ -6,7 +6,7 @@ export interface RadioTrack {
 
 /** To add a song: its id is the part after youtu.be/ in the link. */
 export const RADIO_TRACKS: RadioTrack[] = [
-  { videoId: "PKQPey6L42M", label: "very serious coconut briefing.mp3" },
+  { videoId: "PKQPey6L42M", label: "very_serious_coconut_briefing.mp3" },
   { videoId: "CZlfbep2LdU", label: "definitely_not_a_sheep.mp3" },
   { videoId: "dQw4w9WgXcQ", label: "important_meeting_recording.mp3" },
   { videoId: "ZZ5LpwO-An4", label: "customer_support_hold_music.mp3" },
@@ -18,6 +18,9 @@ export const RADIO_TRACKS: RadioTrack[] = [
   { videoId: "loV3uHuvIpI", label: "tv_static_do_not_adjust.mp3" },
   { videoId: "ns4ZgoA8kOQ", label: "soft_opening_no_refunds.mp3" },
   { videoId: "REHaWSvWkF0", label: "not_a_cover.mp3" },
+  { videoId: "QZXc39hT8t4", label: "motto_source_file.mp3" },
+  { videoId: "nC-bVtpIMd4", label: "totally_normal_flowers.mp3" },
+  { videoId: "SFmDUtzNO2o", label: "very_formal_burger_hymn.mp3" },
 ];
 
 /** A new running order for each time the radio opens. */
