@@ -41,5 +41,10 @@ export function openFile(file: FolderFile, context: OpenFileContext): string | v
     case "message":
       if (action.restores) context.restore(file.id);
       return action.message;
+    case "dynamicMessage": {
+      const { message, restores } = action.resolve();
+      if (restores) context.restore(file.id);
+      return message;
+    }
   }
 }

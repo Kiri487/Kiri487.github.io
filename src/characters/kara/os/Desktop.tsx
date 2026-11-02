@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useSkin } from "../../../SkinContext";
 import { APPS, DESKTOP_ICONS } from "../apps/registry";
 import { DRAGGING_CLASS, useOs } from "./context";
 import { openGesture } from "./openGesture";
@@ -40,6 +41,7 @@ function ShortcutArrow() {
 
 function Desktop() {
   const os = useOs();
+  const { setSkin } = useSkin();
   const [selectedLabels, setSelectedLabels] = useState(NOTHING_SELECTED);
   const [selectionBox, setSelectionBox] = useState<Box | null>(null);
   const dragRef = useRef<SelectionDrag | null>(null);
@@ -109,8 +111,9 @@ function Desktop() {
       onPointerUp={handleDesktopPointerEnd}
       onPointerCancel={handleDesktopPointerEnd}
     >
-      {DESKTOP_ICONS.map(({ label, appId, x, y, shortcut }) => {
-        const Icon = APPS[appId].icon;
+      {DESKTOP_ICONS.map((item) => {
+        const { label, x, y, shortcut } = item;
+        const Icon = "skin" in item ? item.icon : APPS[item.appId].icon;
         return (
           <button
             key={label}
@@ -123,7 +126,7 @@ function Desktop() {
               top: `${y}%`,
             }}
             onPointerDown={() => setSelectedLabels(new Set([label]))}
-            {...openGesture(() => os.openApp(appId))}
+            {...openGesture(() => ("skin" in item ? setSkin(item.skin) : os.openApp(item.appId)))}
           >
             <span className="kara-icon__image">
               <Icon size={40} />

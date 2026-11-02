@@ -1,4 +1,5 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
+import type { Skin } from "../../../SkinContext";
 import {
   BinIcon,
   ComputerIcon,
@@ -40,14 +41,17 @@ export interface AppDefinition {
   startMenu?: "left" | "right";
 }
 
-export interface DesktopIconDefinition {
+export type DesktopIconDefinition = {
   label: string;
-  appId: AppId;
   /** Position inside the desktop area, in percent. Placed by hand on purpose: random would read as a bug. */
   x: number;
   y: number;
   shortcut?: boolean;
-}
+} & (
+  | { appId: AppId }
+  /** Leaves this computer for another character's page. */
+  | { skin: Skin; icon: ComponentType<IconProps> }
+);
 
 const RadioApp = lazy(() => import("./radio/RadioApp"));
 const FolderApp = lazy(() => import("./folder/FolderApp"));
@@ -85,4 +89,5 @@ export const DESKTOP_ICONS: DesktopIconDefinition[] = [
   { label: "kara messenger", appId: "messenger", x: 24, y: 63 },
   { label: "asdf.txt", appId: "notepad", x: 4.1, y: 70.7 },
   { label: "Recycle Bin", appId: "recycleBin", x: 88.4, y: 69 },
+  { label: "totally_normal_cv.pdf", skin: "kere", icon: NotepadIcon, x: 37, y: 38, shortcut: true },
 ];

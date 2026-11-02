@@ -141,7 +141,14 @@ export const FOLDERS: Record<FolderId, Folder> = {
         typeName: "Day of the Week",
         date: "Tuesday (uninstalled)",
         icon: BrokenImageIcon,
-        action: { kind: "message", message: "Tuesday cannot be restored. Please stop asking." },
+        action: {
+          kind: "dynamicMessage",
+          // Only on a real Tuesday, which is the one day it's around to restore.
+          resolve: () =>
+            new Date().getDay() === 2
+              ? { message: "It's back. Don't get used to it.", restores: true }
+              : { message: "Tuesday cannot be restored. Please stop asking.", restores: false },
+        },
       },
       {
         id: "printer",

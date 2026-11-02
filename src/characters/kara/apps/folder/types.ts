@@ -16,7 +16,9 @@ export type FileAction =
   | { kind: "link"; url: string }
   | { kind: "folder"; folderId: FolderId }
   /** `restores` also takes the file out of its folder until the window closes. */
-  | { kind: "message"; message: string; restores?: boolean };
+  | { kind: "message"; message: string; restores?: boolean }
+  /** The same, but decided when it's opened, because the answer depends on the day. */
+  | { kind: "dynamicMessage"; resolve: () => { message: string; restores: boolean } };
 
 export interface FolderFile extends ExplorerFile {
   action: FileAction;

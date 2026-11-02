@@ -54,6 +54,7 @@ function TrackRow({
 function RadioApp() {
   const { isMinimized } = useWindow();
   const hostRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const indexRef = useRef(0);
   const failuresRef = useRef(0);
@@ -179,6 +180,18 @@ function RadioApp() {
     }
   }, [isMinimized]);
 
+  // Moves only the list. scrollIntoView could also move the desktop behind it.
+  useEffect(() => {
+    const list = listRef.current;
+    const current = list?.querySelector<HTMLElement>(".kara-radio__track--current");
+    if (!list || !current) return;
+
+    const top = current.offsetTop - list.offsetTop;
+    const bottom = top + current.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+  }, [index]);
+
   const canControl = status !== "tuning" && status !== "noSignal";
   const playing = status === "playing";
 
@@ -283,7 +296,7 @@ function RadioApp() {
         </span>
       </div>
 
-      <ol className="kara-radio__tracks">
+      <ol ref={listRef} className="kara-radio__tracks">
         {tracks.map((track, trackIndex) => (
           <TrackRow
             key={track.videoId}
