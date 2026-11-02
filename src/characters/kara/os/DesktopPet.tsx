@@ -278,12 +278,12 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
 
   /**
    * Unprompted remarks never interrupt: not while she's in the air, and not over something she's already saying.
-   * Returns whether she actually said it.
+   * Nor does she talk from behind a phone's full-screen window. Returns whether she actually said it.
    */
   const remark = useCallback(
     (text: string) => {
       const { mode } = motionRef.current;
-      if (mode === "drag" || mode === "fall" || isSpeakingRef.current) return false;
+      if (mode === "drag" || mode === "fall" || isSpeakingRef.current || pausedRef.current) return false;
       speak(text);
       return true;
     },
