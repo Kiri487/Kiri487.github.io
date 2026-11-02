@@ -343,11 +343,11 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   }, [shuttingDown, reactOnce]);
 
   useEffect(() => {
-    let wasFourTwenty = false;
+    let said = false;
     const timer = window.setInterval(() => {
-      const now = isFourTwenty(new Date());
-      if (now && !wasFourTwenty) remark(FOUR_TWENTY_LINE);
-      wasFourTwenty = now;
+      // Keeps trying for the whole minute, in case she was busy when it started.
+      if (!isFourTwenty(new Date())) said = false;
+      else if (!said) said = remark(FOUR_TWENTY_LINE);
     }, CLOCK_CHECK_MS);
     return () => window.clearInterval(timer);
   }, [remark]);
