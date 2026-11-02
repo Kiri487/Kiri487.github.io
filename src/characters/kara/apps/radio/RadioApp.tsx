@@ -16,7 +16,8 @@ const STATUS_TEXT: Record<Exclude<RadioStatus, "playing">, string> = {
   ready: "Ready when you are.",
   paused: "Taking a break. It's not you.",
   skipping: "This station doesn't want to be here. Skipping.",
-  noSignal: "No signal.",
+  // True, too: reopening the window tries again.
+  noSignal: "No signal. Have you tried turning it off and on again?",
 };
 
 /** Past the end of its range, like the taskbar's clock: 1 minute 14 seconds reads 1:74. */
