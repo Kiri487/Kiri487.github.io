@@ -17,6 +17,7 @@ const GRAVITY = 2400;
 const BOUNCE = 0.35;
 const MIN_BOUNCE_SPEED = 180;
 const DRAG_THRESHOLD = 4;
+const FACING_DEAD_ZONE = 2;
 const MIN_WALK_DISTANCE = 80;
 const MIN_REST_MS = 2500;
 const MAX_REST_MS = 7000;
@@ -268,7 +269,10 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     }
 
     const viewport = readViewport();
-    motion.x = Math.min(Math.max(x, 0), Math.max(0, viewport.width - WIDTH));
+    const nextX = Math.min(Math.max(x, 0), Math.max(0, viewport.width - WIDTH));
+    // A small dead zone, so a shaky hand holding her still doesn't make her flip back and forth.
+    if (Math.abs(nextX - motion.x) >= FACING_DEAD_ZONE) setFacingRight(nextX > motion.x);
+    motion.x = nextX;
     motion.y = Math.min(Math.max(y, 0), viewport.height - HEIGHT);
   };
 
