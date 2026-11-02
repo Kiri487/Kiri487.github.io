@@ -406,15 +406,102 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 7px;
+  gap: 2px;
   height: 100%;
-  padding: 0 12px;
+  padding: 0 7px;
   border-left: 1px solid var(--kara-olive-dark);
   background: linear-gradient(#8a9c5e, #68793c);
 }
 
+[data-skin="kara"] .kara-tray__slot {
+  position: relative;
+  display: flex;
+}
+
+[data-skin="kara"] .kara-tray__button {
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-tray__button:hover,
+[data-skin="kara"] .kara-tray__button[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 [data-skin="kara"] .kara-tray__clock {
   font-variant-numeric: tabular-nums;
+}
+
+/* Right-aligned to its icon and growing left, so it stays on screen even for the clock. */
+[data-skin="kara"] .kara-balloon {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 11px);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 230px;
+  padding: 8px 6px 8px 10px;
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: #ffffe1;
+  box-shadow: 2px 2px 5px rgba(30, 30, 10, 0.4);
+  color: #000;
+  line-height: 1.35;
+  text-shadow: none;
+  cursor: pointer;
+}
+
+/* The tail: a black triangle with a slightly smaller yellow one on top of it. */
+[data-skin="kara"] .kara-balloon::before,
+[data-skin="kara"] .kara-balloon::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-color: transparent;
+}
+
+[data-skin="kara"] .kara-balloon::before {
+  right: 11px;
+  border-width: 10px 0 0 10px;
+  border-top-color: #000;
+}
+
+[data-skin="kara"] .kara-balloon::after {
+  right: 12px;
+  margin-top: -1px;
+  border-width: 8px 0 0 8px;
+  border-top-color: #ffffe1;
+}
+
+[data-skin="kara"] .kara-balloon__text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-balloon__close {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #a7a58f;
+  border-radius: 2px;
+  background: none;
+  color: #000;
+  line-height: 1;
+}
+
+[data-skin="kara"] .kara-balloon__close:hover {
+  background: #f3f0c8;
 }
 
 /* ---- start menu ---- */

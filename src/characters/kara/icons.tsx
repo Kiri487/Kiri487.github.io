@@ -17,6 +17,8 @@ import goUp from "./assets/tango/go-up.svg";
 import search from "./assets/tango/system-search.svg";
 import computer from "./assets/tango/computer.svg";
 import groupChat from "./assets/tango/internet-group-chat.svg";
+import printer from "./assets/tango/printer.svg";
+import dialogWarning from "./assets/tango/dialog-warning.svg";
 
 /**
  * App and system icons come from the Tango icon theme 0.8.90 (public domain, see assets/tango/COPYING).
@@ -73,6 +75,14 @@ export function MessengerIcon({ size }: IconProps) {
 
 export function ErrorIcon({ size }: IconProps) {
   return <TangoIcon src={dialogError} size={size} />;
+}
+
+export function WarningIcon({ size }: IconProps) {
+  return <TangoIcon src={dialogWarning} size={size} />;
+}
+
+export function PrinterIcon({ size }: IconProps) {
+  return <TangoIcon src={printer} size={size} />;
 }
 
 export function BrokenImageIcon({ size }: IconProps) {

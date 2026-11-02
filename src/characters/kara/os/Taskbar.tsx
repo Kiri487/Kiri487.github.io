@@ -1,8 +1,7 @@
 import { APPS } from "../apps/registry";
-import { SpeakerIcon } from "../icons";
-import Clock from "./Clock";
 import { useOs, useOsState } from "./context";
 import StartMenu from "./StartMenu";
+import Tray from "./Tray";
 
 function Taskbar({ onTurnOff }: { onTurnOff: () => void }) {
   const os = useOs();
@@ -31,10 +30,7 @@ function Taskbar({ onTurnOff }: { onTurnOff: () => void }) {
         })}
       </div>
 
-      <div className="kara-tray">
-        <SpeakerIcon size={16} />
-        <Clock />
-      </div>
+      <Tray />
     </div>
   );
 }
