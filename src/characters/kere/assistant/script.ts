@@ -6,7 +6,7 @@ import type { Localized, QuickOption, ScriptedRule } from "./types";
    characters (one character hides inside too many other words) and written in Traditional Chinese.
    ============================================================ */
 
-/** One is picked at random when the chat first opens. "Kere" looks like a typo of "Kiri", so each says who she is. */
+/** One is picked at random when the chat first opens. "Kere" looks like a typo of "Kiri", so each says who he is. */
 export const GREETINGS = [
   "Hello. I'm Kere, Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
   "Hello. I'm Kere — not a typo, just Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
@@ -282,7 +282,7 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "\"Always Chill and Cool.\" I sent Kuru a meeting invite. Declined. No message.",
     ],
     repliesZh: [
-      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問她進度了。",
+      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問他進度了。",
       "「Always Chill and Cool.」平均回訊息長度：一個字，急的時候兩個字。",
       "「Always Chill and Cool.」早會從來不出席，凌晨三點才上線，文件一個字都沒寫，偏偏東西都能動，而且還不錯。",
       "「Always Chill and Cool.」我寄會議邀請給 Kuru，被拒絕了，連一句回覆都沒有。",
