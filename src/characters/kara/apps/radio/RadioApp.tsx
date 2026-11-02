@@ -98,6 +98,7 @@ function RadioApp() {
     const host = hostRef.current;
     if (!host) return;
     let cancelled = false;
+    let constructed: YouTubePlayer | null = null;
 
     loadYouTubeApi()
       .then((api) => {
@@ -106,13 +107,14 @@ function RadioApp() {
         const target = document.createElement("div");
         host.appendChild(target);
 
-        new api.Player(target, {
+        constructed = new api.Player(target, {
           width: "100%",
           height: "100%",
           videoId: tracks[indexRef.current].videoId,
           playerVars: { controls: 0, playsinline: 1, rel: 0, origin: window.location.origin },
           events: {
             onReady: ({ target: player }) => {
+              if (cancelled) return;
               playerRef.current = player;
               player.setVolume(INITIAL_VOLUME);
               syncProgress();
@@ -159,7 +161,8 @@ function RadioApp() {
 
     return () => {
       cancelled = true;
-      playerRef.current?.destroy();
+      // Closed before it was ready: the player's methods may not exist yet.
+      (playerRef.current ?? constructed)?.destroy?.();
       playerRef.current = null;
       host.replaceChildren();
     };
