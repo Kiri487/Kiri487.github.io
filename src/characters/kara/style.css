@@ -59,6 +59,16 @@
   color: var(--kara-ink);
 }
 
+/* A tap shouldn't paint anything. Keyboard users still get their outlines through :focus-visible. */
+[data-skin="kara"] .kara-os {
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-skin="kara"] .kara-os button:focus:not(:focus-visible),
+[data-skin="kara"] .kara-os a:focus:not(:focus-visible) {
+  outline: none;
+}
+
 [data-skin="kara"] .kara-os--dragging iframe {
   pointer-events: none;
 }
@@ -101,6 +111,23 @@
 [data-skin="kara"] .kara-icon__label {
   padding: 0 2px;
   text-shadow: 1px 1px 2px #000, 0 0 2px #000;
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. Desktop.tsx moves each icon a little off its spot. */
+@media (max-width: 640px) {
+  [data-skin="kara"] .kara-desktop {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--kara-icon-width));
+    grid-auto-rows: max-content;
+    justify-content: space-evenly;
+    gap: 14px 4px;
+    padding: 14px 6px;
+    overflow-y: auto;
+  }
+
+  [data-skin="kara"] .kara-icon {
+    position: static;
+  }
 }
 
 [data-skin="kara"] .kara-icon--selected {
@@ -198,6 +225,15 @@
 
 [data-skin="kara"] .kara-window__button--close {
   background: linear-gradient(135deg, #ec8e72, #c23a17);
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. Big enough for a finger, inside the same title bar. */
+@media (max-width: 640px) {
+  [data-skin="kara"] .kara-window__button {
+    width: 36px;
+    height: 24px;
+    margin-left: 4px;
+  }
 }
 
 [data-skin="kara"] .kara-window:not(.kara-window--focused) .kara-window__button {

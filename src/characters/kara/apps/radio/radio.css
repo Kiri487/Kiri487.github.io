@@ -101,6 +101,21 @@
   list-style: none;
 }
 
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. A tall screen goes to the list, not to black bars around the video. */
+@media (max-width: 640px) {
+  [data-skin="kara"] .kara-radio__stage {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  [data-skin="kara"] .kara-radio__tracks {
+    flex: 1;
+    height: auto;
+    min-height: 76px;
+  }
+}
+
 [data-skin="kara"] .kara-radio__track {
   display: flex;
   justify-content: space-between;

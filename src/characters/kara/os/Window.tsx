@@ -10,6 +10,7 @@ import {
   type WindowRect,
   type WindowState,
 } from "./windowManager";
+import { useIsPhone } from "./useIsPhone";
 import WindowErrorBoundary from "./WindowErrorBoundary";
 
 interface DragState {
@@ -37,7 +38,10 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
   const dragRef = useRef<DragState | null>(null);
   const resizeRef = useRef<ResizeState | null>(null);
 
-  const { id, args, minimized, maximized } = win;
+  const isPhone = useIsPhone();
+  const { id, args, minimized } = win;
+  // On a phone every window fills the screen, whatever it was doing before the screen got this small.
+  const maximized = win.maximized || isPhone;
   const Icon = APPS[win.appId].icon;
   const App = APPS[win.appId].component;
 
@@ -180,7 +184,7 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
         onPointerUp={handleTitlePointerEnd}
         onPointerCancel={handleTitlePointerEnd}
         onDoubleClick={(event) => {
-          if (!(event.target as Element).closest("button")) os.toggleMaximizeWindow(id);
+          if (!isPhone && !(event.target as Element).closest("button")) os.toggleMaximizeWindow(id);
         }}
       >
         <Icon size={16} />
@@ -190,24 +194,26 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
             <rect x="0" y="6" width="6" height="3" fill="currentColor" />
           </svg>
         </button>
-        <button
-          type="button"
-          className="kara-window__button"
-          aria-label={maximized ? "Restore" : "Maximize"}
-          onClick={() => os.toggleMaximizeWindow(id)}
-        >
-          {maximized ? (
-            <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
-              <path d="M3 3V1h7v6H8M1 4h7v6H1z" fill="none" stroke="currentColor" />
-              <path d="M3 1h7M1 4h7" stroke="currentColor" strokeWidth="2" />
-            </svg>
-          ) : (
-            <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
-              <rect x="0.5" y="0.5" width="10" height="10" fill="none" stroke="currentColor" />
-              <rect x="0" y="0" width="11" height="3" fill="currentColor" />
-            </svg>
-          )}
-        </button>
+        {!isPhone && (
+          <button
+            type="button"
+            className="kara-window__button"
+            aria-label={maximized ? "Restore" : "Maximize"}
+            onClick={() => os.toggleMaximizeWindow(id)}
+          >
+            {maximized ? (
+              <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
+                <path d="M3 3V1h7v6H8M1 4h7v6H1z" fill="none" stroke="currentColor" />
+                <path d="M3 1h7M1 4h7" stroke="currentColor" strokeWidth="2" />
+              </svg>
+            ) : (
+              <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
+                <rect x="0.5" y="0.5" width="10" height="10" fill="none" stroke="currentColor" />
+                <rect x="0" y="0" width="11" height="3" fill="currentColor" />
+              </svg>
+            )}
+          </button>
+        )}
         <button
           type="button"
           className="kara-window__button kara-window__button--close"

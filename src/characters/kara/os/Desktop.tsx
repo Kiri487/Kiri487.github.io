@@ -3,6 +3,7 @@ import { useSkin } from "../../../SkinContext";
 import { APPS, DESKTOP_ICONS } from "../apps/registry";
 import { DRAGGING_CLASS, useOs } from "./context";
 import { openGesture } from "./openGesture";
+import { useIsPhone } from "./useIsPhone";
 
 /** How far the pointer must travel before a press on the desktop counts as a drag and not a click. */
 const DRAG_THRESHOLD = 3;
@@ -30,6 +31,22 @@ function boxesTouch(a: Box, b: Box): boolean {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
+/** Too narrow a screen for the mess, so the icons get a grid, each a little off its spot. Fixed, so they never shuffle around. */
+const PHONE_OFFSETS = [
+  { x: 4, y: -5 },
+  { x: -6, y: 7 },
+  { x: 7, y: 2 },
+  { x: -4, y: -7 },
+  { x: 2, y: 8 },
+  { x: 8, y: -4 },
+  { x: -7, y: 4 },
+];
+
+function phoneIconStyle(index: number) {
+  const { x, y } = PHONE_OFFSETS[index % PHONE_OFFSETS.length];
+  return { translate: `${x}px ${y}px` };
+}
+
 function ShortcutArrow() {
   return (
     <svg className="kara-icon__shortcut" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
@@ -42,6 +59,7 @@ function ShortcutArrow() {
 function Desktop() {
   const os = useOs();
   const { setSkin } = useSkin();
+  const isPhone = useIsPhone();
   const [selectedLabels, setSelectedLabels] = useState(NOTHING_SELECTED);
   const [selectionBox, setSelectionBox] = useState<Box | null>(null);
   const dragRef = useRef<SelectionDrag | null>(null);
@@ -111,7 +129,7 @@ function Desktop() {
       onPointerUp={handleDesktopPointerEnd}
       onPointerCancel={handleDesktopPointerEnd}
     >
-      {DESKTOP_ICONS.map((item) => {
+      {DESKTOP_ICONS.map((item, index) => {
         const { label, x, y, shortcut } = item;
         const Icon = "skin" in item ? item.icon : APPS[item.appId].icon;
         return (
@@ -120,11 +138,15 @@ function Desktop() {
             type="button"
             data-label={label}
             className={`kara-icon${selectedLabels.has(label) ? " kara-icon--selected" : ""}`}
-            style={{
-              // Percentages keep the mess on screen at any size; min() stops the last column running off the edge.
-              left: `min(${x}%, calc(100% - var(--kara-icon-width)))`,
-              top: `${y}%`,
-            }}
+            style={
+              isPhone
+                ? phoneIconStyle(index)
+                : {
+                    // Percentages keep the mess on screen at any size; min() stops the last column running off the edge.
+                    left: `min(${x}%, calc(100% - var(--kara-icon-width)))`,
+                    top: `${y}%`,
+                  }
+            }
             onPointerDown={() => setSelectedLabels(new Set([label]))}
             {...openGesture(() => ("skin" in item ? setSkin(item.skin) : os.openApp(item.appId)))}
           >
