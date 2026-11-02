@@ -1,0 +1,860 @@
+/* ============================================================
+   kara skin — an XP-era desktop in olive green.
+   Gradients and plastic shine, never pixel art (that's Koro).
+   Every rule scoped under [data-skin="kara"]. Apps keep their
+   own stylesheets in their folders.
+   ============================================================ */
+
+[data-skin="kara"] {
+  /* Shows until assets/wallpaper.webp loads. Matches the tile's own background, which repeats seamlessly. */
+  --kara-wallpaper: #4d5b30;
+  /* Sizes below are repeated in os/windowManager.ts and os/Desktop.tsx. Keep them in sync. */
+  --kara-taskbar-height: 32px;
+  --kara-title-bar-height: 27px;
+  --kara-icon-width: 88px;
+
+  --kara-ink: #1c1f12;
+  --kara-window-face: #e9e7d8;
+  --kara-menu-face: #f1efe2;
+  --kara-olive-dark: #4e5e28;
+  --kara-font: Tahoma, Verdana, "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+  --kara-title-font: "Trebuchet MS", Tahoma, "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
+}
+
+[data-skin="kara"] body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--kara-wallpaper);
+}
+
+[data-skin="kara"] .kara-os {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--kara-wallpaper) url("./assets/wallpaper.webp");
+  color: var(--kara-ink);
+  font-family: var(--kara-font);
+  font-size: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-skin="kara"] .kara-os *,
+[data-skin="kara"] .kara-os *::before,
+[data-skin="kara"] .kara-os *::after {
+  box-sizing: border-box;
+}
+
+[data-skin="kara"] .kara-os button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+/* The raised push button. Each app adds its own size. */
+[data-skin="kara"] .kara-button {
+  border: 1px solid #3d4a1f;
+  border-radius: 3px;
+  background: linear-gradient(#fff, #e5e3d3);
+  color: var(--kara-ink);
+}
+
+/* A tap shouldn't paint anything. Keyboard users still get their outlines through :focus-visible. */
+[data-skin="kara"] .kara-os {
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-skin="kara"] .kara-os button:focus:not(:focus-visible),
+[data-skin="kara"] .kara-os a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+[data-skin="kara"] .kara-os--dragging iframe {
+  pointer-events: none;
+}
+
+/* ---- desktop ---- */
+
+[data-skin="kara"] .kara-desktop,
+[data-skin="kara"] .kara-windows {
+  position: absolute;
+  inset: 0 0 var(--kara-taskbar-height) 0;
+}
+
+[data-skin="kara"] .kara-icon {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: var(--kara-icon-width);
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: #fff;
+  line-height: 1.2;
+  text-align: center;
+}
+
+[data-skin="kara"] .kara-icon__image {
+  position: relative;
+  display: block;
+  height: 40px;
+}
+
+[data-skin="kara"] .kara-icon__shortcut {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+}
+
+[data-skin="kara"] .kara-icon__label {
+  padding: 0 2px;
+  text-shadow: 1px 1px 2px #000, 0 0 2px #000;
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. Desktop.tsx moves each icon a little off its spot. */
+@media (max-width: 640px) {
+  [data-skin="kara"] .kara-desktop {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--kara-icon-width));
+    grid-auto-rows: max-content;
+    justify-content: space-evenly;
+    gap: 14px 4px;
+    padding: 14px 6px;
+    overflow-y: auto;
+  }
+
+  [data-skin="kara"] .kara-icon {
+    position: static;
+  }
+}
+
+[data-skin="kara"] .kara-icon--selected {
+  background: rgba(37, 46, 18, 0.55);
+  box-shadow: inset 0 0 0 1px #252e12;
+}
+
+[data-skin="kara"] .kara-desktop__selection {
+  position: absolute;
+  border: 1px solid #252e12;
+  background: rgba(37, 46, 18, 0.45);
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-icon:focus-visible {
+  outline: 1px dotted #fff;
+}
+
+/* ---- windows ---- */
+
+/* An own stacking context, so window z-indexes can grow forever and still sit under the taskbar. */
+[data-skin="kara"] .kara-windows {
+  z-index: 1;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  padding: 0 3px 3px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(#b4bb9c, #a3ab89 45%, #959d7b);
+  box-shadow: 2px 3px 10px rgba(30, 30, 10, 0.45);
+  pointer-events: auto;
+}
+
+[data-skin="kara"] .kara-window--focused {
+  background: linear-gradient(#7f9150, #5f7136 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
+}
+
+/* visibility, not display: a hidden window keeps its size, so a 3D canvas doesn't collapse and video keeps playing. */
+[data-skin="kara"] .kara-window--minimized {
+  visibility: hidden;
+}
+
+[data-skin="kara"] .kara-window--maximized {
+  padding: 0;
+  border-radius: 0;
+}
+
+[data-skin="kara"] .kara-window__title-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: var(--kara-title-bar-height);
+  margin: 0 -3px;
+  padding: 0 3px 0 7px;
+  color: #fff;
+  font: bold 13px var(--kara-title-font);
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+  touch-action: none;
+}
+
+[data-skin="kara"] .kara-window--maximized .kara-window__title-bar {
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-window__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-window__button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  padding: 0;
+  border: 1px solid #f3f5e6;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #a0b070, #68793c);
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-window__button--close {
+  background: linear-gradient(135deg, #ec8e72, #c23a17);
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. Big enough for a finger, inside the same title bar. */
+@media (max-width: 640px) {
+  [data-skin="kara"] .kara-window__button {
+    width: 36px;
+    height: 24px;
+    margin-left: 4px;
+  }
+}
+
+[data-skin="kara"] .kara-window:not(.kara-window--focused) .kara-window__button {
+  opacity: 0.65;
+}
+
+[data-skin="kara"] .kara-window__button:hover {
+  filter: brightness(1.15);
+}
+
+[data-skin="kara"] .kara-window__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid #8c9270;
+  background: #fff;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+[data-skin="kara"] .kara-window__loading {
+  margin: 0;
+  padding: 12px;
+}
+
+[data-skin="kara"] .kara-window__crash {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  line-height: 1.4;
+}
+
+[data-skin="kara"] .kara-window__crash > img {
+  flex: none;
+}
+
+[data-skin="kara"] .kara-window__crash p {
+  margin: 0 0 4px;
+}
+
+[data-skin="kara"] .kara-window__shield {
+  position: absolute;
+  inset: 0;
+}
+
+/* Invisible. The edges stay inside the window's 3px frame and the top corners above the title bar buttons. */
+[data-skin="kara"] .kara-window__resize {
+  position: absolute;
+  touch-action: none;
+}
+
+[data-skin="kara"] .kara-window__resize--n,
+[data-skin="kara"] .kara-window__resize--s {
+  right: 8px;
+  left: 8px;
+  height: 5px;
+  cursor: ns-resize;
+}
+
+[data-skin="kara"] .kara-window__resize--e,
+[data-skin="kara"] .kara-window__resize--w {
+  top: 3px;
+  bottom: 8px;
+  width: 5px;
+  cursor: ew-resize;
+}
+
+[data-skin="kara"] .kara-window__resize--n {
+  top: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--s {
+  bottom: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--e {
+  right: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--w {
+  left: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--ne,
+[data-skin="kara"] .kara-window__resize--nw {
+  top: -2px;
+  width: 10px;
+  height: 5px;
+}
+
+[data-skin="kara"] .kara-window__resize--se,
+[data-skin="kara"] .kara-window__resize--sw {
+  bottom: -2px;
+  width: 10px;
+  height: 10px;
+}
+
+[data-skin="kara"] .kara-window__resize--ne,
+[data-skin="kara"] .kara-window__resize--se {
+  right: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--nw,
+[data-skin="kara"] .kara-window__resize--sw {
+  left: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--ne,
+[data-skin="kara"] .kara-window__resize--sw {
+  cursor: nesw-resize;
+}
+
+[data-skin="kara"] .kara-window__resize--nw,
+[data-skin="kara"] .kara-window__resize--se {
+  cursor: nwse-resize;
+}
+
+@media (pointer: coarse) {
+  [data-skin="kara"] .kara-window__resize {
+    display: none;
+  }
+}
+
+/* ---- Kara herself ---- */
+
+/* Above the icons and under the windows, because .kara-windows has a higher z-index. */
+[data-skin="kara"] .kara-pet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Above the windows, still under the taskbar, which comes later in the DOM. */
+[data-skin="kara"] .kara-pet--in-front {
+  z-index: 2;
+}
+
+/* Carried over everything, taskbar included, until she's dropped. */
+[data-skin="kara"] .kara-pet--dragging {
+  z-index: 3;
+  cursor: grabbing;
+}
+
+[data-skin="kara"] .kara-pet:focus-visible {
+  outline: 1px dotted #fff;
+}
+
+[data-skin="kara"] .kara-pet__sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+}
+
+[data-skin="kara"] .kara-pet__sprite img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+[data-skin="kara"] .kara-pet__sprite img[hidden] {
+  display: none;
+}
+
+[data-skin="kara"] .kara-pet--facing-right .kara-pet__sprite {
+  scale: -1 1;
+}
+
+[data-skin="kara"] .kara-pet--walking .kara-pet__sprite {
+  animation: kara-pet-hop 0.42s ease-in-out infinite alternate;
+}
+
+[data-skin="kara"] .kara-pet--dragging .kara-pet__sprite {
+  animation: kara-pet-dangle 0.5s ease-in-out infinite alternate;
+  transform-origin: 50% 0;
+}
+
+@keyframes kara-pet-hop {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 0 -12px;
+  }
+}
+
+@keyframes kara-pet-dangle {
+  from {
+    rotate: -7deg;
+  }
+  to {
+    rotate: 7deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-skin="kara"] .kara-pet__sprite {
+    animation: none !important;
+  }
+}
+
+/* ---- taskbar ---- */
+
+[data-skin="kara"] .kara-taskbar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--kara-taskbar-height);
+  background: linear-gradient(#a4b276, #7f9150 12%, #71833f 55%, #64763a 90%, #55662e);
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-start {
+  flex: none;
+  height: 100%;
+}
+
+[data-skin="kara"] .kara-os .kara-start__button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 20px 0 8px;
+  border: 0;
+  border-radius: 0 12px 12px 0;
+  background: linear-gradient(#6fc24d, #3f9a2e 15%, #35852a 70%, #2b6f22);
+  box-shadow: inset -2px 0 3px rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font: italic bold 18px var(--kara-title-font);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+[data-skin="kara"] .kara-start__button:hover,
+[data-skin="kara"] .kara-start__button[aria-expanded="true"] {
+  filter: brightness(1.1);
+}
+
+[data-skin="kara"] .kara-taskbar__windows {
+  display: flex;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+}
+
+[data-skin="kara"] .kara-taskbar__window {
+  display: flex;
+  flex: 0 1 160px;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 25px;
+  padding: 0 8px;
+  border: 1px solid var(--kara-olive-dark);
+  border-radius: 3px;
+  background: linear-gradient(#94a564, #7c8e4c);
+  color: #fff;
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-taskbar__window > img {
+  flex: none;
+}
+
+[data-skin="kara"] .kara-taskbar__window:hover {
+  filter: brightness(1.08);
+}
+
+[data-skin="kara"] .kara-taskbar__window--active {
+  background: linear-gradient(#55662e, #64763a);
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-taskbar__window-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-tray {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  height: 100%;
+  padding: 0 7px;
+  border-left: 1px solid var(--kara-olive-dark);
+  background: linear-gradient(#8a9c5e, #68793c);
+}
+
+[data-skin="kara"] .kara-tray__slot {
+  position: relative;
+  display: flex;
+}
+
+[data-skin="kara"] .kara-tray__button {
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-tray__button:hover,
+[data-skin="kara"] .kara-tray__button[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+[data-skin="kara"] .kara-tray__clock {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right-aligned to its icon and growing left, so it stays on screen even for the clock. */
+[data-skin="kara"] .kara-balloon {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 11px);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 230px;
+  padding: 8px 6px 8px 10px;
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: #ffffe1;
+  box-shadow: 2px 2px 5px rgba(30, 30, 10, 0.4);
+  color: #000;
+  line-height: 1.35;
+  text-shadow: none;
+  cursor: pointer;
+}
+
+/* The tail: a black triangle with a slightly smaller yellow one on top of it. */
+[data-skin="kara"] .kara-balloon::before,
+[data-skin="kara"] .kara-balloon::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-color: transparent;
+}
+
+[data-skin="kara"] .kara-balloon::before {
+  right: 11px;
+  border-width: 10px 0 0 10px;
+  border-top-color: #000;
+}
+
+[data-skin="kara"] .kara-balloon::after {
+  right: 12px;
+  margin-top: -1px;
+  border-width: 8px 0 0 8px;
+  border-top-color: #ffffe1;
+}
+
+/* For Kara's own balloon: she walks, so its width follows the words and it can open on either side. */
+[data-skin="kara"] .kara-pet__balloon {
+  right: 30px;
+  width: max-content;
+  max-width: 230px;
+  padding: 8px 10px;
+  font: 12px var(--kara-font);
+  text-align: left;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Her tail points at her mouth, about 56px from the sprite's left edge. */
+[data-skin="kara"] .kara-pet__balloon::before {
+  right: 40px;
+}
+
+[data-skin="kara"] .kara-pet__balloon::after {
+  right: 41px;
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. Narrow enough to fit beside her on any phone. */
+@media (max-width: 640px) {
+  [data-skin="kara"] .kara-pet__balloon {
+    max-width: 180px;
+  }
+}
+
+[data-skin="kara"] .kara-balloon--right {
+  right: auto;
+  left: 30px;
+}
+
+[data-skin="kara"] .kara-balloon--right::before {
+  right: auto;
+  left: 26px;
+  border-width: 10px 10px 0 0;
+}
+
+[data-skin="kara"] .kara-balloon--right::after {
+  right: auto;
+  left: 27px;
+  border-width: 8px 8px 0 0;
+}
+
+[data-skin="kara"] .kara-balloon__text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-balloon__close {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #a7a58f;
+  border-radius: 2px;
+  background: none;
+  color: #000;
+  line-height: 1;
+}
+
+[data-skin="kara"] .kara-balloon__close:hover {
+  background: #f3f0c8;
+}
+
+/* ---- start menu ---- */
+
+[data-skin="kara"] .kara-start-menu {
+  position: absolute;
+  bottom: var(--kara-taskbar-height);
+  left: 0;
+  width: min(380px, 100vw);
+  overflow: hidden;
+  border-radius: 7px 7px 0 0;
+  background: #fff;
+  box-shadow: 2px -2px 10px rgba(30, 30, 10, 0.45);
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-start-menu__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: linear-gradient(#7f9150, #5f7136 30%, #6c7e42);
+  color: #fff;
+  font: bold 15px var(--kara-title-font);
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+[data-skin="kara"] .kara-avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #f3f5e6;
+  border-radius: 4px;
+  /* The color comes from CharacterAvatar. This only adds the plastic shine on top of it. */
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 55%);
+  box-shadow: 0 0 0 1px rgba(30, 30, 10, 0.25);
+}
+
+/* Made of text, but it's meant to pass for a picture. */
+[data-skin="kara"] .kara-avatar__text {
+  color: #000;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-skin="kara"] .kara-avatar__text .kere-avatar {
+  display: block;
+  font-size: inherit;
+}
+
+[data-skin="kara"] .kara-start-menu__columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-skin="kara"] .kara-start-menu__column {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 190px;
+  padding: 6px;
+}
+
+[data-skin="kara"] .kara-start-menu__column--side {
+  border-left: 1px solid #cfccb8;
+  background: #e6e8d3;
+}
+
+[data-skin="kara"] .kara-start-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-start-menu__item > img {
+  flex: none;
+}
+
+[data-skin="kara"] .kara-start-menu__item:hover,
+[data-skin="kara"] .kara-start-menu__item:focus-visible {
+  background: #5f7136;
+  color: #fff;
+  outline: none;
+}
+
+[data-skin="kara"] .kara-start-menu__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 5px 8px;
+  background: linear-gradient(#7f9150, #5f7136);
+}
+
+[data-skin="kara"] .kara-start-menu__power {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-start-menu__power:hover,
+[data-skin="kara"] .kara-start-menu__power:focus-visible {
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+}
+
+/* ---- turn off dialog ---- */
+
+[data-skin="kara"] .kara-shutdown {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  /* XP drained the color from the screen behind this dialog. */
+  backdrop-filter: grayscale(1);
+}
+
+[data-skin="kara"] .kara-shutdown__dialog {
+  width: min(340px, 100%);
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--kara-window-face);
+  box-shadow: 2px 3px 14px rgba(0, 0, 0, 0.5);
+}
+
+[data-skin="kara"] .kara-shutdown__title {
+  margin: 0;
+  padding: 10px 12px;
+  background: linear-gradient(#5f7136, #4a5a26);
+  color: #fff;
+  font: normal 16px var(--kara-title-font);
+}
+
+[data-skin="kara"] .kara-shutdown__options {
+  display: flex;
+  justify-content: center;
+  gap: 36px;
+  padding: 22px 12px;
+  background: linear-gradient(#a3b27a, #8a9b5e);
+}
+
+[data-skin="kara"] .kara-shutdown__option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: #fff;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+[data-skin="kara"] .kara-shutdown__option-icon {
+  display: block;
+  line-height: 0;
+}
+
+[data-skin="kara"] .kara-shutdown__option:hover .kara-shutdown__option-icon {
+  filter: brightness(1.2);
+}
+
+[data-skin="kara"] .kara-shutdown__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  background: linear-gradient(#5f7136, #4a5a26);
+}
+
+[data-skin="kara"] .kara-shutdown__cancel {
+  min-width: 70px;
+  padding: 3px 10px;
+}

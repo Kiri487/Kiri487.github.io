@@ -1,0 +1,87 @@
+[data-skin="kara"] .kara-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #f4f3ea;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-skin="kara"] .kara-viewer__stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 10px;
+}
+
+[data-skin="kara"] .kara-viewer__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+[data-skin="kara"] .kara-viewer__clickable {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+[data-skin="kara"] .kara-viewer__missing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #5c6147;
+}
+
+[data-skin="kara"] .kara-viewer__missing p {
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-viewer__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-top: 1px solid #b4b19e;
+  background: var(--kara-menu-face);
+}
+
+[data-skin="kara"] .kara-viewer__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+}
+
+[data-skin="kara"] .kara-viewer__button:hover {
+  border-color: #b4bb9c;
+  background: linear-gradient(#fff, #e6e8d3);
+}
+
+[data-skin="kara"] .kara-viewer__position {
+  padding: 0 6px;
+  color: #5c6147;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-skin="kara"] .kara-viewer__link {
+  margin-left: auto;
+  color: #3f4d1f;
+}
+
+[data-skin="kara"] .kara-viewer__link:hover {
+  color: #7a9130;
+}

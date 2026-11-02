@@ -1,0 +1,352 @@
+/* The XP folder window, in olive. Any folder app on the desktop can reuse this. */
+
+[data-skin="kara"] .kara-explorer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  container-type: inline-size;
+  background: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- menu bar, toolbar, address bar ---- */
+
+[data-skin="kara"] .kara-explorer__bars {
+  flex: none;
+  background: var(--kara-menu-face);
+}
+
+[data-skin="kara"] .kara-explorer__menu-anchor {
+  position: relative;
+}
+
+[data-skin="kara"] .kara-explorer__dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 2px;
+  border: 1px solid #8c9270;
+  background: #fff;
+  box-shadow: 2px 2px 4px rgba(30, 30, 10, 0.35);
+}
+
+[data-skin="kara"] .kara-explorer__menu-item {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px 3px 2px;
+  border: 0;
+  background: none;
+  color: var(--kara-ink);
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-explorer__menu-item:hover {
+  background: #5f7136;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-explorer__menu-mark {
+  flex: none;
+  width: 18px;
+  font-size: 8px;
+  text-align: center;
+}
+
+[data-skin="kara"] .kara-explorer__menu-separator {
+  height: 1px;
+  margin: 3px 2px;
+  background: #cfccb8;
+}
+
+[data-skin="kara"] .kara-explorer__menu-heading {
+  padding: 3px 8px 3px 20px;
+  color: #5c6147;
+}
+
+[data-skin="kara"] .kara-explorer__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  border-bottom: 1px solid #d8d5c3;
+}
+
+[data-skin="kara"] .kara-explorer__tool {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-explorer__tool:hover:not(:disabled),
+[data-skin="kara"] .kara-explorer__tool[aria-expanded="true"] {
+  border-color: #b4bb9c;
+  background: linear-gradient(#fff, #e6e8d3);
+}
+
+[data-skin="kara"] .kara-os .kara-explorer__tool:disabled {
+  cursor: default;
+  color: #8f917f;
+}
+
+[data-skin="kara"] .kara-explorer__tool:disabled img {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+[data-skin="kara"] .kara-explorer__tool-separator {
+  width: 1px;
+  height: 24px;
+  margin: 0 3px;
+  background: #cfccb8;
+}
+
+[data-skin="kara"] .kara-explorer__address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-bottom: 1px solid #b4b19e;
+}
+
+[data-skin="kara"] .kara-explorer__address-label {
+  flex: none;
+  color: #5c6147;
+}
+
+[data-skin="kara"] .kara-explorer__address-path {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 1px solid #8c9270;
+  background: #fff;
+  white-space: nowrap;
+}
+
+/* ---- task pane + files ---- */
+
+/* In a short window the toolbars would squeeze the files away. This keeps them, and the window body scrolls instead. */
+[data-skin="kara"] .kara-explorer__main {
+  display: flex;
+  flex: 1;
+  min-height: 120px;
+}
+
+[data-skin="kara"] .kara-explorer__tasks {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 12px;
+  width: 190px;
+  padding: 12px 10px;
+  overflow-y: auto;
+  background: linear-gradient(#a3b27a, #6c7e42);
+}
+
+[data-skin="kara"] .kara-explorer__task-group {
+  overflow: hidden;
+  border-radius: 5px 5px 0 0;
+}
+
+[data-skin="kara"] .kara-explorer__task-title {
+  margin: 0;
+  padding: 5px 9px;
+  background: linear-gradient(90deg, #fff, #dfe3c8);
+  color: #3f4d1f;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-explorer__task-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 9px;
+  background: #f0f1e3;
+}
+
+[data-skin="kara"] .kara-explorer__task {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #3f4d1f;
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-explorer__task:hover {
+  color: #7a9130;
+  text-decoration: underline;
+}
+
+[data-skin="kara"] .kara-explorer__content {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  background: #fff;
+}
+
+[data-skin="kara"] .kara-explorer__files--thumbnails {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+[data-skin="kara"] .kara-explorer__files--icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 6px;
+  padding: 10px;
+}
+
+[data-skin="kara"] .kara-explorer__files--details {
+  display: flex;
+  flex-direction: column;
+  min-width: 460px;
+}
+
+[data-skin="kara"] .kara-explorer__details-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 120px 120px;
+  min-width: 460px;
+  background: var(--kara-menu-face);
+}
+
+[data-skin="kara"] .kara-explorer__column {
+  padding: 3px 7px;
+  overflow: hidden;
+  border: 0;
+  border-right: 1px solid #cfccb8;
+  border-bottom: 1px solid #b4b19e;
+  background: linear-gradient(#fff, #ece9d8);
+  color: var(--kara-ink);
+  text-align: left;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-explorer__column:hover {
+  background: linear-gradient(#fff, #dfe3c8);
+}
+
+/* ---- one file ---- */
+
+[data-skin="kara"] .kara-file {
+  border: 0;
+  background: none;
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-file--thumbnails,
+[data-skin="kara"] .kara-file--icons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 3px;
+  text-align: center;
+}
+
+[data-skin="kara"] .kara-file--details {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 120px 120px;
+  align-items: center;
+  padding: 1px 0;
+  text-align: left;
+}
+
+[data-skin="kara"] .kara-file__frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  border: 1px solid #c6c4b4;
+  background: #fff;
+}
+
+[data-skin="kara"] .kara-file__thumbnail {
+  display: block;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+}
+
+[data-skin="kara"] .kara-file__name {
+  max-width: 100%;
+  padding: 0 2px;
+  overflow-wrap: anywhere;
+}
+
+[data-skin="kara"] .kara-file__cell {
+  min-width: 0;
+  padding: 0 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-file__cell--name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+[data-skin="kara"] .kara-file__cell--name .kara-file__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-skin="kara"] .kara-file--selected .kara-file__name {
+  background: #5f7136;
+  color: #fff;
+}
+
+[data-skin="kara"] .kara-file--selected .kara-file__frame {
+  border: 2px solid #5f7136;
+}
+
+[data-skin="kara"] .kara-file--icons.kara-file--selected > img {
+  filter: brightness(0.7) sepia(0.6) hue-rotate(40deg);
+}
+
+[data-skin="kara"] .kara-file:focus-visible {
+  outline: 1px dotted #5f7136;
+}
+
+[data-skin="kara"] .kara-explorer__status {
+  flex: none;
+  padding: 3px 7px;
+  overflow: hidden;
+  border-top: 1px solid #b4b19e;
+  background: var(--kara-menu-face);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Too narrow for the pane to leave any room for the files. */
+@container (max-width: 480px) {
+  [data-skin="kara"] .kara-explorer__tasks {
+    display: none;
+  }
+}

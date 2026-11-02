@@ -1,0 +1,23 @@
+/* Not scoped under [data-skin="kara"] because it appears on kiri's skin switcher. */
+
+.kara-badge {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 56px;
+}
+
+.kara-badge__computer {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Slapped over the screen like a sticker, too big for it. */
+.kara-badge__leaf {
+  position: absolute;
+  top: 3%;
+  left: 12%;
+  width: 61%;
+  height: 61%;
+}

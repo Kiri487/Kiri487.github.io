@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { useSkin, type Skin } from "./SkinContext";
+import KaraEntry from "./characters/kara/KaraEntry";
 import KereEntry from "./characters/kere/KereEntry";
 import KuruEntry from "./characters/kuru/KuruEntry";
 import "./SkinSwitcher.css";
@@ -11,6 +12,7 @@ import "./SkinSwitcher.css";
 const ENTRIES: { skin: Skin; label: string; Badge: ComponentType }[] = [
   { skin: "kere", label: "Switch to kere skin", Badge: KereEntry },
   { skin: "kuru", label: "Switch to kuru skin", Badge: KuruEntry },
+  { skin: "kara", label: "Switch to kara skin", Badge: KaraEntry },
 ];
 
 function SkinSwitcher() {

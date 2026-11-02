@@ -1,0 +1,111 @@
+[data-skin="kara"] .kara-messenger {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-skin="kara"] .kara-messenger__me {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  background: linear-gradient(#dfe3c8, #fff);
+}
+
+[data-skin="kara"] .kara-messenger__my-name {
+  display: block;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-messenger__mood {
+  display: block;
+  color: #5c6147;
+}
+
+[data-skin="kara"] .kara-messenger__list {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+}
+
+[data-skin="kara"] .kara-messenger__group + .kara-messenger__group {
+  margin-top: 10px;
+}
+
+[data-skin="kara"] .kara-messenger__group-title {
+  margin: 0 0 3px;
+  color: #3f4d1f;
+  font-size: 12px;
+}
+
+[data-skin="kara"] .kara-messenger__contact {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 3px 5px 3px 10px;
+  border: 0;
+  background: none;
+  color: var(--kara-ink);
+  text-align: left;
+}
+
+[data-skin="kara"] button.kara-messenger__contact:hover,
+[data-skin="kara"] button.kara-messenger__contact:focus-visible {
+  background: #e6e8d3;
+  outline: none;
+}
+
+[data-skin="kara"] .kara-messenger__contact--inert,
+[data-skin="kara"] .kara-messenger__contact--inert .kara-messenger__status {
+  color: #77796a;
+}
+
+/* Glossy like a plastic status light, not a flat dot. */
+[data-skin="kara"] .kara-messenger__dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  border-radius: 50%;
+}
+
+[data-skin="kara"] .kara-messenger__dot--online {
+  background: radial-gradient(circle at 35% 30%, #e6ffc8, #57b52c 60%);
+}
+
+[data-skin="kara"] .kara-messenger__dot--busy {
+  background: radial-gradient(circle at 35% 30%, #ffd6c8, #d2401f 60%);
+}
+
+[data-skin="kara"] .kara-messenger__dot--away {
+  background: radial-gradient(circle at 35% 30%, #fff0c0, #e39a1c 60%);
+}
+
+[data-skin="kara"] .kara-messenger__dot--offline {
+  background: radial-gradient(circle at 35% 30%, #f2f2f2, #9a9a9a 60%);
+}
+
+[data-skin="kara"] .kara-messenger__name {
+  min-width: 0;
+}
+
+[data-skin="kara"] .kara-messenger__status {
+  min-width: 0;
+  color: #5c6147;
+}
+
+[data-skin="kara"] .kara-messenger__hint {
+  flex: none;
+  margin: 0;
+  padding: 6px 9px;
+  border-top: 1px solid #d8d5c3;
+  background: var(--kara-menu-face);
+  color: #5c6147;
+}
