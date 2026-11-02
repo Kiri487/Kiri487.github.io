@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
-import { CHAT_PARTNERS, chatTime, pickNudgeReply, type ChatArgs, type ChatPartnerId } from "./conversations";
+import { pickDifferent } from "../common/pickDifferent";
+import { CHAT_PARTNERS, chatTime, type ChatArgs } from "./conversations";
 import "./chat.css";
 
 const SHAKE: Keyframe[] = [
@@ -14,7 +15,9 @@ const SHAKE: Keyframe[] = [
   { translate: "0 0" },
 ];
 
-function Conversation({ partnerId }: { partnerId: ChatPartnerId }) {
+function ChatApp() {
+  const { args } = useWindow();
+  const { partner: partnerId } = args as ChatArgs;
   const partner = CHAT_PARTNERS[partnerId];
   const rootRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
@@ -27,7 +30,7 @@ function Conversation({ partnerId }: { partnerId: ChatPartnerId }) {
   }, [notices]);
 
   const nudge = () => {
-    const reply = pickNudgeReply(partner.nudgeReplies, lastReplyRef.current);
+    const reply = pickDifferent(partner.nudgeReplies, lastReplyRef.current);
     lastReplyRef.current = reply;
     setNotices((current) => [...current, "You have just sent a nudge.", reply]);
 
@@ -73,21 +76,13 @@ function Conversation({ partnerId }: { partnerId: ChatPartnerId }) {
       </div>
 
       <div className="kara-chat__footer">
-        <button type="button" className="kara-chat__nudge" onClick={nudge}>
+        <button type="button" className="kara-button kara-chat__nudge" onClick={nudge}>
           Nudge
         </button>
         <span className="kara-chat__status">{partner.name} appears to be offline.</span>
       </div>
     </div>
   );
-}
-
-function ChatApp() {
-  const { args } = useWindow();
-  const { partner } = args as ChatArgs;
-
-  // The key starts a clean window when the visitor switches to another character.
-  return <Conversation key={partner} partnerId={partner} />;
 }
 
 export default ChatApp;

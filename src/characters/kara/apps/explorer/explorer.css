@@ -18,26 +18,6 @@
   background: var(--kara-menu-face);
 }
 
-[data-skin="kara"] .kara-explorer__menu-bar {
-  display: flex;
-  flex-wrap: wrap;
-  padding: 1px 3px;
-  border-bottom: 1px solid #d8d5c3;
-}
-
-[data-skin="kara"] .kara-explorer__menu {
-  padding: 2px 7px;
-  border: 0;
-  background: none;
-  color: var(--kara-ink);
-}
-
-[data-skin="kara"] .kara-explorer__menu:hover,
-[data-skin="kara"] .kara-explorer__menu[aria-expanded="true"] {
-  background: #5f7136;
-  color: #fff;
-}
-
 [data-skin="kara"] .kara-explorer__menu-anchor {
   position: relative;
 }

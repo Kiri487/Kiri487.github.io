@@ -1,7 +1,9 @@
 import { contacts, type Contact } from "../../../../data/portfolio";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
+import { openGesture } from "../../os/openGesture";
 import { chatTitle, type ChatArgs, type ChatPartnerId } from "../chat/conversations";
+import { openExternal } from "../common/openExternal";
 import "./messenger.css";
 
 type Presence = "online" | "busy" | "away";
@@ -24,41 +26,36 @@ const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId 
   { name: "The Printer", status: "Rumored" },
 ];
 
-function openContact({ url }: Contact) {
-  // mailto: hands off to the mail app, and would otherwise leave an empty tab behind.
-  if (url.startsWith("mailto:")) window.location.href = url;
-  else window.open(url, "_blank", "noopener,noreferrer");
-}
+/** A row without `onOpen` is a contact nobody can reach. */
+function ContactRow({
+  presence,
+  name,
+  status,
+  onOpen,
+}: {
+  presence: Presence | "offline";
+  name: string;
+  status: string;
+  onOpen?: () => void;
+}) {
+  const content = (
+    <>
+      <span className={`kara-messenger__dot kara-messenger__dot--${presence}`} />
+      <span className="kara-messenger__name">{name}</span>
+      <span className="kara-messenger__status">({status})</span>
+    </>
+  );
 
-function ContactGroup({ title, members }: { title: string; members: Contact[] }) {
-  return (
-    <section className="kara-messenger__group">
-      <h3 className="kara-messenger__group-title">
-        {title} ({members.length})
-      </h3>
-      {members.map((contact) => {
-        const { label, presence } = STATUS[contact.id];
-        return (
-          <button
-            key={contact.id}
-            type="button"
-            className="kara-messenger__contact"
-            onDoubleClick={() => openContact(contact)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") openContact(contact);
-            }}
-          >
-            <span className={`kara-messenger__dot kara-messenger__dot--${presence}`} />
-            <span className="kara-messenger__name">{contact.label}</span>
-            <span className="kara-messenger__status">({label})</span>
-          </button>
-        );
-      })}
-    </section>
+  return onOpen ? (
+    <button type="button" className="kara-messenger__contact" {...openGesture(onOpen)}>
+      {content}
+    </button>
+  ) : (
+    <div className="kara-messenger__contact kara-messenger__contact--inert">{content}</div>
   );
 }
 
-function OfflineGroup() {
+function MessengerApp() {
   const { openApp } = useWindow();
 
   const openChat = (partner: ChatPartnerId) => {
@@ -66,40 +63,6 @@ function OfflineGroup() {
     openApp("chat", { instanceKey: partner, title: chatTitle(partner), args });
   };
 
-  return (
-    <section className="kara-messenger__group">
-      <h3 className="kara-messenger__group-title">Offline ({OFFLINE_CONTACTS.length})</h3>
-      {OFFLINE_CONTACTS.map(({ name, status, partner }) => {
-        const content = (
-          <>
-            <span className="kara-messenger__dot kara-messenger__dot--offline" />
-            <span className="kara-messenger__name">{name}</span>
-            <span className="kara-messenger__status">({status})</span>
-          </>
-        );
-        return partner ? (
-          <button
-            key={name}
-            type="button"
-            className="kara-messenger__contact"
-            onDoubleClick={() => openChat(partner)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") openChat(partner);
-            }}
-          >
-            {content}
-          </button>
-        ) : (
-          <div key={name} className="kara-messenger__contact kara-messenger__contact--inert">
-            {content}
-          </div>
-        );
-      })}
-    </section>
-  );
-}
-
-function MessengerApp() {
   return (
     <div className="kara-messenger">
       <div className="kara-messenger__me">
@@ -111,8 +74,30 @@ function MessengerApp() {
       </div>
 
       <div className="kara-messenger__list">
-        <ContactGroup title="Online" members={contacts} />
-        <OfflineGroup />
+        <section className="kara-messenger__group">
+          <h3 className="kara-messenger__group-title">Online ({contacts.length})</h3>
+          {contacts.map((contact) => (
+            <ContactRow
+              key={contact.id}
+              presence={STATUS[contact.id].presence}
+              name={contact.label}
+              status={STATUS[contact.id].label}
+              onOpen={() => openExternal(contact.url)}
+            />
+          ))}
+        </section>
+        <section className="kara-messenger__group">
+          <h3 className="kara-messenger__group-title">Offline ({OFFLINE_CONTACTS.length})</h3>
+          {OFFLINE_CONTACTS.map(({ name, status, partner }) => (
+            <ContactRow
+              key={name}
+              presence="offline"
+              name={name}
+              status={status}
+              onOpen={partner && (() => openChat(partner))}
+            />
+          ))}
+        </section>
       </div>
 
       <p className="kara-messenger__hint">Double-click a contact to bother them.</p>

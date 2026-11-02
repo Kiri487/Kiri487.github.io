@@ -1,0 +1,22 @@
+/* The menu bar under a window's title. Most of its menus are dead ends, so each app wires up its own. */
+
+[data-skin="kara"] .kara-menu-bar {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 1px 3px;
+  border-bottom: 1px solid #d8d5c3;
+  background: var(--kara-menu-face);
+}
+
+[data-skin="kara"] .kara-menu-button {
+  padding: 2px 7px;
+  border: 0;
+  background: none;
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-menu-button:hover,
+[data-skin="kara"] .kara-menu-button[aria-expanded="true"] {
+  background: #5f7136;
+  color: #fff;
+}

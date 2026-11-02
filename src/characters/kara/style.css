@@ -51,6 +51,14 @@
   cursor: pointer;
 }
 
+/* The raised push button. Each app adds its own size. */
+[data-skin="kara"] .kara-button {
+  border: 1px solid #3d4a1f;
+  border-radius: 3px;
+  background: linear-gradient(#fff, #e5e3d3);
+  color: var(--kara-ink);
+}
+
 [data-skin="kara"] .kara-os--dragging iframe {
   pointer-events: none;
 }
@@ -581,8 +589,4 @@
 [data-skin="kara"] .kara-shutdown__cancel {
   min-width: 70px;
   padding: 3px 10px;
-  border: 1px solid #3d4a1f;
-  border-radius: 3px;
-  background: linear-gradient(#fff, #e5e3d3);
-  color: var(--kara-ink);
 }

@@ -339,9 +339,3 @@ export function chatTitle(partner: ChatPartnerId): string {
 export function chatTime(conversationIndex: number, lineIndex: number): string {
   return `${25 + conversationIndex}:${61 + lineIndex}`;
 }
-
-/** Any reply except the previous one, so nudging twice always gets a new answer. */
-export function pickNudgeReply(replies: string[], previous: string | null): string {
-  const choices = replies.filter((reply) => reply !== previous);
-  return choices[Math.floor(Math.random() * choices.length)];
-}

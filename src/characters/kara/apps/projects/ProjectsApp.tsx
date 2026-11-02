@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState, type MouseEvent } from "react";
 import { ComputerIcon, FolderIcon, TerminalIcon } from "../../icons";
 import MessageBox from "../common/MessageBox";
+import { openExternal } from "../common/openExternal";
+import { pickDifferent } from "../common/pickDifferent";
 import { sortPrograms, type InstalledProgram, type ProgramSort } from "./installedPrograms";
 import "./projects.css";
 
@@ -13,18 +15,12 @@ const REMOVE_REFUSALS: ((title: string) => string)[] = [
   () => "Removed successfully. It came back.",
 ];
 
-/** Never the same line twice in a row, so pressing Remove again always gets a new answer. */
-function pickRefusal(previous: number | null): number {
-  const choices = REMOVE_REFUSALS.map((_, index) => index).filter((index) => index !== previous);
-  return choices[Math.floor(Math.random() * choices.length)];
-}
-
 /** Links inside shared descriptions are plain anchors, which would navigate away from the whole desktop. */
 function openLinksInNewTab(event: MouseEvent<HTMLDivElement>) {
   const link = (event.target as Element).closest("a");
   if (!link) return;
   event.preventDefault();
-  window.open(link.href, "_blank", "noopener,noreferrer");
+  openExternal(link.href);
 }
 
 function ProgramRow({
@@ -43,7 +39,7 @@ function ProgramRow({
   return (
     <div className={`kara-program${expanded ? " kara-program--expanded" : ""}`}>
       <button type="button" className="kara-program__head" aria-expanded={expanded} onClick={onToggle}>
-        <img className="kara-program__icon" src={project.img} alt="" draggable={false} />
+        <img className="kara-program__icon" src={project.img} alt="" loading="lazy" decoding="async" draggable={false} />
         <span className="kara-program__name">{project.title}</span>
         <span className="kara-program__kind">{kind}</span>
       </button>
@@ -63,11 +59,11 @@ function ProgramRow({
             </dl>
             <div className="kara-program__actions">
               {project.links.map((link) => (
-                <a key={link.url} className="kara-program__button" href={link.url} target="_blank" rel="noreferrer">
+                <a key={link.url} className="kara-button kara-program__button" href={link.url} target="_blank" rel="noreferrer">
                   {link.label}
                 </a>
               ))}
-              <button type="button" className="kara-program__button" onClick={onRemove}>
+              <button type="button" className="kara-button kara-program__button" onClick={onRemove}>
                 Remove
               </button>
             </div>
@@ -82,14 +78,14 @@ function ProjectsApp() {
   const [sort, setSort] = useState<ProgramSort>("date");
   const programs = useMemo(() => sortPrograms(sort), [sort]);
   // Open the newest one, so the first thing a visitor sees shows what a row holds.
-  const [expandedTitle, setExpandedTitle] = useState<string | null>(() => sortPrograms("date")[0].project.title);
+  const [expandedTitle, setExpandedTitle] = useState<string | null>(programs[0].project.title);
   const [message, setMessage] = useState<string | null>(null);
-  const lastRefusalRef = useRef<number | null>(null);
+  const lastRefusalRef = useRef<(typeof REMOVE_REFUSALS)[number] | null>(null);
 
   const refuseRemoval = (title: string) => {
-    const pick = pickRefusal(lastRefusalRef.current);
-    lastRefusalRef.current = pick;
-    setMessage(REMOVE_REFUSALS[pick](title));
+    const refusal = pickDifferent(REMOVE_REFUSALS, lastRefusalRef.current);
+    lastRefusalRef.current = refusal;
+    setMessage(refusal(title));
   };
 
   return (

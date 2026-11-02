@@ -114,10 +114,10 @@ function AboutApp() {
       </div>
 
       <div className="kara-about__actions">
-        <button type="button" className="kara-about__button" onClick={close}>
+        <button type="button" className="kara-button kara-about__button" onClick={close}>
           OK
         </button>
-        <button type="button" className="kara-about__button" onClick={close}>
+        <button type="button" className="kara-button kara-about__button" onClick={close}>
           Cancel
         </button>
       </div>

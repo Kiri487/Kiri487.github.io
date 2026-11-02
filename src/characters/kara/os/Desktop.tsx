@@ -1,9 +1,7 @@
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS, DESKTOP_ICONS } from "../apps/registry";
 import { useOs } from "./context";
-
-/** Keep in sync with --kara-icon-width in ../style.css. */
-const ICON_WIDTH = 88;
+import { openGesture } from "./openGesture";
 
 function ShortcutArrow() {
   return (
@@ -34,14 +32,11 @@ function Desktop() {
             className={`kara-icon${selectedLabel === label ? " kara-icon--selected" : ""}`}
             style={{
               // Percentages keep the mess on screen at any size; min() stops the last column running off the edge.
-              left: `min(${x}%, calc(100% - ${ICON_WIDTH}px))`,
+              left: `min(${x}%, calc(100% - var(--kara-icon-width)))`,
               top: `${y}%`,
             }}
             onPointerDown={() => setSelectedLabel(label)}
-            onDoubleClick={() => os.openApp(appId)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") os.openApp(appId);
-            }}
+            {...openGesture(() => os.openApp(appId))}
           >
             <span className="kara-icon__image">
               <Icon size={40} />

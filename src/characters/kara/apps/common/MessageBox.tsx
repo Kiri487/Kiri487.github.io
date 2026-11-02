@@ -20,7 +20,7 @@ function MessageBox({ title, message, onClose }: MessageBoxProps) {
         <div className="kara-message__actions">
           <button
             type="button"
-            className="kara-message__ok"
+            className="kara-button kara-message__ok"
             autoFocus
             onClick={onClose}
             onKeyDown={(event) => {

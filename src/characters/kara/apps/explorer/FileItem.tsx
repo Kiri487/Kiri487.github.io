@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BrokenImageIcon } from "../../icons";
+import { openGesture } from "../../os/openGesture";
 import type { ExplorerFile, ExplorerView } from "./types";
 
 function Thumbnail({ file }: { file: ExplorerFile }) {
@@ -38,13 +39,7 @@ function FileItem({ file, view, selected, onSelect, onOpen }: FileItemProps) {
       className={`kara-file kara-file--${view}${selected ? " kara-file--selected" : ""}`}
       aria-pressed={selected}
       onPointerDown={onSelect}
-      onDoubleClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter") return;
-        // Otherwise the same key press goes on to click the OK of a message box that opening just focused.
-        event.preventDefault();
-        onOpen();
-      }}
+      {...openGesture(onOpen)}
     >
       {view === "thumbnails" && (
         <>

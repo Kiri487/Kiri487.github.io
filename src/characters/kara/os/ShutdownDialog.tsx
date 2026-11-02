@@ -42,7 +42,7 @@ function ShutdownDialog({ onCancel }: { onCancel: () => void }) {
           </button>
         </div>
         <div className="kara-shutdown__footer">
-          <button type="button" className="kara-shutdown__cancel" autoFocus onClick={onCancel}>
+          <button type="button" className="kara-button kara-shutdown__cancel" autoFocus onClick={onCancel}>
             Cancel
           </button>
         </div>

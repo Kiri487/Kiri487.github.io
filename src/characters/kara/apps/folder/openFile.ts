@@ -1,4 +1,5 @@
 import type { OsActions } from "../../os/context";
+import { openExternal } from "../common/openExternal";
 import { viewerTitle, type ImageViewerArgs, type ViewerImage } from "../imageViewer/imageViewerArgs";
 import { notepadTitle, type NotepadArgs } from "../notepad/documents";
 import type { FolderFile, FolderId } from "./types";
@@ -18,7 +19,7 @@ export function openFile(file: FolderFile, context: OpenFileContext): string | v
   switch (action.kind) {
     case "text": {
       const args: NotepadArgs = { text: action.text };
-      context.openApp("asdf", { instanceKey: file.id, title: notepadTitle(file.name), args });
+      context.openApp("notepad", { instanceKey: file.id, title: notepadTitle(file.name), args });
       return;
     }
     case "image": {
@@ -30,7 +31,7 @@ export function openFile(file: FolderFile, context: OpenFileContext): string | v
       return;
     }
     case "link":
-      window.open(action.url, "_blank", "noopener,noreferrer");
+      openExternal(action.url);
       return;
     case "folder":
       context.goToFolder(action.folderId);

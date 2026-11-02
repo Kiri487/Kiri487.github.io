@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { SpeakerIcon } from "../../icons";
 import { useWindow } from "../../os/context";
+import { openGesture } from "../../os/openGesture";
 import { RADIO_TRACKS } from "./tracks";
 import { loadYouTubeApi, PLAYER_STATE, type YouTubePlayer } from "./youtubePlayer";
 import "./radio.css";
@@ -24,6 +25,32 @@ function formatKaraDuration(seconds: number): string {
   return `${Math.floor(whole / 60)}:${(whole % 60) + 60}`;
 }
 
+function TrackRow({
+  name,
+  current,
+  disabled,
+  onOpen,
+}: {
+  name: string;
+  current: boolean;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        className={`kara-radio__track${current ? " kara-radio__track--current" : ""}`}
+        disabled={disabled}
+        {...openGesture(onOpen)}
+      >
+        <span className="kara-radio__track-name">{name}</span>
+        {current && <span aria-hidden="true">◀</span>}
+      </button>
+    </li>
+  );
+}
+
 function RadioApp() {
   const { isMinimized } = useWindow();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -42,8 +69,16 @@ function RadioApp() {
 
   const syncProgress = useCallback(() => {
     const player = playerRef.current;
+    if (!player) return;
     // Right after an error the player can answer with nothing at all, whatever its documentation says.
-    if (player) setProgress({ current: player.getCurrentTime() || 0, duration: player.getDuration() || 0 });
+    const current = player.getCurrentTime() || 0;
+    const duration = player.getDuration() || 0;
+    // The display only shows whole seconds, so the polls in between shouldn't re-render anything.
+    setProgress((previous) =>
+      Math.floor(previous.current) === Math.floor(current) && previous.duration === duration
+        ? previous
+        : { current, duration },
+    );
   }, []);
 
   const playTrack = useCallback((next: number) => {
@@ -200,7 +235,7 @@ function RadioApp() {
       <div className="kara-radio__controls">
         <button
           type="button"
-          className="kara-radio__button"
+          className="kara-button kara-radio__button"
           aria-label="Previous track"
           disabled={!canControl}
           onClick={() => playTrack(index - 1)}
@@ -209,7 +244,7 @@ function RadioApp() {
         </button>
         <button
           type="button"
-          className="kara-radio__button"
+          className="kara-button kara-radio__button"
           aria-label={playing ? "Pause" : "Play"}
           disabled={!canControl}
           onClick={() => (playing ? playerRef.current?.pauseVideo() : playerRef.current?.playVideo())}
@@ -218,7 +253,7 @@ function RadioApp() {
         </button>
         <button
           type="button"
-          className="kara-radio__button"
+          className="kara-button kara-radio__button"
           aria-label="Next track"
           disabled={!canControl}
           onClick={() => playTrack(index + 1)}
@@ -246,22 +281,13 @@ function RadioApp() {
 
       <ol className="kara-radio__tracks">
         {RADIO_TRACKS.map((track, trackIndex) => (
-          <li key={track.videoId}>
-            <button
-              type="button"
-              className={`kara-radio__track${trackIndex === index ? " kara-radio__track--current" : ""}`}
-              disabled={!canControl}
-              onDoubleClick={() => playTrack(trackIndex)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") playTrack(trackIndex);
-              }}
-            >
-              <span className="kara-radio__track-name">
-                {trackIndex + 1}. {track.label}
-              </span>
-              {trackIndex === index && <span aria-hidden="true">◀</span>}
-            </button>
-          </li>
+          <TrackRow
+            key={track.videoId}
+            name={`${trackIndex + 1}. ${track.label}`}
+            current={trackIndex === index}
+            disabled={!canControl}
+            onOpen={() => playTrack(trackIndex)}
+          />
         ))}
       </ol>
     </div>

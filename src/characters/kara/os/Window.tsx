@@ -53,6 +53,9 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
     [id, args, minimized, os],
   );
 
+  // The same element each render, so moving or focusing the window doesn't re-render the app. It still hears `api` through context.
+  const content = useMemo(() => <App />, [App]);
+
   // Dragging writes the transform directly and only commits on release, so neither the desktop
   // nor a video or 3D scene inside the window re-renders on every pointer move.
   const handleTitlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -222,7 +225,7 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
         <WindowContext.Provider value={api}>
           <WindowErrorBoundary>
             <Suspense fallback={<p className="kara-window__loading">Loading...</p>}>
-              <App />
+              {content}
             </Suspense>
           </WindowErrorBoundary>
         </WindowContext.Provider>

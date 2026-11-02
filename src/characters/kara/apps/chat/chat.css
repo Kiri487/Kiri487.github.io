@@ -72,10 +72,6 @@
 [data-skin="kara"] .kara-chat__nudge {
   flex: none;
   padding: 3px 10px;
-  border: 1px solid #3d4a1f;
-  border-radius: 3px;
-  background: linear-gradient(#fff, #e5e3d3);
-  color: var(--kara-ink);
 }
 
 [data-skin="kara"] .kara-chat__status {

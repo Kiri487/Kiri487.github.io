@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { BackIcon, FolderIcon, ForwardIcon, SearchIcon, UpIcon } from "../../icons";
 import { useDismiss } from "../../os/useDismiss";
 import MessageBox from "../common/MessageBox";
+import "../common/menuBar.css";
 import FileItem from "./FileItem";
 import { sortFiles } from "./sortFiles";
 import type { ExplorerFile, ExplorerSort, ExplorerSortKey, ExplorerTaskGroup, ExplorerView } from "./types";
@@ -95,16 +96,16 @@ function Explorer<F extends ExplorerFile>({
   return (
     <div className="kara-explorer">
       <div ref={menusRef} className="kara-explorer__bars">
-        <div className="kara-explorer__menu-bar">
+        <div className="kara-menu-bar">
           {FAKE_MENUS.map((menu) => (
-            <button key={menu.label} type="button" className="kara-explorer__menu" onClick={() => setMessage(menu.message)}>
+            <button key={menu.label} type="button" className="kara-menu-button" onClick={() => setMessage(menu.message)}>
               {menu.label}
             </button>
           ))}
           <div className="kara-explorer__menu-anchor">
             <button
               type="button"
-              className="kara-explorer__menu"
+              className="kara-menu-button"
               aria-expanded={openMenu === "view"}
               onClick={() => setOpenMenu(openMenu === "view" ? null : "view")}
             >
@@ -125,7 +126,7 @@ function Explorer<F extends ExplorerFile>({
             )}
           </div>
           {FAKE_MENUS_AFTER_VIEW.map((menu) => (
-            <button key={menu.label} type="button" className="kara-explorer__menu" onClick={() => setMessage(menu.message)}>
+            <button key={menu.label} type="button" className="kara-menu-button" onClick={() => setMessage(menu.message)}>
               {menu.label}
             </button>
           ))}

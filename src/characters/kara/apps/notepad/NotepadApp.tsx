@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useWindow } from "../../os/context";
 import MessageBox from "../common/MessageBox";
+import "../common/menuBar.css";
 import { ASDF_LETTER, type NotepadArgs } from "./documents";
 import "./notepad.css";
 
@@ -20,9 +21,9 @@ function NotepadApp() {
 
   return (
     <div className="kara-notepad">
-      <div className="kara-notepad__menu-bar">
+      <div className="kara-menu-bar">
         {MENUS.map((menu) => (
-          <button key={menu.label} type="button" className="kara-notepad__menu" onClick={() => setMessage(menu.message)}>
+          <button key={menu.label} type="button" className="kara-menu-button" onClick={() => setMessage(menu.message)}>
             {menu.label}
           </button>
         ))}
