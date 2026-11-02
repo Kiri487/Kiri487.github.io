@@ -1,7 +1,7 @@
 import { contacts, type Contact } from "../../../../data/portfolio";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
-import { openGesture } from "../../os/openGesture";
+import { isTouchPointer, openGesture } from "../../os/openGesture";
 import { chatTitle, type ChatArgs, type ChatPartnerId } from "../chat/conversations";
 import { openExternal } from "../common/openExternal";
 import "./messenger.css";
@@ -100,7 +100,7 @@ function MessengerApp() {
         </section>
       </div>
 
-      <p className="kara-messenger__hint">Double-click a contact to bother them.</p>
+      <p className="kara-messenger__hint">{isTouchPointer() ? "Tap" : "Double-click"} a contact to bother them.</p>
     </div>
   );
 }
