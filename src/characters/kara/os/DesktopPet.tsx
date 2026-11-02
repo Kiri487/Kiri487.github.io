@@ -42,7 +42,7 @@ const OPEN_REACTIONS: Partial<Record<AppId, string>> = {
   projects: "you can't remove them. i tried",
   about: "yes it's registered to kiri. no i won't explain",
   works: "i'm in there. probably",
-  recycleBin: "don't touch greg's web",
+  recycleBin: "don't touch mr. spicy's web",
   notepad: "that letter is very formal. be careful",
 };
 const SHUTDOWN_REACTION = "that's a light switch";

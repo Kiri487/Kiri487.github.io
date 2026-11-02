@@ -268,7 +268,7 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
           koro("???"),
           kara("i've been looking for him"),
           koro("...him?"),
-          kara("his name is greg"),
+          kara("his name is mr. spicy"),
           koro("what the hell XD"),
         ],
       },
