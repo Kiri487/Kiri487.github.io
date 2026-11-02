@@ -22,7 +22,7 @@ const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId 
   { name: "Kuru", status: "Chill", partner: "kuru" },
   { name: "Kere", status: "Out of office", partner: "kere" },
   { name: "Koro", status: "Won't read it yet :P", partner: "koro" },
-  { name: "Tuesday", status: "Uninstalled" },
+  { name: "Thursday", status: "Uninstalled" },
   { name: "The Printer", status: "Rumored" },
 ];
 

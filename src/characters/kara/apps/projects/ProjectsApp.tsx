@@ -10,7 +10,7 @@ const WINDOW_NAME = "Add or Remove Programs";
 
 const REMOVE_REFUSALS: ((title: string) => string)[] = [
   () => "This program is load-bearing.",
-  () => "Uninstalling this would also uninstall Tuesday.",
+  () => "Uninstalling this would also uninstall Thursday.",
   (title) => `${title} does not consent.`,
   () => "Removed successfully. It came back.",
 ];

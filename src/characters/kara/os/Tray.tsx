@@ -28,7 +28,7 @@ const TRAY_ITEMS: { id: string; label: string; content: ReactNode; balloon: stri
     id: "clock",
     label: "Clock",
     content: <Clock />,
-    balloon: "Today is Tuesday (uninstalled).",
+    balloon: "Today is NOT Thursday.",
   },
 ];
 

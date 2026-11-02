@@ -50,7 +50,7 @@ export const FOLDERS: Record<FolderId, Folder> = {
         id: "folder-1",
         name: "新增資料夾 (1) - Shortcut",
         typeName: "Shortcut",
-        date: "Tuesday (uninstalled)",
+        date: "Thursday (uninstalled)",
         icon: FolderIcon,
         action: { kind: "message", message: "This folder is safe." },
       },
@@ -58,7 +58,7 @@ export const FOLDERS: Record<FolderId, Folder> = {
         id: "folder-2",
         name: "新增資料夾 (2) - Shortcut",
         typeName: "Shortcut",
-        date: "Tuesday (uninstalled)",
+        date: "Thursday (uninstalled)",
         icon: FolderIcon,
         action: { kind: "message", message: "This folder is safe from you specifically." },
       },
@@ -136,18 +136,18 @@ export const FOLDERS: Record<FolderId, Folder> = {
         action: { kind: "message", message: "Restored. It came back warm.", restores: true },
       },
       {
-        id: "tuesday",
-        name: "Tuesday",
+        id: "thursday",
+        name: "Thursday",
         typeName: "Day of the Week",
-        date: "Tuesday (uninstalled)",
+        date: "Thursday (uninstalled)",
         icon: BrokenImageIcon,
         action: {
           kind: "dynamicMessage",
-          // Only on a real Tuesday, which is the one day it's around to restore.
+          // Only on a real Thursday, which is the one day it's around to restore.
           resolve: () =>
-            new Date().getDay() === 2
+            new Date().getDay() === 4
               ? { message: "It's back. Don't get used to it.", restores: true }
-              : { message: "Tuesday cannot be restored. Please stop asking.", restores: false },
+              : { message: "Thursday cannot be restored. Please stop asking.", restores: false },
         },
       },
       {

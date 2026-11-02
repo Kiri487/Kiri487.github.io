@@ -30,7 +30,7 @@ const CLOCK_CHECK_MS = 1000;
 const LINES = [
   "smoke weed everyday",
   "this is a very formal leaf",
-  "have you seen tuesday",
+  "have you seen thursday",
   "the printer says hi",
   "i live here now",
 ];

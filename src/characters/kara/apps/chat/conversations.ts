@@ -34,7 +34,7 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
     name: "Kiri",
     conversations: [
       {
-        date: "Tuesday (uninstalled)",
+        date: "Thursday (uninstalled)",
         lines: [
           kiri("Why is there a 新增資料夾 (3)?"),
           kara("that's its name"),
@@ -134,7 +134,7 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
         ],
       },
       {
-        date: "Last Thursday",
+        date: "Last Tuesday",
         lines: [
           kara("the vending machine in your alley is broken"),
           kuru("Yeah"),
