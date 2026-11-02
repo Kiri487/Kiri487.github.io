@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { AppId } from "../apps/registry";
-import type { OsState } from "./windowManager";
+import type { OsState, WindowRect } from "./windowManager";
 
 export interface OpenAppOptions {
   /** Leave out for the app's one window. Each different key gets a window of its own. */
@@ -19,6 +19,7 @@ export interface OsActions {
   minimizeWindow: (id: string) => void;
   toggleMaximizeWindow: (id: string) => void;
   moveWindow: (id: string, x: number, y: number) => void;
+  resizeWindow: (id: string, rect: WindowRect) => void;
   setWindowTitle: (id: string, title: string) => void;
   reset: () => void;
 }

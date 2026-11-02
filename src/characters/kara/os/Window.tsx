@@ -1,7 +1,15 @@
 import { memo, Suspense, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS } from "../apps/registry";
 import { useOs, WindowContext, type CloseGuard, type WindowApi } from "./context";
-import { clampPosition, readViewport, type WindowState } from "./windowManager";
+import {
+  clamp,
+  clampPosition,
+  readViewport,
+  resizeRect,
+  type ResizeDirection,
+  type WindowRect,
+  type WindowState,
+} from "./windowManager";
 import WindowErrorBoundary from "./WindowErrorBoundary";
 
 interface DragState {
@@ -12,12 +20,23 @@ interface DragState {
   y: number;
 }
 
+interface ResizeState {
+  pointerId: number;
+  direction: ResizeDirection;
+  pointerX: number;
+  pointerY: number;
+  start: WindowRect;
+  rect: WindowRect;
+}
+
 const DRAGGING_CLASS = "kara-os--dragging";
+const RESIZE_DIRECTIONS: ResizeDirection[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 
 function Window({ win, focused }: { win: WindowState; focused: boolean }) {
   const os = useOs();
   const rootRef = useRef<HTMLElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const resizeRef = useRef<ResizeState | null>(null);
   const closeGuardRef = useRef<CloseGuard | null>(null);
 
   const { id, args, minimized, maximized } = win;
@@ -87,6 +106,56 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
     dragRef.current = null;
     rootRef.current?.closest(".kara-os")?.classList.remove(DRAGGING_CLASS);
     os.moveWindow(id, drag.x, drag.y);
+  };
+
+  // Resizing works the same way as dragging: the content follows through CSS until the release commits.
+  const handleResizePointerDown = (event: ReactPointerEvent<HTMLDivElement>, direction: ResizeDirection) => {
+    if (event.button !== 0) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const start = { x: win.x, y: win.y, width: win.width, height: win.height };
+    resizeRef.current = {
+      pointerId: event.pointerId,
+      direction,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      start,
+      rect: start,
+    };
+    rootRef.current?.closest(".kara-os")?.classList.add(DRAGGING_CLASS);
+  };
+
+  const handleResizePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = resizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) return;
+
+    // The dragged edge stops at the desktop's own edge, wherever on the handle the pointer took hold.
+    const viewport = readViewport();
+    const { start, direction, pointerX, pointerY } = resize;
+    const edgeX = direction.includes("e") ? start.x + start.width : start.x;
+    const edgeY = direction.includes("s") ? start.y + start.height : start.y;
+    const rect = resizeRect(
+      start,
+      direction,
+      clamp(event.clientX + edgeX - pointerX, 0, viewport.width) - edgeX,
+      clamp(event.clientY + edgeY - pointerY, 0, viewport.height) - edgeY,
+    );
+    resize.rect = rect;
+
+    const root = rootRef.current;
+    if (!root) return;
+    root.style.width = `${rect.width}px`;
+    root.style.height = `${rect.height}px`;
+    root.style.transform = `translate3d(${rect.x}px, ${rect.y}px, 0)`;
+  };
+
+  const handleResizePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const resize = resizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) return;
+
+    resizeRef.current = null;
+    rootRef.current?.closest(".kara-os")?.classList.remove(DRAGGING_CLASS);
+    os.resizeWindow(id, resize.rect);
   };
 
   const positionStyle = maximized
@@ -169,6 +238,18 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
         {/* Clicks inside an iframe never reach this document, so an unfocused window needs a cover to catch them. */}
         {!focused && <div className="kara-window__shield" />}
       </div>
+
+      {!maximized &&
+        RESIZE_DIRECTIONS.map((direction) => (
+          <div
+            key={direction}
+            className={`kara-window__resize kara-window__resize--${direction}`}
+            onPointerDown={(event) => handleResizePointerDown(event, direction)}
+            onPointerMove={handleResizePointerMove}
+            onPointerUp={handleResizePointerEnd}
+            onPointerCancel={handleResizePointerEnd}
+          />
+        ))}
     </section>
   );
 }

@@ -6,6 +6,8 @@ const TASKBAR_HEIGHT = 32;
 const TITLE_BAR_HEIGHT = 27;
 /** How much of a window's title bar must stay on screen, so it can always be dragged back. */
 const MIN_VISIBLE_WIDTH = 96;
+const MIN_WINDOW_WIDTH = 240;
+const MIN_WINDOW_HEIGHT = 160;
 const CASCADE_ORIGIN = 48;
 const CASCADE_STEP = 28;
 const CASCADE_LENGTH = 8;
@@ -19,6 +21,13 @@ export interface WindowSize {
   width: number;
   height: number;
 }
+
+export interface WindowRect extends WindowSize {
+  x: number;
+  y: number;
+}
+
+export type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 export interface WindowState {
   id: string;
@@ -56,6 +65,7 @@ export type OsAction =
   | { type: "minimize"; id: string }
   | { type: "toggleMaximize"; id: string }
   | { type: "move"; id: string; x: number; y: number; viewport: Viewport }
+  | { type: "resize"; id: string; rect: WindowRect; viewport: Viewport }
   | { type: "setTitle"; id: string; title: string }
   | { type: "fitViewport"; viewport: Viewport }
   | { type: "reset" };
@@ -72,7 +82,7 @@ export function readViewport(): Viewport {
   return { width: window.innerWidth, height: window.innerHeight - TASKBAR_HEIGHT };
 }
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
@@ -82,6 +92,24 @@ export function clampPosition(x: number, y: number, width: number, viewport: Vie
     x: clamp(x, MIN_VISIBLE_WIDTH - width, viewport.width - MIN_VISIBLE_WIDTH),
     y: clamp(y, 0, viewport.height - TITLE_BAR_HEIGHT),
   };
+}
+
+/** The window after dragging one edge or corner by (dx, dy). The opposite side stays where it was. */
+export function resizeRect(start: WindowRect, direction: ResizeDirection, dx: number, dy: number): WindowRect {
+  const rect = { ...start };
+
+  if (direction.includes("e")) rect.width = Math.max(MIN_WINDOW_WIDTH, start.width + dx);
+  if (direction.includes("w")) {
+    rect.width = Math.max(MIN_WINDOW_WIDTH, start.width - dx);
+    rect.x = start.x + start.width - rect.width;
+  }
+  if (direction.includes("s")) rect.height = Math.max(MIN_WINDOW_HEIGHT, start.height + dy);
+  if (direction.includes("n")) {
+    rect.height = Math.max(MIN_WINDOW_HEIGHT, start.height - dy);
+    rect.y = start.y + start.height - rect.height;
+  }
+
+  return rect;
 }
 
 function updateWindow(state: OsState, id: string, change: Partial<WindowState>): OsState {
@@ -173,6 +201,12 @@ export function osReducer(state: OsState, action: OsAction): OsState {
       if (!win) return state;
       const { x, y } = clampPosition(action.x, action.y, win.width, action.viewport);
       return x === win.x && y === win.y ? state : updateWindow(state, win.id, { x, y });
+    }
+
+    case "resize": {
+      const { width, height } = action.rect;
+      const { x, y } = clampPosition(action.rect.x, action.rect.y, width, action.viewport);
+      return updateWindow(state, action.id, { x, y, width, height });
     }
 
     case "setTitle":

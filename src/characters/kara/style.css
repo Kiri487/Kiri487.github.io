@@ -234,6 +234,84 @@
   inset: 0;
 }
 
+/* Invisible. The edges stay inside the window's 3px frame and the top corners above the title bar buttons. */
+[data-skin="kara"] .kara-window__resize {
+  position: absolute;
+  touch-action: none;
+}
+
+[data-skin="kara"] .kara-window__resize--n,
+[data-skin="kara"] .kara-window__resize--s {
+  right: 8px;
+  left: 8px;
+  height: 5px;
+  cursor: ns-resize;
+}
+
+[data-skin="kara"] .kara-window__resize--e,
+[data-skin="kara"] .kara-window__resize--w {
+  top: 3px;
+  bottom: 8px;
+  width: 5px;
+  cursor: ew-resize;
+}
+
+[data-skin="kara"] .kara-window__resize--n {
+  top: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--s {
+  bottom: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--e {
+  right: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--w {
+  left: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--ne,
+[data-skin="kara"] .kara-window__resize--nw {
+  top: -2px;
+  width: 10px;
+  height: 5px;
+}
+
+[data-skin="kara"] .kara-window__resize--se,
+[data-skin="kara"] .kara-window__resize--sw {
+  bottom: -2px;
+  width: 10px;
+  height: 10px;
+}
+
+[data-skin="kara"] .kara-window__resize--ne,
+[data-skin="kara"] .kara-window__resize--se {
+  right: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--nw,
+[data-skin="kara"] .kara-window__resize--sw {
+  left: -2px;
+}
+
+[data-skin="kara"] .kara-window__resize--ne,
+[data-skin="kara"] .kara-window__resize--sw {
+  cursor: nesw-resize;
+}
+
+[data-skin="kara"] .kara-window__resize--nw,
+[data-skin="kara"] .kara-window__resize--se {
+  cursor: nwse-resize;
+}
+
+@media (pointer: coarse) {
+  [data-skin="kara"] .kara-window__resize {
+    display: none;
+  }
+}
+
 /* ---- taskbar ---- */
 
 [data-skin="kara"] .kara-taskbar {

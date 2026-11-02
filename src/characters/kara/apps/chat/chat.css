@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  container-type: size;
   background: linear-gradient(#dfe3c8, #fff 90px);
 }
 
@@ -80,4 +81,11 @@
 [data-skin="kara"] .kara-chat__status {
   min-width: 0;
   color: #5c6147;
+}
+
+/* Two avatars need about 220px of height, and the history needs the width more than they do. */
+@container (max-height: 220px) or (max-width: 320px) {
+  [data-skin="kara"] .kara-chat__avatars {
+    display: none;
+  }
 }

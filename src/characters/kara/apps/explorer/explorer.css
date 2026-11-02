@@ -161,10 +161,11 @@
 
 /* ---- task pane + files ---- */
 
+/* In a short window the toolbars would squeeze the files away. This keeps them, and the window body scrolls instead. */
 [data-skin="kara"] .kara-explorer__main {
   display: flex;
   flex: 1;
-  min-height: 0;
+  min-height: 120px;
 }
 
 [data-skin="kara"] .kara-explorer__tasks {
