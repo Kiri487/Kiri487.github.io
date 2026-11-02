@@ -230,6 +230,7 @@ export function osReducer(state: OsState, action: OsAction): OsState {
     }
 
     case "reset":
-      return INITIAL_OS_STATE;
+      // The numbers keep counting: the desktop pet remembers windows it has seen by id.
+      return { ...INITIAL_OS_STATE, nextWindowNumber: state.nextWindowNumber };
   }
 }
