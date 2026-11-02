@@ -1,6 +1,6 @@
 import { memo, Suspense, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS } from "../apps/registry";
-import { useOs, WindowContext, type CloseGuard, type WindowApi } from "./context";
+import { useOs, WindowContext, type WindowApi } from "./context";
 import {
   clamp,
   clampPosition,
@@ -37,7 +37,6 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
   const rootRef = useRef<HTMLElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const resizeRef = useRef<ResizeState | null>(null);
-  const closeGuardRef = useRef<CloseGuard | null>(null);
 
   const { id, args, minimized, maximized } = win;
   const Icon = APPS[win.appId].icon;
@@ -45,26 +44,14 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
 
   const api = useMemo<WindowApi>(
     () => ({
-      windowId: id,
       args,
-      isFocused: focused,
       isMinimized: minimized,
       close: () => os.closeWindow(id),
-      minimize: () => os.minimizeWindow(id),
       setTitle: (title) => os.setWindowTitle(id, title),
-      moveTo: (x, y) => os.moveWindow(id, x, y),
       openApp: os.openApp,
-      setCloseGuard: (guard) => {
-        closeGuardRef.current = guard;
-      },
     }),
-    [id, args, focused, minimized, os],
+    [id, args, minimized, os],
   );
-
-  const handleClose = () => {
-    if (closeGuardRef.current?.() === false) return;
-    os.closeWindow(id);
-  };
 
   // Dragging writes the transform directly and only commits on release, so neither the desktop
   // nor a video or 3D scene inside the window re-renders on every pointer move.
@@ -134,13 +121,16 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
     const { start, direction, pointerX, pointerY } = resize;
     const edgeX = direction.includes("e") ? start.x + start.width : start.x;
     const edgeY = direction.includes("s") ? start.y + start.height : start.y;
-    const rect = resizeRect(
+    const resized = resizeRect(
       start,
       direction,
       clamp(event.clientX + edgeX - pointerX, 0, viewport.width) - edgeX,
       clamp(event.clientY + edgeY - pointerY, 0, viewport.height) - edgeY,
       APPS[win.appId].minSize,
     );
+    // The same limit the release applies. If only the release did, a position that ends up unchanged
+    // wouldn't be re-rendered, and the window would stay wherever this preview last put it.
+    const rect = { ...resized, ...clampPosition(resized.x, resized.y, resized.width, viewport) };
     resize.rect = rect;
 
     const root = rootRef.current;
@@ -220,7 +210,7 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
           type="button"
           className="kara-window__button kara-window__button--close"
           aria-label="Close"
-          onClick={handleClose}
+          onClick={() => os.closeWindow(id)}
         >
           <svg width="11" height="11" viewBox="0 0 11 11" aria-hidden="true">
             <path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" strokeWidth="2" />

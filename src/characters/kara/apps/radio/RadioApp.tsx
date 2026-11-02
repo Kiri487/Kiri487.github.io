@@ -31,6 +31,7 @@ function RadioApp() {
   const indexRef = useRef(0);
   const failuresRef = useRef(0);
   const resumeOnRestoreRef = useRef(false);
+  const isMinimizedRef = useRef(isMinimized);
 
   const [index, setIndex] = useState(0);
   const [status, setStatus] = useState<RadioStatus>("tuning");
@@ -66,19 +67,26 @@ function RadioApp() {
         const target = document.createElement("div");
         host.appendChild(target);
 
-        playerRef.current = new api.Player(target, {
+        new api.Player(target, {
           width: "100%",
           height: "100%",
           videoId: RADIO_TRACKS[indexRef.current].videoId,
           playerVars: { controls: 0, playsinline: 1, rel: 0, origin: window.location.origin },
           events: {
-            onReady: () => {
-              playerRef.current?.setVolume(INITIAL_VOLUME);
+            onReady: ({ target: player }) => {
+              playerRef.current = player;
+              player.setVolume(INITIAL_VOLUME);
               syncProgress();
               setStatus("ready");
             },
             onStateChange: ({ data }) => {
               if (data === PLAYER_STATE.PLAYING) {
+                // A track loaded just before minimizing only starts now, after the check on minimizing has passed.
+                if (isMinimizedRef.current) {
+                  resumeOnRestoreRef.current = true;
+                  playerRef.current?.pauseVideo();
+                  return;
+                }
                 failuresRef.current = 0;
                 syncProgress();
                 setStatus("playing");
@@ -90,7 +98,8 @@ function RadioApp() {
               }
             },
             // Mostly videos whose owner doesn't allow embedding. Stop once every track has failed in a row.
-            onError: () => {
+            onError: ({ data }) => {
+              console.warn(`Kara Radio: YouTube error ${data} on ${RADIO_TRACKS[indexRef.current].videoId}`);
               failuresRef.current += 1;
               if (failuresRef.current >= RADIO_TRACKS.length) {
                 setStatus("noSignal");
@@ -117,6 +126,7 @@ function RadioApp() {
 
   // YouTube's policies don't allow playing from a player that isn't on screen, so a minimized radio waits.
   useEffect(() => {
+    isMinimizedRef.current = isMinimized;
     const player = playerRef.current;
     if (!player) return;
 

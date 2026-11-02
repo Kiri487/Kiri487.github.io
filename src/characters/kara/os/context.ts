@@ -24,24 +24,15 @@ export interface OsActions {
   reset: () => void;
 }
 
-/** Return false to keep the window open when the visitor clicks its close button. */
-export type CloseGuard = () => boolean;
-
 /** What an app can do to its own window. Unusual behaviour belongs in the app, built on these. */
 export interface WindowApi {
-  windowId: string;
   /** What the opener passed to openApp. Each app knows the shape it expects. */
   args: unknown;
-  isFocused: boolean;
-  /** Minimized windows stay mounted, so an app with a render loop should pause while this is true. */
+  /** Minimized windows stay mounted, so an app that plays or renders should pause while this is true. */
   isMinimized: boolean;
-  /** Closes without asking the close guard. */
   close: () => void;
-  minimize: () => void;
   setTitle: (title: string) => void;
-  moveTo: (x: number, y: number) => void;
   openApp: OsActions["openApp"];
-  setCloseGuard: (guard: CloseGuard | null) => void;
 }
 
 export const OsStateContext = createContext<OsState | null>(null);

@@ -1,6 +1,5 @@
 /** Only the parts of the YouTube IFrame Player API the radio uses. */
 export interface YouTubePlayer {
-  cueVideoById: (videoId: string) => void;
   loadVideoById: (videoId: string) => void;
   playVideo: () => void;
   pauseVideo: () => void;
@@ -18,9 +17,10 @@ export interface YouTubePlayerOptions {
   videoId: string;
   playerVars: Record<string, string | number>;
   events: {
-    onReady: () => void;
+    /** The player's methods only exist from here on, so `target` is the first safe reference to it. */
+    onReady: (event: { target: YouTubePlayer }) => void;
     onStateChange: (event: { data: number }) => void;
-    onError: () => void;
+    onError: (event: { data: number }) => void;
     onAutoplayBlocked: () => void;
   };
 }
@@ -38,23 +38,35 @@ declare global {
 
 export const PLAYER_STATE = { ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3 } as const;
 
+/** The API's first script loads a second one, and a block on that one would otherwise never report back. */
+const API_TIMEOUT_MS = 15000;
+
 let apiPromise: Promise<YouTubeApi> | null = null;
 
 /** Downloads the API once, the first time a radio opens. A failure clears the way for the next attempt. */
 export function loadYouTubeApi(): Promise<YouTubeApi> {
   apiPromise ??= new Promise<YouTubeApi>((resolve, reject) => {
-    window.onYouTubeIframeAPIReady = () => {
-      if (window.YT) resolve(window.YT);
-      else reject(new Error("The YouTube API loaded without its player."));
-    };
-
     const script = document.createElement("script");
-    script.src = "https://www.youtube.com/iframe_api";
-    script.onerror = () => {
+
+    const fail = (message: string) => {
+      window.clearTimeout(timeout);
       script.remove();
       apiPromise = null;
-      reject(new Error("The YouTube API could not be downloaded."));
+      reject(new Error(message));
     };
+    const timeout = window.setTimeout(() => fail("The YouTube API took too long to load."), API_TIMEOUT_MS);
+
+    window.onYouTubeIframeAPIReady = () => {
+      if (!window.YT) {
+        fail("The YouTube API loaded without its player.");
+        return;
+      }
+      window.clearTimeout(timeout);
+      resolve(window.YT);
+    };
+
+    script.src = "https://www.youtube.com/iframe_api";
+    script.onerror = () => fail("The YouTube API could not be downloaded.");
     document.head.appendChild(script);
   });
   return apiPromise;

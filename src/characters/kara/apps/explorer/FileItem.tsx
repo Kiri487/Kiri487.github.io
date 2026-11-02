@@ -40,7 +40,10 @@ function FileItem({ file, view, selected, onSelect, onOpen }: FileItemProps) {
       onPointerDown={onSelect}
       onDoubleClick={onOpen}
       onKeyDown={(event) => {
-        if (event.key === "Enter") onOpen();
+        if (event.key !== "Enter") return;
+        // Otherwise the same key press goes on to click the OK of a message box that opening just focused.
+        event.preventDefault();
+        onOpen();
       }}
     >
       {view === "thumbnails" && (
