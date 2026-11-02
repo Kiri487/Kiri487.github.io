@@ -5,6 +5,7 @@ import muteSprite from "../assets/pet/kara-mute.webp";
 import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
 import { isFourTwenty } from "./fourTwenty";
+import { playGrabSfx, playLandSfx, playTalkSfx, unlockPetSfx } from "./petSfx";
 import { useIsPhone } from "./useIsPhone";
 import { readViewport } from "./windowManager";
 
@@ -135,6 +136,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         motion.y += motion.velocityY * seconds;
         if (motion.y >= ground) {
           motion.y = ground;
+          if (motion.velocityY >= MIN_BOUNCE_SPEED) playLandSfx(motion.velocityY);
           motion.velocityY *= -BOUNCE;
           if (Math.abs(motion.velocityY) < MIN_BOUNCE_SPEED) {
             motion.mode = "idle";
@@ -169,6 +171,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     const motion = motionRef.current;
     motion.mode = "idle";
     motion.nextDecision = performance.now() + TALK_MS + restDuration();
+    playTalkSfx();
     setWalking(false);
     // Toward whichever side of the screen has more room.
     setBalloonOnRight(motion.x + WIDTH / 2 < window.innerWidth / 2);
@@ -238,6 +241,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     os.blurWindows();
     if (event.button !== 0) return;
 
+    unlockPetSfx();
     const motion = motionRef.current;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
@@ -262,6 +266,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     if (!drag.moved) {
       if (Math.hypot(x - motion.x, y - motion.y) < DRAG_THRESHOLD) return;
       drag.moved = true;
+      playGrabSfx();
       setDragging(true);
       setInFront(true);
       // Over a video, an iframe would otherwise swallow the pointer.
