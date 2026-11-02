@@ -1,10 +1,12 @@
 import { useSkin } from "../../../SkinContext";
 import { PowerIcon, RestartIcon } from "../icons";
 import { useOs } from "./context";
+import { useDialogFocus } from "./useDialogFocus";
 
 function ShutdownDialog({ onCancel }: { onCancel: () => void }) {
   const os = useOs();
   const { setSkin } = useSkin();
+  const { initialFocusRef, onKeyDown } = useDialogFocus(onCancel);
 
   return (
     <div className="kara-shutdown">
@@ -13,9 +15,7 @@ function ShutdownDialog({ onCancel }: { onCancel: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="kara-shutdown-title"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onCancel();
-        }}
+        onKeyDown={onKeyDown}
       >
         <h2 id="kara-shutdown-title" className="kara-shutdown__title">
           Turn off computer
@@ -42,7 +42,7 @@ function ShutdownDialog({ onCancel }: { onCancel: () => void }) {
           </button>
         </div>
         <div className="kara-shutdown__footer">
-          <button type="button" className="kara-button kara-shutdown__cancel" autoFocus onClick={onCancel}>
+          <button ref={initialFocusRef} type="button" className="kara-button kara-shutdown__cancel" onClick={onCancel}>
             Cancel
           </button>
         </div>
