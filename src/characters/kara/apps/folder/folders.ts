@@ -86,6 +86,14 @@ export const FOLDERS: Record<FolderId, Folder> = {
         icon: NotepadIcon,
         action: { kind: "text", text: ":3" },
       },
+      {
+        id: "eat-something",
+        name: "eat_something.txt",
+        typeName: "Text Document",
+        date: "Today, after noon",
+        icon: NotepadIcon,
+        action: { kind: "text", text: "eat something" },
+      },
     ],
   },
   notAFolder: {
