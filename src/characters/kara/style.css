@@ -6,8 +6,8 @@
    ============================================================ */
 
 [data-skin="kara"] {
-  /* Swap this one value for a wallpaper later. */
-  --kara-wallpaper: #6d5f85;
+  /* Shows until assets/wallpaper.webp loads. Matches the tile's own background, which repeats seamlessly. */
+  --kara-wallpaper: #4d5b30;
   /* Sizes below are repeated in os/windowManager.ts and os/Desktop.tsx. Keep them in sync. */
   --kara-taskbar-height: 32px;
   --kara-title-bar-height: 27px;
@@ -31,7 +31,7 @@
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: var(--kara-wallpaper);
+  background: var(--kara-wallpaper) url("./assets/wallpaper.webp");
   color: var(--kara-ink);
   font-family: var(--kara-font);
   font-size: 12px;
