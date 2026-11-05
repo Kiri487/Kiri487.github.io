@@ -1,0 +1,116 @@
+/* Danger Noodle. The cell size and the field's chrome are repeated in DangerNoodleApp.tsx. Keep them in sync. */
+
+[data-skin="kara"] .kara-noodle {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--kara-window-face);
+  outline: none;
+  -webkit-touch-callout: none;
+}
+
+/* Centred while the field fits. Once even the smallest cells don't, it starts at the top left and scrolls. */
+[data-skin="kara"] .kara-noodle__area {
+  display: flex;
+  flex: 1;
+  align-items: safe center;
+  justify-content: safe center;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+  container-type: size;
+}
+
+/* Square, as big as the window allows either way, within reason. */
+[data-skin="kara"] .kara-noodle__field {
+  --cell: clamp(8px, min((100cqw - 22px) / var(--size), (100cqh - 22px) / var(--size)), 40px);
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--size), var(--cell));
+  grid-auto-rows: var(--cell);
+  border: 3px solid;
+  border-color: #a9a690 #fff #fff #a9a690;
+  background: #cfccb8;
+  /* Fingers steer here, so the page mustn't scroll or zoom under them. */
+  touch-action: none;
+}
+
+[data-skin="kara"] .kara-noodle__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-skin="kara"] .kara-noodle__cell > img {
+  width: 90%;
+  height: 90%;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-noodle__cell--head,
+[data-skin="kara"] .kara-noodle__cell--body {
+  background: #4b4b4b;
+}
+
+/* Only the very end is white, outlined so it shows on the light field. */
+[data-skin="kara"] .kara-noodle__cell--tail {
+  box-sizing: border-box;
+  border: 1px solid #4b4b4b;
+  background: #fff;
+}
+
+/* What the field says over itself: how to start, that it's paused, how to go again. */
+[data-skin="kara"] .kara-noodle__notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: 80%;
+  padding: 6px 10px;
+  border: 1px solid #8a8f6f;
+  background: var(--kara-menu-face);
+  box-shadow: 2px 2px 4px rgba(30, 30, 10, 0.3);
+  color: var(--kara-ink);
+  text-align: center;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-noodle__best {
+  margin: 0;
+}
+
+/* A cross of arrows, with pause in the middle. */
+[data-skin="kara"] .kara-noodle__pad {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(3, 40px);
+  justify-content: center;
+  gap: 4px;
+}
+
+[data-skin="kara"] .kara-noodle__pad .kara-pad__button {
+  color: var(--kara-ink);
+  font-size: 16px;
+}
+
+[data-skin="kara"] .kara-noodle__up {
+  grid-area: 1 / 2;
+}
+
+[data-skin="kara"] .kara-noodle__left {
+  grid-area: 2 / 1;
+}
+
+[data-skin="kara"] .kara-noodle__pause {
+  grid-area: 2 / 2;
+  font-size: 11px;
+}
+
+[data-skin="kara"] .kara-noodle__right {
+  grid-area: 2 / 3;
+}
+
+[data-skin="kara"] .kara-noodle__down {
+  grid-area: 3 / 2;
+}

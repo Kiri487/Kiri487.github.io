@@ -9,6 +9,7 @@ import {
   MessengerIcon,
   NotepadIcon,
   RadioIcon,
+  SnakeIcon,
   TerminalIcon,
   type IconProps,
 } from "../icons";
@@ -26,7 +27,8 @@ export type AppId =
   | "recycleBin"
   | "imageViewer"
   | "games"
-  | "burgerSweeper";
+  | "burgerSweeper"
+  | "dangerNoodle";
 
 export interface AppDefinition {
   /** The real name, used by the start menu and, unless windowTitle says otherwise, the window. */
@@ -67,12 +69,14 @@ const MessengerApp = lazy(() => import("./messenger/MessengerApp"));
 const ChatApp = lazy(() => import("./chat/ChatApp"));
 const NotepadApp = lazy(() => import("./notepad/NotepadApp"));
 const BurgerSweeperApp = lazy(() => import("./burgerSweeper/BurgerSweeperApp"));
+const DangerNoodleApp = lazy(() => import("./dangerNoodle/DangerNoodleApp"));
 
 /** To add an app: give it a folder here, then an entry below (and optionally a desktop icon). */
 export const APPS: Record<AppId, AppDefinition> = {
   radio: { title: "Kara Radio", icon: RadioIcon, component: RadioApp, size: { width: 520, height: 485 }, minSize: { width: 260, height: 450 }, startMenu: "left" },
   messenger: { title: "Kara Messenger", icon: MessengerIcon, component: MessengerApp, size: { width: 300, height: 440 }, startMenu: "left" },
   burgerSweeper: { title: "Burger Sweeper", icon: BurgerIcon, component: BurgerSweeperApp, size: { width: 262, height: 380 }, minSize: { width: 240, height: 300 }, startMenu: "left" },
+  dangerNoodle: { title: "Danger Noodle", icon: SnakeIcon, component: DangerNoodleApp, size: { width: 440, height: 560 }, minSize: { width: 240, height: 300 }, startMenu: "left" },
   notepad: { title: "asdf.txt - Notepad", icon: NotepadIcon, component: NotepadApp, size: { width: 440, height: 480 }, startMenu: "left" },
   newFolder: { title: "新增資料夾 (3)", defaultArgs: { folderId: "newFolder" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "left" },
   works: { title: "Works", windowTitle: "stuff i made", defaultArgs: { folderId: "works" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 780, height: 520 }, startMenu: "right" },
