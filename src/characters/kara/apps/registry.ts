@@ -47,6 +47,8 @@ export type DesktopIconDefinition = {
   x: number;
   y: number;
   shortcut?: boolean;
+  /** What its Properties says, since none of them has any real ones. */
+  properties: string;
 } & (
   | { appId: AppId }
   /** Leaves this computer for another character's page. */
@@ -80,14 +82,14 @@ export const APPS: Record<AppId, AppDefinition> = {
 export const APP_IDS = Object.keys(APPS) as AppId[];
 
 export const DESKTOP_ICONS: DesktopIconDefinition[] = [
-  { label: "stuff i made", appId: "works", x: 3.3, y: 4.3 },
-  { label: "Shortcut to Shortcut to radio", appId: "radio", x: 9.6, y: 13.7, shortcut: true },
-  { label: "radio (final) (real)", appId: "radio", x: 28.5, y: 14.8 },
-  { label: "things that compile", appId: "projects", x: 4.9, y: 33.7 },
-  { label: "whose computer is this", appId: "about", x: 20.5, y: 36 },
-  { label: "新增資料夾 (3)", appId: "newFolder", x: 13.5, y: 51 },
-  { label: "kara messenger", appId: "messenger", x: 24, y: 63 },
-  { label: "asdf.txt", appId: "notepad", x: 4.1, y: 70.7 },
-  { label: "Recycle Bin", appId: "recycleBin", x: 88.4, y: 69 },
-  { label: "totally_normal_cv.pdf", skin: "kere", icon: NotepadIcon, x: 37, y: 38, shortcut: true },
+  { label: "stuff i made", appId: "works", x: 3.3, y: 4.3, properties: "Size: growing. Kiri keeps adding things." },
+  { label: "Shortcut to Shortcut to radio", appId: "radio", x: 9.6, y: 13.7, shortcut: true, properties: "Target: Shortcut to radio. Its target: radio. Probably." },
+  { label: "radio (final) (real)", appId: "radio", x: 28.5, y: 14.8, properties: "This is the real one. The other one is also real." },
+  { label: "things that compile", appId: "projects", x: 4.9, y: 33.7, properties: "Compiles: most of the time." },
+  { label: "whose computer is this", appId: "about", x: 20.5, y: 36, properties: "Registered to: Kiri. Used by: Kara." },
+  { label: "新增資料夾 (3)", appId: "newFolder", x: 13.5, y: 51, properties: "(1) and (2) were not available for comment." },
+  { label: "kara messenger", appId: "messenger", x: 24, y: 63, properties: "Contacts: some. Thursday: offline." },
+  { label: "asdf.txt", appId: "notepad", x: 4.1, y: 70.7, properties: "Encoding: very formal." },
+  { label: "Recycle Bin", appId: "recycleBin", x: 88.4, y: 69, properties: "Status: applying to be a compost bin." },
+  { label: "totally_normal_cv.pdf", skin: "kere", icon: NotepadIcon, x: 37, y: 38, shortcut: true, properties: "Type: totally normal. Opens with: Kere." },
 ];
