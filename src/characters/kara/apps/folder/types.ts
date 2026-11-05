@@ -18,7 +18,9 @@ export type FileAction =
   /** `restores` also takes the file out of its folder until the window closes. */
   | { kind: "message"; message: string; restores?: boolean }
   /** The same, but decided when it's opened, because the answer depends on the day. */
-  | { kind: "dynamicMessage"; resolve: () => { message: string; restores: boolean } };
+  | { kind: "dynamicMessage"; resolve: () => { message: string; restores: boolean } }
+  /** Lets Kara out of the Recycle Bin. She leaves the folder herself, so nothing is hidden here. */
+  | { kind: "restorePet"; message: string };
 
 export interface FolderFile extends ExplorerFile {
   action: FileAction;

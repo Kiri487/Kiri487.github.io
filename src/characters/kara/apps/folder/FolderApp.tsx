@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useWindow } from "../../os/context";
+import { usePetInBin } from "../../os/petBin";
 import Explorer from "../explorer/Explorer";
-import { FOLDERS, folderPath } from "./folders";
+import { FOLDERS, PET_FILE, folderPath } from "./folders";
 import { openFile } from "./openFile";
 import type { FolderArgs, FolderFile, FolderId } from "./types";
 
@@ -17,6 +18,7 @@ function FolderApp() {
   const [history, setHistory] = useState<History>({ entries: [startId], index: 0 });
   const [openedWith, setOpenedWith] = useState(args);
   const [restoredIds, setRestoredIds] = useState<ReadonlySet<string>>(() => new Set());
+  const petInBin = usePetInBin();
 
   // Opening the app again resets the window's title, so the window has to go back to the folder that title names.
   if (args !== openedWith) {
@@ -27,7 +29,10 @@ function FolderApp() {
   const folderId = history.entries[history.index];
   const folder = FOLDERS[folderId];
 
-  const files = useMemo(() => folder.files.filter((file) => !restoredIds.has(file.id)), [folder, restoredIds]);
+  const files = useMemo(() => {
+    const kept = folder.files.filter((file) => !restoredIds.has(file.id));
+    return folderId === "recycleBin" && petInBin ? [...kept, PET_FILE] : kept;
+  }, [folder, folderId, restoredIds, petInBin]);
 
   const stepTo = (index: number) => {
     setHistory({ entries: history.entries, index });

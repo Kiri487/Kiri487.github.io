@@ -227,7 +227,7 @@
   top: 0;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(200px, 1fr) 120px 120px;
+  grid-template-columns: minmax(170px, 1fr) 120px 170px;
   min-width: 460px;
   background: var(--kara-menu-face);
 }
@@ -269,7 +269,7 @@
 
 [data-skin="kara"] .kara-file--details {
   display: grid;
-  grid-template-columns: minmax(200px, 1fr) 120px 120px;
+  grid-template-columns: minmax(170px, 1fr) 120px 170px;
   align-items: center;
   padding: 1px 0;
   text-align: left;

@@ -137,6 +137,8 @@ function Desktop() {
             key={label}
             type="button"
             data-label={label}
+            // How the pet finds the Recycle Bin to be thrown into.
+            data-app-id={"appId" in item ? item.appId : undefined}
             className={`kara-icon${selectedLabels.has(label) ? " kara-icon--selected" : ""}`}
             style={
               isPhone

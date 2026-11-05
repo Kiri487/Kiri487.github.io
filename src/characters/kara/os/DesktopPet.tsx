@@ -5,6 +5,7 @@ import muteSprite from "../assets/pet/kara-mute.webp";
 import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
 import { isFourTwenty } from "./fourTwenty";
+import { handlePetBinExit, putPetInBin, takePetOutOfBin, type BinExit } from "./petBin";
 import { findLedge, refreshLedge, type Ledge } from "./petLedges";
 import { playGrabSfx, playLandSfx, playTalkSfx } from "./petSfx";
 import { useIsPhone } from "./useIsPhone";
@@ -64,10 +65,44 @@ const WALK_OFF_LINE_CHANCE = 0.5;
 const WALK_OFF_LINE_DELAY_MS = 400;
 /** Stepping off something barely above the ground isn't a fall worth explaining. */
 const WALK_OFF_LINE_MIN_DROP = 60;
+/** Left in the Recycle Bin this long, she lets herself out. */
+const BIN_TIMEOUT_MS = 30_000;
+/** Matches the shrink in style.css. */
+const BIN_ENTER_MS = 300;
+/** Upward, so climbing out is a little hop before she falls to wherever is below. */
+const BIN_HOP_SPEED = 700;
+/** A moment after landing, to look around first. */
+const BIN_EXIT_LINE_DELAY_MS = 300;
+/** Said on landing, depending on how she got out. Nothing on the way in: she's in a bin. */
+const BIN_EXIT_LINES: Record<BinExit, string[]> = {
+  restored: ["i was about to become compost", "took you long enough", "i was getting comfortable"],
+  crawled: ["you can't delete me. i tried", "thursday is in there. we talked", "i was looking for the burger"],
+};
 const SHUTDOWN_REACTION = "that's a light switch";
 const FOUR_TWENTY_LINE = "it's time";
 
-type Mode = "idle" | "walk" | "drag" | "fall";
+type Mode = "idle" | "walk" | "drag" | "fall" | "bin";
+/** "entering" and "in" mean she's actually gone. "leaving" lasts as long as the pop out of the bin. */
+type BinStage = "out" | "entering" | "in" | "leaving";
+
+interface Rect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** The Recycle Bin's icon, if anyone could see it where it is. A window over it means there's no bin to aim for. */
+function findVisibleBin(root: Element, pet: Element): HTMLElement | null {
+  const bin = root.querySelector<HTMLElement>('.kara-icon[data-app-id="recycleBin"]');
+  if (!bin) return null;
+  const box = bin.getBoundingClientRect();
+  if (box.width === 0) return null;
+  const top = document
+    .elementsFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+    .find((element) => !pet.contains(element));
+  return top && bin.contains(top) ? bin : null;
+}
 
 function restDuration(): number {
   return MIN_REST_MS + Math.random() * (MAX_REST_MS - MIN_REST_MS);
@@ -104,6 +139,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     ledgeTops: new Map<HTMLElement, number>(),
     walkedOff: false,
     walkedOffY: 0,
+    /** Set on the way out of the bin, so landing is when she says something about it. */
+    binExitLine: null as string | null,
   });
   const lastWalkOffLineRef = useRef<string | null>(null);
   const dragRef = useRef<{
@@ -112,18 +149,28 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     offsetY: number;
     moved: boolean;
     wasFalling: boolean;
+    /** Measured once she starts moving, since nothing else can move during a drag. */
+    bin: { element: HTMLElement; box: Rect } | null;
+    overBin: boolean;
   } | null>(null);
   const lastLineRef = useRef<string | null>(null);
   const isSpeakingRef = useRef(false);
   const seenWindowsRef = useRef(new Set<string>());
   const spokenRef = useRef(new Set<string>());
   const reactionTimerRef = useRef<number | undefined>(undefined);
+  const binTimerRef = useRef<number | undefined>(undefined);
+  const binTargetRef = useRef({ x: 0, y: 0 });
+  const focusedIdRef = useRef<string | null>(null);
 
   const [walking, setWalking] = useState(false);
   const [dragging, setDragging] = useState(false);
-  // Once carried she stays in front of the windows, until one of them is focused and covers her like any other window would.
-  const [inFront, setInFront] = useState(false);
-  if (inFront && focusedId !== null) setInFront(false);
+  // Once carried, or out of the bin, she stays in front of the windows until focus moves to another one, which then
+  // covers her like any other window would. Holds the window focused at the time, null for none.
+  const [frontOf, setFrontOf] = useState<string | null | undefined>(undefined);
+  if (frontOf !== undefined && focusedId !== frontOf) setFrontOf(undefined);
+  const inFront = frontOf !== undefined;
+  const [binStage, setBinStage] = useState<BinStage>("out");
+  const [binExitLandings, setBinExitLandings] = useState(0);
   const [facingRight, setFacingRight] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const [balloonOnRight, setBalloonOnRight] = useState(false);
@@ -153,6 +200,12 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       const viewport = readViewport();
       const maxX = Math.max(0, viewport.width - WIDTH);
       const ground = viewport.height - HEIGHT;
+
+      // In the bin, or on her way in: the bin, not the floor, decides where she is.
+      if (motion.mode === "bin") {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
 
       if (pausedRef.current && motion.mode === "walk") {
         motion.mode = "idle";
@@ -236,6 +289,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
               motion.walkedOff = false;
               if (motion.y - motion.walkedOffY >= WALK_OFF_LINE_MIN_DROP) setWalkOffLandings((count) => count + 1);
             }
+            if (motion.binExitLine !== null) setBinExitLandings((count) => count + 1);
           }
         }
       }
@@ -283,7 +337,9 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const remark = useCallback(
     (text: string) => {
       const { mode } = motionRef.current;
-      if (mode === "drag" || mode === "fall" || isSpeakingRef.current || pausedRef.current) return false;
+      if (mode === "drag" || mode === "fall" || mode === "bin" || isSpeakingRef.current || pausedRef.current) {
+        return false;
+      }
       speak(text);
       return true;
     },
@@ -316,6 +372,61 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     }, WALK_OFF_LINE_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [walkOffLandings, remark]);
+
+  useEffect(() => {
+    focusedIdRef.current = focusedId;
+  }, [focusedId]);
+
+  // The shrink needs its class on before she's moved, or there'd be nothing to animate.
+  useLayoutEffect(() => {
+    if (binStage !== "entering" || !rootRef.current) return;
+    const { x, y } = binTargetRef.current;
+    rootRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    const timer = window.setTimeout(() => {
+      setBinStage("in");
+      putPetInBin();
+      binTimerRef.current = window.setTimeout(() => takePetOutOfBin("crawled"), BIN_TIMEOUT_MS);
+    }, BIN_ENTER_MS);
+    return () => window.clearTimeout(timer);
+  }, [binStage]);
+
+  useEffect(
+    () =>
+      handlePetBinExit((how) => {
+        window.clearTimeout(binTimerRef.current);
+        const motion = motionRef.current;
+        const viewport = readViewport();
+        const root = rootRef.current?.closest(".kara-os");
+        const box = root?.querySelector('.kara-icon[data-app-id="recycleBin"]')?.getBoundingClientRect();
+        // Out of the bin's middle, wherever it is now. Without one, up from the floor.
+        const centerX = box ? box.left + box.width / 2 : viewport.width / 2;
+        const centerY = box ? box.top + box.height / 2 : viewport.height - HEIGHT / 2;
+        motion.x = Math.min(Math.max(centerX - WIDTH / 2, 0), Math.max(0, viewport.width - WIDTH));
+        motion.y = centerY - HEIGHT / 2;
+        motion.mode = "fall";
+        motion.velocityY = -BIN_HOP_SPEED;
+        motion.ledge = null;
+        motion.binExitLine = pickDifferent(BIN_EXIT_LINES[how], null);
+        if (rootRef.current) rootRef.current.style.transform = `translate3d(${motion.x}px, ${motion.y}px, 0)`;
+        setBinStage("leaving");
+        // In front of whatever window let her out, or she'd climb out behind it. Not over a phone's full-screen
+        // window, where she'd sit on top of it with nowhere to go.
+        if (!isPhoneRef.current) setFrontOf(focusedIdRef.current);
+      }),
+    [],
+  );
+
+  useEffect(() => () => window.clearTimeout(binTimerRef.current), []);
+
+  useEffect(() => {
+    if (binExitLandings === 0) return;
+    const motion = motionRef.current;
+    const text = motion.binExitLine;
+    motion.binExitLine = null;
+    if (!text) return;
+    const timer = window.setTimeout(() => remark(text), BIN_EXIT_LINE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [binExitLandings, remark]);
 
   // On a phone every window fills the screen, so she's out of sight behind it: nowhere to walk, nobody to hear her.
   const hiddenByWindow = isPhone && windows.some((win) => !win.minimized);
@@ -363,6 +474,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     if (event.button !== 0) return;
 
     const motion = motionRef.current;
+    if (motion.mode === "bin") return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,
@@ -370,6 +482,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       offsetY: event.clientY - motion.y,
       moved: false,
       wasFalling: motion.mode === "fall",
+      bin: null,
+      overBin: false,
     };
     motion.mode = "drag";
     motion.velocityY = 0;
@@ -389,9 +503,17 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       drag.moved = true;
       motion.ledge = null;
       motion.walkedOff = false;
+      // Caught on the way out of the bin: she's too busy being carried to remark on it.
+      motion.binExitLine = null;
+      const root = event.currentTarget.closest(".kara-os");
+      const bin = root && findVisibleBin(root, event.currentTarget);
+      if (bin) {
+        const { left, top, right, bottom } = bin.getBoundingClientRect();
+        drag.bin = { element: bin, box: { left, top, right, bottom } };
+      }
       playGrabSfx();
       setDragging(true);
-      setInFront(true);
+      setFrontOf(null);
       // Over a video, an iframe would otherwise swallow the pointer.
       event.currentTarget.closest(".kara-os")?.classList.add(DRAGGING_CLASS);
     }
@@ -403,6 +525,17 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     motion.x = nextX;
     // Partly off the top is fine: it's how she reaches a window near the top of the screen.
     motion.y = Math.min(Math.max(y, -HEIGHT / 2), viewport.height - HEIGHT);
+
+    if (drag.bin) {
+      const { box, element } = drag.bin;
+      // Any part of her over any part of the icon: aiming a cat shouldn't take skill.
+      const overBin =
+        motion.x < box.right && motion.x + WIDTH > box.left && motion.y < box.bottom && motion.y + HEIGHT > box.top;
+      if (overBin !== drag.overBin) {
+        drag.overBin = overBin;
+        element.toggleAttribute("data-drop-target", overBin);
+      }
+    }
   };
 
   const handlePointerEnd = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -411,7 +544,19 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     dragRef.current = null;
 
     const motion = motionRef.current;
-    if (drag.moved) {
+    drag.bin?.element.removeAttribute("data-drop-target");
+    if (drag.moved && drag.bin && drag.overBin) {
+      const { box } = drag.bin;
+      binTargetRef.current = {
+        x: (box.left + box.right) / 2 - WIDTH / 2,
+        y: (box.top + box.bottom) / 2 - HEIGHT / 2,
+      };
+      motion.mode = "bin";
+      setDragging(false);
+      setLine(null);
+      setBinStage("entering");
+      event.currentTarget.closest(".kara-os")?.classList.remove(DRAGGING_CLASS);
+    } else if (drag.moved) {
       const feet = motion.y + HEIGHT;
       const root = event.currentTarget.closest(".kara-os");
       const ledge =
@@ -432,6 +577,9 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   if (inFront) classNames.push("kara-pet--in-front");
   if (dragging) classNames.push("kara-pet--dragging");
   if (facingRight) classNames.push("kara-pet--facing-right");
+  if (binStage === "entering" || binStage === "in") classNames.push("kara-pet--entering-bin");
+  if (binStage === "in") classNames.push("kara-pet--in-bin");
+  if (binStage === "leaving") classNames.push("kara-pet--leaving-bin");
 
   return (
     <button
@@ -444,6 +592,10 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
+      onAnimationEnd={(event) => {
+        // The sprite's walking and dangling bubble up here too.
+        if (event.animationName === "kara-pet-pop") setBinStage("out");
+      }}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
