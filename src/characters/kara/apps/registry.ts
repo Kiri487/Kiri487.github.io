@@ -2,6 +2,7 @@ import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 import type { Skin } from "../../../SkinContext";
 import {
   BinIcon,
+  BurgerIcon,
   ComputerIcon,
   FolderIcon,
   ImageFileIcon,
@@ -23,7 +24,9 @@ export type AppId =
   | "newFolder"
   | "notepad"
   | "recycleBin"
-  | "imageViewer";
+  | "imageViewer"
+  | "games"
+  | "burgerSweeper";
 
 export interface AppDefinition {
   /** The real name, used by the start menu and, unless windowTitle says otherwise, the window. */
@@ -63,16 +66,19 @@ const AboutApp = lazy(() => import("./about/AboutApp"));
 const MessengerApp = lazy(() => import("./messenger/MessengerApp"));
 const ChatApp = lazy(() => import("./chat/ChatApp"));
 const NotepadApp = lazy(() => import("./notepad/NotepadApp"));
+const BurgerSweeperApp = lazy(() => import("./burgerSweeper/BurgerSweeperApp"));
 
 /** To add an app: give it a folder here, then an entry below (and optionally a desktop icon). */
 export const APPS: Record<AppId, AppDefinition> = {
   radio: { title: "Kara Radio", icon: RadioIcon, component: RadioApp, size: { width: 520, height: 485 }, minSize: { width: 260, height: 450 }, startMenu: "left" },
   messenger: { title: "Kara Messenger", icon: MessengerIcon, component: MessengerApp, size: { width: 300, height: 440 }, startMenu: "left" },
+  burgerSweeper: { title: "Burger Sweeper", icon: BurgerIcon, component: BurgerSweeperApp, size: { width: 262, height: 380 }, minSize: { width: 240, height: 300 }, startMenu: "left" },
   notepad: { title: "asdf.txt - Notepad", icon: NotepadIcon, component: NotepadApp, size: { width: 440, height: 480 }, startMenu: "left" },
   newFolder: { title: "新增資料夾 (3)", defaultArgs: { folderId: "newFolder" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "left" },
   works: { title: "Works", windowTitle: "stuff i made", defaultArgs: { folderId: "works" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 780, height: 520 }, startMenu: "right" },
   projects: { title: "Projects", windowTitle: "Add or Remove Programs", icon: TerminalIcon, component: ProjectsApp, size: { width: 720, height: 520 }, startMenu: "right" },
   about: { title: "About", windowTitle: "System Properties", icon: ComputerIcon, component: AboutApp, size: { width: 520, height: 480 }, startMenu: "right" },
+  games: { title: "games (do not tell kiri)", defaultArgs: { folderId: "games" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 560, height: 380 }, startMenu: "right" },
   recycleBin: { title: "Recycle Bin", defaultArgs: { folderId: "recycleBin" } satisfies FolderArgs, icon: BinIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "right" },
   chat: { title: "Conversation", icon: MessengerIcon, component: ChatApp, size: { width: 460, height: 400 } },
   imageViewer: { title: "Kara Picture Viewer", icon: ImageFileIcon, component: ImageViewerApp, size: { width: 640, height: 560 } },
@@ -90,6 +96,7 @@ export const DESKTOP_ICONS: DesktopIconDefinition[] = [
   { label: "新增資料夾 (3)", appId: "newFolder", x: 13.5, y: 51, properties: "(1) and (2) were not available for comment." },
   { label: "kara messenger", appId: "messenger", x: 24, y: 63, properties: "Contacts: some. Thursday: offline." },
   { label: "asdf.txt", appId: "notepad", x: 4.1, y: 70.7, properties: "Encoding: very formal." },
+  { label: "games (do not tell kiri)", appId: "games", x: 46, y: 8, properties: "Contents: nothing. Don't tell Kiri." },
   { label: "Recycle Bin", appId: "recycleBin", x: 88.4, y: 69, properties: "Status: applying to be a compost bin." },
   { label: "totally_normal_cv.pdf", skin: "kere", icon: NotepadIcon, x: 37, y: 38, shortcut: true, properties: "Type: totally normal. Opens with: Kere." },
 ];

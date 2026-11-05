@@ -4,8 +4,8 @@ import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
  * Keyboard behaviour for a modal dialog: focus starts on `initialFocusRef` and returns where it was on closing,
  * Tab stays inside, and Escape closes from anywhere inside. Mouse use is untouched.
  */
-export function useDialogFocus(onClose: () => void) {
-  const initialFocusRef = useRef<HTMLButtonElement>(null);
+export function useDialogFocus<T extends HTMLElement = HTMLButtonElement>(onClose: () => void) {
+  const initialFocusRef = useRef<T>(null);
 
   useLayoutEffect(() => {
     const previous = document.activeElement;
@@ -23,10 +23,9 @@ export function useDialogFocus(onClose: () => void) {
     }
     if (event.key !== "Tab") return;
 
-    // Buttons are all these dialogs have.
-    const buttons = event.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled)");
-    const first = buttons[0];
-    const last = buttons[buttons.length - 1];
+    const focusable = event.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), textarea:not(:disabled)");
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
     if (!first || !last) return;
 
     if (event.shiftKey ? document.activeElement === first : document.activeElement === last) {

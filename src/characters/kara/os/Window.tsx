@@ -1,4 +1,4 @@
-import { memo, Suspense, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, Suspense, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS } from "../apps/registry";
 import { DRAGGING_CLASS, useOs, WindowContext, type WindowApi } from "./context";
 import {
@@ -45,12 +45,30 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
   const Icon = APPS[win.appId].icon;
   const App = APPS[win.appId].component;
 
+  // Read when an app asks to resize, so moving the window doesn't hand every app a new api.
+  const rectRef = useRef({ win, maximized });
+  useEffect(() => {
+    rectRef.current = { win, maximized };
+  });
+
   const api = useMemo<WindowApi>(
     () => ({
       args,
       isMinimized: minimized,
       close: () => os.closeWindow(id),
       setTitle: (title) => os.setWindowTitle(id, title),
+      resizeBy: (dWidth, dHeight) => {
+        const { win: current, maximized: fillsScreen } = rectRef.current;
+        if (fillsScreen) return;
+        const viewport = readViewport();
+        const { minSize } = APPS[current.appId];
+        os.resizeWindow(id, {
+          x: current.x,
+          y: current.y,
+          width: clamp(current.width + dWidth, minSize?.width ?? 0, viewport.width),
+          height: clamp(current.height + dHeight, minSize?.height ?? 0, viewport.height),
+        });
+      },
       openApp: os.openApp,
     }),
     [id, args, minimized, os],

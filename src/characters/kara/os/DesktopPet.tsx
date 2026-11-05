@@ -5,7 +5,8 @@ import muteSprite from "../assets/pet/kara-mute.webp";
 import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
 import { isFourTwenty } from "./fourTwenty";
-import { handlePetBinExit, putPetInBin, takePetOutOfBin, type BinExit } from "./petBin";
+import { handlePetBinExit, putPetInBin, takePetOutOfBin, takePetOutOfBinQuietly, type BinExit } from "./petBin";
+import { setPetInGame } from "./petGame";
 import { findLedge, refreshLedge, type Ledge } from "./petLedges";
 import { playGrabSfx, playLandSfx, playTalkSfx } from "./petSfx";
 import { useIsPhone } from "./useIsPhone";
@@ -78,12 +79,26 @@ const BIN_EXIT_LINES: Record<BinExit, string[]> = {
   restored: ["i was about to become compost", "took you long enough", "i was getting comfortable"],
   crawled: ["you can't delete me. i tried", "thursday is in there. we talked", "i was looking for the burger"],
 };
+/** Apps she goes into while they're open, to sit in their scoreboard. */
+const GAME_APPS: AppId[] = ["burgerSweeper"];
+/** Said on landing after a game closes or is minimized, which lets her back out. */
+const GAME_EXIT_LINES = ["i was winning", "i let you win", "the burgers are still in there"];
+/** How small she gets going into the bin. A game's seat says its own size. */
+const BIN_SCALE = 0.1;
 const SHUTDOWN_REACTION = "that's a light switch";
 const FOUR_TWENTY_LINE = "it's time";
 
-type Mode = "idle" | "walk" | "drag" | "fall" | "bin";
-/** "entering" and "in" mean she's actually gone. "leaving" lasts as long as the pop out of the bin. */
-type BinStage = "out" | "entering" | "in" | "leaving";
+/** "away" is off the desktop: on her way into the bin or a game, or in one. */
+type Mode = "idle" | "walk" | "drag" | "fall" | "away";
+type Away = "bin" | "game";
+/** "entering" and "in" mean she's actually gone. "leaving" lasts as long as the pop back out. */
+type AwayStage = "out" | "entering" | "in" | "leaving";
+/** Where she flies to, and how small she gets on the way. */
+interface AwayTarget {
+  x: number;
+  y: number;
+  scale: number;
+}
 
 interface Rect {
   left: number;
@@ -102,6 +117,18 @@ function findVisibleBin(root: Element, pet: Element): HTMLElement | null {
     .elementsFromPoint(box.left + box.width / 2, box.top + box.height / 2)
     .find((element) => !pet.contains(element));
   return top && bin.contains(top) ? bin : null;
+}
+
+/** Her place in an open game's scoreboard, sized and placed for the sprite to land exactly on it. */
+function findSeat(root: Element): AwayTarget | null {
+  const seat = root.querySelector<HTMLElement>("[data-pet-seat]");
+  const box = seat?.getBoundingClientRect();
+  if (!box || box.width === 0) return null;
+  return {
+    x: box.left + box.width / 2 - WIDTH / 2,
+    y: box.top + box.height / 2 - HEIGHT / 2,
+    scale: box.width / WIDTH,
+  };
 }
 
 function restDuration(): number {
@@ -139,8 +166,14 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     ledgeTops: new Map<HTMLElement, number>(),
     walkedOff: false,
     walkedOffY: 0,
-    /** Set on the way out of the bin, so landing is when she says something about it. */
-    binExitLine: null as string | null,
+    /** Set on the way out of the bin or a game, so landing is when she says something about it. */
+    exitLine: null as string | null,
+    away: null as Away | null,
+    awayStage: "out" as AwayStage,
+    /** Whether a game is open for her to go into. Told by the windows, acted on by the frame loop. */
+    wantsGame: false,
+    /** Where she sat in the game, last seen. The game is gone by the time she comes out of it. */
+    seat: null as AwayTarget | null,
   });
   const lastWalkOffLineRef = useRef<string | null>(null);
   const dragRef = useRef<{
@@ -159,7 +192,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const spokenRef = useRef(new Set<string>());
   const reactionTimerRef = useRef<number | undefined>(undefined);
   const binTimerRef = useRef<number | undefined>(undefined);
-  const binTargetRef = useRef({ x: 0, y: 0 });
+  const awayTargetRef = useRef<AwayTarget>({ x: 0, y: 0, scale: BIN_SCALE });
   const focusedIdRef = useRef<string | null>(null);
 
   const [walking, setWalking] = useState(false);
@@ -169,8 +202,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const [frontOf, setFrontOf] = useState<string | null | undefined>(undefined);
   if (frontOf !== undefined && focusedId !== frontOf) setFrontOf(undefined);
   const inFront = frontOf !== undefined;
-  const [binStage, setBinStage] = useState<BinStage>("out");
-  const [binExitLandings, setBinExitLandings] = useState(0);
+  const [awayStage, setAwayStage] = useState<AwayStage>("out");
+  const [exitLandings, setExitLandings] = useState(0);
   const [facingRight, setFacingRight] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const [balloonOnRight, setBalloonOnRight] = useState(false);
@@ -185,6 +218,49 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     motion.nextDecision = performance.now() + restDuration();
     if (rootRef.current) rootRef.current.style.transform = `translate3d(${motion.x}px, ${motion.y}px, 0)`;
   }, []);
+
+  /** The frame loop reads the stage too, so it's kept on the motion as well as in state. */
+  const setStage = useCallback((stage: AwayStage) => {
+    motionRef.current.awayStage = stage;
+    setAwayStage(stage);
+  }, []);
+
+  /** Off the desktop, into the bin or a game. The flight itself starts once the class for it is on. */
+  const goAway = useCallback(
+    (place: Away, target: AwayTarget) => {
+      const motion = motionRef.current;
+      motion.mode = "away";
+      motion.away = place;
+      awayTargetRef.current = target;
+      setWalking(false);
+      setLine(null);
+      setStage("entering");
+      // A game is a window, and she'd fly in behind it.
+      if (place === "game") setFrontOf(focusedIdRef.current);
+    },
+    [setStage],
+  );
+
+  /** Back out at this point, with a hop, to fall to whatever is below and say something on landing. */
+  const comeOut = useCallback(
+    (centerX: number, centerY: number, line: string) => {
+      const motion = motionRef.current;
+      const viewport = readViewport();
+      motion.x = Math.min(Math.max(centerX - WIDTH / 2, 0), Math.max(0, viewport.width - WIDTH));
+      motion.y = centerY - HEIGHT / 2;
+      motion.mode = "fall";
+      motion.velocityY = -BIN_HOP_SPEED;
+      motion.ledge = null;
+      motion.away = null;
+      motion.exitLine = line;
+      if (rootRef.current) rootRef.current.style.transform = `translate3d(${motion.x}px, ${motion.y}px, 0)`;
+      setStage("leaving");
+      // In front of whatever window let her out, or she'd climb out behind it. Not over a phone's full-screen
+      // window, where she'd sit on top of it with nowhere to go.
+      if (!isPhoneRef.current) setFrontOf(focusedIdRef.current);
+    },
+    [setStage],
+  );
 
   useEffect(() => {
     const stayStill = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -201,8 +277,42 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       const maxX = Math.max(0, viewport.width - WIDTH);
       const ground = viewport.height - HEIGHT;
 
-      // In the bin, or on her way in: the bin, not the floor, decides where she is.
-      if (motion.mode === "bin") {
+      const root = rootRef.current?.closest(".kara-os");
+
+      // Into a game as soon as it's open and drawn, straight out of the bin if that's where she is. Not while
+      // she's carried, or still on her way into something.
+      if (
+        root &&
+        motion.wantsGame &&
+        motion.away !== "game" &&
+        motion.mode !== "drag" &&
+        motion.awayStage !== "entering"
+      ) {
+        const seat = findSeat(root);
+        if (seat) {
+          if (motion.away === "bin") {
+            window.clearTimeout(binTimerRef.current);
+            takePetOutOfBinQuietly();
+          }
+          goAway("game", seat);
+        }
+      }
+
+      if (motion.away === "game" && motion.awayStage === "in") {
+        // Followed while she's in, since the window can be moved. Once it's closed, the last place seen is all there is.
+        // Not mid-drag: reading where she is every frame of a drag makes a big board's window lag behind the pointer,
+        // and nothing can close the window until it's let go of anyway.
+        const seat = root && !root.classList.contains(DRAGGING_CLASS) && findSeat(root);
+        if (seat) motion.seat = seat;
+        if (!motion.wantsGame) {
+          setPetInGame(false);
+          const last = motion.seat ?? awayTargetRef.current;
+          comeOut(last.x + WIDTH / 2, last.y + HEIGHT / 2, pickDifferent(GAME_EXIT_LINES, null));
+        }
+      }
+
+      // In the bin or a game, or on her way in: that, not the floor, decides where she is.
+      if (motion.mode === "away") {
         frame = requestAnimationFrame(tick);
         return;
       }
@@ -262,7 +372,6 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         motion.velocityY += GRAVITY * seconds;
         motion.y += motion.velocityY * seconds;
 
-        const root = rootRef.current?.closest(".kara-os");
         const ledge =
           root && !isPhoneRef.current
             ? findLedge(
@@ -289,7 +398,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
               motion.walkedOff = false;
               if (motion.y - motion.walkedOffY >= WALK_OFF_LINE_MIN_DROP) setWalkOffLandings((count) => count + 1);
             }
-            if (motion.binExitLine !== null) setBinExitLandings((count) => count + 1);
+            if (motion.exitLine !== null) setExitLandings((count) => count + 1);
           }
         }
       }
@@ -308,7 +417,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, []);
+  }, [goAway, comeOut]);
 
   useEffect(() => {
     isSpeakingRef.current = line !== null;
@@ -337,7 +446,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const remark = useCallback(
     (text: string) => {
       const { mode } = motionRef.current;
-      if (mode === "drag" || mode === "fall" || mode === "bin" || isSpeakingRef.current || pausedRef.current) {
+      if (mode === "drag" || mode === "fall" || mode === "away" || isSpeakingRef.current || pausedRef.current) {
         return false;
       }
       speak(text);
@@ -377,56 +486,60 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     focusedIdRef.current = focusedId;
   }, [focusedId]);
 
-  // The shrink needs its class on before she's moved, or there'd be nothing to animate.
+  // The flight needs its class on before she's moved, or there'd be nothing to animate.
   useLayoutEffect(() => {
-    if (binStage !== "entering" || !rootRef.current) return;
-    const { x, y } = binTargetRef.current;
-    rootRef.current.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    const root = rootRef.current;
+    if (awayStage !== "entering" || !root) return;
+    const { x, y, scale } = awayTargetRef.current;
+    root.style.setProperty("--pet-away-scale", String(scale));
+    root.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     const timer = window.setTimeout(() => {
-      setBinStage("in");
+      setStage("in");
+      if (motionRef.current.away === "game") {
+        setPetInGame(true);
+        return;
+      }
       putPetInBin();
       binTimerRef.current = window.setTimeout(() => takePetOutOfBin("crawled"), BIN_TIMEOUT_MS);
     }, BIN_ENTER_MS);
     return () => window.clearTimeout(timer);
-  }, [binStage]);
+  }, [awayStage, setStage]);
 
   useEffect(
     () =>
       handlePetBinExit((how) => {
         window.clearTimeout(binTimerRef.current);
-        const motion = motionRef.current;
         const viewport = readViewport();
         const root = rootRef.current?.closest(".kara-os");
         const box = root?.querySelector('.kara-icon[data-app-id="recycleBin"]')?.getBoundingClientRect();
         // Out of the bin's middle, wherever it is now. Without one, up from the floor.
         const centerX = box ? box.left + box.width / 2 : viewport.width / 2;
         const centerY = box ? box.top + box.height / 2 : viewport.height - HEIGHT / 2;
-        motion.x = Math.min(Math.max(centerX - WIDTH / 2, 0), Math.max(0, viewport.width - WIDTH));
-        motion.y = centerY - HEIGHT / 2;
-        motion.mode = "fall";
-        motion.velocityY = -BIN_HOP_SPEED;
-        motion.ledge = null;
-        motion.binExitLine = pickDifferent(BIN_EXIT_LINES[how], null);
-        if (rootRef.current) rootRef.current.style.transform = `translate3d(${motion.x}px, ${motion.y}px, 0)`;
-        setBinStage("leaving");
-        // In front of whatever window let her out, or she'd climb out behind it. Not over a phone's full-screen
-        // window, where she'd sit on top of it with nowhere to go.
-        if (!isPhoneRef.current) setFrontOf(focusedIdRef.current);
+        comeOut(centerX, centerY, pickDifferent(BIN_EXIT_LINES[how], null));
       }),
-    [],
+    [comeOut],
   );
+
+  // Leaving the skin from inside a game shouldn't leave her stuck in there next time.
+  useEffect(() => () => setPetInGame(false), []);
 
   useEffect(() => () => window.clearTimeout(binTimerRef.current), []);
 
   useEffect(() => {
-    if (binExitLandings === 0) return;
+    if (exitLandings === 0) return;
     const motion = motionRef.current;
-    const text = motion.binExitLine;
-    motion.binExitLine = null;
+    const text = motion.exitLine;
+    motion.exitLine = null;
     if (!text) return;
     const timer = window.setTimeout(() => remark(text), BIN_EXIT_LINE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [binExitLandings, remark]);
+  }, [exitLandings, remark]);
+
+  const gameOpen = windows.some((win) => GAME_APPS.includes(win.appId) && !win.minimized);
+
+  useEffect(() => {
+    motionRef.current.wantsGame = gameOpen;
+  }, [gameOpen]);
 
   // On a phone every window fills the screen, so she's out of sight behind it: nowhere to walk, nobody to hear her.
   const hiddenByWindow = isPhone && windows.some((win) => !win.minimized);
@@ -474,7 +587,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     if (event.button !== 0) return;
 
     const motion = motionRef.current;
-    if (motion.mode === "bin") return;
+    if (motion.mode === "away") return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,
@@ -504,7 +617,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       motion.ledge = null;
       motion.walkedOff = false;
       // Caught on the way out of the bin: she's too busy being carried to remark on it.
-      motion.binExitLine = null;
+      motion.exitLine = null;
       const root = event.currentTarget.closest(".kara-os");
       const bin = root && findVisibleBin(root, event.currentTarget);
       if (bin) {
@@ -547,14 +660,12 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     drag.bin?.element.removeAttribute("data-drop-target");
     if (drag.moved && drag.bin && drag.overBin) {
       const { box } = drag.bin;
-      binTargetRef.current = {
+      setDragging(false);
+      goAway("bin", {
         x: (box.left + box.right) / 2 - WIDTH / 2,
         y: (box.top + box.bottom) / 2 - HEIGHT / 2,
-      };
-      motion.mode = "bin";
-      setDragging(false);
-      setLine(null);
-      setBinStage("entering");
+        scale: BIN_SCALE,
+      });
       event.currentTarget.closest(".kara-os")?.classList.remove(DRAGGING_CLASS);
     } else if (drag.moved) {
       const feet = motion.y + HEIGHT;
@@ -577,9 +688,9 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   if (inFront) classNames.push("kara-pet--in-front");
   if (dragging) classNames.push("kara-pet--dragging");
   if (facingRight) classNames.push("kara-pet--facing-right");
-  if (binStage === "entering" || binStage === "in") classNames.push("kara-pet--entering-bin");
-  if (binStage === "in") classNames.push("kara-pet--in-bin");
-  if (binStage === "leaving") classNames.push("kara-pet--leaving-bin");
+  if (awayStage === "entering" || awayStage === "in") classNames.push("kara-pet--going-away");
+  if (awayStage === "in") classNames.push("kara-pet--away");
+  if (awayStage === "leaving") classNames.push("kara-pet--coming-back");
 
   return (
     <button
@@ -594,7 +705,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       onPointerCancel={handlePointerEnd}
       onAnimationEnd={(event) => {
         // The sprite's walking and dangling bubble up here too.
-        if (event.animationName === "kara-pet-pop") setBinStage("out");
+        if (event.animationName === "kara-pet-pop") setStage("out");
       }}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;

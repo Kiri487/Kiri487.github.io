@@ -235,6 +235,26 @@
   translate: 0 -50%;
 }
 
+/* The dot beside the current choice. */
+[data-skin="kara"] .kara-context-menu__check {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  translate: 0 -50%;
+}
+
+/* The tick beside a setting that's on. */
+[data-skin="kara"] .kara-context-menu__tick {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  translate: 0 -50%;
+}
+
 [data-skin="kara"] .kara-context-menu__separator {
   margin: 3px 2px;
   border-top: 1px solid #c6c4b4;
@@ -480,32 +500,34 @@
 }
 
 /*
- * Pulled into the Recycle Bin's icon. The pet moves her there; this only makes the trip take a moment. The shrink is
- * on the sprite, not on her: scaling the element that's moved would scale the move too, toward the screen's corner.
+ * Pulled into the Recycle Bin's icon or a game's scoreboard. The pet moves her there and sets how small she gets;
+ * this only makes the trip take a moment. The shrink is on the sprite, not on her: scaling the element that's moved
+ * would scale the move too, toward the screen's corner.
  */
-[data-skin="kara"] .kara-pet--entering-bin {
+[data-skin="kara"] .kara-pet--going-away {
   transition: transform 0.3s ease-in;
   pointer-events: none;
 }
 
-[data-skin="kara"] .kara-pet--entering-bin .kara-pet__sprite {
+[data-skin="kara"] .kara-pet--going-away .kara-pet__sprite {
   transition: transform 0.3s ease-in;
-  transform: scale(0.1);
+  transform: scale(var(--pet-away-scale, 0.1));
   transform-origin: 50% 50%;
 }
 
-[data-skin="kara"] .kara-pet--in-bin {
+[data-skin="kara"] .kara-pet--away {
   visibility: hidden;
 }
 
-[data-skin="kara"] .kara-pet--leaving-bin .kara-pet__sprite {
+/* Back out, growing from whatever size she went in at. */
+[data-skin="kara"] .kara-pet--coming-back .kara-pet__sprite {
   animation: kara-pet-pop 0.25s ease-out;
   transform-origin: 50% 50%;
 }
 
 @keyframes kara-pet-pop {
   from {
-    transform: scale(0.2);
+    transform: scale(var(--pet-away-scale, 0.2));
   }
   to {
     transform: scale(1);
@@ -575,8 +597,8 @@
     transition: none;
   }
 
-  [data-skin="kara"] .kara-pet--entering-bin,
-  [data-skin="kara"] .kara-pet--entering-bin .kara-pet__sprite {
+  [data-skin="kara"] .kara-pet--going-away,
+  [data-skin="kara"] .kara-pet--going-away .kara-pet__sprite {
     transition: none;
   }
 }

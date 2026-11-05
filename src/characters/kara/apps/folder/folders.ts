@@ -1,6 +1,14 @@
 import doNotOpenClicked from "../../assets/do-not-open-clicked.webp";
 import doNotOpen from "../../assets/do-not-open.webp";
-import { BrokenImageIcon, ComputerIcon, FolderIcon, ImageFileIcon, NotepadIcon, PetFileIcon } from "../../icons";
+import {
+  BrokenImageIcon,
+  BurgerIcon,
+  ComputerIcon,
+  FolderIcon,
+  ImageFileIcon,
+  NotepadIcon,
+  PetFileIcon,
+} from "../../icons";
 import type { ExplorerSort, ExplorerTaskGroup } from "../explorer/types";
 import { WORK_FILES } from "../works/workFiles";
 import type { Folder, FolderFile, FolderId } from "./types";
@@ -129,6 +137,26 @@ export const FOLDERS: Record<FolderId, Folder> = {
         date: "The 32nd",
         icon: ImageFileIcon,
         action: { kind: "image", src: doNotOpen, clickedSrc: doNotOpenClicked },
+      },
+    ],
+  },
+  games: {
+    name: "games (do not tell kiri)",
+    defaultSort: BY_NAME,
+    taskGroups: [
+      {
+        title: "Game Tasks",
+        tasks: [{ label: "Tell Kiri", message: "No." }],
+      },
+    ],
+    files: [
+      {
+        id: "burger-sweeper",
+        name: "burger sweeper.exe",
+        typeName: "Application (no ads)",
+        date: "Today, during work hours",
+        icon: BurgerIcon,
+        action: { kind: "app", appId: "burgerSweeper" },
       },
     ],
   },

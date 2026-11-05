@@ -23,10 +23,14 @@ import printer from "./assets/tango/printer.svg";
 import dialogWarning from "./assets/tango/dialog-warning.svg";
 import dialogInformation from "./assets/tango/dialog-information.svg";
 import petSprite from "./assets/pet/kara-mute.webp";
+import hamburger from "./assets/fluent-emoji/hamburger.svg";
+import forkAndKnife from "./assets/fluent-emoji/fork-and-knife.svg";
+import triangularFlag from "./assets/fluent-emoji/triangular-flag.svg";
 import { usePetInBin } from "./os/petBin";
 
 /**
- * App and system icons come from the Tango icon theme 0.8.90 (public domain, see assets/tango/COPYING).
+ * App and system icons come from the Tango icon theme 0.8.90 (public domain, see assets/tango/COPYING). Burger
+ * Sweeper's come from Microsoft's Fluent Emoji (MIT, see assets/fluent-emoji/LICENSE), since Tango has no burger.
  * Each is a plain component, so replacing one with final art only touches this file.
  */
 export interface IconProps {
@@ -135,4 +139,18 @@ export function SearchIcon({ size }: IconProps) {
 /** Kara's mark on the start button, a paw instead of a certain four-colour flag. Also the avatars' placeholder. */
 export function PawIcon({ size, color = "#fff" }: IconProps & { color?: string }) {
   return <IoPaw size={size} color={color} aria-hidden="true" />;
+}
+
+export function BurgerIcon({ size }: IconProps) {
+  return <TangoIcon src={hamburger} size={size} />;
+}
+
+/** Burger Sweeper's dig mode: poking a cell to see if it's a burger. */
+export function ForkIcon({ size }: IconProps) {
+  return <TangoIcon src={forkAndKnife} size={size} />;
+}
+
+/** Burger Sweeper's flag. */
+export function FlagIcon({ size }: IconProps) {
+  return <TangoIcon src={triangularFlag} size={size} />;
 }

@@ -36,6 +36,13 @@ export function takePetOutOfBin(how: BinExit) {
   exitHandler?.(how);
 }
 
+/** Out of the bin without climbing out: something else, such as a game, has taken her straight from it. */
+export function takePetOutOfBinQuietly() {
+  if (!inBin) return;
+  inBin = false;
+  emit();
+}
+
 /** The pet is the one who climbs out, so she's told how. Returns the cleanup, which also empties the bin quietly. */
 export function handlePetBinExit(handler: (how: BinExit) => void): () => void {
   exitHandler = handler;

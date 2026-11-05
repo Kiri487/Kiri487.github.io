@@ -35,6 +35,8 @@ export interface WindowApi {
   isMinimized: boolean;
   close: () => void;
   setTitle: (title: string) => void;
+  /** Grows or shrinks the window, such as to fit a bigger game board. Does nothing while it fills the screen. */
+  resizeBy: (dWidth: number, dHeight: number) => void;
   openApp: OsActions["openApp"];
 }
 

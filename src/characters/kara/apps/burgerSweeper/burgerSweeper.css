@@ -1,0 +1,327 @@
+/* Burger Sweeper. Cell sizes and the board's chrome are repeated in BurgerSweeperApp.tsx. Keep them in sync. */
+
+[data-skin="kara"] .kara-sweeper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--kara-window-face);
+  /* A long press means flag here, not select or copy. */
+  -webkit-touch-callout: none;
+}
+
+[data-skin="kara"] .kara-sweeper__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  /* Kara has no height of her own here, so the scoreboard keeps its size by itself. */
+  min-height: 48px;
+  box-sizing: border-box;
+  margin: 8px 8px 0;
+  padding: 5px 7px;
+  border: 2px solid;
+  border-color: #a9a690 #fff #fff #a9a690;
+}
+
+[data-skin="kara"] .kara-sweeper__counter {
+  min-width: 3ch;
+  padding: 1px 3px;
+  border: 1px solid;
+  border-color: #6d6a57 #fff #fff #6d6a57;
+  background: #1b0e0a;
+  color: #ff3b24;
+  font: bold 22px/1 Consolas, "Courier New", monospace;
+  letter-spacing: 1px;
+  text-shadow: 0 0 4px rgba(255, 59, 36, 0.6);
+}
+
+/*
+ * Kara in the middle of the scoreboard. Stretched to its inside edges, so cutting off the bottom of this box cuts
+ * her off right at the scoreboard's lower edge. Tune her with the two variables.
+ */
+[data-skin="kara"] .kara-sweeper__middle {
+  --kara-face-size: 80px;
+  /* How far above the scoreboard's top her sprite starts. Negative puts her ears over the menu bar. */
+  --kara-face-offset: -10px;
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  width: 64px;
+  margin: -5px 0;
+}
+
+[data-skin="kara"] .kara-sweeper__kara {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  /* Only the bottom is cut. Up and to the sides she can go as far as she likes. */
+  clip-path: inset(-200px -200px 0 -200px);
+}
+
+[data-skin="kara"] .kara-sweeper__kara:focus-visible {
+  outline: 1px dotted var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-sweeper__kara-image {
+  position: absolute;
+  top: var(--kara-face-offset);
+  left: 50%;
+  width: var(--kara-face-size);
+  height: auto;
+  translate: -50% 0;
+  /* The ears over the menu bar mustn't get in the way of its buttons. */
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-sweeper__footer {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px 8px;
+}
+
+/* Only on touch screens, so sized for a finger. */
+[data-skin="kara"] .kara-sweeper__mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 40px;
+  padding: 0;
+  border: 2px solid;
+  border-color: #fff #8e8b76 #8e8b76 #fff;
+  background: var(--kara-window-face);
+}
+
+[data-skin="kara"] .kara-sweeper__mode:active,
+[data-skin="kara"] .kara-sweeper__mode[aria-pressed="true"] {
+  border-color: #8e8b76 #fff #fff #8e8b76;
+}
+
+/* Pressed in, the way a toggled XP toolbar button looks. */
+[data-skin="kara"] .kara-sweeper__mode[aria-pressed="true"] {
+  background: #cfccb8;
+}
+
+[data-skin="kara"] .kara-sweeper__mode[aria-pressed="true"] > img {
+  translate: 1px 1px;
+}
+
+/*
+ * Kara's balloon, over her head with its tail pointing down at her. Put on the desktop's root and placed by the
+ * game, so it can rise over the menu and title bars instead of covering the board.
+ */
+[data-skin="kara"] .kara-sweeper__balloon {
+  position: fixed;
+  z-index: 4;
+  width: max-content;
+  /* Twice BALLOON_HALF_WIDTH in BurgerSweeperApp.tsx. */
+  max-width: 200px;
+  box-sizing: border-box;
+  margin-top: -10px;
+  padding: 7px 9px;
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: #ffffe1;
+  box-shadow: 2px 2px 5px rgba(30, 30, 10, 0.4);
+  color: #000;
+  line-height: 1.35;
+  translate: -50% -100%;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-sweeper__balloon::before,
+[data-skin="kara"] .kara-sweeper__balloon::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  border-style: solid;
+  border-color: transparent;
+}
+
+[data-skin="kara"] .kara-sweeper__balloon::before {
+  margin-left: -6px;
+  border-width: 9px 6px 0;
+  border-top-color: #000;
+}
+
+[data-skin="kara"] .kara-sweeper__balloon::after {
+  margin-left: -5px;
+  margin-top: -1px;
+  border-width: 8px 5px 0;
+  border-top-color: #ffffe1;
+}
+
+/* The board shrinks to whatever room the window gives it, up to full size. */
+/* Centred while the board fits. Once even the smallest cells don't, it starts at the top left and scrolls, rather
+   than spilling up over the scoreboard. */
+[data-skin="kara"] .kara-sweeper__area {
+  display: flex;
+  flex: 1;
+  align-items: safe center;
+  justify-content: safe center;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+  container-type: size;
+}
+
+[data-skin="kara"] .kara-sweeper__board {
+  /* As big as the window allows either way, within reason. */
+  --cell: clamp(12px, min((100cqw - 22px) / var(--cols), (100cqh - 22px) / var(--rows)), 64px);
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--cell));
+  grid-auto-rows: var(--cell);
+  border: 3px solid;
+  border-color: #a9a690 #fff #fff #a9a690;
+  touch-action: manipulation;
+}
+
+[data-skin="kara"] .kara-sweeper__cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cell);
+  height: var(--cell);
+  padding: 0;
+  border: 2px solid;
+  border-color: #fff #9a977f #9a977f #fff;
+  background: #dcd9c6;
+  color: var(--kara-ink);
+  font: bold 12px/1 Tahoma, Verdana, sans-serif;
+  /* Its own container, so the number inside sizes itself by the cell. Sized from the board's units instead, the
+     cells resized with the window but the numbers didn't. */
+  container-type: size;
+}
+
+[data-skin="kara"] .kara-sweeper__count {
+  font-size: 62cqh;
+}
+
+[data-skin="kara"] .kara-sweeper__cell > img {
+  width: 76%;
+  height: 76%;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-sweeper__cell:not(.kara-sweeper__cell--open):not(:disabled):active {
+  border: 1px solid #b4b19c;
+  background: #cfccb8;
+}
+
+[data-skin="kara"] .kara-sweeper__cell--open {
+  border: 1px solid #b4b19c;
+  border-width: 0 1px 1px 0;
+  background: #cfccb8;
+}
+
+/* The burger that was stepped on. */
+[data-skin="kara"] .kara-sweeper__cell--hit {
+  background: #e0402f;
+}
+
+/* A flag where there was no burger, shown once the game is lost. */
+[data-skin="kara"] .kara-sweeper__cell--wrong {
+  position: relative;
+}
+
+/* Dark, since the flag under it is red too. */
+[data-skin="kara"] .kara-sweeper__cell--wrong::before,
+[data-skin="kara"] .kara-sweeper__cell--wrong::after {
+  content: "";
+  position: absolute;
+  width: 80%;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--kara-ink);
+  rotate: 45deg;
+}
+
+[data-skin="kara"] .kara-sweeper__cell--wrong::after {
+  rotate: -45deg;
+}
+
+[data-skin="kara"] .kara-sweeper__cell:disabled {
+  cursor: default;
+}
+
+[data-skin="kara"] .kara-sweeper__cell--1 { color: #1f4fd1; }
+[data-skin="kara"] .kara-sweeper__cell--2 { color: #2e7d32; }
+[data-skin="kara"] .kara-sweeper__cell--3 { color: #c62828; }
+[data-skin="kara"] .kara-sweeper__cell--4 { color: #1a237e; }
+[data-skin="kara"] .kara-sweeper__cell--5 { color: #7b1f1f; }
+[data-skin="kara"] .kara-sweeper__cell--6 { color: #00838f; }
+[data-skin="kara"] .kara-sweeper__cell--7 { color: #222; }
+[data-skin="kara"] .kara-sweeper__cell--8 { color: #6d6d6d; }
+
+/* ---- dialogs ---- */
+
+[data-skin="kara"] .kara-sweeper-dialog__body {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+[data-skin="kara"] .kara-sweeper-dialog__actions {
+  gap: 8px;
+}
+
+[data-skin="kara"] .kara-sweeper-dialog__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+[data-skin="kara"] .kara-sweeper-dialog__field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Textareas made to pass for one-line inputs (see LineField in dialogs.tsx). */
+[data-skin="kara"] .kara-sweeper-dialog__input {
+  display: block;
+  box-sizing: border-box;
+  width: 64px;
+  height: calc(1.3em + 6px);
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 1px solid #7f9db9;
+  background: #fff;
+  color: var(--kara-ink);
+  font: inherit;
+  line-height: 1.3;
+  white-space: pre;
+  resize: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+[data-skin="kara"] .kara-sweeper-dialog__record {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-skin="kara"] .kara-sweeper-dialog__input--name {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+[data-skin="kara"] .kara-sweeper-dialog__times {
+  border-spacing: 12px 4px;
+}
+
+[data-skin="kara"] .kara-sweeper-dialog__times th {
+  font-weight: normal;
+  text-align: left;
+}
+
+/* Still laid out, so the pet can find where to land. */
+[data-skin="kara"] .kara-sweeper__kara-image--empty {
+  visibility: hidden;
+}
