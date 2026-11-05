@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { useDismiss } from "./useDismiss";
 
 export type ContextMenuItem =
@@ -7,6 +8,8 @@ export type ContextMenuItem =
       label: string;
       /** The default action, in bold like the one a double click does. */
       bold?: boolean;
+      /** Marked as the current choice, such as a game's difficulty. */
+      checked?: boolean;
       onSelect?: () => void;
       submenu?: ContextMenuItem[];
     };
@@ -83,12 +86,13 @@ function MenuList({ items, x, y, flipFrom, onClose }: MenuListProps) {
     >
       {items.map((item, index) => {
         if (item === "separator") return <div key={`separator-${index}`} className="kara-context-menu__separator" />;
-        const { label, bold, onSelect, submenu } = item;
+        const { label, bold, checked, onSelect, submenu } = item;
         return (
           <button
             key={label}
             type="button"
-            role="menuitem"
+            role={checked === undefined ? "menuitem" : "menuitemradio"}
+            aria-checked={checked}
             className={`kara-context-menu__item${bold ? " kara-context-menu__item--bold" : ""}`}
             aria-haspopup={submenu ? "menu" : undefined}
             aria-expanded={submenu ? openSubmenu?.index === index : undefined}
@@ -105,6 +109,7 @@ function MenuList({ items, x, y, flipFrom, onClose }: MenuListProps) {
               onSelect?.();
             }}
           >
+            {checked && <span className="kara-context-menu__check" aria-hidden="true" />}
             {label}
             {submenu && <span className="kara-context-menu__arrow" aria-hidden="true" />}
           </button>
@@ -124,9 +129,13 @@ function MenuList({ items, x, y, flipFrom, onClose }: MenuListProps) {
   );
 }
 
-/** A right-click menu at a point on the screen. Pressing anywhere else or Escape closes it. */
+/**
+ * A menu at a point on the screen: a right-click menu, or one dropping from a window's menu bar. Pressing anywhere
+ * else or Escape closes it. It's put on the desktop's root, since a window's transform would move it.
+ */
 function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [host] = useState(() => document.querySelector<HTMLElement>(".kara-os"));
   useDismiss(rootRef, true, onClose);
 
   useLayoutEffect(() => {
@@ -134,11 +143,12 @@ function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     rootRef.current?.querySelector<HTMLButtonElement>(".kara-context-menu__item")?.focus({ preventScroll: true });
   }, []);
 
-  return (
+  const menu = (
     <div ref={rootRef} className="kara-context-menu-layer">
       <MenuList items={items} x={x} y={y} onClose={onClose} />
     </div>
   );
+  return host ? createPortal(menu, host) : menu;
 }
 
 export default ContextMenu;
