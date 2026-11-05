@@ -48,7 +48,7 @@ const Cell = memo(function Cell({
   // Sized by the stylesheet, to fit the cell.
   if (flagged) content = <img src={flagSrc} alt="" draggable={false} />;
   else if (open && burger) content = <img src={burgerSrc} alt="" draggable={false} />;
-  else if (open && count > 0) content = count;
+  else if (open && count > 0) content = <span className="kara-sweeper__count">{count}</span>;
 
   return (
     <button

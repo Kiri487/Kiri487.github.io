@@ -157,13 +157,16 @@
 }
 
 /* The board shrinks to whatever room the window gives it, up to full size. */
+/* Centred while the board fits. Once even the smallest cells don't, it starts at the top left and scrolls, rather
+   than spilling up over the scoreboard. */
 [data-skin="kara"] .kara-sweeper__area {
   display: flex;
   flex: 1;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   min-height: 0;
   padding: 8px;
+  overflow: auto;
   container-type: size;
 }
 
@@ -189,7 +192,14 @@
   border-color: #fff #9a977f #9a977f #fff;
   background: #dcd9c6;
   color: var(--kara-ink);
-  font: bold calc(var(--cell) * 0.62) / 1 Tahoma, Verdana, sans-serif;
+  font: bold 12px/1 Tahoma, Verdana, sans-serif;
+  /* Its own container, so the number inside sizes itself by the cell. Sized from the board's units instead, the
+     cells resized with the window but the numbers didn't. */
+  container-type: size;
+}
+
+[data-skin="kara"] .kara-sweeper__count {
+  font-size: 62cqh;
 }
 
 [data-skin="kara"] .kara-sweeper__cell > img {
