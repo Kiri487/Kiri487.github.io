@@ -1,85 +1,7 @@
-import {
-  useState,
-  type ComponentProps,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode,
-  type Ref,
-} from "react";
+import { useState } from "react";
 import { useDialogFocus } from "../../os/useDialogFocus";
-import "../common/messageBox.css";
+import { DialogFrame, LineField } from "../common/gameDialogs";
 import { CUSTOM_LIMITS, DIFFICULTIES, DIFFICULTY_IDS, maxBurgers, type BestTimes, type Board } from "./difficulties";
-
-interface DialogFrameProps {
-  title: string;
-  onSubmit: () => void;
-  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
-  children: ReactNode;
-  actions: ReactNode;
-}
-
-/**
- * A one-line text field that's really a textarea: Chrome on phones puts its password, card and address bar above
- * the keyboard for any input, autocomplete="off" or not, but never for a textarea. Kere's chat does the same.
- * Enter sends the form instead of starting a new line, except while an IME is still picking characters.
- */
-function LineField({
-  value,
-  onValueChange,
-  digitsOnly = false,
-  inputRef,
-  ...rest
-}: Omit<ComponentProps<"textarea">, "value" | "onChange" | "rows" | "ref"> & {
-  value: string;
-  onValueChange: (value: string) => void;
-  /** For numbers: anything else typed or pasted is dropped. */
-  digitsOnly?: boolean;
-  inputRef?: Ref<HTMLTextAreaElement>;
-}) {
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229) return;
-    event.preventDefault();
-    event.currentTarget.form?.requestSubmit();
-  };
-
-  return (
-    <textarea
-      {...rest}
-      ref={inputRef}
-      rows={1}
-      wrap="off"
-      autoComplete="off"
-      autoCorrect="off"
-      spellCheck={false}
-      enterKeyHint="done"
-      inputMode={digitsOnly ? "numeric" : rest.inputMode}
-      value={value}
-      onKeyDown={handleKeyDown}
-      onChange={(event) => {
-        const text = event.target.value.replace(/\r?\n/g, " ");
-        onValueChange(digitsOnly ? text.replace(/\D/g, "") : text);
-      }}
-    />
-  );
-}
-
-/** The message box's frame, holding a form instead of a single line. */
-function DialogFrame({ title, onSubmit, onKeyDown, children, actions }: DialogFrameProps) {
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    onSubmit();
-  };
-
-  return (
-    <div className="kara-message">
-      <form className="kara-message__box" role="dialog" aria-modal="true" aria-label={title} onKeyDown={onKeyDown} onSubmit={submit}>
-        <div className="kara-message__title">{title}</div>
-        <div className="kara-message__body kara-sweeper-dialog__body">{children}</div>
-        <div className="kara-message__actions kara-sweeper-dialog__actions">{actions}</div>
-      </form>
-    </div>
-  );
-}
 
 interface CustomValues {
   rows: string;
@@ -139,15 +61,15 @@ export function CustomDialog({
         </>
       }
     >
-      <div className="kara-sweeper-dialog__fields">
+      <div className="kara-game-dialog__fields">
         {fields.map(({ key, label }, index) => (
-          <label key={key} className="kara-sweeper-dialog__field">
+          <label key={key} className="kara-game-dialog__field">
             {label}:
             <LineField
               inputRef={index === 0 ? initialFocusRef : undefined}
               digitsOnly
               maxLength={3}
-              className="kara-sweeper-dialog__input"
+              className="kara-game-dialog__input"
               value={values[key]}
               onValueChange={(value) => setValues({ ...values, [key]: value })}
               // Fixed on the way out of the field, so a number that can't be used never sits there looking fine.
@@ -187,7 +109,7 @@ export function BestTimesDialog({
         </>
       }
     >
-      <table className="kara-sweeper-dialog__times">
+      <table className="kara-game-dialog__times">
         <tbody>
           {DIFFICULTY_IDS.map((id) => (
             <tr key={id}>
@@ -198,38 +120,6 @@ export function BestTimesDialog({
           ))}
         </tbody>
       </table>
-    </DialogFrame>
-  );
-}
-
-/** Asks who set a new best time, already filled in with the answer Kara expects. */
-export function RecordDialog({ onConfirm }: { onConfirm: (name: string) => void }) {
-  const [name, setName] = useState("KARA");
-  const confirm = () => onConfirm(name);
-  const { initialFocusRef, onKeyDown } = useDialogFocus<HTMLTextAreaElement>(confirm);
-
-  return (
-    <DialogFrame
-      title="Burger Sweeper"
-      onSubmit={confirm}
-      onKeyDown={onKeyDown}
-      actions={
-        <button type="submit" className="kara-button kara-message__ok">
-          OK
-        </button>
-      }
-    >
-      <label className="kara-sweeper-dialog__record">
-        New best time. Who did this?
-        <LineField
-          inputRef={initialFocusRef}
-          maxLength={32}
-          className="kara-sweeper-dialog__input kara-sweeper-dialog__input--name"
-          value={name}
-          onValueChange={setName}
-          onFocus={(event) => event.currentTarget.select()}
-        />
-      </label>
     </DialogFrame>
   );
 }

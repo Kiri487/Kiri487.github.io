@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, type CSSProperties, type MouseEvent as ReactMo
 import hamburger from "../../assets/fluent-emoji/hamburger.svg";
 import triangularFlag from "../../assets/fluent-emoji/triangular-flag.svg";
 import type { Game } from "./game";
-import { useRasterIcon } from "./rasterIcon";
+import { useRasterIcon } from "../common/rasterIcon";
 
 const LONG_PRESS_MS = 450;
 

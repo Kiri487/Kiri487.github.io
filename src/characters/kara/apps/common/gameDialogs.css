@@ -1,0 +1,62 @@
+/* Dialogs the games share: forms in the message box's frame. Used through gameDialogs.tsx. */
+
+[data-skin="kara"] .kara-game-dialog__body {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+[data-skin="kara"] .kara-game-dialog__actions {
+  gap: 8px;
+}
+
+[data-skin="kara"] .kara-game-dialog__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+[data-skin="kara"] .kara-game-dialog__field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Textareas made to pass for one-line inputs (see LineField in gameDialogs.tsx). */
+[data-skin="kara"] .kara-game-dialog__input {
+  display: block;
+  box-sizing: border-box;
+  width: 64px;
+  height: calc(1.3em + 6px);
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 1px solid #7f9db9;
+  background: #fff;
+  color: var(--kara-ink);
+  font: inherit;
+  line-height: 1.3;
+  white-space: pre;
+  resize: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+[data-skin="kara"] .kara-game-dialog__record {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-skin="kara"] .kara-game-dialog__input--name {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+[data-skin="kara"] .kara-game-dialog__times {
+  border-spacing: 12px 4px;
+}
+
+[data-skin="kara"] .kara-game-dialog__times th {
+  font-weight: normal;
+  text-align: left;
+}

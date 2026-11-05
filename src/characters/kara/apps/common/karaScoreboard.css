@@ -1,0 +1,155 @@
+/*
+ * What every game on Kara's computer shares: the scoreboard with Kara peeking out of its middle, her balloon, and
+ * the big buttons under the board on touch screens. Used through KaraScoreboard.tsx and useKaraVoice.tsx.
+ */
+
+[data-skin="kara"] .kara-scoreboard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  /* Kara has no height of her own here, so the scoreboard keeps its size by itself. */
+  min-height: 48px;
+  box-sizing: border-box;
+  margin: 8px 8px 0;
+  padding: 5px 7px;
+  border: 2px solid;
+  border-color: #a9a690 #fff #fff #a9a690;
+}
+
+[data-skin="kara"] .kara-scoreboard__counter {
+  min-width: 3ch;
+  padding: 1px 3px;
+  border: 1px solid;
+  border-color: #6d6a57 #fff #fff #6d6a57;
+  background: #1b0e0a;
+  color: #ff3b24;
+  font: bold 22px/1 Consolas, "Courier New", monospace;
+  letter-spacing: 1px;
+  text-shadow: 0 0 4px rgba(255, 59, 36, 0.6);
+}
+
+/*
+ * Kara in the middle of the scoreboard. Stretched to its inside edges, so cutting off the bottom of this box cuts
+ * her off right at the scoreboard's lower edge. Tune her with the two variables.
+ */
+[data-skin="kara"] .kara-scoreboard__middle {
+  --kara-face-size: 80px;
+  /* How far above the scoreboard's top her sprite starts. Negative puts her ears over the menu bar. */
+  --kara-face-offset: -10px;
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  width: 64px;
+  margin: -5px 0;
+}
+
+[data-skin="kara"] .kara-scoreboard__kara {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  /* Only the bottom is cut. Up and to the sides she can go as far as she likes. */
+  clip-path: inset(-200px -200px 0 -200px);
+}
+
+[data-skin="kara"] .kara-scoreboard__kara:focus-visible {
+  outline: 1px dotted var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-scoreboard__kara-image {
+  position: absolute;
+  top: var(--kara-face-offset);
+  left: 50%;
+  width: var(--kara-face-size);
+  height: auto;
+  translate: -50% 0;
+  /* The ears over the menu bar mustn't get in the way of its buttons. */
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-pad {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 8px 8px;
+}
+
+/* Only on touch screens, so sized for a finger. */
+[data-skin="kara"] .kara-pad__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 40px;
+  padding: 0;
+  border: 2px solid;
+  border-color: #fff #8e8b76 #8e8b76 #fff;
+  background: var(--kara-window-face);
+}
+
+[data-skin="kara"] .kara-pad__button:active,
+[data-skin="kara"] .kara-pad__button[aria-pressed="true"] {
+  border-color: #8e8b76 #fff #fff #8e8b76;
+}
+
+/* Pressed in, the way a toggled XP toolbar button looks. */
+[data-skin="kara"] .kara-pad__button[aria-pressed="true"] {
+  background: #cfccb8;
+}
+
+[data-skin="kara"] .kara-pad__button[aria-pressed="true"] > img {
+  translate: 1px 1px;
+}
+
+/*
+ * Kara's balloon, over her head with its tail pointing down at her. Put on the desktop's root and placed by the
+ * game, so it can rise over the menu and title bars instead of covering the board.
+ */
+[data-skin="kara"] .kara-scoreboard__balloon {
+  position: fixed;
+  z-index: 4;
+  width: max-content;
+  /* Twice BALLOON_HALF_WIDTH in useKaraVoice.tsx. */
+  max-width: 200px;
+  box-sizing: border-box;
+  margin-top: -10px;
+  padding: 7px 9px;
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: #ffffe1;
+  box-shadow: 2px 2px 5px rgba(30, 30, 10, 0.4);
+  color: #000;
+  line-height: 1.35;
+  translate: -50% -100%;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-scoreboard__balloon::before,
+[data-skin="kara"] .kara-scoreboard__balloon::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  border-style: solid;
+  border-color: transparent;
+}
+
+[data-skin="kara"] .kara-scoreboard__balloon::before {
+  margin-left: -6px;
+  border-width: 9px 6px 0;
+  border-top-color: #000;
+}
+
+[data-skin="kara"] .kara-scoreboard__balloon::after {
+  margin-left: -5px;
+  margin-top: -1px;
+  border-width: 8px 5px 0;
+  border-top-color: #ffffe1;
+}
+
+/* Still laid out, so the pet can find where to land. */
+[data-skin="kara"] .kara-scoreboard__kara-image--empty {
+  visibility: hidden;
+}
