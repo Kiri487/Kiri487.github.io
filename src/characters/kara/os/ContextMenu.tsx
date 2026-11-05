@@ -8,8 +8,10 @@ export type ContextMenuItem =
       label: string;
       /** The default action, in bold like the one a double click does. */
       bold?: boolean;
-      /** Marked as the current choice, such as a game's difficulty. */
+      /** Marked as the current choice among several, such as a game's difficulty. */
       checked?: boolean;
+      /** A setting of its own that's on or off, such as a game's sound. Ticked while on. */
+      toggled?: boolean;
       onSelect?: () => void;
       submenu?: ContextMenuItem[];
     };
@@ -86,13 +88,16 @@ function MenuList({ items, x, y, flipFrom, onClose }: MenuListProps) {
     >
       {items.map((item, index) => {
         if (item === "separator") return <div key={`separator-${index}`} className="kara-context-menu__separator" />;
-        const { label, bold, checked, onSelect, submenu } = item;
+        const { label, bold, checked, toggled, onSelect, submenu } = item;
+        let role = "menuitem";
+        if (checked !== undefined) role = "menuitemradio";
+        if (toggled !== undefined) role = "menuitemcheckbox";
         return (
           <button
             key={label}
             type="button"
-            role={checked === undefined ? "menuitem" : "menuitemradio"}
-            aria-checked={checked}
+            role={role}
+            aria-checked={checked ?? toggled}
             className={`kara-context-menu__item${bold ? " kara-context-menu__item--bold" : ""}`}
             aria-haspopup={submenu ? "menu" : undefined}
             aria-expanded={submenu ? openSubmenu?.index === index : undefined}
@@ -110,6 +115,11 @@ function MenuList({ items, x, y, flipFrom, onClose }: MenuListProps) {
             }}
           >
             {checked && <span className="kara-context-menu__check" aria-hidden="true" />}
+            {toggled && (
+              <span className="kara-context-menu__tick" aria-hidden="true">
+                ✓
+              </span>
+            )}
             {label}
             {submenu && <span className="kara-context-menu__arrow" aria-hidden="true" />}
           </button>

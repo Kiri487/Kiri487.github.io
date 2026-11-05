@@ -247,6 +247,14 @@
   translate: 0 -50%;
 }
 
+/* The tick beside a setting that's on. */
+[data-skin="kara"] .kara-context-menu__tick {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  translate: 0 -50%;
+}
+
 [data-skin="kara"] .kara-context-menu__separator {
   margin: 3px 2px;
   border-top: 1px solid #c6c4b4;

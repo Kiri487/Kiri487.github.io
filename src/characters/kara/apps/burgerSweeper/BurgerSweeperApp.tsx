@@ -17,7 +17,9 @@ import {
   DIFFICULTY_IDS,
   defaultBestTimes,
   loadBestTimes,
+  loadSoundOn,
   saveBestTimes,
+  saveSoundOn,
   type Board,
   type DifficultyId,
 } from "./difficulties";
@@ -25,6 +27,7 @@ import { BestTimesDialog, CustomDialog, RecordDialog } from "./dialogs";
 // Named apart from the Board type, which is a board's size.
 import BoardView, { type Mode } from "./Board";
 import { chord, elapsedSeconds, flagCount, newGame, reveal, toggleFlag, type Game } from "./game";
+import { playBiteSfx, playChordSfx, playDigSfx, playFlagSfx, playWinSfx } from "./sweeperSfx";
 import "./burgerSweeper.css";
 
 /** A cell's size when a window opens or changes board: the window is made to fit it. Resized by hand, the board
@@ -40,6 +43,10 @@ const MOUTH_OPEN_MS = 150;
 
 const LOST_LINE = "you found a burger!!";
 const WON_LINE = "you didn't eat a single one. wow.";
+/** Between the game's sound and her saying something about it, so the two don't land on top of each other. */
+const BITE_TO_TALK_MS = 300;
+/** The four notes take about this long. */
+const FANFARE_TO_TALK_MS = 500;
 /** When she's just arrived in the game. */
 const HELLO_LINE = "the burgers are hiding again";
 /** Starting over after a game that had begun. A fresh board restarted says nothing: nothing happened yet. */
@@ -112,6 +119,8 @@ function BurgerSweeperApp() {
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [best, setBest] = useState(loadBestTimes);
+  // The game's own sounds. Kara talking is hers, not the game's, so it carries on either way.
+  const [soundOn, setSoundOn] = useState(loadSoundOn);
 
   const areaRef = useRef<HTMLDivElement>(null);
   const balloonRef = useRef<{ timer: number | undefined }>({ timer: undefined });
@@ -200,13 +209,27 @@ function BurgerSweeperApp() {
     restart(DIFFICULTIES[id]);
   };
 
-  const apply = (next: Game) => {
+  /** After the game's own sound has finished. Starting over before then means she never says it. */
+  const sayLater = (line: string, delay: number) => {
+    window.clearTimeout(balloonRef.current.timer);
+    balloonRef.current.timer = window.setTimeout(() => sayRef.current(line), delay);
+  };
+
+  /** `sound` is what the move sounds like, unless it ended the game: that has a sound of its own. */
+  const apply = (next: Game, sound: () => void) => {
     if (next === game) return;
     setGame(next);
-    if (next.status === game.status) return;
-    if (next.status === "lost") say(LOST_LINE);
+    if (next.status === game.status || next.status === "playing") {
+      if (soundOn) sound();
+      return;
+    }
+    if (next.status === "lost") {
+      if (soundOn) playBiteSfx();
+      sayLater(LOST_LINE, BITE_TO_TALK_MS);
+    }
     if (next.status === "won") {
-      say(WON_LINE);
+      if (soundOn) playWinSfx();
+      sayLater(WON_LINE, FANFARE_TO_TALK_MS);
       // A finished game has its own end time.
       const seconds = elapsedSeconds(next, next.endedAt ?? 0);
       if (difficulty !== "custom" && seconds < best[difficulty].seconds) {
@@ -217,10 +240,14 @@ function BurgerSweeperApp() {
 
   const dig = (index: number) => {
     const time = currentTime();
-    apply(game.cells[index].open ? chord(game, index, time) : reveal(game, index, time));
+    if (game.cells[index].open) apply(chord(game, index, time), playChordSfx);
+    else apply(reveal(game, index, time), playDigSfx);
   };
 
-  const flag = (index: number) => apply(toggleFlag(game, index));
+  const flag = (index: number) => {
+    const placed = !game.cells[index].flagged;
+    apply(toggleFlag(game, index), () => playFlagSfx(placed));
+  };
 
   // The board only redraws when the game does, so it's handed callbacks that never change, which call whatever
   // dig and flag are now.
@@ -257,6 +284,15 @@ function BurgerSweeperApp() {
     { label: "Custom...", checked: difficulty === "custom", onSelect: () => setDialog({ kind: "custom" }) },
     "separator",
     { label: "Best Times...", onSelect: () => setDialog({ kind: "bestTimes" }) },
+    "separator",
+    {
+      label: "Sound",
+      toggled: soundOn,
+      onSelect: () => {
+        setSoundOn(!soundOn);
+        saveSoundOn(!soundOn);
+      },
+    },
     "separator",
     { label: "Exit", onSelect: close },
   ];

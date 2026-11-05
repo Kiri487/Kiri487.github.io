@@ -52,6 +52,25 @@ export function loadBestTimes(): BestTimes {
   return best;
 }
 
+const SOUND_KEY = "kara-burger-sweeper-sound";
+
+/** On unless it was turned off in this browser. */
+export function loadSoundOn(): boolean {
+  try {
+    return localStorage.getItem(SOUND_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+export function saveSoundOn(on: boolean) {
+  try {
+    localStorage.setItem(SOUND_KEY, on ? "on" : "off");
+  } catch {
+    // Not saved, still applies until the page closes.
+  }
+}
+
 export function saveBestTimes(best: BestTimes) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(best));
