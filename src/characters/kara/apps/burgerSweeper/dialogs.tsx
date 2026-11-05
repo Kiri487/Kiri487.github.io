@@ -192,7 +192,7 @@ export function BestTimesDialog({
           {DIFFICULTY_IDS.map((id) => (
             <tr key={id}>
               <th scope="row">{DIFFICULTIES[id].shortLabel}:</th>
-              <td>{best[id].seconds} seconds</td>
+              <td>{best[id].seconds}s</td>
               <td>{best[id].name}</td>
             </tr>
           ))}

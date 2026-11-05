@@ -30,11 +30,21 @@ export interface BestTime {
 export type BestTimes = Record<DifficultyId, BestTime>;
 
 const STORAGE_KEY = "kara-burger-sweeper-best-times";
-/** Easy to beat on purpose, like the original's Anonymous. */
-const DEFAULT_BEST: BestTime = { name: "Kara", seconds: 999 };
-
+/**
+ * The other cats got here first, with times meant to be beaten. Kuru's is 6-7. Koro's spells kokoro, her name's
+ * root, in Japanese number puns (5 ko, 5 ko, 6 ro), which she'd never admit to. Kara's is 4:20, naturally.
+ */
 export function defaultBestTimes(): BestTimes {
-  return { snack: DEFAULT_BEST, lunch: DEFAULT_BEST, allYouCanEat: DEFAULT_BEST };
+  return {
+    snack: { name: "Kuru", seconds: 67 },
+    lunch: { name: "Koro", seconds: 556 },
+    allYouCanEat: { name: "Kara", seconds: 420 },
+  };
+}
+
+/** What the defaults used to be. Saved by an earlier reset, it still means no real record at all. */
+function isOldDefault(entry: BestTime): boolean {
+  return entry.name === "Kara" && entry.seconds === 999;
 }
 
 /** Only in this browser. Storage can be missing or blocked, in which case the records last as long as the page. */
@@ -44,7 +54,9 @@ export function loadBestTimes(): BestTimes {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Partial<BestTimes> | null;
     for (const id of DIFFICULTY_IDS) {
       const entry = saved?.[id];
-      if (entry && typeof entry.name === "string" && typeof entry.seconds === "number") best[id] = entry;
+      if (entry && typeof entry.name === "string" && typeof entry.seconds === "number" && !isOldDefault(entry)) {
+        best[id] = entry;
+      }
     }
   } catch {
     // Nothing saved that can be read: the defaults it is.
