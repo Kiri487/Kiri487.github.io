@@ -6,7 +6,7 @@ import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
 import { isFourTwenty } from "./fourTwenty";
 import { handlePetBinExit, putPetInBin, takePetOutOfBin, takePetOutOfBinQuietly, type BinExit } from "./petBin";
-import { setPetInGame } from "./petGame";
+import { setPetSeat } from "./petGame";
 import { findLedge, refreshLedge, type Ledge } from "./petLedges";
 import { playGrabSfx, playLandSfx, playTalkSfx } from "./petSfx";
 import { useIsPhone } from "./useIsPhone";
@@ -80,7 +80,7 @@ const BIN_EXIT_LINES: Record<BinExit, string[]> = {
   crawled: ["you can't delete me. i tried", "thursday is in there. we talked", "i was looking for the burger"],
 };
 /** Apps she goes into while they're open, to sit in their scoreboard. */
-const GAME_APPS: AppId[] = ["burgerSweeper"];
+const GAME_APPS: AppId[] = ["burgerSweeper", "dangerNoodle"];
 /** Said on landing after a game closes or is minimized, which lets her back out. */
 const GAME_EXIT_LINES = ["i was winning", "i let you win", "the burgers are still in there"];
 /** How small she gets going into the bin. A game's seat says its own size. */
@@ -119,12 +119,31 @@ function findVisibleBin(root: Element, pet: Element): HTMLElement | null {
   return top && bin.contains(top) ? bin : null;
 }
 
-/** Her place in an open game's scoreboard, sized and placed for the sprite to land exactly on it. */
-function findSeat(root: Element): AwayTarget | null {
-  const seat = root.querySelector<HTMLElement>("[data-pet-seat]");
-  const box = seat?.getBoundingClientRect();
-  if (!box || box.width === 0) return null;
+interface Seat extends AwayTarget {
+  id: string;
+}
+
+/**
+ * Her place in an open game's scoreboard, sized and placed for the sprite to land exactly on it. Given an id, that
+ * seat or nothing. Otherwise the focused game's, then the frontmost one's, or with `focusedOnly`, the focused
+ * game's or nothing. A minimized game's seat is still there, only hidden, so it doesn't count.
+ */
+function findSeat(root: Element, { id, focusedOnly = false }: { id?: string; focusedOnly?: boolean } = {}): Seat | null {
+  let found: { element: HTMLElement; z: number } | null = null;
+  for (const element of root.querySelectorAll<HTMLElement>("[data-pet-seat]")) {
+    const win = element.closest<HTMLElement>(".kara-window");
+    if (!win || win.classList.contains("kara-window--minimized")) continue;
+    if (id !== undefined && element.dataset.petSeat !== id) continue;
+    const focused = win.classList.contains("kara-window--focused");
+    if (focusedOnly && !focused) continue;
+    // Focus beats being in front: a focused window is always the front one anyway, unless nothing is focused.
+    const z = focused ? Infinity : Number(win.style.zIndex);
+    if (!found || z > found.z) found = { element, z };
+  }
+  const box = found?.element.getBoundingClientRect();
+  if (!found || !box || box.width === 0) return null;
   return {
+    id: found.element.dataset.petSeat ?? "",
     x: box.left + box.width / 2 - WIDTH / 2,
     y: box.top + box.height / 2 - HEIGHT / 2,
     scale: box.width / WIDTH,
@@ -173,7 +192,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     /** Whether a game is open for her to go into. Told by the windows, acted on by the frame loop. */
     wantsGame: false,
     /** Where she sat in the game, last seen. The game is gone by the time she comes out of it. */
-    seat: null as AwayTarget | null,
+    seat: null as Seat | null,
   });
   const lastWalkOffLineRef = useRef<string | null>(null);
   const dragRef = useRef<{
@@ -294,6 +313,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
             window.clearTimeout(binTimerRef.current);
             takePetOutOfBinQuietly();
           }
+          motion.seat = seat;
           goAway("game", seat);
         }
       }
@@ -302,12 +322,26 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         // Followed while she's in, since the window can be moved. Once it's closed, the last place seen is all there is.
         // Not mid-drag: reading where she is every frame of a drag makes a big board's window lag behind the pointer,
         // and nothing can close the window until it's let go of anyway.
-        const seat = root && !root.classList.contains(DRAGGING_CLASS) && findSeat(root);
-        if (seat) motion.seat = seat;
-        if (!motion.wantsGame) {
-          setPetInGame(false);
+        // Her own seat, not just any: with two games open, closing hers lets her out even though the other is there.
+        const dragging = root?.classList.contains(DRAGGING_CLASS);
+        const seat = root && !dragging && motion.seat ? findSeat(root, { id: motion.seat.id }) : null;
+        if (seat) {
+          motion.seat = seat;
+          // Kept over her seat while hidden there, so a trip to another game starts from where she really is.
+          if (rootRef.current) rootRef.current.style.transform = `translate3d(${seat.x}px, ${seat.y}px, 0)`;
+        }
+        if (!dragging && (!motion.wantsGame || !seat)) {
+          setPetSeat(null);
           const last = motion.seat ?? awayTargetRef.current;
           comeOut(last.x + WIDTH / 2, last.y + HEIGHT / 2, pickDifferent(GAME_EXIT_LINES, null));
+        } else if (root && !dragging) {
+          // Another game focused: she goes over to it, straight from one scoreboard to the other.
+          const focused = findSeat(root, { focusedOnly: true });
+          if (focused && focused.id !== motion.seat?.id) {
+            setPetSeat(null);
+            motion.seat = focused;
+            goAway("game", focused);
+          }
         }
       }
 
@@ -496,7 +530,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     const timer = window.setTimeout(() => {
       setStage("in");
       if (motionRef.current.away === "game") {
-        setPetInGame(true);
+        setPetSeat(motionRef.current.seat?.id ?? null);
         return;
       }
       putPetInBin();
@@ -521,7 +555,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   );
 
   // Leaving the skin from inside a game shouldn't leave her stuck in there next time.
-  useEffect(() => () => setPetInGame(false), []);
+  useEffect(() => () => setPetSeat(null), []);
 
   useEffect(() => () => window.clearTimeout(binTimerRef.current), []);
 

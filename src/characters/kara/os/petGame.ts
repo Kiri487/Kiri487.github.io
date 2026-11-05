@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Whether Kara has gone into a game, where she sits in its scoreboard instead of on the desktop. Shared outside
- * React's tree, like the bin's, because the pet and the game are far apart in it.
+ * Which game's seat Kara has taken, if any, where she sits in its scoreboard instead of on the desktop. Shared
+ * outside React's tree, like the bin's, because the pet and the games are far apart in it. A seat is named by its
+ * `data-pet-seat`, so with two games open, only the one she's in shows her.
  */
-let inGame = false;
+let seat: string | null = null;
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void) {
@@ -12,12 +13,12 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export function usePetInGame(): boolean {
-  return useSyncExternalStore(subscribe, () => inGame);
+export function usePetInSeat(id: string): boolean {
+  return useSyncExternalStore(subscribe, () => seat === id);
 }
 
-export function setPetInGame(value: boolean) {
-  if (inGame === value) return;
-  inGame = value;
+export function setPetSeat(id: string | null) {
+  if (seat === id) return;
+  seat = id;
   for (const listener of listeners) listener();
 }

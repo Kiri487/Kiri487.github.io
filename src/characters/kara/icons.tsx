@@ -26,6 +26,7 @@ import petSprite from "./assets/pet/kara-mute.webp";
 import hamburger from "./assets/fluent-emoji/hamburger.svg";
 import forkAndKnife from "./assets/fluent-emoji/fork-and-knife.svg";
 import triangularFlag from "./assets/fluent-emoji/triangular-flag.svg";
+import snake from "./assets/fluent-emoji/snake.svg";
 import { usePetInBin } from "./os/petBin";
 
 /**
@@ -148,6 +149,10 @@ export function BurgerIcon({ size }: IconProps) {
 /** Burger Sweeper's dig mode: poking a cell to see if it's a burger. */
 export function ForkIcon({ size }: IconProps) {
   return <TangoIcon src={forkAndKnife} size={size} />;
+}
+
+export function SnakeIcon({ size }: IconProps) {
+  return <TangoIcon src={snake} size={size} />;
 }
 
 /** Burger Sweeper's flag. */

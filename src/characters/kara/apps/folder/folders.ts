@@ -8,6 +8,7 @@ import {
   ImageFileIcon,
   NotepadIcon,
   PetFileIcon,
+  SnakeIcon,
 } from "../../icons";
 import type { ExplorerSort, ExplorerTaskGroup } from "../explorer/types";
 import { WORK_FILES } from "../works/workFiles";
@@ -157,6 +158,14 @@ export const FOLDERS: Record<FolderId, Folder> = {
         date: "Today, during work hours",
         icon: BurgerIcon,
         action: { kind: "app", appId: "burgerSweeper" },
+      },
+      {
+        id: "danger-noodle",
+        name: "danger noodle.exe",
+        typeName: "Application (no ads)",
+        date: "Today, also during work hours",
+        icon: SnakeIcon,
+        action: { kind: "app", appId: "dangerNoodle" },
       },
     ],
   },
