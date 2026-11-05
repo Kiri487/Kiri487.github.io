@@ -39,6 +39,9 @@ export function openFile(file: FolderFile, context: OpenFileContext): string | v
     case "folder":
       context.goToFolder(action.folderId);
       return;
+    case "app":
+      context.openApp(action.appId);
+      return;
     case "message":
       if (action.restores) context.restore(file.id);
       return action.message;

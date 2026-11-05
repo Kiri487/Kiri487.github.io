@@ -1,6 +1,7 @@
 import type { ExplorerFile, ExplorerSort, ExplorerTaskGroup } from "../explorer/types";
+import type { AppId } from "../registry";
 
-export type FolderId = "works" | "newFolder" | "notAFolder" | "recycleBin";
+export type FolderId = "works" | "newFolder" | "notAFolder" | "recycleBin" | "games";
 
 /** What double-clicking a file does. */
 export type FileAction =
@@ -15,6 +16,8 @@ export type FileAction =
     }
   | { kind: "link"; url: string }
   | { kind: "folder"; folderId: FolderId }
+  /** A program: opens its app. */
+  | { kind: "app"; appId: AppId }
   /** `restores` also takes the file out of its folder until the window closes. */
   | { kind: "message"; message: string; restores?: boolean }
   /** The same, but decided when it's opened, because the answer depends on the day. */
