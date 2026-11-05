@@ -1,4 +1,11 @@
-import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useState,
+  type ComponentProps,
+  type FormEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { useDialogFocus } from "../../os/useDialogFocus";
 import "../common/messageBox.css";
 import { CUSTOM_LIMITS, DIFFICULTIES, DIFFICULTY_IDS, maxBurgers, type BestTimes, type Board } from "./difficulties";
@@ -9,6 +16,51 @@ interface DialogFrameProps {
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
   children: ReactNode;
   actions: ReactNode;
+}
+
+/**
+ * A one-line text field that's really a textarea: Chrome on phones puts its password, card and address bar above
+ * the keyboard for any input, autocomplete="off" or not, but never for a textarea. Kere's chat does the same.
+ * Enter sends the form instead of starting a new line, except while an IME is still picking characters.
+ */
+function LineField({
+  value,
+  onValueChange,
+  digitsOnly = false,
+  inputRef,
+  ...rest
+}: Omit<ComponentProps<"textarea">, "value" | "onChange" | "rows" | "ref"> & {
+  value: string;
+  onValueChange: (value: string) => void;
+  /** For numbers: anything else typed or pasted is dropped. */
+  digitsOnly?: boolean;
+  inputRef?: Ref<HTMLTextAreaElement>;
+}) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  };
+
+  return (
+    <textarea
+      {...rest}
+      ref={inputRef}
+      rows={1}
+      wrap="off"
+      autoComplete="off"
+      autoCorrect="off"
+      spellCheck={false}
+      enterKeyHint="done"
+      inputMode={digitsOnly ? "numeric" : rest.inputMode}
+      value={value}
+      onKeyDown={handleKeyDown}
+      onChange={(event) => {
+        const text = event.target.value.replace(/\r?\n/g, " ");
+        onValueChange(digitsOnly ? text.replace(/\D/g, "") : text);
+      }}
+    />
+  );
 }
 
 /** The message box's frame, holding a form instead of a single line. */
@@ -60,7 +112,7 @@ export function CustomDialog({
   onConfirm: (board: Board) => void;
   onCancel: () => void;
 }) {
-  const { initialFocusRef, onKeyDown } = useDialogFocus<HTMLInputElement>(onCancel);
+  const { initialFocusRef, onKeyDown } = useDialogFocus<HTMLTextAreaElement>(onCancel);
   const [values, setValues] = useState(() => toValues(board));
 
   const fields: { key: keyof CustomValues; label: string }[] = [
@@ -91,13 +143,13 @@ export function CustomDialog({
         {fields.map(({ key, label }, index) => (
           <label key={key} className="kara-sweeper-dialog__field">
             {label}:
-            <input
-              ref={index === 0 ? initialFocusRef : undefined}
-              type="number"
-              inputMode="numeric"
+            <LineField
+              inputRef={index === 0 ? initialFocusRef : undefined}
+              digitsOnly
+              maxLength={3}
               className="kara-sweeper-dialog__input"
               value={values[key]}
-              onChange={(event) => setValues({ ...values, [key]: event.target.value })}
+              onValueChange={(value) => setValues({ ...values, [key]: value })}
               // Fixed on the way out of the field, so a number that can't be used never sits there looking fine.
               onBlur={() => setValues(toValues(fitBoard(values)))}
             />
@@ -154,7 +206,7 @@ export function BestTimesDialog({
 export function RecordDialog({ onConfirm }: { onConfirm: (name: string) => void }) {
   const [name, setName] = useState("KARA");
   const confirm = () => onConfirm(name);
-  const { initialFocusRef, onKeyDown } = useDialogFocus<HTMLInputElement>(confirm);
+  const { initialFocusRef, onKeyDown } = useDialogFocus<HTMLTextAreaElement>(confirm);
 
   return (
     <DialogFrame
@@ -169,13 +221,12 @@ export function RecordDialog({ onConfirm }: { onConfirm: (name: string) => void 
     >
       <label className="kara-sweeper-dialog__record">
         New best time. Who did this?
-        <input
-          ref={initialFocusRef}
-          type="text"
+        <LineField
+          inputRef={initialFocusRef}
           maxLength={32}
           className="kara-sweeper-dialog__input kara-sweeper-dialog__input--name"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onValueChange={setName}
           onFocus={(event) => event.currentTarget.select()}
         />
       </label>
