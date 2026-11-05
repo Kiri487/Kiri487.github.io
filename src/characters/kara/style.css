@@ -147,6 +147,99 @@
   outline: 1px dotted #fff;
 }
 
+/* Carried over the other icons and the windows too, still under the taskbar, which comes later in the DOM. */
+[data-skin="kara"] .kara-icon--dragging {
+  z-index: 2;
+}
+
+/* Let go of over a window, which doesn't take them, so they slide back to where they were. */
+[data-skin="kara"] .kara-icon--snapping-back {
+  z-index: 2;
+  transition: translate 0.2s ease-out;
+  pointer-events: none;
+}
+
+/* Desktop.tsx sets where the bin is. This only makes the trip take a moment. */
+[data-skin="kara"] .kara-icon--to-bin {
+  z-index: 1;
+  transition:
+    translate 0.3s ease-in,
+    scale 0.3s ease-in;
+  scale: 0.1;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-icon--from-bin {
+  animation: kara-icon-pop 0.25s ease-out;
+}
+
+@keyframes kara-icon-pop {
+  from {
+    scale: 0.2;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+[data-skin="kara"] .kara-icon--blinking,
+[data-skin="kara"] .kara-desktop--refreshing .kara-icon {
+  visibility: hidden;
+}
+
+/* ---- right-click menu ---- */
+
+[data-skin="kara"] .kara-context-menu {
+  position: fixed;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  padding: 2px;
+  border: 1px solid #8a8f6f;
+  background: var(--kara-menu-face);
+  box-shadow: 2px 2px 4px rgba(30, 30, 10, 0.4);
+  color: var(--kara-ink);
+}
+
+[data-skin="kara"] .kara-context-menu__item {
+  position: relative;
+  padding: 3px 26px 3px 20px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-context-menu__item--bold {
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-context-menu__item:hover,
+[data-skin="kara"] .kara-context-menu__item:focus-visible,
+[data-skin="kara"] .kara-context-menu__item[aria-expanded="true"] {
+  background: #5f7136;
+  color: #fff;
+  outline: none;
+}
+
+/* A small triangle pointing at the submenu. */
+[data-skin="kara"] .kara-context-menu__arrow {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  border: 4px solid transparent;
+  border-right: 0;
+  border-left-color: currentColor;
+  translate: 0 -50%;
+}
+
+[data-skin="kara"] .kara-context-menu__separator {
+  margin: 3px 2px;
+  border-top: 1px solid #c6c4b4;
+}
+
 /* ---- windows ---- */
 
 /* An own stacking context, so window z-indexes can grow forever and still sit under the taskbar. */
@@ -472,8 +565,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-skin="kara"] .kara-pet__sprite {
+  [data-skin="kara"] .kara-pet__sprite,
+  [data-skin="kara"] .kara-icon--from-bin {
     animation: none !important;
+  }
+
+  [data-skin="kara"] .kara-icon--to-bin,
+  [data-skin="kara"] .kara-icon--snapping-back {
+    transition: none;
   }
 
   [data-skin="kara"] .kara-pet--entering-bin,

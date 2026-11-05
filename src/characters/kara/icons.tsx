@@ -21,6 +21,7 @@ import computer from "./assets/tango/computer.svg";
 import groupChat from "./assets/tango/internet-group-chat.svg";
 import printer from "./assets/tango/printer.svg";
 import dialogWarning from "./assets/tango/dialog-warning.svg";
+import dialogInformation from "./assets/tango/dialog-information.svg";
 import petSprite from "./assets/pet/kara-mute.webp";
 import { usePetInBin } from "./os/petBin";
 
@@ -85,6 +86,10 @@ export function MessengerIcon({ size }: IconProps) {
 
 export function ErrorIcon({ size }: IconProps) {
   return <TangoIcon src={dialogError} size={size} />;
+}
+
+export function InfoIcon({ size }: IconProps) {
+  return <TangoIcon src={dialogInformation} size={size} />;
 }
 
 export function WarningIcon({ size }: IconProps) {
