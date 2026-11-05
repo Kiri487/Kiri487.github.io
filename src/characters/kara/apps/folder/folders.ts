@@ -1,9 +1,9 @@
 import doNotOpenClicked from "../../assets/do-not-open-clicked.webp";
 import doNotOpen from "../../assets/do-not-open.webp";
-import { BrokenImageIcon, ComputerIcon, FolderIcon, ImageFileIcon, NotepadIcon } from "../../icons";
+import { BrokenImageIcon, ComputerIcon, FolderIcon, ImageFileIcon, NotepadIcon, PetFileIcon } from "../../icons";
 import type { ExplorerSort, ExplorerTaskGroup } from "../explorer/types";
 import { WORK_FILES } from "../works/workFiles";
-import type { Folder, FolderId } from "./types";
+import type { Folder, FolderFile, FolderId } from "./types";
 
 const BY_NAME: ExplorerSort = { key: "name", descending: false };
 const NEWEST_FIRST: ExplorerSort = { key: "date", descending: true };
@@ -17,6 +17,16 @@ const NEW_FOLDER_TASKS: ExplorerTaskGroup[] = [
     ],
   },
 ];
+
+/** In the Recycle Bin only while she is, so it's added by the folder rather than listed below. */
+export const PET_FILE: FolderFile = {
+  id: "kara",
+  name: "kara.cat",
+  typeName: "Cat (probably)",
+  date: "Just now, without asking",
+  icon: PetFileIcon,
+  action: { kind: "restorePet", message: "Restored. She'll remember this." },
+};
 
 /** Everything the folders contain lives here, so adding a file never touches an app. */
 export const FOLDERS: Record<FolderId, Folder> = {

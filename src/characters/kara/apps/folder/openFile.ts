@@ -1,4 +1,5 @@
 import type { OsActions } from "../../os/context";
+import { takePetOutOfBin } from "../../os/petBin";
 import { openExternal } from "../common/openExternal";
 import { viewerTitle, type ImageViewerArgs, type ViewerImage } from "../imageViewer/imageViewerArgs";
 import { notepadTitle, type NotepadArgs } from "../notepad/documents";
@@ -46,5 +47,8 @@ export function openFile(file: FolderFile, context: OpenFileContext): string | v
       if (restores) context.restore(file.id);
       return message;
     }
+    case "restorePet":
+      takePetOutOfBin("restored");
+      return action.message;
   }
 }

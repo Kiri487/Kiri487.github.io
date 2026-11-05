@@ -130,7 +130,8 @@
   }
 }
 
-[data-skin="kara"] .kara-icon--selected {
+[data-skin="kara"] .kara-icon--selected,
+[data-skin="kara"] .kara-icon[data-drop-target] {
   background: rgba(37, 46, 18, 0.55);
   box-shadow: inset 0 0 0 1px #252e12;
 }
@@ -385,6 +386,39 @@
   cursor: grabbing;
 }
 
+/*
+ * Pulled into the Recycle Bin's icon. The pet moves her there; this only makes the trip take a moment. The shrink is
+ * on the sprite, not on her: scaling the element that's moved would scale the move too, toward the screen's corner.
+ */
+[data-skin="kara"] .kara-pet--entering-bin {
+  transition: transform 0.3s ease-in;
+  pointer-events: none;
+}
+
+[data-skin="kara"] .kara-pet--entering-bin .kara-pet__sprite {
+  transition: transform 0.3s ease-in;
+  transform: scale(0.1);
+  transform-origin: 50% 50%;
+}
+
+[data-skin="kara"] .kara-pet--in-bin {
+  visibility: hidden;
+}
+
+[data-skin="kara"] .kara-pet--leaving-bin .kara-pet__sprite {
+  animation: kara-pet-pop 0.25s ease-out;
+  transform-origin: 50% 50%;
+}
+
+@keyframes kara-pet-pop {
+  from {
+    transform: scale(0.2);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 [data-skin="kara"] .kara-pet:focus-visible {
   outline: 1px dotted #fff;
 }
@@ -440,6 +474,11 @@
 @media (prefers-reduced-motion: reduce) {
   [data-skin="kara"] .kara-pet__sprite {
     animation: none !important;
+  }
+
+  [data-skin="kara"] .kara-pet--entering-bin,
+  [data-skin="kara"] .kara-pet--entering-bin .kara-pet__sprite {
+    transition: none;
   }
 }
 

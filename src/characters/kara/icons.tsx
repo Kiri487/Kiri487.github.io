@@ -5,6 +5,7 @@ import systemShutdown from "./assets/tango/system-shutdown.svg";
 import textFile from "./assets/tango/text-x-generic.svg";
 import terminal from "./assets/tango/utilities-terminal.svg";
 import trash from "./assets/tango/user-trash.svg";
+import trashFull from "./assets/tango/user-trash-full.svg";
 import refresh from "./assets/tango/view-refresh.svg";
 import speaker from "./assets/tango/audio-volume-high.svg";
 import dialogError from "./assets/tango/dialog-error.svg";
@@ -20,6 +21,8 @@ import computer from "./assets/tango/computer.svg";
 import groupChat from "./assets/tango/internet-group-chat.svg";
 import printer from "./assets/tango/printer.svg";
 import dialogWarning from "./assets/tango/dialog-warning.svg";
+import petSprite from "./assets/pet/kara-mute.webp";
+import { usePetInBin } from "./os/petBin";
 
 /**
  * App and system icons come from the Tango icon theme 0.8.90 (public domain, see assets/tango/COPYING).
@@ -50,8 +53,14 @@ export function NotepadIcon({ size }: IconProps) {
   return <TangoIcon src={textFile} size={size} />;
 }
 
+/** Full while Kara is in it, everywhere the bin shows up. */
 export function BinIcon({ size }: IconProps) {
-  return <TangoIcon src={trash} size={size} />;
+  return <TangoIcon src={usePetInBin() ? trashFull : trash} size={size} />;
+}
+
+/** Kara as a file in the Recycle Bin. Not Tango: it's her. */
+export function PetFileIcon({ size }: IconProps) {
+  return <img src={petSprite} width={size} height={size} alt="" draggable={false} style={{ objectFit: "contain" }} />;
 }
 
 export function SpeakerIcon({ size }: IconProps) {
