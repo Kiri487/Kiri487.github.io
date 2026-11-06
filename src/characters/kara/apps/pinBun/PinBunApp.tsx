@@ -462,9 +462,13 @@ function PinBunApp() {
     rootRef.current?.focus({ preventScroll: true });
   };
 
-  /** A shove to the machine. Stopped, its frames don't run, so what it did is shown by hand. */
+  /**
+   * A shove to the machine. Like the flippers, it means playing, so it un-pauses: on a phone it comes from the Game
+   * menu, and opening that has just paused the game. Shown at once, since the frames may not be running yet.
+   */
   const nudgeTable = () => {
     nudge(gameRef.current);
+    setPaused(false);
     afterFrameRef.current();
   };
 
