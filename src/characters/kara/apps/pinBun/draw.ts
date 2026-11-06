@@ -23,6 +23,7 @@ import {
   SPICY,
   BUTTON,
   STRAW,
+  STRAW_RADIUS,
   STRAW_RIDES_FOR_RUSH,
   TARGET_LETTERS,
   TARGETS,
@@ -748,7 +749,7 @@ function drawThu(c: CanvasRenderingContext2D, game: Game) {
 // ---------------------------------------------------------------------------------------------------------------
 // The straw.
 
-const STRAW_WIDTH = 20;
+const STRAW_WIDTH = STRAW_RADIUS * 2;
 
 /** Each point of the straw pushed sideways by `by`, for its edges and its shine. */
 function strawOffset(by: number): [number, number][] {
