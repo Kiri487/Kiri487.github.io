@@ -367,6 +367,8 @@ export interface Game {
   rushHour: boolean;
   /** A ball lost before then comes straight back. */
   saveUntil: number;
+  /** This ball has already been sent back once, so launching it again doesn't start another save. */
+  saveUsed: boolean;
   /** Nudges close together, and when the last one was. */
   nudges: number;
   nudgedAt: number;
@@ -415,6 +417,7 @@ export function newGame(): Game {
     strawAt: -Infinity,
     rushHour: false,
     saveUntil: -Infinity,
+    saveUsed: false,
     nudges: 0,
     nudgedAt: -Infinity,
     tilted: false,
@@ -495,7 +498,7 @@ export function setCharging(game: Game, charging: boolean) {
   if (ball) {
     ball.vy = -(LAUNCH_MIN + LAUNCH_RANGE * game.charge);
     // Only the ball's first launch gets the save: one sent back by it doesn't get another.
-    if (!game.rushHour && game.saveUntil !== 0) game.saveUntil = game.time + BALL_SAVE_SECONDS;
+    if (!game.rushHour && !game.saveUsed) game.saveUntil = game.time + BALL_SAVE_SECONDS;
     game.events.push("launch");
   }
   game.charge = 0;
@@ -580,7 +583,8 @@ function substep(game: Game, dt: number) {
   if (game.balls.length === 0) {
     if (game.time < game.saveUntil && !game.tilted) {
       // Saved: straight back out of the plunger lane, and that's this ball's save used up.
-      game.saveUntil = 0;
+      game.saveUntil = -Infinity;
+      game.saveUsed = true;
       const back = newBall();
       back.vy = -AUTO_LAUNCH;
       game.balls.push(back);
@@ -1009,6 +1013,7 @@ function drain(game: Game) {
   game.tilted = false;
   game.nudges = 0;
   game.saveUntil = -Infinity;
+  game.saveUsed = false;
   game.drainedAt = game.time;
   releaseAll(game);
   if (game.ballNumber >= BALLS_PER_GAME) {
