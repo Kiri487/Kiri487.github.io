@@ -191,7 +191,7 @@ export function strawAt(s: number): { x: number; y: number; tx: number; ty: numb
 /** A small red button in the upper left, labelled DO NOT PRESS. */
 export const BUTTON: Circle = { x: 62, y: 182, r: 7 };
 /** What the display says each time it's pressed anyway. The last one pays, and starts it over. */
-const BUTTON_REPLIES = ["I SAID DON'T", "STOP PRESSING IT", "FINE. +20,000"];
+const BUTTON_REPLIES = ["I SAID DON'T", "STOP PRESSING IT", "FINE. +10,000"];
 const BUTTON_COOLDOWN = 0.5;
 
 /** Mr. Spicy, in his web in the corner. Small, and he'd rather not be hit. */
@@ -245,7 +245,7 @@ const POINTS = {
   fourTwenty: 42000,
   straw: 5000,
   jackpot: 50000,
-  button: 20000,
+  button: 10000,
 };
 
 /** What the meatball becomes, one mission at a time. */
