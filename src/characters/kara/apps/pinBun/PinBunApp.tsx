@@ -25,6 +25,7 @@ import {
   HEIGHT,
   insertCoin,
   newGame,
+  nudge,
   pressCoinReturn,
   releaseAll,
   setCharging,
@@ -42,6 +43,9 @@ import {
   playRecordSfx,
   playSpicySfx,
   playStrawSfx,
+  playNudgeSfx,
+  playButtonSfx,
+  playRefusedSfx as playTiltSfx,
   playRefusedSfx,
   playSetSfx,
   playSlingSfx,
@@ -66,6 +70,23 @@ const THURSDAY_LINE = "thursday? never heard of it";
 const FOUR_TWENTY_LINE = "it's time";
 const RUSH_HOUR_LINE = "rush hour!! everyone wants meatballs";
 const JACKPOT_LINE = "jackpot. it was there the whole time";
+const TILT_LINE = "you broke it. i saw";
+const SAVED_LINE = "it wasn't cooked yet";
+const BUTTON_LINE = "i'm telling kiri";
+/** How the table shakes when nudged: a little, or a lot once it tilts. */
+const NUDGE_SHAKE: Keyframe[] = [
+  { translate: "0 0" },
+  { translate: "-4px 2px" },
+  { translate: "3px -1px" },
+  { translate: "0 0" },
+];
+const TILT_SHAKE: Keyframe[] = [
+  { translate: "0 0" },
+  { translate: "-8px 3px" },
+  { translate: "7px -3px" },
+  { translate: "-5px 2px" },
+  { translate: "0 0" },
+];
 /** A moment after the table's own sound, so she isn't talking over it. */
 const EVENT_TO_TALK_MS = 300;
 /** Between the game's sound and her saying something about it, so the two don't land on top of each other. */
@@ -81,6 +102,7 @@ const KEY_CONTROLS = [
   ["Z", "left flipper"],
   ["/", "right flipper"],
   ["Space", "hold, let go"],
+  ["N", "nudge"],
   ["P", "pause"],
   ["4:20", "you'll see"],
 ];
@@ -206,6 +228,7 @@ function PinBunApp() {
   const rootRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   /** What each finger or mouse button is holding: a flipper, or the plunger. */
   const pointersRef = useRef(new Map<number, 0 | 1 | "plunger">());
@@ -280,6 +303,11 @@ function PinBunApp() {
         if (event === "fourTwenty") line = FOUR_TWENTY_LINE;
         else if (event === "rushHour") line = RUSH_HOUR_LINE;
         else if (event === "jackpot") line ??= JACKPOT_LINE;
+        else if (event === "tilt") line = TILT_LINE;
+        else if (event === "saved") line ??= SAVED_LINE;
+        else if (event === "buttonPaid") line ??= BUTTON_LINE;
+        if (event === "nudge") areaRef.current?.animate(NUDGE_SHAKE, { duration: 180 });
+        else if (event === "tilt") areaRef.current?.animate(TILT_SHAKE, { duration: 400 });
         else if (event === "rank" && line !== FOUR_TWENTY_LINE) line = RANK_LINES[RANKS[game.rank]] ?? null;
         else if (event === "spicy") line ??= SPICY_LINE;
         else if (event === "thursday") line ??= THURSDAY_LINE;
@@ -290,6 +318,11 @@ function PinBunApp() {
         else if (event === "spicy") playSpicySfx();
         else if (event === "fourTwenty" || event === "rushHour" || event === "jackpot") playRecordSfx();
         else if (event === "straw") playStrawSfx();
+        else if (event === "nudge") playNudgeSfx();
+        else if (event === "tilt") playTiltSfx();
+        else if (event === "saved") playLaunchSfx();
+        else if (event === "button") playButtonSfx();
+        else if (event === "buttonPaid") playSetSfx();
         else if (event === "kara" || event === "lanes" || event === "thursday" || event === "mission" || event === "rank")
           playSetSfx();
         else if (event === "launch") playLaunchSfx();
@@ -371,6 +404,12 @@ function PinBunApp() {
     rootRef.current?.focus({ preventScroll: true });
   };
 
+  /** A shove to the machine. Stopped, its frames don't run, so what it did is shown by hand. */
+  const nudgeTable = () => {
+    nudge(gameRef.current);
+    afterFrameRef.current();
+  };
+
   const togglePause = () => {
     if (gameRef.current.status !== "playing") return;
     if (!paused) releaseAll(gameRef.current);
@@ -388,6 +427,9 @@ function PinBunApp() {
       if (LEFT_KEYS.has(code)) pressFlipper(0, true);
       else if (RIGHT_KEYS.has(code)) pressFlipper(1, true);
       else pressPlunger(true);
+    } else if (code === "KeyN") {
+      event.preventDefault();
+      if (!event.repeat) nudgeTable();
     } else if (code === "KeyP" || code === "Escape") {
       event.preventDefault();
       togglePause();
@@ -469,6 +511,9 @@ function PinBunApp() {
           onSelect: () => setPaused(gameRef.current.status === "playing"),
         },
     "separator",
+    // On a phone, this is the only way to shove the machine.
+    { label: "Nudge", onSelect: nudgeTable },
+    "separator",
     { label: "Best Score...", onSelect: () => setDialog({ kind: "best" }) },
     "separator",
     {
@@ -491,7 +536,7 @@ function PinBunApp() {
           kind: "message",
           text: touch
             ? "Tap the left or right half of the table for that flipper. With the meatball on the spring, hold anywhere, then let go. Keep it out of the middle."
-            : "Z and / (or the arrow keys) are the flippers. Hold Space, then let go to launch. Keep the meatball out of the middle.",
+            : "Z and / (or the arrow keys) are the flippers. Hold Space, then let go to launch. N nudges the machine, but not too much. Keep the meatball out of the middle.",
         }),
     },
     "separator",
@@ -556,7 +601,7 @@ function PinBunApp() {
 
       <div ref={bodyRef} className="kara-pinbun__body">
         <div className="kara-pinbun__cabinet">
-          <div className="kara-pinbun__area">
+          <div ref={areaRef} className="kara-pinbun__area">
             <canvas
               ref={canvasRef}
               className="kara-pinbun__table"

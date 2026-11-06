@@ -21,6 +21,7 @@ import {
   PLAYFIELD_MIDDLE,
   SLINGS,
   SPICY,
+  BUTTON,
   STRAW,
   STRAW_RIDES_FOR_RUSH,
   TARGET_LETTERS,
@@ -31,6 +32,7 @@ import {
   WIDTH,
   ballOnPlunger,
   isFourTwenty,
+  isSaving,
   type Game,
   type Segment,
 } from "./engine";
@@ -73,6 +75,9 @@ export function drawTable(context: CanvasRenderingContext2D, game: Game, scale: 
   drawLights(context, game);
   drawTargets(context, game);
   drawSpicy(context, game);
+  drawButton(context, game);
+  drawSave(context, game);
+  drawNoodle(context, game);
   drawSlingGlow(context, game);
   drawBumpers(context, game);
   drawPlunger(context, game);
@@ -82,6 +87,7 @@ export function drawTable(context: CanvasRenderingContext2D, game: Game, scale: 
   drawStrawLights(context, game);
   drawStraw(context);
   for (const ball of game.balls) if (ball.straw) drawBall(context, ball.x, ball.y, ball.spin, true);
+  if (game.tilted) drawTilt(context);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1010,7 +1016,140 @@ function drawBumpers(c: CanvasRenderingContext2D, game: Game) {
     c.arc(0, 0, r * 0.66, Math.PI * 1.1, Math.PI * 1.45);
     c.stroke();
     c.restore();
+
+    // A few sesame seeds knocked off, flying out and fading. Which way they go comes from when it was hit, so
+    // each hit scatters them differently without keeping any of them anywhere.
+    if (age < SESAME_SECONDS) {
+      const fade = 1 - age / SESAME_SECONDS;
+      const turn = game.bumperHits[i] * 7.3;
+      c.fillStyle = `rgba(255, 246, 224, ${fade.toFixed(2)})`;
+      for (let n = 0; n < SESAME_COUNT; n++) {
+        const angle = turn + (n / SESAME_COUNT) * Math.PI * 2;
+        const distance = r + 2 + age * SESAME_SPEED * (0.7 + ((n * 37) % 10) / 20);
+        c.beginPath();
+        c.ellipse(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance, 2.2, 1.1, angle, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
   });
+}
+
+const SESAME_SECONDS = 0.4;
+const SESAME_COUNT = 6;
+const SESAME_SPEED = 90;
+
+/** DO NOT PRESS: a red dome on a metal ring. Pressed, it sinks in for a moment. */
+function drawButton(c: CanvasRenderingContext2D, game: Game) {
+  const { x, y, r } = BUTTON;
+  const pressed = game.time - game.buttonAt < 0.2;
+  const ring = c.createRadialGradient(x - 2, y - 2, 1, x, y, r + 3);
+  ring.addColorStop(0, "#e9f0f8");
+  ring.addColorStop(1, "#4a586c");
+  c.fillStyle = ring;
+  c.beginPath();
+  c.arc(x, y, r + 3, 0, Math.PI * 2);
+  c.fill();
+  const dome = c.createRadialGradient(x - r * 0.35, y - r * 0.4, 0.5, x, y, r);
+  dome.addColorStop(0, pressed ? "#c43a40" : "#ffb3b6");
+  dome.addColorStop(0.5, pressed ? "#8e1b22" : C.tomato);
+  dome.addColorStop(1, "#6b0f15");
+  c.fillStyle = dome;
+  c.beginPath();
+  c.arc(x, y + (pressed ? 0.8 : 0), pressed ? r - 0.8 : r, 0, Math.PI * 2);
+  c.fill();
+  text(c, "DO NOT PRESS", x, y + r + 9, 7.5, C.tomato);
+}
+
+/** Between the flippers: lit, blinking, while a lost ball would come straight back. */
+function drawSave(c: CanvasRenderingContext2D, game: Game) {
+  const saving = isSaving(game);
+  const lit = saving && Math.floor(game.time * 4) % 2 === 0;
+  const x = PLAYFIELD_MIDDLE;
+  const y = 614;
+  if (lit) {
+    const halo = c.createRadialGradient(x, y, 4, x, y, 26);
+    halo.addColorStop(0, withAlpha(C.lime, 0.5));
+    halo.addColorStop(1, withAlpha(C.lime, 0));
+    c.fillStyle = halo;
+    c.fillRect(x - 26, y - 26, 52, 52);
+  }
+  c.fillStyle = lit ? C.lime : withAlpha(C.lime, 0.18);
+  c.beginPath();
+  c.roundRect(x - 17, y - 6, 34, 12, 6);
+  c.fill();
+  text(c, "SAVE", x, y + 0.5, 8, lit ? "#1d3a00" : "rgba(220, 255, 190, 0.6)");
+}
+
+/** Every so often, and not for long. */
+const NOODLE_EVERY = 11;
+const NOODLE_OUT_FOR = 2.6;
+const NOODLE_SLIDE = 0.4;
+const NOODLE_PIPE = { x: 46, y: 648 };
+const NOODLE_BLOCK = 6;
+
+/**
+ * A guest from danger noodle.exe: a pipe in the corner under the left guide, and every now and then the noodle
+ * puts its head out, looks around, flicks its tongue and goes back in. Square, like it is at home.
+ */
+function drawNoodle(c: CanvasRenderingContext2D, game: Game) {
+  const { x, y } = NOODLE_PIPE;
+  const rim = c.createRadialGradient(x - 2, y - 2, 1, x, y, 10);
+  rim.addColorStop(0, "#e9f0f8");
+  rim.addColorStop(1, "#3a4659");
+  c.fillStyle = rim;
+  c.beginPath();
+  c.arc(x, y, 10, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = "#05070c";
+  c.beginPath();
+  c.arc(x, y, 7, 0, Math.PI * 2);
+  c.fill();
+
+  const phase = game.time % NOODLE_EVERY;
+  if (phase > NOODLE_OUT_FOR) return;
+  const out = Math.min(1, phase / NOODLE_SLIDE, (NOODLE_OUT_FOR - phase) / NOODLE_SLIDE);
+  const blocks = Math.ceil(out * 3);
+  c.save();
+  c.translate(x, y);
+  c.rotate(-0.6);
+  for (let n = 0; n < blocks; n++) {
+    const bx = n * NOODLE_BLOCK - NOODLE_BLOCK / 2;
+    c.fillStyle = "#4b4b4b";
+    c.fillRect(bx, -NOODLE_BLOCK / 2, NOODLE_BLOCK, NOODLE_BLOCK);
+  }
+  if (blocks === 3) {
+    const head = 2 * NOODLE_BLOCK + NOODLE_BLOCK / 2;
+    c.fillStyle = "#fff";
+    c.fillRect(head - 2.4, -2, 1.6, 1.6);
+    // The tongue, now and then.
+    if (Math.floor(phase * 5) % 3 === 0) {
+      c.strokeStyle = C.tomato;
+      c.lineWidth = 0.9;
+      c.beginPath();
+      c.moveTo(head, 0);
+      c.lineTo(head + 4, 0);
+      c.lineTo(head + 6, -1.5);
+      c.moveTo(head + 4, 0);
+      c.lineTo(head + 6, 1.5);
+      c.stroke();
+    }
+  }
+  c.restore();
+}
+
+/** Nudged too much: the whole table goes dim, and says so. */
+function drawTilt(c: CanvasRenderingContext2D) {
+  c.fillStyle = "rgba(4, 6, 12, 0.45)";
+  c.fillRect(0, 0, WIDTH, HEIGHT);
+  c.save();
+  c.font = `bold 58px ${FONT}`;
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  c.shadowColor = C.tomato;
+  c.shadowBlur = 18;
+  c.fillStyle = C.tomato;
+  c.fillText("TILT", PLAYFIELD_MIDDLE, 300);
+  c.restore();
 }
 
 function drawPlunger(c: CanvasRenderingContext2D, game: Game) {

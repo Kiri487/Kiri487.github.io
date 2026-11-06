@@ -188,6 +188,12 @@ export function strawAt(s: number): { x: number; y: number; tx: number; ty: numb
   return { x: STRAW[0][0], y: STRAW[0][1], tx: 0, ty: -1 };
 }
 
+/** A small red button in the upper left, labelled DO NOT PRESS. */
+export const BUTTON: Circle = { x: 62, y: 182, r: 7 };
+/** What the display says each time it's pressed anyway. The last one pays, and starts it over. */
+const BUTTON_REPLIES = ["I SAID DON'T", "STOP PRESSING IT", "FINE. +20,000"];
+const BUTTON_COOLDOWN = 0.5;
+
 /** Mr. Spicy, in his web in the corner. Small, and he'd rather not be hit. */
 export const SPICY: Circle = { x: 330, y: 150, r: 8 };
 const TARGET_THICKNESS = 3;
@@ -213,6 +219,12 @@ const CHARGE_SECONDS = 0.9;
 const LAUNCH_MIN = 700;
 const LAUNCH_RANGE = 1500;
 const SERVE_DELAY = 1.2;
+/** After a launch, a ball lost this soon comes straight back. */
+const BALL_SAVE_SECONDS = 8;
+/** Nudges this close together count towards TILT; this many is one too many. */
+const NUDGE_MEMORY = 3;
+const NUDGES_TO_TILT = 3;
+const NUDGE_PUSH = { x: 160, y: -260 };
 /** RUSH HOUR's extra meatball out of the plunger lane goes out on its own, this fast. */
 const AUTO_LAUNCH = 1800;
 /** Straw rides it takes to start RUSH HOUR. */
@@ -233,6 +245,7 @@ const POINTS = {
   fourTwenty: 42000,
   straw: 5000,
   jackpot: 50000,
+  button: 20000,
 };
 
 /** What the meatball becomes, one mission at a time. */
@@ -286,6 +299,12 @@ export type GameEvent =
   | "rushHour"
   | "jackpot"
   | "rushOver"
+  | "nudge"
+  | "tilt"
+  | "saved"
+  | "button"
+  /** The button pressed for the last time it takes: it pays. */
+  | "buttonPaid"
   | "launch"
   | "drain"
   | "over";
@@ -346,6 +365,16 @@ export interface Game {
   strawAt: number;
   /** More than one meatball out, until it's down to one again. */
   rushHour: boolean;
+  /** A ball lost before then comes straight back. */
+  saveUntil: number;
+  /** Nudges close together, and when the last one was. */
+  nudges: number;
+  nudgedAt: number;
+  /** Nudged too much: the flippers are dead and nothing scores until this ball is gone. */
+  tilted: boolean;
+  /** How many times DO NOT PRESS has been pressed, this time round, and when it last was. */
+  buttonPresses: number;
+  buttonAt: number;
   /** When each was last hit, for drawing it lit. */
   bumperHits: number[];
   slingHits: number[];
@@ -386,6 +415,12 @@ export function newGame(): Game {
     strawRides: 0,
     strawAt: -Infinity,
     rushHour: false,
+    saveUntil: -Infinity,
+    nudges: 0,
+    nudgedAt: -Infinity,
+    tilted: false,
+    buttonPresses: 0,
+    buttonAt: -Infinity,
     bumperHits: BUMPERS.map(() => -Infinity),
     slingHits: SLINGS.map(() => -Infinity),
     drainedAt: -Infinity,
@@ -419,7 +454,34 @@ export function ballOnPlunger(game: Game): boolean {
 }
 
 export function setFlipper(game: Game, index: 0 | 1, pressed: boolean) {
-  game.flippers[index].pressed = pressed && game.status === "playing";
+  game.flippers[index].pressed = pressed && game.status === "playing" && !game.tilted;
+}
+
+/** A shove to the whole machine. A few help; too many close together and it tilts. */
+export function nudge(game: Game) {
+  if (game.status !== "playing" || game.tilted) return;
+  const side = Math.random() < 0.5 ? -1 : 1;
+  for (const ball of game.balls) {
+    if (ball.straw) continue;
+    ball.vx += side * NUDGE_PUSH.x;
+    ball.vy += NUDGE_PUSH.y;
+  }
+  game.nudges = game.time - game.nudgedAt < NUDGE_MEMORY ? game.nudges + 1 : 1;
+  game.nudgedAt = game.time;
+  if (game.nudges < NUDGES_TO_TILT) {
+    say(game, game.nudges === 1 ? "Careful." : "DANGER");
+    game.events.push("nudge");
+    return;
+  }
+  game.tilted = true;
+  game.flippers.forEach((flipper) => (flipper.pressed = false));
+  game.message = { text: "TILT", until: Infinity };
+  game.events.push("tilt");
+}
+
+/** Whether a launch now would still have the ball save, for its light. */
+export function isSaving(game: Game): boolean {
+  return game.time < game.saveUntil;
 }
 
 export function setCharging(game: Game, charging: boolean) {
@@ -433,6 +495,8 @@ export function setCharging(game: Game, charging: boolean) {
   const ball = plungerBall(game);
   if (ball) {
     ball.vy = -(LAUNCH_MIN + LAUNCH_RANGE * game.charge);
+    // Only the ball's first launch gets the save: one sent back by it doesn't get another.
+    if (!game.rushHour && game.saveUntil !== 0) game.saveUntil = game.time + BALL_SAVE_SECONDS;
     game.events.push("launch");
   }
   game.charge = 0;
@@ -460,6 +524,8 @@ function say(game: Game, text: string) {
 }
 
 function score(game: Game, points: number) {
+  // Tilted, the machine is sulking and counts nothing.
+  if (game.tilted) return;
   game.score += points * game.multiplier;
 }
 
@@ -512,7 +578,19 @@ function substep(game: Game, dt: number) {
   const before = game.balls.length;
   game.balls = game.balls.filter((ball) => ball.straw || ball.y <= HEIGHT + BALL_RADIUS * 2);
   if (game.balls.length === before) return;
-  if (game.balls.length === 0) drain(game);
+  if (game.balls.length === 0) {
+    if (game.time < game.saveUntil && !game.tilted) {
+      // Saved: straight back out of the plunger lane, and that's this ball's save used up.
+      game.saveUntil = 0;
+      const back = newBall();
+      back.vy = -AUTO_LAUNCH;
+      game.balls.push(back);
+      say(game, "Saved! Kara spat it out");
+      game.events.push("saved");
+    } else {
+      drain(game);
+    }
+  }
   else if (game.rushHour && game.balls.length === 1) {
     game.rushHour = false;
     say(game, "Rush hour is over");
@@ -540,6 +618,7 @@ function moveBall(game: Game, ball: Ball, dt: number) {
   collideTargets(game, ball);
   collideThu(game, ball);
   collideSpicy(game, ball);
+  collideButton(game, ball);
   collideFlippers(game, ball);
   checkLanes(game, ball);
 
@@ -823,6 +902,34 @@ function collideSpicy(game: Game, ball: Ball) {
   advance(game, "spicy");
 }
 
+function collideButton(game: Game, ball: Ball) {
+  const ex = ball.x - BUTTON.x;
+  const ey = ball.y - BUTTON.y;
+  const reach = BALL_RADIUS + BUTTON.r;
+  const d = Math.hypot(ex, ey);
+  if (d >= reach || d < 1e-6) return;
+  const hit: Hit = { nx: ex / d, ny: ey / d, vn: 0 };
+  ball.x = BUTTON.x + hit.nx * reach;
+  ball.y = BUTTON.y + hit.ny * reach;
+  hit.vn = ball.vx * hit.nx + ball.vy * hit.ny;
+  if (hit.vn < 0) {
+    ball.vx -= (1 + WALL_BOUNCE) * hit.vn * hit.nx;
+    ball.vy -= (1 + WALL_BOUNCE) * hit.vn * hit.ny;
+  }
+  if (game.time - game.buttonAt < BUTTON_COOLDOWN) return;
+  game.buttonAt = game.time;
+  say(game, BUTTON_REPLIES[game.buttonPresses]);
+  game.buttonPresses++;
+  if (game.buttonPresses < BUTTON_REPLIES.length) {
+    game.events.push("button");
+    return;
+  }
+  game.buttonPresses = 0;
+  score(game, POINTS.button);
+  game.bonusAt = game.time;
+  game.events.push("buttonPaid");
+}
+
 /** Counts towards the mission, if it's the one to do. Done, it's the next one, and maybe a better meatball. */
 function advance(game: Game, kind: MissionKind) {
   const mission = MISSIONS[game.mission];
@@ -900,6 +1007,9 @@ function checkLanes(game: Game, ball: Ball) {
 
 function drain(game: Game) {
   game.rushHour = false;
+  game.tilted = false;
+  game.nudges = 0;
+  game.saveUntil = -Infinity;
   game.drainedAt = game.time;
   releaseAll(game);
   if (game.ballNumber >= BALLS_PER_GAME) {

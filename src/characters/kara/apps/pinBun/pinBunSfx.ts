@@ -32,6 +32,19 @@ export function playStrawSfx() {
   });
 }
 
+/** A shove to the machine: a low thump. ~120ms. */
+export function playNudgeSfx() {
+  whenAudible((c) => {
+    slide(c, "sine", 120, 60, c.currentTime, 0.12, VOLUME * 1.6);
+    noise(c, 300, c.currentTime, 0.06, VOLUME * 0.8);
+  });
+}
+
+/** DO NOT PRESS, pressed: a small plastic click. ~50ms. */
+export function playButtonSfx() {
+  whenAudible((c) => slide(c, "square", 1300, 1200, c.currentTime, 0.05, VOLUME * 0.5));
+}
+
 /** A drop target going down, or a lane lighting up: a little blip. ~80ms. */
 export function playTargetSfx() {
   whenAudible((c) => slide(c, "sine", 660, 990, c.currentTime, 0.08, VOLUME));
