@@ -329,7 +329,11 @@ export interface Flipper {
   angle: number;
   /** Radians per second, for how hard it hits. */
   omega: number;
-  pressed: boolean;
+  /**
+   * Whether its key or finger is down. Not the same as it going up: tilted or after the game it won't, but a key
+   * still held when that ends works again straight away, with no need to let go and press it again.
+   */
+  held: boolean;
 }
 
 export interface Game {
@@ -401,7 +405,7 @@ export function newGame(): Game {
     status: "playing",
     balls: [newBall()],
     serveAt: Infinity,
-    flippers: FLIPPERS.map((f) => ({ angle: f.rest, omega: 0, pressed: false })) as [Flipper, Flipper],
+    flippers: FLIPPERS.map((f) => ({ angle: f.rest, omega: 0, held: false })) as [Flipper, Flipper],
     charging: false,
     charge: 0,
     score: 0,
@@ -458,8 +462,13 @@ export function ballOnPlunger(game: Game): boolean {
   return plungerBall(game) !== undefined;
 }
 
-export function setFlipper(game: Game, index: 0 | 1, pressed: boolean) {
-  game.flippers[index].pressed = pressed && game.status === "playing" && !game.tilted;
+export function setFlipper(game: Game, index: 0 | 1, held: boolean) {
+  game.flippers[index].held = held;
+}
+
+/** Whether a flipper is up, or on its way: held, and the machine is working. */
+export function flipperUp(game: Game, index: 0 | 1): boolean {
+  return game.flippers[index].held && game.status === "playing" && !game.tilted;
 }
 
 /**
@@ -483,7 +492,6 @@ export function nudge(game: Game) {
     return;
   }
   game.tilted = true;
-  game.flippers.forEach((flipper) => (flipper.pressed = false));
   game.message = { text: "TILT", until: Infinity };
   game.events.push("tilt");
 }
@@ -513,7 +521,7 @@ export function setCharging(game: Game, charging: boolean) {
 
 /** Lets go of everything held, such as when the window loses the keyboard. */
 export function releaseAll(game: Game) {
-  game.flippers.forEach((f) => (f.pressed = false));
+  game.flippers.forEach((f) => (f.held = false));
   game.charging = false;
   game.charge = 0;
 }
@@ -545,8 +553,9 @@ function substep(game: Game, dt: number) {
 
   game.flippers.forEach((flipper, i) => {
     const shape = FLIPPERS[i];
-    const target = flipper.pressed ? shape.up : shape.rest;
-    const speed = flipper.pressed ? FLIPPER_UP_SPEED : FLIPPER_DOWN_SPEED;
+    const up = flipperUp(game, i as 0 | 1);
+    const target = up ? shape.up : shape.rest;
+    const speed = up ? FLIPPER_UP_SPEED : FLIPPER_DOWN_SPEED;
     const turn = Math.max(-speed * dt, Math.min(speed * dt, target - flipper.angle));
     flipper.angle += turn;
     flipper.omega = turn / dt;
@@ -1017,7 +1026,9 @@ function drain(game: Game) {
   game.saveUntil = -Infinity;
   game.saveUsed = false;
   game.drainedAt = game.time;
-  releaseAll(game);
+  // The plunger lets go, but not the flippers: a key still held is still held for the next ball.
+  game.charging = false;
+  game.charge = 0;
   if (game.ballNumber >= BALLS_PER_GAME) {
     game.status = "over";
     game.message = { text: "Kara is no longer hungry. (this is a lie)", until: Infinity };
