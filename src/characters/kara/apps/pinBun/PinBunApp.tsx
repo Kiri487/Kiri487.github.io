@@ -84,7 +84,7 @@ const KEY_CONTROLS = [
 const TOUCH_CONTROLS = [
   ["Left half", "left flipper"],
   ["Right half", "right flipper"],
-  ["Launch", "hold, let go"],
+  ["Hold", "launch"],
   ["4:20", "you'll see"],
 ];
 
@@ -204,15 +204,14 @@ function PinBunApp() {
   const bodyRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  /** Which flipper each finger or mouse button is holding. */
-  const pointersRef = useRef(new Map<number, 0 | 1>());
+  /** What each finger or mouse button is holding: a flipper, or the plunger. */
+  const pointersRef = useRef(new Map<number, 0 | 1 | "plunger">());
 
   useLayoutEffect(() => {
     rootRef.current?.focus({ preventScroll: true });
   }, []);
 
-  // The table keeps its shape and takes as much of the window as the panel leaves: beside it, or above it when
-  // the window is narrow.
+  // The table keeps its shape and takes as much of the window as the panel beside it leaves.
   useLayoutEffect(() => {
     const body = bodyRef.current;
     const panel = panelRef.current;
@@ -220,11 +219,12 @@ function PinBunApp() {
     const observer = new ResizeObserver(() => {
       const style = getComputedStyle(body);
       let roomX = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-      let roomY = body.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      const roomY = body.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      // Narrow, the panel floats over the table and takes no room of its own.
       const cabinet = panel.parentElement;
-      const gap = cabinet ? parseFloat(getComputedStyle(cabinet).columnGap) || 0 : 0;
-      if (cabinet && getComputedStyle(cabinet).flexDirection.startsWith("column")) roomY -= panel.offsetHeight + gap;
-      else roomX -= panel.offsetWidth + gap;
+      if (cabinet && getComputedStyle(panel).position !== "absolute") {
+        roomX -= panel.offsetWidth + (parseFloat(getComputedStyle(cabinet).columnGap) || 0);
+      }
       const scale = Math.max(0, Math.min(roomX / WIDTH, roomY / HEIGHT));
       const width = Math.max(1, Math.floor(WIDTH * scale));
       const height = Math.max(1, Math.floor(HEIGHT * scale));
@@ -406,15 +406,27 @@ function PinBunApp() {
     if (gameRef.current.status === "playing") setPaused(true);
   };
 
-  // Either half of the table is that side's flipper, for fingers and the mouse alike.
+  // Either half of the table is that side's flipper, for fingers and the mouse alike. With the ball waiting on the
+  // plunger, anywhere is the plunger: nothing is in play for the flippers to hit. After the game, anywhere is a
+  // new one. So a phone needs no buttons of its own.
   const handleTablePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
     rootRef.current?.focus({ preventScroll: true });
+    const game = gameRef.current;
+    if (game.status === "over") {
+      restart();
+      return;
+    }
     if (paused) setPaused(false);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (ballOnPlunger(game)) {
+      pointersRef.current.set(event.pointerId, "plunger");
+      pressPlunger(true);
+      return;
+    }
     const { left, width } = event.currentTarget.getBoundingClientRect();
     const side = event.clientX < left + width / 2 ? 0 : 1;
-    event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, side);
     pressFlipper(side, true);
   };
@@ -424,8 +436,10 @@ function PinBunApp() {
     const side = pointers.get(event.pointerId);
     if (side === undefined) return;
     pointers.delete(event.pointerId);
-    // Another finger may still be holding the same side.
-    if (![...pointers.values()].includes(side)) pressFlipper(side, false);
+    // Another finger may still be holding the same thing.
+    if ([...pointers.values()].includes(side)) return;
+    if (side === "plunger") pressPlunger(false);
+    else pressFlipper(side, false);
   };
 
   /** Back to playing: a dialog took the keyboard with it, and gives it back to nowhere. */
@@ -470,7 +484,7 @@ function PinBunApp() {
         setDialog({
           kind: "message",
           text: touch
-            ? "Tap the left or right half of the table for that flipper. Hold Launch, then let go. Keep the meatball out of the middle."
+            ? "Tap the left or right half of the table for that flipper. With the meatball on the spring, hold anywhere, then let go. Keep it out of the middle."
             : "Z and / (or the arrow keys) are the flippers. Hold Space, then let go to launch. Keep the meatball out of the middle.",
         }),
     },
@@ -489,11 +503,11 @@ function PinBunApp() {
   // Over, it's the table's last word, and how to go again sits on the table itself.
   let display: string;
   if (hud.message) display = hud.message;
-  else if (hud.onPlunger) display = touch ? "Hold Launch, then let go" : "Hold Space, then let go";
+  else if (hud.onPlunger) display = touch ? "Hold anywhere, then let go" : "Hold Space, then let go";
   else display = hud.mission;
 
   let notice: string | null = null;
-  if (hud.over) notice = touch ? "Game over. Tap Launch to play again" : "Game over. Press Space to play again";
+  if (hud.over) notice = touch ? "Game over. Tap to play again" : "Game over. Press Space to play again";
   else if (paused) notice = touch ? "Paused. Tap to go on" : "Paused. Press P to go on";
 
   return (
@@ -615,34 +629,6 @@ function PinBunApp() {
           </div>
         </div>
       </div>
-
-      {touch && (
-        <div className="kara-pad kara-pinbun__pad" role="group" aria-label="Controls">
-          <button
-            type="button"
-            className="kara-pad__button kara-pinbun__pause"
-            aria-label={paused ? "Resume" : "Pause"}
-            aria-pressed={paused}
-            onClick={togglePause}
-          >
-            ❚❚
-          </button>
-          <button
-            type="button"
-            className="kara-pad__button kara-pinbun__launch"
-            onPointerDown={(event) => {
-              event.preventDefault();
-              pressPlunger(true);
-            }}
-            onPointerUp={() => pressPlunger(false)}
-            onPointerLeave={() => pressPlunger(false)}
-            onPointerCancel={() => pressPlunger(false)}
-            onContextMenu={(event) => event.preventDefault()}
-          >
-            Launch
-          </button>
-        </div>
-      )}
 
       {balloon}
 

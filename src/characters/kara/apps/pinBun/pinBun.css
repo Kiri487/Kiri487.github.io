@@ -331,17 +331,35 @@
   margin: 0;
 }
 
-/* Narrow: only the display, on its own line above the table. */
+/*
+ * Narrow, a phone most likely: the table gets everything. No padding, no sunken border, and of the panel only
+ * the display, floating as a strip of LED over the bottom of the table, where the ball only ever goes to drain.
+ * PinBunApp.tsx sees it's floating and gives the table the room.
+ */
 @container (max-width: 440px) {
+  [data-skin="kara"] .kara-pinbun__body {
+    padding: 0;
+  }
+
   [data-skin="kara"] .kara-pinbun__cabinet {
-    flex-direction: column-reverse;
+    position: relative;
+  }
+
+  [data-skin="kara"] .kara-pinbun__table {
+    border: 0;
   }
 
   [data-skin="kara"] .kara-pinbun__panel {
-    flex: none;
+    position: absolute;
+    /* Centred on the playfield, clear of the plunger lane on the right. */
+    right: 14%;
+    bottom: 1.5%;
+    left: 6%;
     padding: 0;
     border: 0;
     background: none;
+    /* Taps go through to the table under it. */
+    pointer-events: none;
   }
 
   [data-skin="kara"] .kara-pinbun__logo,
@@ -353,18 +371,14 @@
 
   [data-skin="kara"] .kara-pinbun__display {
     height: auto;
+    padding: 3px 6px;
+    border: 0;
+    border-radius: 3px;
+    background: rgba(7, 8, 12, 0.8);
+    font-size: 12px;
+    text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-}
-
-[data-skin="kara"] .kara-pinbun__pad .kara-pad__button {
-  color: var(--kara-ink);
-  font-size: 11px;
-}
-
-[data-skin="kara"] .kara-pinbun__launch {
-  width: 160px;
-  font-weight: bold;
 }
