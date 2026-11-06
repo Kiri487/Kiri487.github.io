@@ -27,6 +27,7 @@ import hamburger from "./assets/fluent-emoji/hamburger.svg";
 import forkAndKnife from "./assets/fluent-emoji/fork-and-knife.svg";
 import triangularFlag from "./assets/fluent-emoji/triangular-flag.svg";
 import snake from "./assets/fluent-emoji/snake.svg";
+import falafel from "./assets/fluent-emoji/falafel.svg";
 import { usePetInBin } from "./os/petBin";
 
 /**
@@ -153,6 +154,11 @@ export function ForkIcon({ size }: IconProps) {
 
 export function SnakeIcon({ size }: IconProps) {
   return <TangoIcon src={snake} size={size} />;
+}
+
+/** Pin Bun's, a falafel standing in for a meatball. */
+export function MeatballIcon({ size }: IconProps) {
+  return <TangoIcon src={falafel} size={size} />;
 }
 
 /** Burger Sweeper's flag. */

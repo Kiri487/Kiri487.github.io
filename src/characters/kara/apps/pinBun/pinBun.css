@@ -1,0 +1,370 @@
+/* Pin Bun: the table on the left, the cabinet's panel on the right. Narrow, the panel turns into one line on top. */
+
+[data-skin="kara"] .kara-pinbun {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--kara-window-face);
+  outline: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+  container-type: inline-size;
+}
+
+[data-skin="kara"] .kara-pinbun__score {
+  min-width: 7ch;
+  text-align: right;
+}
+
+/* The free space. The cabinet sits in its middle, as big as PinBunApp.tsx works out the table can be. */
+[data-skin="kara"] .kara-pinbun__body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 8px;
+  overflow: hidden;
+}
+
+/* The table and its panel side by side, the panel exactly as tall as the table. */
+[data-skin="kara"] .kara-pinbun__cabinet {
+  display: flex;
+  gap: 8px;
+}
+
+[data-skin="kara"] .kara-pinbun__area {
+  position: relative;
+  display: flex;
+}
+
+[data-skin="kara"] .kara-pinbun__table {
+  box-sizing: border-box;
+  border: 3px solid;
+  border-color: #a9a690 #fff #fff #a9a690;
+  background: #171b2b;
+  /* Fingers press flippers here, so the page mustn't scroll or zoom under them. */
+  touch-action: none;
+}
+
+[data-skin="kara"] .kara-pinbun__notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: 80%;
+  padding: 6px 10px;
+  border: 1px solid #8a8f6f;
+  background: var(--kara-menu-face);
+  box-shadow: 2px 2px 4px rgba(30, 30, 10, 0.3);
+  color: var(--kara-ink);
+  text-align: center;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+/* The cabinet's panel: a glossy backglass with the name, a dot-matrix display, and the facts. */
+[data-skin="kara"] .kara-pinbun__panel {
+  display: flex;
+  flex: 0 0 160px;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  padding: 10px 8px;
+  border: 2px solid;
+  border-color: #a9a690 #fff #fff #a9a690;
+  border-radius: 3px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 173, 66, 0.22), transparent 60%),
+    linear-gradient(180deg, #232a3f 0%, #171b2b 55%, #0e111d 100%);
+  color: #e6ecf5;
+  overflow: auto;
+}
+
+[data-skin="kara"] .kara-pinbun__logo {
+  padding: 6px 0 8px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.04) 50%, transparent 51%);
+  color: #ffad42;
+  font: bold italic 24px/1 Tahoma, Verdana, sans-serif;
+  text-align: center;
+  text-shadow:
+    0 0 8px rgba(255, 173, 66, 0.7),
+    2px 2px 0 #9b1f28;
+}
+
+/* Always three lines tall, whatever it's saying, so nothing under it jumps. */
+[data-skin="kara"] .kara-pinbun__display {
+  flex: none;
+  /* Three lines, plus its padding and border, since the box is sized from its outside edge. */
+  height: calc(1.35em * 3 + 14px);
+  overflow: hidden;
+  padding: 6px;
+  border: 1px solid;
+  border-color: #07080c #4a596f #4a596f #07080c;
+  background: #07080c;
+  color: #ffb02e;
+  font: bold 14px/1.35 Consolas, "Courier New", monospace;
+  text-shadow: 0 0 4px rgba(255, 176, 46, 0.6);
+  overflow-wrap: anywhere;
+}
+
+/* A second, smaller readout under the display: same black glass and orange glow, the labels dimmer. */
+[data-skin="kara"] .kara-pinbun__facts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 5px 6px;
+  border: 1px solid;
+  border-color: #07080c #4a596f #4a596f #07080c;
+  background: #07080c;
+  color: #ffb02e;
+  font: bold 12px/1.35 Consolas, "Courier New", monospace;
+  text-shadow: 0 0 4px rgba(255, 176, 46, 0.6);
+}
+
+[data-skin="kara"] .kara-pinbun__fact {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  white-space: nowrap;
+}
+
+/* Takes the rest of the row: the holder's name right after the label, the number at the far right. */
+[data-skin="kara"] .kara-pinbun__fact dd {
+  display: flex;
+  flex: 1;
+  gap: 0.6ch;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+[data-skin="kara"] .kara-pinbun__holder + .kara-pinbun__number {
+  margin-left: auto;
+}
+
+/* Whose best it is, in Kara's lime. A long name is cut short; the score after it never is. */
+[data-skin="kara"] .kara-pinbun__holder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #b6ff5c;
+  text-shadow: 0 0 4px rgba(182, 255, 92, 0.6);
+}
+
+/* Cards screwed onto the panel, the way real tables explain themselves. */
+[data-skin="kara"] .kara-pinbun__card {
+  position: relative;
+  padding: 8px 9px;
+  border: 1px solid #a8936a;
+  background: #f3ecd2;
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.5);
+  color: #4a3214;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+/* Two screws along the top. */
+[data-skin="kara"] .kara-pinbun__card::before,
+[data-skin="kara"] .kara-pinbun__card::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #e9f0f8, #5a6a80);
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.5);
+}
+
+[data-skin="kara"] .kara-pinbun__card::before {
+  left: 4px;
+}
+
+[data-skin="kara"] .kara-pinbun__card::after {
+  right: 4px;
+}
+
+[data-skin="kara"] .kara-pinbun__card h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Key, a dotted line, what it does. */
+[data-skin="kara"] .kara-pinbun__menu {
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-pinbun__menu > div {
+  display: flex;
+  gap: 3px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+[data-skin="kara"] .kara-pinbun__menu dt {
+  font-weight: bold;
+}
+
+[data-skin="kara"] .kara-pinbun__menu dd {
+  display: flex;
+  flex: 1;
+  gap: 3px;
+  margin: 0;
+}
+
+/* The dots, filling whatever room is between. */
+[data-skin="kara"] .kara-pinbun__menu dd::before {
+  content: "";
+  flex: 1;
+  min-width: 6px;
+  border-bottom: 1px dotted #a8936a;
+  translate: 0 -3px;
+}
+
+[data-skin="kara"] .kara-pinbun__card p {
+  margin: 0 0 6px;
+  text-align: center;
+}
+
+/* Off until a ball goes down, then lit red. */
+[data-skin="kara"] .kara-pinbun__refunds {
+  display: block;
+  padding: 2px 0;
+  border-radius: 2px;
+  background: #5b2a2d;
+  color: rgba(255, 200, 200, 0.5);
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+[data-skin="kara"] .kara-pinbun__refunds--lit {
+  background: #ff5159;
+  box-shadow: 0 0 8px rgba(255, 81, 89, 0.7);
+  color: #fff;
+}
+
+/* The coin door: brushed metal, a glowing slot that takes coins, and a return button that never returns any. */
+[data-skin="kara"] .kara-pinbun__coin-door {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: auto;
+  padding: 8px;
+  border: 1px solid #0b0e16;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #232c3a, #4a596f 50%, #232c3a);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+[data-skin="kara"] .kara-pinbun__coin-slot,
+[data-skin="kara"] .kara-pinbun__coin-return {
+  padding: 0;
+  border: 1px solid #0b0e16;
+  border-radius: 3px;
+  font: bold 9px/1.2 Tahoma, Verdana, sans-serif;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* The slot glows red, like it's waiting. */
+[data-skin="kara"] .kara-pinbun__coin-slot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 0 5px;
+  background: radial-gradient(circle at 50% 40%, #3a1418, #120608);
+  color: #ffad42;
+}
+
+[data-skin="kara"] .kara-pinbun__slot {
+  width: 5px;
+  height: 22px;
+  border-radius: 2px;
+  background: #000;
+  box-shadow:
+    0 0 0 2px #8f1d24,
+    0 0 8px 3px rgba(255, 81, 89, 0.7);
+}
+
+[data-skin="kara"] .kara-pinbun__coin-label {
+  font-size: 11px;
+  text-shadow: 0 0 4px rgba(255, 173, 66, 0.7);
+}
+
+[data-skin="kara"] .kara-pinbun__coin-return {
+  width: 52px;
+  background: linear-gradient(180deg, #e9f0f8, #8fa3bd);
+  color: #1b2230;
+}
+
+[data-skin="kara"] .kara-pinbun__coin-slot:active,
+[data-skin="kara"] .kara-pinbun__coin-return:active {
+  translate: 0 1px;
+}
+
+[data-skin="kara"] .kara-pinbun__coin-slot:focus-visible,
+[data-skin="kara"] .kara-pinbun__coin-return:focus-visible {
+  outline: 1px dotted #fff;
+  outline-offset: 2px;
+}
+
+[data-skin="kara"] .kara-pinbun__facts dt {
+  color: rgba(255, 176, 46, 0.55);
+  text-transform: uppercase;
+}
+
+[data-skin="kara"] .kara-pinbun__facts dd {
+  margin: 0;
+}
+
+[data-skin="kara"] .kara-pinbun__best-line {
+  margin: 0;
+}
+
+/* Narrow: only the display, on its own line above the table. */
+@container (max-width: 440px) {
+  [data-skin="kara"] .kara-pinbun__cabinet {
+    flex-direction: column-reverse;
+  }
+
+  [data-skin="kara"] .kara-pinbun__panel {
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  [data-skin="kara"] .kara-pinbun__logo,
+  [data-skin="kara"] .kara-pinbun__card,
+  [data-skin="kara"] .kara-pinbun__coin-door,
+  [data-skin="kara"] .kara-pinbun__facts {
+    display: none;
+  }
+
+  [data-skin="kara"] .kara-pinbun__display {
+    height: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+[data-skin="kara"] .kara-pinbun__pad .kara-pad__button {
+  color: var(--kara-ink);
+  font-size: 11px;
+}
+
+[data-skin="kara"] .kara-pinbun__launch {
+  width: 160px;
+  font-weight: bold;
+}
