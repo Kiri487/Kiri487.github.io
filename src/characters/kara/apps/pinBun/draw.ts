@@ -20,12 +20,17 @@ import {
   LANES,
   PLAYFIELD_MIDDLE,
   SLINGS,
+  SPICY,
   TARGET_LETTERS,
   TARGETS,
+  THU_LETTERS,
+  THU_TARGETS,
   WALLS,
   WIDTH,
   ballOnPlunger,
+  isFourTwenty,
   type Game,
+  type Segment,
 } from "./engine";
 
 /** How long something stays lit after being hit, in seconds. */
@@ -65,6 +70,7 @@ export function drawTable(context: CanvasRenderingContext2D, game: Game, scale: 
   drawClock(context, game);
   drawLights(context, game);
   drawTargets(context, game);
+  drawSpicy(context, game);
   drawSlingGlow(context, game);
   drawBumpers(context, game);
   drawPlunger(context, game);
@@ -498,7 +504,7 @@ function drawPrint(c: CanvasRenderingContext2D) {
   text(c, "OPEN 24/7*", PLAYFIELD_MIDDLE, 195, 11, C.tomato);
   text(c, "*except thursday", PLAYFIELD_MIDDLE, 208, 8.5, "rgba(255, 236, 200, 0.6)", "normal");
 
-  drawWeb(c, 330, 150);
+  drawWeb(c, SPICY.x, SPICY.y);
 
   // Pointing out what to shoot for, more or less.
   text(c, "BURGERS", 58, 221, 11, C.print);
@@ -530,7 +536,7 @@ function drawPrint(c: CanvasRenderingContext2D) {
   c.restore();
 }
 
-/** Mr. Spicy's web in the corner, and Mr. Spicy: small, red, eight legs, one tiny hat. */
+/** Mr. Spicy's web in the corner. He's drawn every frame, since he curls up when hit. */
 function drawWeb(c: CanvasRenderingContext2D, x: number, y: number) {
   c.save();
   c.strokeStyle = "rgba(220, 230, 255, 0.28)";
@@ -554,6 +560,23 @@ function drawWeb(c: CanvasRenderingContext2D, x: number, y: number) {
     c.stroke();
   }
 
+  text(c, "MR. SPICY", x, y + 42, 9, "rgba(255, 236, 200, 0.65)");
+  text(c, "(do not hit)", x, y + 53, 8, "rgba(255, 236, 200, 0.55)", "normal");
+  c.restore();
+}
+
+/** How long Mr. Spicy stays curled up after being hit. */
+const SPICY_CURL_SECONDS = 0.8;
+
+/** Mr. Spicy: small, red, eight legs, one tiny hat. Hit, he pulls his legs in and shakes. */
+function drawSpicy(c: CanvasRenderingContext2D, game: Game) {
+  const age = game.time - game.spicyHitAt;
+  const curl = age < SPICY_CURL_SECONDS ? 1 - age / SPICY_CURL_SECONDS : 0;
+  const shake = curl > 0 ? Math.sin(game.time * 90) * 1.2 * curl : 0;
+  const x = SPICY.x + shake;
+  const y = SPICY.y;
+  const reach = 11 - 6 * curl;
+
   c.strokeStyle = "#2a0d0d";
   c.lineWidth = 1.2;
   for (const side of [-1, 1]) {
@@ -561,7 +584,7 @@ function drawWeb(c: CanvasRenderingContext2D, x: number, y: number) {
       const lift = (leg - 1.5) * 0.45;
       c.beginPath();
       c.moveTo(x, y);
-      c.quadraticCurveTo(x + side * 7, y - 6 + lift * 8, x + side * 11, y + lift * 10);
+      c.quadraticCurveTo(x + side * reach * 0.64, y - 6 + lift * 8, x + side * reach, y + lift * reach * 0.9);
       c.stroke();
     }
   }
@@ -572,17 +595,26 @@ function drawWeb(c: CanvasRenderingContext2D, x: number, y: number) {
   c.beginPath();
   c.arc(x, y, 4.6, 0, Math.PI * 2);
   c.fill();
-  c.fillStyle = "#fff";
-  c.beginPath();
-  c.arc(x - 1.6, y - 1, 1.1, 0, Math.PI * 2);
-  c.arc(x + 1.6, y - 1, 1.1, 0, Math.PI * 2);
-  c.fill();
+  // Eyes, shut tight while curled up.
+  if (curl > 0) {
+    c.strokeStyle = "#fff";
+    c.lineWidth = 0.8;
+    c.beginPath();
+    c.moveTo(x - 2.6, y - 1);
+    c.lineTo(x - 0.8, y - 1);
+    c.moveTo(x + 0.8, y - 1);
+    c.lineTo(x + 2.6, y - 1);
+    c.stroke();
+  } else {
+    c.fillStyle = "#fff";
+    c.beginPath();
+    c.arc(x - 1.6, y - 1, 1.1, 0, Math.PI * 2);
+    c.arc(x + 1.6, y - 1, 1.1, 0, Math.PI * 2);
+    c.fill();
+  }
   c.fillStyle = "#1a1a1a";
   c.fillRect(x - 2.6, y - 7.4, 5.2, 1.4);
   c.fillRect(x - 1.6, y - 10, 3.2, 2.8);
-  text(c, "MR. SPICY", x, y + 42, 9, "rgba(255, 236, 200, 0.65)");
-  text(c, "(do not hit)", x, y + 53, 8, "rgba(255, 236, 200, 0.55)", "normal");
-  c.restore();
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -597,7 +629,8 @@ const ARC_BULB_RADIUS = ARC.r - 16;
  */
 function drawArcBulbs(c: CanvasRenderingContext2D, game: Game) {
   const bonus = game.time - game.bonusAt < BONUS_FLASH_SECONDS;
-  const attract = !bonus && ballOnPlunger(game);
+  const fourTwenty = !bonus && isFourTwenty(game);
+  const attract = !bonus && !fourTwenty && ballOnPlunger(game);
   const chase = Math.floor(game.time * 14);
   const sparkle = Math.floor(game.time * 3);
   for (let i = 0; i < ARC_BULBS; i++) {
@@ -607,6 +640,8 @@ function drawArcBulbs(c: CanvasRenderingContext2D, game: Game) {
     const color = i % 3 === 0 ? C.tomato : i % 3 === 1 ? C.cheese : C.lime;
     let glow = 0;
     if (bonus) glow = Math.floor(game.time * 8) % 2 === 0 ? 1 : 0.2;
+    // 4:20: every bulb on, breathing slowly.
+    else if (fourTwenty) glow = 0.6 + 0.4 * Math.sin(game.time * 3 + i * 0.4);
     else if (attract) glow = (i + chase) % 5 === 0 ? 1 : (i + chase) % 5 === 1 ? 0.35 : 0;
     else glow = (i * 7 + sparkle) % 9 === 0 ? 0.7 : 0;
     bulb(c, x, y, 3.2, color, glow);
@@ -621,17 +656,18 @@ const DAYS_LEFT = PLAYFIELD_MIDDLE - 3 * DAY_SPACING;
 /** Monday first, matching DAYS. Looked up once: nobody plays pinball past midnight. (Kara does.) */
 const TODAY = (new Date().getDay() + 6) % 7;
 
-/** It's always nearly 4:20. The colon blinks; the week has no Thursday. */
+/** It's always nearly 4:20, until it is. The colon blinks; the week has no Thursday. */
 function drawClock(c: CanvasRenderingContext2D, game: Game) {
   const colon = Math.floor(game.time * 2) % 2 === 0;
+  const time = isFourTwenty(game) ? "04:20" : "04:19";
   c.save();
   c.font = `bold 17px Consolas, "Courier New", monospace`;
   c.textAlign = "center";
   c.textBaseline = "middle";
   c.fillStyle = "rgba(255, 81, 89, 0.13)";
   c.fillText("88:88", PLAYFIELD_MIDDLE, 388);
-  c.fillStyle = C.tomato;
-  c.fillText(colon ? "04:19" : "04 19", PLAYFIELD_MIDDLE, 388);
+  c.fillStyle = isFourTwenty(game) ? C.lime : C.tomato;
+  c.fillText(colon ? time : time.replace(":", " "), PLAYFIELD_MIDDLE, 388);
   c.restore();
 
   DAYS.forEach((day, i) => {
@@ -667,14 +703,30 @@ function drawLights(c: CanvasRenderingContext2D, game: Game) {
 }
 
 function drawTargets(c: CanvasRenderingContext2D, game: Game) {
-  TARGETS.forEach((target, i) => {
-    const down = game.targetsDown[i];
+  drawTargetBank(c, TARGETS, TARGET_LETTERS, game.targetsDown, 20, C.lime, C.tomato);
+  drawTargetBank(c, THU_TARGETS, THU_LETTERS, game.thuDown, -20, C.cheese, C.cheese);
+}
+
+/**
+ * A row of drop targets standing against a wall, each with its letter lit on the playfield beside it once it's
+ * down. `lightOffset` is which side of the targets the letters are, and how far.
+ */
+function drawTargetBank(
+  c: CanvasRenderingContext2D,
+  targets: Segment[],
+  letters: string[],
+  down: boolean[],
+  lightOffset: number,
+  lightColor: string,
+  faceColor: string,
+) {
+  targets.forEach((target, i) => {
     const top = target.ay - 1;
     const height = target.by - target.ay + 2;
     const lightY = (target.ay + target.by) / 2;
-    bulb(c, target.ax + 20, lightY, 7.5, C.lime, down ? 1 : 0);
-    text(c, TARGET_LETTERS[i], target.ax + 20, lightY + 0.5, 9, down ? "#1d3a00" : "#e6ffcc");
-    if (down) {
+    bulb(c, target.ax + lightOffset, lightY, 7.5, lightColor, down[i] ? 1 : 0);
+    text(c, letters[i], target.ax + lightOffset, lightY + 0.5, 9, down[i] ? "#2a1a00" : "#fff3dc");
+    if (down[i]) {
       c.fillStyle = "rgba(0, 0, 0, 0.5)";
       c.fillRect(target.ax - 3, top, 6, height);
       return;
@@ -682,9 +734,11 @@ function drawTargets(c: CanvasRenderingContext2D, game: Game) {
     c.fillStyle = "rgba(0, 0, 0, 0.4)";
     c.fillRect(target.ax - 1, top + 3, 6, height);
     const face = c.createLinearGradient(target.ax - 3, 0, target.ax + 3, 0);
-    face.addColorStop(0, "#8e1b22");
-    face.addColorStop(0.5, C.tomato);
-    face.addColorStop(1, "#b52a31");
+    face.addColorStop(0, "rgba(0, 0, 0, 0.45)");
+    face.addColorStop(0.5, "rgba(0, 0, 0, 0)");
+    face.addColorStop(1, "rgba(0, 0, 0, 0.3)");
+    c.fillStyle = faceColor;
+    c.fillRect(target.ax - 3, top, 6, height);
     c.fillStyle = face;
     c.fillRect(target.ax - 3, top, 6, height);
     c.fillStyle = "rgba(255, 255, 255, 0.55)";

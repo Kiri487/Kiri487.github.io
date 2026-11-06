@@ -106,6 +106,13 @@ export const LANE_LABELS = ["4", "2", "0"];
 /** K, A, R, A, standing in a row along the left wall. */
 export const TARGETS: Segment[] = [0, 1, 2, 3].map((i) => ({ ax: 26, ay: 296 + i * 30, bx: 26, by: 320 + i * 30 }));
 export const TARGET_LETTERS = ["K", "A", "R", "A"];
+
+/** T, H, U, along the right wall where the ball comes down from the top. Knocking them all down: no Thursday. */
+export const THU_TARGETS: Segment[] = [0, 1, 2].map((i) => ({ ax: 351, ay: 270 + i * 28, bx: 351, by: 292 + i * 28 }));
+export const THU_LETTERS = ["T", "H", "U"];
+
+/** Mr. Spicy, in his web in the corner. Small, and he'd rather not be hit. */
+export const SPICY: Circle = { x: 330, y: 150, r: 8 };
 const TARGET_THICKNESS = 3;
 
 export interface FlipperShape {
@@ -131,13 +138,70 @@ const LAUNCH_RANGE = 1500;
 const SERVE_DELAY = 1.2;
 const MAX_MULTIPLIER = 5;
 
-const POINTS = { bumper: 500, sling: 100, lane: 1000, lanes: 5000, target: 750, kara: 10000 };
+const POINTS = {
+  bumper: 500,
+  sling: 100,
+  lane: 1000,
+  lanes: 5000,
+  target: 750,
+  kara: 10000,
+  spicy: 2500,
+  thu: 750,
+  thursday: 7500,
+  mission: 25000,
+  fourTwenty: 42000,
+};
+
+/** What the meatball becomes, one mission at a time. */
+export const RANKS = ["Meatball", "Patty", "Chickenburger", "Double Double"];
+
+type MissionKind = "burgers" | "kara" | "spicy" | "thursday" | "lanes";
+
+interface Mission {
+  kind: MissionKind;
+  /** What the display says while it's the one to do. */
+  title: string;
+  /** How many of it. */
+  goal: number;
+}
+
+/**
+ * Done in order, kept from ball to ball. The first three each make the meatball something better; the last makes
+ * it 4:20, after which they start over.
+ */
+export const MISSIONS: Mission[] = [
+  { kind: "burgers", title: "Hit the burgers", goal: 10 },
+  { kind: "kara", title: "Spell KARA", goal: 1 },
+  { kind: "spicy", title: "Find Mr. Spicy", goal: 1 },
+  { kind: "thursday", title: "Thursday does not exist", goal: 1 },
+  { kind: "lanes", title: "Light 4:20", goal: 1 },
+];
+/** How long it's 4:20 for, once it is. */
+const FOUR_TWENTY_SECONDS = 20;
+/** Hitting Mr. Spicy again this soon is the same hit. */
+const SPICY_COOLDOWN = 0.5;
+const SPICY_KICK = 380;
 const MESSAGE_SECONDS = 2.5;
 
 // ---------------------------------------------------------------------------------------------------------------
 // The game.
 
-export type GameEvent = "bumper" | "sling" | "target" | "kara" | "lane" | "lanes" | "launch" | "drain" | "over";
+export type GameEvent =
+  | "bumper"
+  | "sling"
+  | "target"
+  | "kara"
+  | "lane"
+  | "lanes"
+  | "spicy"
+  | "thursday"
+  | "mission"
+  /** Promoted: rank is already the new one. */
+  | "rank"
+  | "fourTwenty"
+  | "launch"
+  | "drain"
+  | "over";
 
 export interface Ball {
   x: number;
@@ -175,6 +239,17 @@ export interface Game {
   targetsDown: boolean[];
   /** When the targets stand back up, after all four went down. */
   targetsUpAt: number;
+  thuDown: boolean[];
+  thuUpAt: number;
+  /** Which of RANKS the meatball is. */
+  rank: number;
+  /** Which of MISSIONS is the one to do, and how far along it is. */
+  mission: number;
+  missionProgress: number;
+  /** When Mr. Spicy was last hit, for him curling up. */
+  spicyHitAt: number;
+  /** It's 4:20 until then. */
+  fourTwentyUntil: number;
   /** When each was last hit, for drawing it lit. */
   bumperHits: number[];
   slingHits: number[];
@@ -205,6 +280,13 @@ export function newGame(): Game {
     inLane: [false, false, false],
     targetsDown: [false, false, false, false],
     targetsUpAt: Infinity,
+    thuDown: [false, false, false],
+    thuUpAt: Infinity,
+    rank: 0,
+    mission: 0,
+    missionProgress: 0,
+    spicyHitAt: -Infinity,
+    fourTwentyUntil: -Infinity,
     bumperHits: BUMPERS.map(() => -Infinity),
     slingHits: SLINGS.map(() => -Infinity),
     drainedAt: -Infinity,
@@ -295,6 +377,11 @@ function substep(game: Game, dt: number) {
     flipper.omega = turn / dt;
   });
 
+  if (game.thuUpAt <= game.time) {
+    game.thuDown = game.thuDown.map(() => false);
+    game.thuUpAt = Infinity;
+  }
+
   if (game.targetsUpAt <= game.time) {
     game.targetsDown = game.targetsDown.map(() => false);
     game.targetsUpAt = Infinity;
@@ -324,6 +411,8 @@ function substep(game: Game, dt: number) {
   collideWalls(game, ball);
   collideBumpers(game, ball);
   collideTargets(game, ball);
+  collideThu(game, ball);
+  collideSpicy(game, ball);
   collideFlippers(game, ball);
   checkLanes(game, ball);
 
@@ -437,6 +526,7 @@ function collideBumpers(game: Game, ball: Ball) {
     game.bumperHits[i] = game.time;
     score(game, POINTS.bumper);
     game.events.push("bumper");
+    advance(game, "burgers");
   });
 }
 
@@ -455,11 +545,94 @@ function collideTargets(game: Game, ball: Ball) {
       game.bonusAt = game.time;
       say(game, `KARA! Multiplier x${game.multiplier}`);
       game.events.push("kara");
+      advance(game, "kara");
     } else {
       say(game, TARGET_LETTERS.map((letter, n) => (game.targetsDown[n] ? letter : "_")).join(" "));
       game.events.push("target");
     }
   });
+}
+
+function collideThu(game: Game, ball: Ball) {
+  THU_TARGETS.forEach((target, i) => {
+    if (game.thuDown[i]) return;
+    if (!collideSegment(ball, target, TARGET_THICKNESS, WALL_BOUNCE)) return;
+    game.thuDown[i] = true;
+    score(game, POINTS.thu);
+    if (game.thuDown.every(Boolean)) {
+      score(game, POINTS.thursday);
+      game.thuUpAt = game.time + TARGETS_UP_DELAY;
+      say(game, "Thursday does not exist");
+      game.events.push("thursday");
+      advance(game, "thursday");
+    } else {
+      say(game, THU_LETTERS.map((letter, n) => (game.thuDown[n] ? letter : "_")).join(" "));
+      game.events.push("target");
+    }
+  });
+}
+
+function collideSpicy(game: Game, ball: Ball) {
+  const ex = ball.x - SPICY.x;
+  const ey = ball.y - SPICY.y;
+  const reach = BALL_RADIUS + SPICY.r;
+  const d = Math.hypot(ex, ey);
+  if (d >= reach || d < 1e-6) return;
+  const hit: Hit = { nx: ex / d, ny: ey / d, vn: 0 };
+  ball.x = SPICY.x + hit.nx * reach;
+  ball.y = SPICY.y + hit.ny * reach;
+  hit.vn = ball.vx * hit.nx + ball.vy * hit.ny;
+  if (hit.vn < 0) {
+    ball.vx -= (1 + WALL_BOUNCE) * hit.vn * hit.nx;
+    ball.vy -= (1 + WALL_BOUNCE) * hit.vn * hit.ny;
+  }
+  kick(ball, hit, SPICY_KICK);
+  if (game.time - game.spicyHitAt < SPICY_COOLDOWN) return;
+  game.spicyHitAt = game.time;
+  score(game, POINTS.spicy);
+  say(game, "Mr. Spicy has been hit. Rude.");
+  game.events.push("spicy");
+  advance(game, "spicy");
+}
+
+/** Counts towards the mission, if it's the one to do. Done, it's the next one, and maybe a better meatball. */
+function advance(game: Game, kind: MissionKind) {
+  const mission = MISSIONS[game.mission];
+  if (mission.kind !== kind) return;
+  game.missionProgress++;
+  if (game.missionProgress < mission.goal) {
+    say(game, `${mission.title} ${game.missionProgress}/${mission.goal}`);
+    return;
+  }
+  score(game, POINTS.mission);
+  game.missionProgress = 0;
+  game.mission = (game.mission + 1) % MISSIONS.length;
+  game.bonusAt = game.time;
+
+  if (game.mission === 0) {
+    // That was the last one: it's 4:20.
+    score(game, POINTS.fourTwenty);
+    game.fourTwentyUntil = game.time + FOUR_TWENTY_SECONDS;
+    say(game, "IT'S 4:20");
+    game.events.push("fourTwenty");
+  } else if (game.rank < RANKS.length - 1) {
+    game.rank++;
+    say(game, `Promoted: ${RANKS[game.rank]}`);
+    game.events.push("rank");
+  } else {
+    say(game, `Done! Next: ${MISSIONS[game.mission].title}`);
+    game.events.push("mission");
+  }
+}
+
+/** What the display says when nothing's just happened: the mission, and how far along it is. */
+export function missionText(game: Game): string {
+  const mission = MISSIONS[game.mission];
+  return mission.goal > 1 ? `${mission.title} ${game.missionProgress}/${mission.goal}` : mission.title;
+}
+
+export function isFourTwenty(game: Game): boolean {
+  return game.time < game.fourTwentyUntil;
 }
 
 const FLIPPER_BOUNCE = 0.3;
@@ -488,6 +661,7 @@ function checkLanes(game: Game, ball: Ball) {
         game.bonusAt = game.time;
         say(game, "4:20 lanes lit!");
         game.events.push("lanes");
+        advance(game, "lanes");
       } else {
         game.events.push("lane");
       }
@@ -502,7 +676,7 @@ function drain(game: Game) {
   releaseAll(game);
   if (game.ballNumber >= BALLS_PER_GAME) {
     game.status = "over";
-    game.message = { text: "Game Over", until: Infinity };
+    game.message = { text: "Kara is no longer hungry. (this is a lie)", until: Infinity };
     game.events.push("over");
     return;
   }

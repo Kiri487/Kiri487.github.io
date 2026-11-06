@@ -20,6 +20,8 @@ import "../common/menuBar.css";
 import { drawTable } from "./draw";
 import {
   ballOnPlunger,
+  missionText,
+  RANKS,
   HEIGHT,
   insertCoin,
   newGame,
@@ -38,6 +40,7 @@ import {
   playFlipperSfx,
   playLaunchSfx,
   playRecordSfx,
+  playSpicySfx,
   playRefusedSfx,
   playSetSfx,
   playSlingSfx,
@@ -51,6 +54,17 @@ const DRAIN_LINE = "meatball!!";
 const OVER_LINE = "all the meatballs are gone";
 const RECORD_LINE = "the machine is scared of you";
 const RESTART_LINES = ["fresh meatballs", "the machine forgot everything", "again!!"];
+/** Said on being promoted, by what the meatball is now. */
+const RANK_LINES: Record<string, string> = {
+  Patty: "it's a patty now",
+  Chickenburger: "it's a chickenburger. like me",
+  "Double Double": "double double. i'm so proud",
+};
+const SPICY_LINE = "mr. spicy owes me rent";
+const THURSDAY_LINE = "thursday? never heard of it";
+const FOUR_TWENTY_LINE = "it's time";
+/** A moment after the table's own sound, so she isn't talking over it. */
+const EVENT_TO_TALK_MS = 300;
 /** Between the game's sound and her saying something about it, so the two don't land on top of each other. */
 const DRAIN_TO_TALK_MS = 500;
 const FANFARE_TO_TALK_MS = 500;
@@ -90,6 +104,10 @@ interface Hud {
   onPlunger: boolean;
   /** Lit for a while after every ball that goes down, and for good once the game's over. */
   noRefunds: boolean;
+  /** Which of RANKS the meatball is. */
+  rank: number;
+  /** The mission to do, and how far along it is. */
+  mission: string;
 }
 
 function hudOf(game: Game): Hud {
@@ -99,6 +117,8 @@ function hudOf(game: Game): Hud {
     over: game.status === "over",
     message: game.message && game.message.until > game.time ? game.message.text : null,
     onPlunger: ballOnPlunger(game),
+    rank: game.rank,
+    mission: missionText(game),
     noRefunds:
       game.status === "over" ||
       game.time - game.drainedAt < NO_REFUNDS_SECONDS ||
@@ -113,7 +133,9 @@ function sameHud(a: Hud, b: Hud) {
     a.over === b.over &&
     a.message === b.message &&
     a.onPlunger === b.onPlunger &&
-    a.noRefunds === b.noRefunds
+    a.noRefunds === b.noRefunds &&
+    a.rank === b.rank &&
+    a.mission === b.mission
   );
 }
 
@@ -244,19 +266,30 @@ function PinBunApp() {
     const game = gameRef.current;
     const context = canvasRef.current?.getContext("2d");
     if (context) drawTable(context, game, pixelScale);
+    // Of everything worth a word this frame, she says only the biggest.
+    let line: string | null = null;
     for (const event of game.events) {
       if (event === "over") gameOver(game.score);
       else if (event === "drain") {
         if (soundOn) playDrainSfx();
         sayLater(DRAIN_LINE, DRAIN_TO_TALK_MS);
-      } else if (soundOn) {
+      } else {
+        if (event === "fourTwenty") line = FOUR_TWENTY_LINE;
+        else if (event === "rank" && line !== FOUR_TWENTY_LINE) line = RANK_LINES[RANKS[game.rank]] ?? null;
+        else if (event === "spicy") line ??= SPICY_LINE;
+        else if (event === "thursday") line ??= THURSDAY_LINE;
+        if (!soundOn) continue;
         if (event === "bumper") playBumperSfx();
         else if (event === "sling") playSlingSfx();
         else if (event === "target" || event === "lane") playTargetSfx();
-        else if (event === "kara" || event === "lanes") playSetSfx();
+        else if (event === "spicy") playSpicySfx();
+        else if (event === "fourTwenty") playRecordSfx();
+        else if (event === "kara" || event === "lanes" || event === "thursday" || event === "mission" || event === "rank")
+          playSetSfx();
         else if (event === "launch") playLaunchSfx();
       }
     }
+    if (line) sayLater(line, EVENT_TO_TALK_MS);
     game.events.length = 0;
     const next = hudOf(game);
     setHud((current) => (sameHud(current, next) ? current : next));
@@ -453,14 +486,15 @@ function PinBunApp() {
   ];
 
   // The panel's display: what the table just said, or else what to do now.
+  // Over, it's the table's last word, and how to go again sits on the table itself.
   let display: string;
-  if (hud.over) display = touch ? "Game Over. Tap Launch to play again" : "Game Over. Press Space to play again";
-  else if (hud.message) display = hud.message;
+  if (hud.message) display = hud.message;
   else if (hud.onPlunger) display = touch ? "Hold Launch, then let go" : "Hold Space, then let go";
-  else display = `Ball ${hud.ball}`;
+  else display = hud.mission;
 
   let notice: string | null = null;
-  if (paused && !hud.over) notice = touch ? "Paused. Tap to go on" : "Paused. Press P to go on";
+  if (hud.over) notice = touch ? "Game over. Tap Launch to play again" : "Game over. Press Space to play again";
+  else if (paused) notice = touch ? "Paused. Tap to go on" : "Paused. Press P to go on";
 
   return (
     <div
@@ -532,9 +566,13 @@ function PinBunApp() {
                 <dd>{hud.ball}/3</dd>
               </div>
               <div className="kara-pinbun__fact">
+                <dt>Rank</dt>
+                <dd>{RANKS[hud.rank]}</dd>
+              </div>
+              <div className="kara-pinbun__fact">
                 <dt>Best</dt>
                 <dd>
-                  <span className="kara-pinbun__holder">{hud.score > best.score ? "you, probably" : best.name}</span>
+                  <span className="kara-pinbun__holder">{hud.score > best.score ? "YOU" : best.name}</span>
                   <span className="kara-pinbun__number">{formatScore(Math.max(best.score, hud.score))}</span>
                 </dd>
               </div>

@@ -18,6 +18,11 @@ export function playSlingSfx() {
   whenAudible((c) => slide(c, "triangle", 300, 160, c.currentTime, 0.06, VOLUME * 1.2));
 }
 
+/** Mr. Spicy, hit: a small offended squeak. ~120ms. */
+export function playSpicySfx() {
+  whenAudible((c) => slide(c, "sine", 1600, 2600, c.currentTime, 0.12, VOLUME * 0.8));
+}
+
 /** A drop target going down, or a lane lighting up: a little blip. ~80ms. */
 export function playTargetSfx() {
   whenAudible((c) => slide(c, "sine", 660, 990, c.currentTime, 0.08, VOLUME));
