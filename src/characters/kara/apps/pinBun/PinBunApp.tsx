@@ -439,7 +439,10 @@ function PinBunApp() {
 
   const pressFlipper = (index: 0 | 1, pressed: boolean) => {
     const game = gameRef.current;
-    if (pressed && !game.flippers[index].pressed && game.status === "playing" && soundOn) playFlipperSfx();
+    // The clack is the flipper moving: tilted, it doesn't.
+    if (pressed && !game.flippers[index].pressed && game.status === "playing" && !game.tilted && soundOn) {
+      playFlipperSfx();
+    }
     setFlipper(game, index, pressed);
   };
 
