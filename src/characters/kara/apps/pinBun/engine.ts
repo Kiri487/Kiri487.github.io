@@ -90,10 +90,11 @@ export const WALLS: Wall[] = [
   ...SLINGS.flatMap(({ a, b, c }) => [seg(...a, ...b), seg(...b, ...c), seg(...c, ...a, "sling")]),
   // Posts between the three lanes at the top.
   ...[117, 163, 209, 255].map((x) => seg(x, 92, x, 135)),
-  // The straw's mouth: two sides, and a cap so a ball coming down from above can't drop in backwards.
+  // The straw's mouth: a guide either side, leading into the straw's own walls (STRAW_WALLS).
   seg(287, 406, 289, 374),
   seg(313, 406, 311, 374),
-  seg(289, 374, 311, 374),
+  // Over the top of the straw's bend from the lane wall, or a ball can sit in the corner between the two.
+  seg(LANE.left, LANE.top, 330, 266),
 ];
 
 /** The three burgers, in a triangle that's a little off on purpose. */
@@ -121,7 +122,8 @@ export const THU_LETTERS = ["T", "H", "U"];
 /**
  * The straw: a ramp up the right side, round a hairpin and down into the right inlane. A ball on it is off the
  * playfield and simply follows the path, slowed going up and sped up coming down; one that runs out of speed
- * rolls back out of the mouth.
+ * rolls back out of the mouth. From the playfield it's solid all the way along, open only at its two ends; a ball
+ * shot up into the far end rides it backwards, for nothing.
  */
 /** Where the straw goes, roughly. Smoothed into STRAW below. */
 const STRAW_SHAPE: [number, number][] = [
@@ -131,11 +133,11 @@ const STRAW_SHAPE: [number, number][] = [
   [308, 298],
   [320, 283],
   [334, 279],
-  [345, 286],
-  [350, 302],
-  [350, 340],
-  [348, 400],
-  [345, 470],
+  [343, 286],
+  [347, 302],
+  [347, 340],
+  [345, 400],
+  [343, 470],
 ];
 
 /** Through every point of STRAW_SHAPE, curving smoothly between them (Catmull-Rom), a few steps per piece. */
@@ -164,6 +166,19 @@ function smooth(points: [number, number][], steps: number): [number, number][] {
 }
 
 export const STRAW = smooth(STRAW_SHAPE, 6);
+/** Half the straw's width: wide enough inside for a meatball, and where its walls are from the playfield. */
+export const STRAW_RADIUS = 12;
+
+/** Both sides of the straw, as walls. Not in WALLS, which are drawn as metal rails; the straw draws itself. */
+const STRAW_WALLS: Wall[] = [-1, 1].flatMap((side) => {
+  const edge = STRAW.map(([x, y], i): [number, number] => {
+    const [ax, ay] = STRAW[Math.max(0, i - 1)];
+    const [bx, by] = STRAW[Math.min(STRAW.length - 1, i + 1)];
+    const length = Math.hypot(bx - ax, by - ay) || 1;
+    return [x - ((by - ay) / length) * STRAW_RADIUS * side, y + ((bx - ax) / length) * STRAW_RADIUS * side];
+  });
+  return edge.slice(1).map(([x, y], i) => seg(edge[i][0], edge[i][1], x, y));
+});
 /** Where crossing into the mouth starts the ride: a line across it, crossed going up. */
 const STRAW_MOUTH = { left: 289, right: 311, y: 400 };
 /** It's a smooth plastic tube, so only a little slows the ball down besides going uphill. */
@@ -645,6 +660,13 @@ function moveBall(game: Game, ball: Ball, dt: number) {
   ) {
     const { tx, ty } = strawAt(0);
     ball.straw = { s: 0, speed: Math.max(0, ball.vx * tx + ball.vy * ty), pays: true };
+    return;
+  }
+  // Or up into its far end, the wrong way.
+  const end = strawAt(STRAW_LENGTH);
+  const into = end.y - 4;
+  if (fromY > into && ball.y <= into && Math.abs(ball.x - end.x) < STRAW_RADIUS && ball.vy < 0) {
+    ball.straw = { s: STRAW_LENGTH, speed: Math.min(0, ball.vx * end.tx + ball.vy * end.ty), pays: false };
   }
 }
 
@@ -662,7 +684,7 @@ function rideStraw(game: Game, ball: Ball, dt: number) {
   ball.x = at.x;
   ball.y = at.y;
   if (straw.s <= 0) {
-    // Not enough to make it: back out of the mouth, the way it came.
+    // Out of the mouth: one that didn't make it up, or one going backwards that did.
     ball.straw = null;
     ball.y = STRAW_MOUTH.y + 2;
     ball.vx = straw.speed * at.tx;
@@ -829,6 +851,7 @@ function collideWalls(game: Game, ball: Ball) {
       }
     }
   }
+  for (const wall of STRAW_WALLS) collideSegment(ball, wall, 0, WALL_BOUNCE);
 }
 
 const BUMPER_BOUNCE = 0.6;
