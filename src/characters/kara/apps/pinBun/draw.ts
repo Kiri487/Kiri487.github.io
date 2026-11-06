@@ -21,6 +21,8 @@ import {
   PLAYFIELD_MIDDLE,
   SLINGS,
   SPICY,
+  STRAW,
+  STRAW_RIDES_FOR_RUSH,
   TARGET_LETTERS,
   TARGETS,
   THU_LETTERS,
@@ -75,7 +77,11 @@ export function drawTable(context: CanvasRenderingContext2D, game: Game, scale: 
   drawBumpers(context, game);
   drawPlunger(context, game);
   drawFlippers(context, game);
-  if (game.ball) drawBall(context, game.ball.x, game.ball.y, game.ball.spin);
+  // Meatballs on the playfield go under the straw, the ones riding it over.
+  for (const ball of game.balls) if (!ball.straw) drawBall(context, ball.x, ball.y, ball.spin, false);
+  drawStrawLights(context, game);
+  drawStraw(context);
+  for (const ball of game.balls) if (ball.straw) drawBall(context, ball.x, ball.y, ball.spin, true);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -510,9 +516,10 @@ function drawPrint(c: CanvasRenderingContext2D) {
   text(c, "BURGERS", 58, 221, 11, C.print);
   arrow(c, 32, 236, 0, 50, C.cheese);
 
-  text(c, "JACKPOT", 322, 383, 11, C.print);
-  text(c, "(probably)", 322, 418, 9, "rgba(255, 236, 200, 0.7)", "normal");
-  arrow(c, 298, 400, 0, 52, C.mint);
+  // At the straw's mouth. It's only really a jackpot during RUSH HOUR, hence the probably.
+  text(c, "JACKPOT", 258, 363, 11, C.print);
+  text(c, "(probably)", 258, 376, 9, "rgba(255, 236, 200, 0.7)", "normal");
+  arrow(c, 236, 392, 0, 46, C.mint);
 
   text(c, "DO NOT AIM HERE", PLAYFIELD_MIDDLE, 566, 10, C.print);
   arrow(c, PLAYFIELD_MIDDLE, 576, Math.PI / 2, 24, C.tomato);
@@ -704,7 +711,174 @@ function drawLights(c: CanvasRenderingContext2D, game: Game) {
 
 function drawTargets(c: CanvasRenderingContext2D, game: Game) {
   drawTargetBank(c, TARGETS, TARGET_LETTERS, game.targetsDown, 20, C.lime, C.tomato);
-  drawTargetBank(c, THU_TARGETS, THU_LETTERS, game.thuDown, -20, C.cheese, C.cheese);
+  drawThu(c, game);
+}
+
+/** T, H, U, lying across the middle facing the flippers, their letters lit under them once they're down. */
+function drawThu(c: CanvasRenderingContext2D, game: Game) {
+  THU_TARGETS.forEach((target, i) => {
+    const down = game.thuDown[i];
+    const middle = (target.ax + target.bx) / 2;
+    const width = target.bx - target.ax + 2;
+    bulb(c, middle, target.ay + 16, 7.5, C.cheese, down ? 1 : 0);
+    text(c, THU_LETTERS[i], middle, target.ay + 16.5, 9, down ? "#2a1a00" : "#fff3dc");
+    if (down) {
+      c.fillStyle = "rgba(0, 0, 0, 0.5)";
+      c.fillRect(target.ax - 1, target.ay - 3, width, 6);
+      return;
+    }
+    c.fillStyle = "rgba(0, 0, 0, 0.4)";
+    c.fillRect(target.ax + 1, target.ay, width, 6);
+    const face = c.createLinearGradient(0, target.ay - 3, 0, target.ay + 3);
+    face.addColorStop(0, "#ffd08a");
+    face.addColorStop(0.5, C.cheese);
+    face.addColorStop(1, "#b8681a");
+    c.fillStyle = face;
+    c.fillRect(target.ax - 1, target.ay - 3, width, 6);
+    c.fillStyle = "rgba(255, 255, 255, 0.55)";
+    c.fillRect(target.ax + 1, target.ay - 2, width - 4, 1);
+  });
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// The straw.
+
+const STRAW_WIDTH = 20;
+
+/** Each point of the straw pushed sideways by `by`, for its edges and its shine. */
+function strawOffset(by: number): [number, number][] {
+  return STRAW.map(([x, y], i) => {
+    const [ax, ay] = STRAW[Math.max(0, i - 1)];
+    const [bx, by2] = STRAW[Math.min(STRAW.length - 1, i + 1)];
+    const length = Math.hypot(bx - ax, by2 - ay) || 1;
+    return [x - ((by2 - ay) / length) * by, y + ((bx - ax) / length) * by];
+  });
+}
+
+const STRAW_LEFT = strawOffset(-STRAW_WIDTH / 2);
+const STRAW_RIGHT = strawOffset(STRAW_WIDTH / 2);
+const STRAW_SHINE = strawOffset(-STRAW_WIDTH / 5);
+const STRAW_SHADE_LEFT = strawOffset(-STRAW_WIDTH / 2 + 2);
+const STRAW_SHADE_RIGHT = strawOffset(STRAW_WIDTH / 2 - 2);
+
+/** Distance along the straw at each of its points. */
+const STRAW_DISTANCES = STRAW.reduce<number[]>((all, [x, y], i) => {
+  if (i === 0) return [0];
+  const [px, py] = STRAW[i - 1];
+  return [...all, all[i - 1] + Math.hypot(x - px, y - py)];
+}, []);
+const STRAW_TOTAL = STRAW_DISTANCES[STRAW_DISTANCES.length - 1];
+
+/** A point on one of the straw's offset lines, `s` along it. */
+function along(line: [number, number][], s: number): [number, number] {
+  const at = Math.max(0, Math.min(STRAW_TOTAL, s));
+  let i = 1;
+  while (i < STRAW_DISTANCES.length - 1 && STRAW_DISTANCES[i] < at) i++;
+  const from = STRAW_DISTANCES[i - 1];
+  const t = (at - from) / (STRAW_DISTANCES[i] - from || 1);
+  return [line[i - 1][0] + (line[i][0] - line[i - 1][0]) * t, line[i - 1][1] + (line[i][1] - line[i - 1][1]) * t];
+}
+
+/** The bendy part, round the hairpin, where a bendy straw has its folds. Distances along the straw. */
+const BEND_FROM = STRAW_TOTAL * 0.36;
+const BEND_TO = STRAW_TOTAL * 0.6;
+const STRIPE_SPACING = 13;
+const FOLD_SPACING = 3.2;
+
+function strawPath(c: CanvasRenderingContext2D, points: [number, number][]) {
+  c.beginPath();
+  points.forEach(([x, y], i) => (i === 0 ? c.moveTo(x, y) : c.lineTo(x, y)));
+}
+
+/**
+ * A bendy straw, clear plastic with a red stripe wound round it: its shadow on the playfield, the plastic, darker
+ * at its sides and with a shine down one, the stripe going round on the slant, and folds where it bends. Drawn
+ * every frame, between the meatballs under it and the ones riding it.
+ */
+function drawStraw(c: CanvasRenderingContext2D) {
+  c.save();
+  c.lineCap = "round";
+  c.lineJoin = "round";
+
+  c.save();
+  c.translate(6, 8);
+  strawPath(c, STRAW);
+  c.lineWidth = STRAW_WIDTH - 2;
+  c.strokeStyle = "rgba(0, 0, 0, 0.28)";
+  c.stroke();
+  c.restore();
+
+  // The plastic.
+  strawPath(c, STRAW);
+  c.lineWidth = STRAW_WIDTH;
+  c.strokeStyle = "rgba(225, 240, 255, 0.16)";
+  c.stroke();
+
+  // The stripe, wound round it: across the front on a slant, a little way along between one side and the other.
+  // Not on the folds.
+  c.lineCap = "butt";
+  c.lineWidth = 4.5;
+  c.strokeStyle = withAlpha(C.tomato, 0.75);
+  c.beginPath();
+  for (let s = 4; s < STRAW_TOTAL - 2; s += STRIPE_SPACING) {
+    if (s > BEND_FROM - 4 && s < BEND_TO) continue;
+    const [lx, ly] = along(STRAW_LEFT, s);
+    const [rx, ry] = along(STRAW_RIGHT, s + 7);
+    c.moveTo(lx, ly);
+    c.lineTo(rx, ry);
+  }
+  c.stroke();
+
+  // The folds: thin rings close together.
+  c.lineWidth = 1;
+  c.strokeStyle = "rgba(235, 248, 255, 0.55)";
+  c.beginPath();
+  for (let s = BEND_FROM; s < BEND_TO; s += FOLD_SPACING) {
+    const [lx, ly] = along(STRAW_LEFT, s);
+    const [rx, ry] = along(STRAW_RIGHT, s);
+    c.moveTo(lx, ly);
+    c.lineTo(rx, ry);
+  }
+  c.stroke();
+
+  // Round: darker along both sides, a bright line down one.
+  c.lineCap = "round";
+  c.lineWidth = 3;
+  c.strokeStyle = "rgba(120, 140, 175, 0.35)";
+  strawPath(c, STRAW_SHADE_LEFT);
+  c.stroke();
+  strawPath(c, STRAW_SHADE_RIGHT);
+  c.stroke();
+  c.lineWidth = 1.2;
+  c.strokeStyle = "rgba(240, 250, 255, 0.75)";
+  strawPath(c, STRAW_LEFT);
+  c.stroke();
+  strawPath(c, STRAW_RIGHT);
+  c.stroke();
+  c.lineWidth = 2.2;
+  c.strokeStyle = "rgba(255, 255, 255, 0.6)";
+  strawPath(c, STRAW_SHINE);
+  c.stroke();
+
+  // The open end, seen from above.
+  const [mx, my] = STRAW[0];
+  c.beginPath();
+  c.ellipse(mx, my, STRAW_WIDTH / 2, 3.5, 0, 0, Math.PI * 2);
+  c.fillStyle = "rgba(5, 8, 16, 0.65)";
+  c.fill();
+  c.strokeStyle = "rgba(240, 250, 255, 0.85)";
+  c.lineWidth = 1.4;
+  c.stroke();
+  c.restore();
+}
+
+/** Under the mouth: one light per ride towards RUSH HOUR. During it, all three chase. */
+function drawStrawLights(c: CanvasRenderingContext2D, game: Game) {
+  const chase = Math.floor(game.time * 8) % STRAW_RIDES_FOR_RUSH;
+  for (let i = 0; i < STRAW_RIDES_FOR_RUSH; i++) {
+    const lit = game.rushHour ? i === chase : i < game.strawRides;
+    bulb(c, 288 + i * 12, 424, 4.5, C.mint, lit ? 1 : 0);
+  }
 }
 
 /**
@@ -913,14 +1087,16 @@ const SPECKS = [
 ] as const;
 
 /** A meatball. It has dreams. */
-function drawBall(c: CanvasRenderingContext2D, x: number, y: number, spin: number) {
+function drawBall(c: CanvasRenderingContext2D, x: number, y: number, spin: number, raised: boolean) {
   const r = BALL_RADIUS;
   c.save();
   c.translate(x, y);
 
+  // Up in the straw, its shadow falls further away.
+  const drop = raised ? 2 : 1;
   c.fillStyle = "rgba(0, 0, 0, 0.4)";
   c.beginPath();
-  c.ellipse(2.5, 3.5, r, r * 0.9, 0, 0, Math.PI * 2);
+  c.ellipse(2.5 * drop, 3.5 * drop, r, r * 0.9, 0, 0, Math.PI * 2);
   c.fill();
 
   const meat = c.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r);

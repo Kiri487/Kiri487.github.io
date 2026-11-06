@@ -90,6 +90,10 @@ export const WALLS: Wall[] = [
   ...SLINGS.flatMap(({ a, b, c }) => [seg(...a, ...b), seg(...b, ...c), seg(...c, ...a, "sling")]),
   // Posts between the three lanes at the top.
   ...[117, 163, 209, 255].map((x) => seg(x, 92, x, 135)),
+  // The straw's mouth: two sides, and a cap so a ball coming down from above can't drop in backwards.
+  seg(287, 406, 289, 374),
+  seg(313, 406, 311, 374),
+  seg(289, 374, 311, 374),
 ];
 
 /** The three burgers, in a triangle that's a little off on purpose. */
@@ -107,9 +111,82 @@ export const LANE_LABELS = ["4", "2", "0"];
 export const TARGETS: Segment[] = [0, 1, 2, 3].map((i) => ({ ax: 26, ay: 296 + i * 30, bx: 26, by: 320 + i * 30 }));
 export const TARGET_LETTERS = ["K", "A", "R", "A"];
 
-/** T, H, U, along the right wall where the ball comes down from the top. Knocking them all down: no Thursday. */
-export const THU_TARGETS: Segment[] = [0, 1, 2].map((i) => ({ ax: 351, ay: 270 + i * 28, bx: 351, by: 292 + i * 28 }));
+/**
+ * T, H, U, in a row facing the flippers, right under the days of the week, where Thursday is taped over.
+ * Knocking them all down: no Thursday.
+ */
+export const THU_TARGETS: Segment[] = [0, 1, 2].map((i) => ({ ax: 153 + i * 24, ay: 458, bx: 171 + i * 24, by: 458 }));
 export const THU_LETTERS = ["T", "H", "U"];
+
+/**
+ * The straw: a ramp up the right side, round a hairpin and down into the right inlane. A ball on it is off the
+ * playfield and simply follows the path, slowed going up and sped up coming down; one that runs out of speed
+ * rolls back out of the mouth.
+ */
+/** Where the straw goes, roughly. Smoothed into STRAW below. */
+const STRAW_SHAPE: [number, number][] = [
+  [300, 402],
+  [300, 360],
+  [302, 322],
+  [308, 298],
+  [320, 283],
+  [334, 279],
+  [345, 286],
+  [350, 302],
+  [350, 340],
+  [348, 400],
+  [345, 470],
+];
+
+/** Through every point of STRAW_SHAPE, curving smoothly between them (Catmull-Rom), a few steps per piece. */
+function smooth(points: [number, number][], steps: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    for (let n = 0; n < steps; n++) {
+      const t = n / steps;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const at = (k: 0 | 1) =>
+        0.5 *
+        (2 * p1[k] +
+          (-p0[k] + p2[k]) * t +
+          (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * t2 +
+          (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * t3);
+      out.push([at(0), at(1)]);
+    }
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+
+export const STRAW = smooth(STRAW_SHAPE, 6);
+/** Where crossing into the mouth starts the ride: a line across it, crossed going up. */
+const STRAW_MOUTH = { left: 289, right: 311, y: 400 };
+/** It's a smooth plastic tube, so only a little slows the ball down besides going uphill. */
+const STRAW_FRICTION = 0.25;
+
+const strawLengths = STRAW.slice(1).map(([x, y], i) => Math.hypot(x - STRAW[i][0], y - STRAW[i][1]));
+export const STRAW_LENGTH = strawLengths.reduce((sum, n) => sum + n, 0);
+
+/** Where along the straw `s` is, and which way the straw runs there. */
+export function strawAt(s: number): { x: number; y: number; tx: number; ty: number } {
+  let rest = Math.max(0, Math.min(STRAW_LENGTH, s));
+  for (let i = 0; i < strawLengths.length; i++) {
+    const length = strawLengths[i];
+    if (rest <= length || i === strawLengths.length - 1) {
+      const [ax, ay] = STRAW[i];
+      const [bx, by] = STRAW[i + 1];
+      const t = Math.min(1, rest / length);
+      return { x: ax + (bx - ax) * t, y: ay + (by - ay) * t, tx: (bx - ax) / length, ty: (by - ay) / length };
+    }
+    rest -= length;
+  }
+  return { x: STRAW[0][0], y: STRAW[0][1], tx: 0, ty: -1 };
+}
 
 /** Mr. Spicy, in his web in the corner. Small, and he'd rather not be hit. */
 export const SPICY: Circle = { x: 330, y: 150, r: 8 };
@@ -136,6 +213,10 @@ const CHARGE_SECONDS = 0.9;
 const LAUNCH_MIN = 700;
 const LAUNCH_RANGE = 1500;
 const SERVE_DELAY = 1.2;
+/** RUSH HOUR's extra meatball out of the plunger lane goes out on its own, this fast. */
+const AUTO_LAUNCH = 1800;
+/** Straw rides it takes to start RUSH HOUR. */
+export const STRAW_RIDES_FOR_RUSH = 3;
 const MAX_MULTIPLIER = 5;
 
 const POINTS = {
@@ -150,6 +231,8 @@ const POINTS = {
   thursday: 7500,
   mission: 25000,
   fourTwenty: 42000,
+  straw: 5000,
+  jackpot: 50000,
 };
 
 /** What the meatball becomes, one mission at a time. */
@@ -199,6 +282,10 @@ export type GameEvent =
   /** Promoted: rank is already the new one. */
   | "rank"
   | "fourTwenty"
+  | "straw"
+  | "rushHour"
+  | "jackpot"
+  | "rushOver"
   | "launch"
   | "drain"
   | "over";
@@ -210,6 +297,8 @@ export interface Ball {
   vy: number;
   /** How far it has rolled, as an angle, so it can be drawn turning. */
   spin: number;
+  /** Riding the straw: how far along it, and how fast. Null on the playfield. */
+  straw: { s: number; speed: number } | null;
 }
 
 export interface Flipper {
@@ -222,7 +311,8 @@ export interface Flipper {
 export interface Game {
   time: number;
   status: "playing" | "over";
-  ball: Ball | null;
+  /** Every meatball in play. More than one during RUSH HOUR. */
+  balls: Ball[];
   /** When the next ball appears in the lane. Infinity while one is out. */
   serveAt: number;
   flippers: [Flipper, Flipper];
@@ -250,6 +340,12 @@ export interface Game {
   spicyHitAt: number;
   /** It's 4:20 until then. */
   fourTwentyUntil: number;
+  /** Straw rides towards RUSH HOUR. */
+  strawRides: number;
+  /** When a ball last came out of the straw's far end, for lighting it up. */
+  strawAt: number;
+  /** More than one meatball out, until it's down to one again. */
+  rushHour: boolean;
   /** When each was last hit, for drawing it lit. */
   bumperHits: number[];
   slingHits: number[];
@@ -268,7 +364,7 @@ export function newGame(): Game {
   return {
     time: 0,
     status: "playing",
-    ball: { ...SERVE, vx: 0, vy: 0, spin: 0 },
+    balls: [newBall()],
     serveAt: Infinity,
     flippers: FLIPPERS.map((f) => ({ angle: f.rest, omega: 0, pressed: false })) as [Flipper, Flipper],
     charging: false,
@@ -287,6 +383,9 @@ export function newGame(): Game {
     missionProgress: 0,
     spicyHitAt: -Infinity,
     fourTwentyUntil: -Infinity,
+    strawRides: 0,
+    strawAt: -Infinity,
+    rushHour: false,
     bumperHits: BUMPERS.map(() => -Infinity),
     slingHits: SLINGS.map(() => -Infinity),
     drainedAt: -Infinity,
@@ -297,16 +396,26 @@ export function newGame(): Game {
   };
 }
 
+/** A meatball waiting on the plunger. */
+function newBall(): Ball {
+  return { ...SERVE, vx: 0, vy: 0, spin: 0, straw: null };
+}
+
 /** Where a flipper's tip is right now. */
 export function flipperTip(index: 0 | 1, angle: number): { x: number; y: number } {
   const { x, y } = FLIPPERS[index];
   return { x: x + FLIPPER_LENGTH * Math.cos(angle), y: y + FLIPPER_LENGTH * Math.sin(angle) };
 }
 
-/** Sitting on the plunger, waiting to be launched. */
+/** The meatball sitting on the plunger, waiting to be launched, if there is one. */
+function plungerBall(game: Game): Ball | undefined {
+  return game.balls.find(
+    (ball) => !ball.straw && ball.x > LANE.left && ball.y > LANE.floor - BALL_RADIUS - 4 && Math.abs(ball.vy) < 60,
+  );
+}
+
 export function ballOnPlunger(game: Game): boolean {
-  const { ball } = game;
-  return ball !== null && ball.x > LANE.left && ball.y > LANE.floor - BALL_RADIUS - 4 && Math.abs(ball.vy) < 60;
+  return plungerBall(game) !== undefined;
 }
 
 export function setFlipper(game: Game, index: 0 | 1, pressed: boolean) {
@@ -321,8 +430,9 @@ export function setCharging(game: Game, charging: boolean) {
   }
   if (!game.charging) return;
   game.charging = false;
-  if (ballOnPlunger(game) && game.ball) {
-    game.ball.vy = -(LAUNCH_MIN + LAUNCH_RANGE * game.charge);
+  const ball = plungerBall(game);
+  if (ball) {
+    ball.vy = -(LAUNCH_MIN + LAUNCH_RANGE * game.charge);
     game.events.push("launch");
   }
   game.charge = 0;
@@ -389,12 +499,29 @@ function substep(game: Game, dt: number) {
 
   if (game.serveAt <= game.time) {
     game.serveAt = Infinity;
-    game.ball = { ...SERVE, vx: 0, vy: 0, spin: 0 };
+    game.balls.push(newBall());
   }
 
-  const ball = game.ball;
-  if (!ball) return;
+  for (const ball of game.balls) {
+    if (ball.straw) rideStraw(game, ball, dt);
+    else moveBall(game, ball, dt);
+  }
+  collideBalls(game);
 
+  // Gone off the bottom. The last one out is a lost ball; before that, it's the end of RUSH HOUR.
+  const before = game.balls.length;
+  game.balls = game.balls.filter((ball) => ball.straw || ball.y <= HEIGHT + BALL_RADIUS * 2);
+  if (game.balls.length === before) return;
+  if (game.balls.length === 0) drain(game);
+  else if (game.rushHour && game.balls.length === 1) {
+    game.rushHour = false;
+    say(game, "Rush hour is over");
+    game.events.push("rushOver");
+  }
+}
+
+function moveBall(game: Game, ball: Ball, dt: number) {
+  const fromY = ball.y;
   ball.vy += GRAVITY * dt;
   const drag = 1 - AIR_DRAG * dt;
   ball.vx *= drag;
@@ -416,7 +543,108 @@ function substep(game: Game, dt: number) {
   collideFlippers(game, ball);
   checkLanes(game, ball);
 
-  if (ball.y > HEIGHT + BALL_RADIUS * 2) drain(game);
+  // Into the straw: crossing its mouth going up.
+  if (
+    fromY > STRAW_MOUTH.y &&
+    ball.y <= STRAW_MOUTH.y &&
+    ball.x > STRAW_MOUTH.left &&
+    ball.x < STRAW_MOUTH.right &&
+    ball.vy < 0
+  ) {
+    const { tx, ty } = strawAt(0);
+    ball.straw = { s: 0, speed: Math.max(0, ball.vx * tx + ball.vy * ty) };
+  }
+}
+
+/** Along the straw: slowed going up, sped up coming down, and back onto the playfield at either end. */
+function rideStraw(game: Game, ball: Ball, dt: number) {
+  const straw = ball.straw;
+  if (!straw) return;
+  const here = strawAt(straw.s);
+  straw.speed += GRAVITY * here.ty * dt;
+  straw.speed *= 1 - STRAW_FRICTION * dt;
+  straw.s += straw.speed * dt;
+  ball.spin += (Math.abs(straw.speed) * dt) / BALL_RADIUS;
+
+  const at = strawAt(straw.s);
+  ball.x = at.x;
+  ball.y = at.y;
+  if (straw.s <= 0) {
+    // Not enough to make it: back out of the mouth, the way it came.
+    ball.straw = null;
+    ball.y = STRAW_MOUTH.y + 2;
+    ball.vx = straw.speed * at.tx;
+    ball.vy = straw.speed * at.ty;
+    return;
+  }
+  if (straw.s < STRAW_LENGTH) return;
+  ball.straw = null;
+  ball.vx = straw.speed * at.tx;
+  ball.vy = straw.speed * at.ty;
+  finishStraw(game);
+}
+
+function finishStraw(game: Game) {
+  game.strawAt = game.time;
+  if (game.rushHour) {
+    score(game, POINTS.jackpot);
+    game.bonusAt = game.time;
+    say(game, "JACKPOT!");
+    game.events.push("jackpot");
+    return;
+  }
+  score(game, POINTS.straw);
+  game.strawRides++;
+  if (game.strawRides < STRAW_RIDES_FOR_RUSH) {
+    say(game, `Straw ${game.strawRides}/${STRAW_RIDES_FOR_RUSH}`);
+    game.events.push("straw");
+    return;
+  }
+  // RUSH HOUR: two more meatballs, one fired out of the plunger lane, one sent round the straw.
+  game.strawRides = 0;
+  game.rushHour = true;
+  game.bonusAt = game.time;
+  const fired = newBall();
+  fired.vy = -AUTO_LAUNCH;
+  const riding = newBall();
+  riding.straw = { s: STRAW_LENGTH * 0.45, speed: 120 };
+  const start = strawAt(riding.straw.s);
+  riding.x = start.x;
+  riding.y = start.y;
+  game.balls.push(fired, riding);
+  say(game, "RUSH HOUR!");
+  game.events.push("rushHour");
+}
+
+const BALL_BOUNCE = 0.9;
+
+/** Meatballs knocking into each other, on the playfield. The same weight, so they share the push. */
+function collideBalls(game: Game) {
+  const loose = game.balls.filter((ball) => !ball.straw);
+  for (let i = 0; i < loose.length; i++) {
+    for (let j = i + 1; j < loose.length; j++) {
+      const a = loose[i];
+      const b = loose[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      if (d >= BALL_RADIUS * 2 || d < 1e-6) continue;
+      const nx = dx / d;
+      const ny = dy / d;
+      const overlap = BALL_RADIUS * 2 - d;
+      a.x -= (nx * overlap) / 2;
+      a.y -= (ny * overlap) / 2;
+      b.x += (nx * overlap) / 2;
+      b.y += (ny * overlap) / 2;
+      const closing = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+      if (closing <= 0) continue;
+      const push = ((1 + BALL_BOUNCE) * closing) / 2;
+      a.vx -= push * nx;
+      a.vy -= push * ny;
+      b.vx += push * nx;
+      b.vy += push * ny;
+    }
+  }
 }
 
 /** What hitting something did: which way it pushed the ball, and how fast the ball was going into it. */
@@ -671,7 +899,7 @@ function checkLanes(game: Game, ball: Ball) {
 }
 
 function drain(game: Game) {
-  game.ball = null;
+  game.rushHour = false;
   game.drainedAt = game.time;
   releaseAll(game);
   if (game.ballNumber >= BALLS_PER_GAME) {

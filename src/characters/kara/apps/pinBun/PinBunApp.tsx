@@ -41,6 +41,7 @@ import {
   playLaunchSfx,
   playRecordSfx,
   playSpicySfx,
+  playStrawSfx,
   playRefusedSfx,
   playSetSfx,
   playSlingSfx,
@@ -63,6 +64,8 @@ const RANK_LINES: Record<string, string> = {
 const SPICY_LINE = "mr. spicy owes me rent";
 const THURSDAY_LINE = "thursday? never heard of it";
 const FOUR_TWENTY_LINE = "it's time";
+const RUSH_HOUR_LINE = "rush hour!! everyone wants meatballs";
+const JACKPOT_LINE = "jackpot. it was there the whole time";
 /** A moment after the table's own sound, so she isn't talking over it. */
 const EVENT_TO_TALK_MS = 300;
 /** Between the game's sound and her saying something about it, so the two don't land on top of each other. */
@@ -275,6 +278,8 @@ function PinBunApp() {
         sayLater(DRAIN_LINE, DRAIN_TO_TALK_MS);
       } else {
         if (event === "fourTwenty") line = FOUR_TWENTY_LINE;
+        else if (event === "rushHour") line = RUSH_HOUR_LINE;
+        else if (event === "jackpot") line ??= JACKPOT_LINE;
         else if (event === "rank" && line !== FOUR_TWENTY_LINE) line = RANK_LINES[RANKS[game.rank]] ?? null;
         else if (event === "spicy") line ??= SPICY_LINE;
         else if (event === "thursday") line ??= THURSDAY_LINE;
@@ -283,7 +288,8 @@ function PinBunApp() {
         else if (event === "sling") playSlingSfx();
         else if (event === "target" || event === "lane") playTargetSfx();
         else if (event === "spicy") playSpicySfx();
-        else if (event === "fourTwenty") playRecordSfx();
+        else if (event === "fourTwenty" || event === "rushHour" || event === "jackpot") playRecordSfx();
+        else if (event === "straw") playStrawSfx();
         else if (event === "kara" || event === "lanes" || event === "thursday" || event === "mission" || event === "rank")
           playSetSfx();
         else if (event === "launch") playLaunchSfx();

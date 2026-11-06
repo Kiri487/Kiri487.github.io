@@ -23,6 +23,15 @@ export function playSpicySfx() {
   whenAudible((c) => slide(c, "sine", 1600, 2600, c.currentTime, 0.12, VOLUME * 0.8));
 }
 
+/** A meatball all the way round the straw: a slurp, up then down. ~250ms. */
+export function playStrawSfx() {
+  whenAudible((c) => {
+    const t = c.currentTime;
+    slide(c, "sine", 300, 900, t, 0.12, VOLUME * 0.8);
+    slide(c, "sine", 900, 400, t + 0.12, 0.13, VOLUME * 0.6);
+  });
+}
+
 /** A drop target going down, or a lane lighting up: a little blip. ~80ms. */
 export function playTargetSfx() {
   whenAudible((c) => slide(c, "sine", 660, 990, c.currentTime, 0.08, VOLUME));
