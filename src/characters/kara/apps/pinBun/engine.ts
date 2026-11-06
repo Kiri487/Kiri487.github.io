@@ -318,6 +318,8 @@ export interface Ball {
   spin: number;
   /** Riding the straw: how far along it, and how fast. Null on the playfield. */
   straw: { s: number; speed: number } | null;
+  /** Whether it's in each of the top lanes right now, so rolling through counts once. Each ball its own. */
+  inLane: boolean[];
 }
 
 export interface Flipper {
@@ -343,8 +345,6 @@ export interface Game {
   ballNumber: number;
   multiplier: number;
   lanesLit: boolean[];
-  /** Whether the ball is in each lane right now, so rolling through counts once. */
-  inLane: boolean[];
   targetsDown: boolean[];
   /** When the targets stand back up, after all four went down. */
   targetsUpAt: number;
@@ -402,7 +402,6 @@ export function newGame(): Game {
     ballNumber: 1,
     multiplier: 1,
     lanesLit: [false, false, false],
-    inLane: [false, false, false],
     targetsDown: [false, false, false, false],
     targetsUpAt: Infinity,
     thuDown: [false, false, false],
@@ -433,7 +432,7 @@ export function newGame(): Game {
 
 /** A meatball waiting on the plunger. */
 function newBall(): Ball {
-  return { ...SERVE, vx: 0, vy: 0, spin: 0, straw: null };
+  return { ...SERVE, vx: 0, vy: 0, spin: 0, straw: null, inLane: LANES.map(() => false) };
 }
 
 /** Where a flipper's tip is right now. */
@@ -987,7 +986,7 @@ function collideFlippers(game: Game, ball: Ball) {
 function checkLanes(game: Game, ball: Ball) {
   LANES.forEach((lane, i) => {
     const inside = Math.hypot(ball.x - lane.x, ball.y - lane.y) < lane.r + BALL_RADIUS * 0.6;
-    if (inside && !game.inLane[i] && !game.lanesLit[i]) {
+    if (inside && !ball.inLane[i] && !game.lanesLit[i]) {
       game.lanesLit[i] = true;
       score(game, POINTS.lane);
       if (game.lanesLit.every(Boolean)) {
@@ -1001,7 +1000,7 @@ function checkLanes(game: Game, ball: Ball) {
         game.events.push("lane");
       }
     }
-    game.inLane[i] = inside;
+    ball.inLane[i] = inside;
   });
 }
 
