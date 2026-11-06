@@ -9,7 +9,8 @@
   outline: none;
   -webkit-touch-callout: none;
   user-select: none;
-  container-type: inline-size;
+  /* Named, since the panel is a container too and its cards would otherwise ask it instead. */
+  container: pinbun / inline-size;
 }
 
 [data-skin="kara"] .kara-pinbun__score {
@@ -64,7 +65,12 @@
 }
 
 /* The cabinet's panel: a glossy backglass with the name, a dot-matrix display, and the facts. */
+/*
+ * The panel is exactly as tall as the table beside it, never taller: as a size container, what's in it doesn't
+ * count towards its height. When the window is short, the least needed things go first.
+ */
 [data-skin="kara"] .kara-pinbun__panel {
+  container: pinbun-panel / size;
   display: flex;
   flex: 0 0 160px;
   flex-direction: column;
@@ -78,7 +84,7 @@
     radial-gradient(ellipse at 50% 0%, rgba(255, 173, 66, 0.22), transparent 60%),
     linear-gradient(180deg, #232a3f 0%, #171b2b 55%, #0e111d 100%);
   color: #e6ecf5;
-  overflow: auto;
+  overflow: hidden;
 }
 
 [data-skin="kara"] .kara-pinbun__logo {
@@ -332,11 +338,41 @@
 }
 
 /*
+ * What fits, measured: logo 38, display 71, readout 64, coin door 71, HOW TO PLAY 147, price card 91, and 10
+ * between each. Least needed first: the price card, then HOW TO PLAY, then the coin door (small, and the one that
+ * does something), and last the logo and readout. Each goes only when what's left really doesn't fit.
+ */
+@container pinbun-panel (height < 533px) {
+  [data-skin="kara"] .kara-pinbun__card:has(.kara-pinbun__refunds) {
+    display: none;
+  }
+}
+
+@container pinbun-panel (height < 432px) {
+  [data-skin="kara"] .kara-pinbun__card {
+    display: none;
+  }
+}
+
+@container pinbun-panel (height < 275px) {
+  [data-skin="kara"] .kara-pinbun__coin-door {
+    display: none;
+  }
+}
+
+@container pinbun-panel (height < 193px) {
+  [data-skin="kara"] .kara-pinbun__facts,
+  [data-skin="kara"] .kara-pinbun__logo {
+    display: none;
+  }
+}
+
+/*
  * Narrow, a phone most likely: the table gets everything. No padding, no sunken border, and of the panel only
  * the display, floating as a strip of LED over the bottom of the table, where the ball only ever goes to drain.
  * PinBunApp.tsx sees it's floating and gives the table the room.
  */
-@container (max-width: 440px) {
+@container pinbun (max-width: 440px) {
   [data-skin="kara"] .kara-pinbun__body {
     padding: 0;
   }
@@ -350,6 +386,8 @@
   }
 
   [data-skin="kara"] .kara-pinbun__panel {
+    /* Not sized by the table here, but by its one line of display. */
+    container-type: normal;
     position: absolute;
     /* Centred on the playfield, clear of the plunger lane on the right. */
     right: 14%;
