@@ -217,7 +217,12 @@ function hudOf(game: Game): Hud {
     score: game.score,
     ball: game.ballNumber,
     over: game.status === "over",
-    message: game.message && game.message.until > game.time ? game.message.text : null,
+    // Tilted, it says so until the ball is gone, whatever else gets said meanwhile.
+    message: game.tilted
+      ? "TILT"
+      : game.message && game.message.until > game.time
+        ? game.message.text
+        : null,
     onPlunger: ballOnPlunger(game),
     rank: game.rank,
     mission: missionText(game),
