@@ -282,10 +282,12 @@ function BestScoreDialog({ best, onReset, onClose }: { best: BestScore; onReset:
 function PinBunApp() {
   const { close, isMinimized } = useWindow();
   const [touch] = useState(isTouchPointer);
-  // The table itself changes every frame, so it lives outside React. `round` says when there's a new one.
-  const gameRef = useRef<Game>(newGame());
+  // The table itself changes every frame, so it lives outside React. `round` says when there's a new one. The
+  // first is made once, not on every render, and the panel starts from that same one.
+  const [firstGame] = useState(newGame);
+  const gameRef = useRef<Game>(firstGame);
   const [round, setRound] = useState(0);
-  const [hud, setHud] = useState(() => hudOf(newGame()));
+  const [hud, setHud] = useState(() => hudOf(firstGame));
   const [paused, setPaused] = useState(false);
   const [menu, setMenu] = useState<{
     x: number;
