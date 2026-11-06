@@ -1,0 +1,810 @@
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import ContextMenu, { type ContextMenuItem } from "../../os/ContextMenu";
+import { useWindow } from "../../os/context";
+import { isTouchPointer } from "../../os/openGesture";
+import { useDialogFocus } from "../../os/useDialogFocus";
+import { DialogFrame, RecordDialog } from "../common/gameDialogs";
+import { Counter, KaraScoreboard } from "../common/KaraScoreboard";
+import MessageBox from "../common/MessageBox";
+import { pickDifferent } from "../common/pickDifferent";
+import { useKaraVoice } from "../common/useKaraVoice";
+import "../common/menuBar.css";
+import { drawTable } from "./draw";
+import {
+  ballOnPlunger,
+  missionText,
+  RANKS,
+  HEIGHT,
+  newGame,
+  nudge,
+  releaseAll,
+  setCharging,
+  setFlipper,
+  step,
+  WIDTH,
+  type Game,
+  type GameEvent,
+} from "./engine";
+import {
+  playBumperSfx,
+  playCoinSfx,
+  playDrainSfx,
+  playFlipperSfx,
+  playLaunchSfx,
+  playRecordSfx,
+  playSpicySfx,
+  playStrawSfx,
+  playNudgeSfx,
+  playButtonSfx,
+  playRefusedSfx,
+  playSetSfx,
+  playSlingSfx,
+  playTargetSfx,
+} from "./pinBunSfx";
+import { DEFAULT_BEST, loadBest, loadSoundOn, saveBest, saveSoundOn, type BestScore } from "./scores";
+import "./pinBun.css";
+
+const HELLO_LINE = "the ball is a meatball. don't ask";
+const DRAIN_LINE = "meatball!!";
+const OVER_LINE = "all the meatballs are gone";
+const RECORD_LINE = "the machine is scared of you";
+const RESTART_LINES = ["fresh meatballs", "the machine forgot everything", "again!!"];
+/** Said on being promoted, by what the meatball is now. */
+const RANK_LINES: Record<string, string> = {
+  Patty: "it's a patty now",
+  Chickenburger: "it's a chickenburger. like me",
+  "Double Double": "double double. i'm so proud",
+};
+const SPICY_LINE = "mr. spicy owes me rent";
+const THURSDAY_LINE = "thursday? never heard of it";
+const FOUR_TWENTY_LINE = "it's time";
+const RUSH_HOUR_LINE = "rush hour!! everyone wants meatballs";
+const JACKPOT_LINE = "jackpot. it was there the whole time";
+const TILT_LINE = "you broke it. i saw";
+const SAVED_LINE = "it wasn't cooked yet";
+const BUTTON_LINE = "i'm telling kiri";
+/** How the table shakes when nudged: a little, or a lot once it tilts. */
+const NUDGE_SHAKE: Keyframe[] = [
+  { translate: "0 0" },
+  { translate: "-4px 2px" },
+  { translate: "3px -1px" },
+  { translate: "0 0" },
+];
+const TILT_SHAKE: Keyframe[] = [
+  { translate: "0 0" },
+  { translate: "-8px 3px" },
+  { translate: "7px -3px" },
+  { translate: "-5px 2px" },
+  { translate: "0 0" },
+];
+/** A moment after the table's own sound, so she isn't talking over it. */
+const EVENT_TO_TALK_MS = 300;
+/** Between the game's sound and her saying something about it, so the two don't land on top of each other. */
+const DRAIN_TO_TALK_MS = 500;
+const FANFARE_TO_TALK_MS = 500;
+/** How long NO REFUNDS stays lit after a ball goes down. */
+const NO_REFUNDS_SECONDS = 2.5;
+/** How long the coin door's say lasts, in real time: it's beside the table, and works paused or after the game. */
+const COIN_NOTE_MS = 2500;
+/** A frame longer than this is the tab waking up, not time the ball should have moved for. */
+const MAX_FRAME_SECONDS = 0.05;
+
+/** What she says about, from most worth saying to least. Anything else she lets go by. */
+const LINE_PRIORITY: GameEvent[] = [
+  "fourTwenty",
+  "tilt",
+  "rushHour",
+  "rank",
+  "jackpot",
+  "saved",
+  "buttonPaid",
+  "spicy",
+  "thursday",
+];
+
+function lineFor(event: GameEvent, game: Game): string {
+  switch (event) {
+    case "fourTwenty":
+      return FOUR_TWENTY_LINE;
+    case "tilt":
+      return TILT_LINE;
+    case "rushHour":
+      return RUSH_HOUR_LINE;
+    case "rank":
+      return RANK_LINES[RANKS[game.rank]] ?? "";
+    case "jackpot":
+      return JACKPOT_LINE;
+    case "saved":
+      return SAVED_LINE;
+    case "buttonPaid":
+      return BUTTON_LINE;
+    case "spicy":
+      return SPICY_LINE;
+    case "thursday":
+      return THURSDAY_LINE;
+    default:
+      return "";
+  }
+}
+
+/** The table's own sound for what happened. Losing a ball and the game ending are handled with Kara. */
+function playEventSfx(event: GameEvent) {
+  switch (event) {
+    case "bumper":
+      return playBumperSfx();
+    case "sling":
+      return playSlingSfx();
+    case "target":
+    case "lane":
+      return playTargetSfx();
+    case "spicy":
+      return playSpicySfx();
+    case "fourTwenty":
+    case "rushHour":
+    case "jackpot":
+      return playRecordSfx();
+    case "straw":
+      return playStrawSfx();
+    case "nudge":
+      return playNudgeSfx();
+    case "tilt":
+      // The same dull no as COIN RETURN.
+      return playRefusedSfx();
+    case "saved":
+    case "launch":
+      return playLaunchSfx();
+    case "button":
+      return playButtonSfx();
+    case "kara":
+    case "lanes":
+    case "thursday":
+    case "mission":
+    case "rank":
+    case "buttonPaid":
+      return playSetSfx();
+  }
+}
+
+/** The HOW TO PLAY card: what to press, then what it does. The last line is the only joke. */
+const KEY_CONTROLS = [
+  ["Z", "left flipper"],
+  ["/", "right flipper"],
+  ["Space", "hold, let go"],
+  ["N", "nudge"],
+  ["P", "pause"],
+  ["4:20", "you'll see"],
+];
+const TOUCH_CONTROLS = [
+  ["Left half", "left flipper"],
+  ["Right half", "right flipper"],
+  ["Hold", "launch"],
+  ["Game menu", "nudge"],
+  ["4:20", "you'll see"],
+];
+
+const LEFT_KEYS = new Set(["KeyZ", "ArrowLeft", "ShiftLeft"]);
+const RIGHT_KEYS = new Set(["Slash", "ArrowRight", "ShiftRight"]);
+const PLUNGER_KEYS = new Set(["Space", "ArrowDown", "Enter"]);
+
+type Dialog = { kind: "message"; text: string } | { kind: "best" } | { kind: "record"; score: number };
+
+/** What the React side shows of the game. Only changes when one of these does, not every frame. */
+interface Hud {
+  score: number;
+  ball: number;
+  over: boolean;
+  /** Something the table just said, if it's still saying it. */
+  message: string | null;
+  onPlunger: boolean;
+  /** Lit for a while after every ball that goes down, and for good once the game's over. */
+  noRefunds: boolean;
+  /** Which of RANKS the meatball is. */
+  rank: number;
+  /** The mission to do, and how far along it is. */
+  mission: string;
+}
+
+function hudOf(game: Game): Hud {
+  return {
+    score: game.score,
+    ball: game.ballNumber,
+    over: game.status === "over",
+    // Tilted, it says so until the ball is gone, whatever else gets said meanwhile.
+    message: game.tilted
+      ? "TILT"
+      : game.message && game.message.until > game.time
+        ? game.message.text
+        : null,
+    onPlunger: ballOnPlunger(game),
+    rank: game.rank,
+    mission: missionText(game),
+    noRefunds: game.status === "over" || game.time - game.drainedAt < NO_REFUNDS_SECONDS,
+  };
+}
+
+function sameHud(a: Hud, b: Hud) {
+  return (
+    a.score === b.score &&
+    a.ball === b.ball &&
+    a.over === b.over &&
+    a.message === b.message &&
+    a.onPlunger === b.onPlunger &&
+    a.noRefunds === b.noRefunds &&
+    a.rank === b.rank &&
+    a.mission === b.mission
+  );
+}
+
+const formatScore = (score: number) => score.toLocaleString("en-US");
+
+/** The scoreboard's red digits, but as many as the score needs. */
+function ScoreLed({ score }: { score: number }) {
+  return (
+    <span className="kara-scoreboard__counter kara-pinbun__score" role="timer" aria-label={`Score: ${score}`}>
+      {score}
+    </span>
+  );
+}
+
+function BestScoreDialog({ best, onReset, onClose }: { best: BestScore; onReset: () => void; onClose: () => void }) {
+  const { initialFocusRef, onKeyDown } = useDialogFocus(onClose);
+  return (
+    <DialogFrame
+      title="Best Score"
+      onSubmit={onClose}
+      onKeyDown={onKeyDown}
+      actions={
+        <>
+          <button type="button" className="kara-button kara-message__ok" onClick={onReset}>
+            Reset Score
+          </button>
+          <button ref={initialFocusRef} type="submit" className="kara-button kara-message__ok">
+            OK
+          </button>
+        </>
+      }
+    >
+      <p className="kara-pinbun__best-line">
+        {formatScore(best.score)} points, by {best.name}
+      </p>
+    </DialogFrame>
+  );
+}
+
+function PinBunApp() {
+  const { close, isMinimized } = useWindow();
+  const [touch] = useState(isTouchPointer);
+  // The table itself changes every frame, so it lives outside React. `round` says when there's a new one. The
+  // first is made once, not on every render, and the panel starts from that same one.
+  const [firstGame] = useState(newGame);
+  const gameRef = useRef<Game>(firstGame);
+  const [round, setRound] = useState(0);
+  const [hud, setHud] = useState(() => hudOf(firstGame));
+  const [paused, setPaused] = useState(false);
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    items: ContextMenuItem[];
+  } | null>(null);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [best, setBest] = useState(loadBest);
+  // The game's own sounds. Kara talking is hers, not the game's, so it carries on either way.
+  const [soundOn, setSoundOn] = useState(loadSoundOn);
+  /** On screen, and in canvas pixels per table pixel, which is sharper on high-density screens. */
+  const [size, setSize] = useState<{
+    width: number;
+    height: number;
+    pixelScale: number;
+  } | null>(null);
+  const { say, sayLater, seatRef, seatId, karaIsHere, talking, balloon } = useKaraVoice(HELLO_LINE);
+  /** What the coin door just said, over the display for a moment. COIN RETURN also lights NO REFUNDS. */
+  const [coinNote, setCoinNote] = useState<{ text: string; refused: boolean } | null>(null);
+  const coinTimerRef = useRef<{ timer: number | undefined }>({ timer: undefined });
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** What each finger or mouse button is holding: a flipper, or the plunger. */
+  const pointersRef = useRef(new Map<number, 0 | 1 | "plunger">());
+
+  useLayoutEffect(() => {
+    rootRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // The table keeps its shape and takes as much of the window as the panel beside it leaves.
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    const panel = panelRef.current;
+    if (!body || !panel) return;
+    const observer = new ResizeObserver(() => {
+      const style = getComputedStyle(body);
+      let roomX = body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const roomY = body.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      // Narrow, the panel floats over the table and takes no room of its own.
+      const cabinet = panel.parentElement;
+      if (cabinet && getComputedStyle(panel).position !== "absolute") {
+        roomX -= panel.offsetWidth + (parseFloat(getComputedStyle(cabinet).columnGap) || 0);
+      }
+      const scale = Math.max(0, Math.min(roomX / WIDTH, roomY / HEIGHT));
+      const width = Math.max(1, Math.floor(WIDTH * scale));
+      const height = Math.max(1, Math.floor(HEIGHT * scale));
+      setSize({
+        width,
+        height,
+        pixelScale: Math.round(width * window.devicePixelRatio) / WIDTH,
+      });
+    });
+    observer.observe(body);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
+  const pixelScale = size?.pixelScale ?? 1;
+
+  // A hidden tab would otherwise go on playing without anyone watching.
+  useEffect(() => {
+    const pauseWhenHidden = () => {
+      if (document.hidden) setPaused(true);
+    };
+    document.addEventListener("visibilitychange", pauseWhenHidden);
+    return () => document.removeEventListener("visibilitychange", pauseWhenHidden);
+  }, []);
+
+  const gameOver = (score: number) => {
+    if (score > best.score) {
+      if (soundOn) playRecordSfx();
+      sayLater(RECORD_LINE, FANFARE_TO_TALK_MS);
+      setDialog({ kind: "record", score });
+      return;
+    }
+    if (soundOn) playDrainSfx();
+    sayLater(OVER_LINE, DRAIN_TO_TALK_MS);
+  };
+
+  /** After each frame: what happened gets its sounds and Kara's say, and the panel catches up. */
+  const afterFrame = () => {
+    const game = gameRef.current;
+    const context = canvasRef.current?.getContext("2d");
+    if (context) drawTable(context, game, pixelScale);
+    // Of everything worth a word this frame, she says only the biggest.
+    let line: { text: string; priority: number } | null = null;
+    for (const event of game.events) {
+      if (event === "over") {
+        gameOver(game.score);
+        continue;
+      }
+      if (event === "drain") {
+        if (soundOn) playDrainSfx();
+        sayLater(DRAIN_LINE, DRAIN_TO_TALK_MS);
+        continue;
+      }
+      const priority = LINE_PRIORITY.indexOf(event);
+      if (priority >= 0 && (!line || priority < line.priority)) line = { text: lineFor(event, game), priority };
+      if (event === "nudge") areaRef.current?.animate(NUDGE_SHAKE, { duration: 180 });
+      else if (event === "tilt") areaRef.current?.animate(TILT_SHAKE, { duration: 400 });
+      if (soundOn) playEventSfx(event);
+    }
+    if (line) sayLater(line.text, EVENT_TO_TALK_MS);
+    game.events.length = 0;
+    const next = hudOf(game);
+    setHud((current) => (sameHud(current, next) ? current : next));
+  };
+
+  // The loop runs on whatever afterFrame is now, so it never uses an old best score or sound setting.
+  const afterFrameRef = useRef(afterFrame);
+  useEffect(() => {
+    afterFrameRef.current = afterFrame;
+  });
+
+  const running = !paused && !isMinimized && dialog === null && menu === null && !hud.over;
+  useEffect(() => {
+    if (!running) return;
+    let frame = 0;
+    let last = performance.now();
+    const loop = (now: number) => {
+      step(gameRef.current, Math.min(MAX_FRAME_SECONDS, (now - last) / 1000));
+      last = now;
+      afterFrameRef.current();
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
+  }, [running]);
+
+  // Stopped, the table still needs drawing whenever its size or the game changes.
+  useEffect(() => {
+    if (!running) afterFrameRef.current();
+  }, [running, size, round]);
+
+  const restart = () => {
+    const game = gameRef.current;
+    const started = game.score > 0 || game.ballNumber > 1 || !ballOnPlunger(game);
+    releaseAll(game);
+    pointersRef.current.clear();
+    const next = newGame();
+    gameRef.current = next;
+    setRound(round + 1);
+    setHud(hudOf(next));
+    setPaused(false);
+    say(started ? pickDifferent(RESTART_LINES, null) : null);
+  };
+
+  const pressFlipper = (index: 0 | 1, pressed: boolean) => {
+    const game = gameRef.current;
+    // The clack is the flipper moving: tilted, it doesn't.
+    if (pressed && !game.flippers[index].held && game.status === "playing" && !game.tilted && soundOn) {
+      playFlipperSfx();
+    }
+    setFlipper(game, index, pressed);
+  };
+
+  const pressPlunger = (pressed: boolean) => {
+    if (pressed && gameRef.current.status === "over") {
+      restart();
+      return;
+    }
+    if (pressed) setPaused(false);
+    setCharging(gameRef.current, pressed);
+  };
+
+  useEffect(() => {
+    const coin = coinTimerRef.current;
+    return () => window.clearTimeout(coin.timer);
+  }, []);
+
+  // The coin door. It isn't part of the table, so what it says goes by real time, not the game's, which stops
+  // while paused and after the game. The keyboard goes back to the flippers, or Space would press the button again.
+  const coinSays = (text: string, refused: boolean) => {
+    window.clearTimeout(coinTimerRef.current.timer);
+    setCoinNote({ text, refused });
+    coinTimerRef.current.timer = window.setTimeout(() => setCoinNote(null), COIN_NOTE_MS);
+    rootRef.current?.focus({ preventScroll: true });
+  };
+
+  const handleCoin = () => {
+    if (soundOn) playCoinSfx();
+    coinSays("Coin accepted. Kara ate it.", false);
+  };
+
+  const handleCoinReturn = () => {
+    if (soundOn) playRefusedSfx();
+    coinSays("NO REFUNDS", true);
+  };
+
+  /**
+   * A shove to the machine. Like the flippers, it means playing, so it un-pauses: on a phone it comes from the Game
+   * menu, and opening that has just paused the game. Shown at once, since the frames may not be running yet.
+   */
+  const nudgeTable = () => {
+    nudge(gameRef.current);
+    setPaused(false);
+    afterFrameRef.current();
+  };
+
+  const togglePause = () => {
+    if (gameRef.current.status !== "playing") return;
+    if (!paused) releaseAll(gameRef.current);
+    setPaused(!paused);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // Typing a name for a record is not playing.
+    if (dialog !== null || event.target instanceof HTMLTextAreaElement) return;
+    const { code } = event;
+    if (LEFT_KEYS.has(code) || RIGHT_KEYS.has(code) || PLUNGER_KEYS.has(code)) {
+      event.preventDefault();
+      if (event.repeat) return;
+      if (paused && !PLUNGER_KEYS.has(code)) setPaused(false);
+      if (LEFT_KEYS.has(code)) pressFlipper(0, true);
+      else if (RIGHT_KEYS.has(code)) pressFlipper(1, true);
+      else pressPlunger(true);
+    } else if (code === "KeyN") {
+      event.preventDefault();
+      if (!event.repeat) nudgeTable();
+    } else if (code === "KeyP" || code === "Escape") {
+      event.preventDefault();
+      togglePause();
+    } else if (code === "F2") {
+      event.preventDefault();
+      restart();
+    }
+  };
+
+  const handleKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
+    const { code } = event;
+    if (LEFT_KEYS.has(code)) pressFlipper(0, false);
+    else if (RIGHT_KEYS.has(code)) pressFlipper(1, false);
+    else if (PLUNGER_KEYS.has(code)) pressPlunger(false);
+  };
+
+  // Clicking anywhere else, the start menu or another window included, pauses. Focus moving inside doesn't.
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    releaseAll(gameRef.current);
+    pointersRef.current.clear();
+    if (gameRef.current.status === "playing") setPaused(true);
+  };
+
+  // Either half of the table is that side's flipper, for fingers and the mouse alike. With the ball waiting on the
+  // plunger, anywhere is the plunger: nothing is in play for the flippers to hit. After the game, anywhere is a
+  // new one. So a phone needs no buttons of its own.
+  const handleTablePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    rootRef.current?.focus({ preventScroll: true });
+    const game = gameRef.current;
+    if (game.status === "over") {
+      restart();
+      return;
+    }
+    if (paused) setPaused(false);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (ballOnPlunger(game)) {
+      pointersRef.current.set(event.pointerId, "plunger");
+      pressPlunger(true);
+      return;
+    }
+    const { left, width } = event.currentTarget.getBoundingClientRect();
+    const side = event.clientX < left + width / 2 ? 0 : 1;
+    pointersRef.current.set(event.pointerId, side);
+    pressFlipper(side, true);
+  };
+
+  const handleTablePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const pointers = pointersRef.current;
+    const side = pointers.get(event.pointerId);
+    if (side === undefined) return;
+    pointers.delete(event.pointerId);
+    // Another finger may still be holding the same thing.
+    if ([...pointers.values()].includes(side)) return;
+    if (side === "plunger") pressPlunger(false);
+    else pressFlipper(side, false);
+  };
+
+  /** Back to playing: a dialog took the keyboard with it, and gives it back to nowhere. */
+  const closeDialog = () => {
+    setDialog(null);
+    rootRef.current?.focus({ preventScroll: true });
+  };
+
+  const openMenu = (button: HTMLElement, items: ContextMenuItem[]) => {
+    const { left, bottom } = button.getBoundingClientRect();
+    releaseAll(gameRef.current);
+    setMenu({ x: left, y: bottom, items });
+  };
+
+  const gameMenu = (): ContextMenuItem[] => [
+    { label: "New", bold: true, onSelect: restart },
+    paused
+      ? { label: "Resume", onSelect: () => setPaused(false) }
+      : {
+          label: "Pause",
+          onSelect: () => setPaused(gameRef.current.status === "playing"),
+        },
+    "separator",
+    // On a phone, this is the only way to shove the machine.
+    { label: "Nudge", onSelect: nudgeTable },
+    "separator",
+    { label: "Best Score...", onSelect: () => setDialog({ kind: "best" }) },
+    "separator",
+    {
+      label: "Sound",
+      toggled: soundOn,
+      onSelect: () => {
+        setSoundOn(!soundOn);
+        saveSoundOn(!soundOn);
+      },
+    },
+    "separator",
+    { label: "Exit", onSelect: close },
+  ];
+
+  const helpMenu = (): ContextMenuItem[] => [
+    {
+      label: "How to Play",
+      onSelect: () =>
+        setDialog({
+          kind: "message",
+          text: touch
+            ? "Tap the left or right half of the table for that flipper. With the meatball on the spring, hold anywhere, then let go. Keep it out of the middle."
+            : "Z and / (or the arrow keys) are the flippers. Hold Space, then let go to launch. N nudges the machine, but not too much. Keep the meatball out of the middle.",
+        }),
+    },
+    "separator",
+    {
+      label: "About Pin Bun",
+      onSelect: () =>
+        setDialog({
+          kind: "message",
+          text: "No ads. Kiri checked. The ball is still a meatball.",
+        }),
+    },
+  ];
+
+  // The panel's display: what the table just said, or else what to do now.
+  // Over, it's the table's last word, and how to go again sits on the table itself.
+  let display: string;
+  if (coinNote) display = coinNote.text;
+  else if (hud.message) display = hud.message;
+  else if (hud.onPlunger) display = touch ? "Hold anywhere, then let go" : "Hold Space, then let go";
+  else display = hud.mission;
+
+  let notice: string | null = null;
+  if (hud.over) notice = touch ? "Game over. Tap to play again" : "Game over. Press Space to play again";
+  else if (paused) notice = touch ? "Paused. Tap to go on" : "Paused. Press P to go on";
+
+  return (
+    <div
+      ref={rootRef}
+      className="kara-pinbun"
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
+      onBlur={handleBlur}
+      aria-label="Pin Bun"
+    >
+      <div className="kara-menu-bar">
+        <button
+          type="button"
+          className="kara-menu-button"
+          onClick={(event) => openMenu(event.currentTarget, gameMenu())}
+        >
+          Game
+        </button>
+        <button
+          type="button"
+          className="kara-menu-button"
+          onClick={(event) => openMenu(event.currentTarget, helpMenu())}
+        >
+          Help
+        </button>
+      </div>
+
+      <KaraScoreboard
+        seatRef={seatRef}
+        seatId={seatId}
+        karaIsHere={karaIsHere}
+        talking={talking}
+        left={<ScoreLed score={hud.score} />}
+        right={<Counter value={hud.ball} label="Ball" />}
+        onPress={restart}
+        pressLabel="New game"
+      />
+
+      <div ref={bodyRef} className="kara-pinbun__body">
+        <div className="kara-pinbun__cabinet">
+          <div ref={areaRef} className="kara-pinbun__area">
+            <canvas
+              ref={canvasRef}
+              className="kara-pinbun__table"
+              width={size ? Math.round(WIDTH * pixelScale) : WIDTH}
+              height={size ? Math.round(HEIGHT * pixelScale) : HEIGHT}
+              style={size ? { width: size.width, height: size.height } : undefined}
+              role="img"
+              aria-label={`Pin Bun table. Ball ${hud.ball}, ${hud.score} points`}
+              onPointerDown={handleTablePointerDown}
+              onPointerUp={handleTablePointerUp}
+              onPointerCancel={handleTablePointerUp}
+              onContextMenu={(event) => event.preventDefault()}
+            />
+            {notice && <div className="kara-pinbun__notice">{notice}</div>}
+          </div>
+
+          <div ref={panelRef} className="kara-pinbun__panel">
+            <div className="kara-pinbun__logo" aria-hidden="true">
+              Pin Bun
+            </div>
+            <div className="kara-pinbun__display" role="status">
+              {display}
+            </div>
+            <dl className="kara-pinbun__facts">
+              <div className="kara-pinbun__fact">
+                <dt>Ball</dt>
+                <dd>{hud.ball}/3</dd>
+              </div>
+              <div className="kara-pinbun__fact">
+                <dt>Rank</dt>
+                <dd>{RANKS[hud.rank]}</dd>
+              </div>
+              <div className="kara-pinbun__fact">
+                <dt>Best</dt>
+                <dd>
+                  <span className="kara-pinbun__holder">{hud.score > best.score ? "YOU" : best.name}</span>
+                  <span className="kara-pinbun__number">{formatScore(Math.max(best.score, hud.score))}</span>
+                </dd>
+              </div>
+            </dl>
+            {/* What used to be printed on the apron: how to play, and what it costs. */}
+            {/* Read like a drive-thru menu: what to press, dotted across to what it does. */}
+            <div className="kara-pinbun__card">
+              <h3>How to Play</h3>
+              <dl className="kara-pinbun__menu">
+                {(touch ? TOUCH_CONTROLS : KEY_CONTROLS).map(([key, does]) => (
+                  <div key={key}>
+                    <dt>{key}</dt>
+                    <dd>{does}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+            <div className="kara-pinbun__card">
+              <h3>3 Meatballs</h3>
+              <p>
+                <b>25¢</b>
+                <br />
+                or one chicken burger
+              </p>
+              <span className={`kara-pinbun__refunds${hud.noRefunds || coinNote?.refused ? " kara-pinbun__refunds--lit" : ""}`}>
+                No Refunds
+              </span>
+            </div>
+            <div className="kara-pinbun__coin-door">
+              <button type="button" className="kara-pinbun__coin-slot" onClick={handleCoin} aria-label="Insert coin">
+                <span className="kara-pinbun__slot" aria-hidden="true" />
+                <span className="kara-pinbun__coin-label">25¢</span>
+              </button>
+              <button type="button" className="kara-pinbun__coin-return" onClick={handleCoinReturn}>
+                Coin
+                <br />
+                Return
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {balloon}
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menu.items}
+          onClose={() => {
+            setMenu(null);
+            // The menu took the keyboard; the flippers need it back, whatever was chosen.
+            rootRef.current?.focus({ preventScroll: true });
+          }}
+        />
+      )}
+
+      {dialog?.kind === "message" && (
+        <MessageBox title="Pin Bun" message={dialog.text} kind="info" onClose={closeDialog} />
+      )}
+      {dialog?.kind === "best" && (
+        <BestScoreDialog
+          best={best}
+          onReset={() => {
+            setBest(DEFAULT_BEST);
+            saveBest(DEFAULT_BEST);
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === "record" && (
+        <RecordDialog
+          title="Pin Bun"
+          message="New best score. Who did this?"
+          onConfirm={(name) => {
+            const next = { name: name.trim() || "KARA", score: dialog.score };
+            setBest(next);
+            saveBest(next);
+            setDialog({ kind: "best" });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+export default PinBunApp;

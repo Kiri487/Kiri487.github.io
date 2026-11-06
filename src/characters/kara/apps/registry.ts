@@ -5,6 +5,7 @@ import {
   BurgerIcon,
   ComputerIcon,
   FolderIcon,
+  MeatballIcon,
   ImageFileIcon,
   MessengerIcon,
   NotepadIcon,
@@ -28,7 +29,8 @@ export type AppId =
   | "imageViewer"
   | "games"
   | "burgerSweeper"
-  | "dangerNoodle";
+  | "dangerNoodle"
+  | "pinBun";
 
 export interface AppDefinition {
   /** The real name, used by the start menu and, unless windowTitle says otherwise, the window. */
@@ -70,6 +72,7 @@ const ChatApp = lazy(() => import("./chat/ChatApp"));
 const NotepadApp = lazy(() => import("./notepad/NotepadApp"));
 const BurgerSweeperApp = lazy(() => import("./burgerSweeper/BurgerSweeperApp"));
 const DangerNoodleApp = lazy(() => import("./dangerNoodle/DangerNoodleApp"));
+const PinBunApp = lazy(() => import("./pinBun/PinBunApp"));
 
 /** To add an app: give it a folder here, then an entry below (and optionally a desktop icon). */
 export const APPS: Record<AppId, AppDefinition> = {
@@ -77,6 +80,7 @@ export const APPS: Record<AppId, AppDefinition> = {
   messenger: { title: "Kara Messenger", icon: MessengerIcon, component: MessengerApp, size: { width: 300, height: 440 }, startMenu: "left" },
   burgerSweeper: { title: "Burger Sweeper", icon: BurgerIcon, component: BurgerSweeperApp, size: { width: 262, height: 380 }, minSize: { width: 240, height: 300 }, startMenu: "left" },
   dangerNoodle: { title: "Danger Noodle", icon: SnakeIcon, component: DangerNoodleApp, size: { width: 440, height: 560 }, minSize: { width: 240, height: 300 }, startMenu: "left" },
+  pinBun: { title: "Pin Bun", icon: MeatballIcon, component: PinBunApp, size: { width: 540, height: 720 }, minSize: { width: 280, height: 420 }, startMenu: "left" },
   notepad: { title: "asdf.txt - Notepad", icon: NotepadIcon, component: NotepadApp, size: { width: 440, height: 480 }, startMenu: "left" },
   newFolder: { title: "新增資料夾 (3)", defaultArgs: { folderId: "newFolder" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 640, height: 440 }, startMenu: "left" },
   works: { title: "Works", windowTitle: "stuff i made", defaultArgs: { folderId: "works" } satisfies FolderArgs, icon: FolderIcon, component: FolderApp, size: { width: 780, height: 520 }, startMenu: "right" },

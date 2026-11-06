@@ -80,7 +80,7 @@ const BIN_EXIT_LINES: Record<BinExit, string[]> = {
   crawled: ["you can't delete me. i tried", "thursday is in there. we talked", "i was looking for the burger"],
 };
 /** Apps she goes into while they're open, to sit in their scoreboard. */
-const GAME_APPS: AppId[] = ["burgerSweeper", "dangerNoodle"];
+const GAME_APPS: AppId[] = ["burgerSweeper", "dangerNoodle", "pinBun"];
 /** Said on landing after a game closes or is minimized, which lets her back out. */
 const GAME_EXIT_LINES = ["i was winning", "i let you win", "the burgers are still in there"];
 /** How small she gets going into the bin. A game's seat says its own size. */
