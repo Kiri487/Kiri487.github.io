@@ -463,11 +463,12 @@ export function setFlipper(game: Game, index: 0 | 1, pressed: boolean) {
 }
 
 /**
- * A shove to the whole machine. A few help; too many close together and it tilts. Not while a ball waits on the
- * plunger: there's nothing in play to help, and it'd only knock the waiting ball off the spring.
+ * A shove to the whole machine. A few help; too many close together and it tilts. Only with a ball in play: not
+ * between balls, when it could tilt the next one before it's even out, and not while one waits on the plunger,
+ * where it would only knock it off the spring.
  */
 export function nudge(game: Game) {
-  if (game.status !== "playing" || game.tilted || ballOnPlunger(game)) return;
+  if (game.status !== "playing" || game.tilted || game.balls.length === 0 || ballOnPlunger(game)) return;
   const side = Math.random() < 0.5 ? -1 : 1;
   for (const ball of game.balls) {
     if (ball.straw) continue;
