@@ -582,10 +582,10 @@ function substep(game: Game, dt: number) {
   }
   collideBalls(game);
 
-  // Gone off the bottom. The last one out is a lost ball; before that, it's the end of RUSH HOUR.
-  const before = game.balls.length;
-  game.balls = game.balls.filter((ball) => ball.straw || ball.y <= HEIGHT + BALL_RADIUS * 2);
-  if (game.balls.length === before) return;
+  // Gone off the bottom. The last one out is a lost ball; before that, it's the end of RUSH HOUR. This runs
+  // hundreds of times a second, so the list is only rebuilt when one has actually gone.
+  if (!game.balls.some(isGone)) return;
+  game.balls = game.balls.filter((ball) => !isGone(ball));
   if (game.balls.length === 0) {
     if (game.time < game.saveUntil && !game.tilted) {
       // Saved: straight back out of the plunger lane, and that's this ball's save used up.
@@ -605,6 +605,10 @@ function substep(game: Game, dt: number) {
     say(game, "Rush hour is over");
     game.events.push("rushOver");
   }
+}
+
+function isGone(ball: Ball): boolean {
+  return !ball.straw && ball.y > HEIGHT + BALL_RADIUS * 2;
 }
 
 function moveBall(game: Game, ball: Ball, dt: number) {
@@ -708,13 +712,18 @@ function finishStraw(game: Game) {
 
 const BALL_BOUNCE = 0.9;
 
-/** Meatballs knocking into each other, on the playfield. The same weight, so they share the push. */
+/**
+ * Meatballs knocking into each other, on the playfield. The same weight, so they share the push. Straight over
+ * the list, skipping any up in the straw, so nothing new is made hundreds of times a second.
+ */
 function collideBalls(game: Game) {
-  const loose = game.balls.filter((ball) => !ball.straw);
-  for (let i = 0; i < loose.length; i++) {
-    for (let j = i + 1; j < loose.length; j++) {
-      const a = loose[i];
-      const b = loose[j];
+  const { balls } = game;
+  for (let i = 0; i < balls.length; i++) {
+    if (balls[i].straw) continue;
+    for (let j = i + 1; j < balls.length; j++) {
+      if (balls[j].straw) continue;
+      const a = balls[i];
+      const b = balls[j];
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const d = Math.hypot(dx, dy);
