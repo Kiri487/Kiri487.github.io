@@ -34,7 +34,6 @@ import {
   isFourTwenty,
   isSaving,
   type Game,
-  type Segment,
 } from "./engine";
 
 /** How long something stays lit after being hit, in seconds. */
@@ -716,7 +715,7 @@ function drawLights(c: CanvasRenderingContext2D, game: Game) {
 }
 
 function drawTargets(c: CanvasRenderingContext2D, game: Game) {
-  drawTargetBank(c, TARGETS, TARGET_LETTERS, game.targetsDown, 20, C.lime, C.tomato);
+  drawKara(c, game);
   drawThu(c, game);
 }
 
@@ -887,38 +886,30 @@ function drawStrawLights(c: CanvasRenderingContext2D, game: Game) {
   }
 }
 
-/**
- * A row of drop targets standing against a wall, each with its letter lit on the playfield beside it once it's
- * down. `lightOffset` is which side of the targets the letters are, and how far.
- */
-function drawTargetBank(
-  c: CanvasRenderingContext2D,
-  targets: Segment[],
-  letters: string[],
-  down: boolean[],
-  lightOffset: number,
-  lightColor: string,
-  faceColor: string,
-) {
-  targets.forEach((target, i) => {
+/** K, A, R, A, standing against the left wall, each with its letter lit on the playfield beside it once it's down. */
+function drawKara(c: CanvasRenderingContext2D, game: Game) {
+  TARGETS.forEach((target, i) => {
+    const down = game.targetsDown[i];
     const top = target.ay - 1;
     const height = target.by - target.ay + 2;
+    const lightX = target.ax + 20;
     const lightY = (target.ay + target.by) / 2;
-    bulb(c, target.ax + lightOffset, lightY, 7.5, lightColor, down[i] ? 1 : 0);
-    text(c, letters[i], target.ax + lightOffset, lightY + 0.5, 9, down[i] ? "#2a1a00" : "#fff3dc");
-    if (down[i]) {
+    bulb(c, lightX, lightY, 7.5, C.lime, down ? 1 : 0);
+    text(c, TARGET_LETTERS[i], lightX, lightY + 0.5, 9, down ? "#2a1a00" : "#fff3dc");
+    if (down) {
       c.fillStyle = "rgba(0, 0, 0, 0.5)";
       c.fillRect(target.ax - 3, top, 6, height);
       return;
     }
     c.fillStyle = "rgba(0, 0, 0, 0.4)";
     c.fillRect(target.ax - 1, top + 3, 6, height);
+    c.fillStyle = C.tomato;
+    c.fillRect(target.ax - 3, top, 6, height);
+    // Rounded, darker at both edges.
     const face = c.createLinearGradient(target.ax - 3, 0, target.ax + 3, 0);
     face.addColorStop(0, "rgba(0, 0, 0, 0.45)");
     face.addColorStop(0.5, "rgba(0, 0, 0, 0)");
     face.addColorStop(1, "rgba(0, 0, 0, 0.3)");
-    c.fillStyle = faceColor;
-    c.fillRect(target.ax - 3, top, 6, height);
     c.fillStyle = face;
     c.fillRect(target.ax - 3, top, 6, height);
     c.fillStyle = "rgba(255, 255, 255, 0.55)";
