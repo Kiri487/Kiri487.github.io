@@ -33,6 +33,7 @@ import {
   step,
   WIDTH,
   type Game,
+  type GameEvent,
 } from "./engine";
 import {
   playBumperSfx,
@@ -95,6 +96,82 @@ const FANFARE_TO_TALK_MS = 500;
 const NO_REFUNDS_SECONDS = 2.5;
 /** A frame longer than this is the tab waking up, not time the ball should have moved for. */
 const MAX_FRAME_SECONDS = 0.05;
+
+/** What she says about, from most worth saying to least. Anything else she lets go by. */
+const LINE_PRIORITY: GameEvent[] = [
+  "fourTwenty",
+  "tilt",
+  "rushHour",
+  "rank",
+  "jackpot",
+  "saved",
+  "buttonPaid",
+  "spicy",
+  "thursday",
+];
+
+function lineFor(event: GameEvent, game: Game): string {
+  switch (event) {
+    case "fourTwenty":
+      return FOUR_TWENTY_LINE;
+    case "tilt":
+      return TILT_LINE;
+    case "rushHour":
+      return RUSH_HOUR_LINE;
+    case "rank":
+      return RANK_LINES[RANKS[game.rank]] ?? "";
+    case "jackpot":
+      return JACKPOT_LINE;
+    case "saved":
+      return SAVED_LINE;
+    case "buttonPaid":
+      return BUTTON_LINE;
+    case "spicy":
+      return SPICY_LINE;
+    case "thursday":
+      return THURSDAY_LINE;
+    default:
+      return "";
+  }
+}
+
+/** The table's own sound for what happened. Losing a ball and the game ending are handled with Kara. */
+function playEventSfx(event: GameEvent) {
+  switch (event) {
+    case "bumper":
+      return playBumperSfx();
+    case "sling":
+      return playSlingSfx();
+    case "target":
+    case "lane":
+      return playTargetSfx();
+    case "spicy":
+      return playSpicySfx();
+    case "fourTwenty":
+    case "rushHour":
+    case "jackpot":
+      return playRecordSfx();
+    case "straw":
+      return playStrawSfx();
+    case "nudge":
+      return playNudgeSfx();
+    case "tilt":
+      // The same dull no as COIN RETURN.
+      return playRefusedSfx();
+    case "saved":
+    case "launch":
+      return playLaunchSfx();
+    case "button":
+      return playButtonSfx();
+    case "kara":
+    case "lanes":
+    case "thursday":
+    case "mission":
+    case "rank":
+    case "buttonPaid":
+      return playSetSfx();
+  }
+}
 
 /** The HOW TO PLAY card: what to press, then what it does. The last line is the only joke. */
 const KEY_CONTROLS = [
@@ -292,43 +369,24 @@ function PinBunApp() {
     const context = canvasRef.current?.getContext("2d");
     if (context) drawTable(context, game, pixelScale);
     // Of everything worth a word this frame, she says only the biggest.
-    let line: string | null = null;
+    let line: { text: string; priority: number } | null = null;
     for (const event of game.events) {
-      if (event === "over") gameOver(game.score);
-      else if (event === "drain") {
+      if (event === "over") {
+        gameOver(game.score);
+        continue;
+      }
+      if (event === "drain") {
         if (soundOn) playDrainSfx();
         sayLater(DRAIN_LINE, DRAIN_TO_TALK_MS);
-      } else {
-        if (event === "fourTwenty") line = FOUR_TWENTY_LINE;
-        else if (event === "rushHour") line = RUSH_HOUR_LINE;
-        else if (event === "jackpot") line ??= JACKPOT_LINE;
-        else if (event === "tilt") line = TILT_LINE;
-        else if (event === "saved") line ??= SAVED_LINE;
-        else if (event === "buttonPaid") line ??= BUTTON_LINE;
-        if (event === "nudge") areaRef.current?.animate(NUDGE_SHAKE, { duration: 180 });
-        else if (event === "tilt") areaRef.current?.animate(TILT_SHAKE, { duration: 400 });
-        else if (event === "rank" && line !== FOUR_TWENTY_LINE) line = RANK_LINES[RANKS[game.rank]] ?? null;
-        else if (event === "spicy") line ??= SPICY_LINE;
-        else if (event === "thursday") line ??= THURSDAY_LINE;
-        if (!soundOn) continue;
-        if (event === "bumper") playBumperSfx();
-        else if (event === "sling") playSlingSfx();
-        else if (event === "target" || event === "lane") playTargetSfx();
-        else if (event === "spicy") playSpicySfx();
-        else if (event === "fourTwenty" || event === "rushHour" || event === "jackpot") playRecordSfx();
-        else if (event === "straw") playStrawSfx();
-        else if (event === "nudge") playNudgeSfx();
-        // The same dull no as COIN RETURN.
-        else if (event === "tilt") playRefusedSfx();
-        else if (event === "saved") playLaunchSfx();
-        else if (event === "button") playButtonSfx();
-        else if (event === "buttonPaid") playSetSfx();
-        else if (event === "kara" || event === "lanes" || event === "thursday" || event === "mission" || event === "rank")
-          playSetSfx();
-        else if (event === "launch") playLaunchSfx();
+        continue;
       }
+      const priority = LINE_PRIORITY.indexOf(event);
+      if (priority >= 0 && (!line || priority < line.priority)) line = { text: lineFor(event, game), priority };
+      if (event === "nudge") areaRef.current?.animate(NUDGE_SHAKE, { duration: 180 });
+      else if (event === "tilt") areaRef.current?.animate(TILT_SHAKE, { duration: 400 });
+      if (soundOn) playEventSfx(event);
     }
-    if (line) sayLater(line, EVENT_TO_TALK_MS);
+    if (line) sayLater(line.text, EVENT_TO_TALK_MS);
     game.events.length = 0;
     const next = hudOf(game);
     setHud((current) => (sameHud(current, next) ? current : next));
