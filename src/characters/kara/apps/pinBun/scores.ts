@@ -10,14 +10,11 @@ const SOUND_KEY = "kara-pin-bun-sound";
 
 /** It's her computer, so the best score is hers. A nice round number, meant to be beaten. */
 export const DEFAULT_BEST: BestScore = { name: "Kara", score: 100000 };
-/** The default before it was Kara's. Saved by Reset Score back then, so it's still the default, not a record. */
-const OLD_DEFAULT_NAME = "Kere";
 
 export function loadBest(): BestScore {
   try {
     const saved = JSON.parse(localStorage.getItem(BEST_KEY) ?? "null") as Partial<BestScore> | null;
-    const isOldDefault = saved?.name === OLD_DEFAULT_NAME && saved.score === DEFAULT_BEST.score;
-    if (saved && !isOldDefault && typeof saved.name === "string" && typeof saved.score === "number") {
+    if (saved && typeof saved.name === "string" && typeof saved.score === "number") {
       return { name: saved.name, score: saved.score };
     }
   } catch {
