@@ -459,9 +459,12 @@ export function setFlipper(game: Game, index: 0 | 1, pressed: boolean) {
   game.flippers[index].pressed = pressed && game.status === "playing" && !game.tilted;
 }
 
-/** A shove to the whole machine. A few help; too many close together and it tilts. */
+/**
+ * A shove to the whole machine. A few help; too many close together and it tilts. Not while a ball waits on the
+ * plunger: there's nothing in play to help, and it'd only knock the waiting ball off the spring.
+ */
 export function nudge(game: Game) {
-  if (game.status !== "playing" || game.tilted) return;
+  if (game.status !== "playing" || game.tilted || ballOnPlunger(game)) return;
   const side = Math.random() < 0.5 ? -1 : 1;
   for (const ball of game.balls) {
     if (ball.straw) continue;
