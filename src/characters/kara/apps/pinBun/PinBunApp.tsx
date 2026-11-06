@@ -186,6 +186,7 @@ const TOUCH_CONTROLS = [
   ["Left half", "left flipper"],
   ["Right half", "right flipper"],
   ["Hold", "launch"],
+  ["Game menu", "nudge"],
   ["4:20", "you'll see"],
 ];
 
