@@ -23,10 +23,8 @@ import {
   missionText,
   RANKS,
   HEIGHT,
-  insertCoin,
   newGame,
   nudge,
-  pressCoinReturn,
   releaseAll,
   setCharging,
   setFlipper,
@@ -94,6 +92,8 @@ const DRAIN_TO_TALK_MS = 500;
 const FANFARE_TO_TALK_MS = 500;
 /** How long NO REFUNDS stays lit after a ball goes down. */
 const NO_REFUNDS_SECONDS = 2.5;
+/** How long the coin door's say lasts, in real time: it's beside the table, and works paused or after the game. */
+const COIN_NOTE_MS = 2500;
 /** A frame longer than this is the tab waking up, not time the ball should have moved for. */
 const MAX_FRAME_SECONDS = 0.05;
 
@@ -226,10 +226,7 @@ function hudOf(game: Game): Hud {
     onPlunger: ballOnPlunger(game),
     rank: game.rank,
     mission: missionText(game),
-    noRefunds:
-      game.status === "over" ||
-      game.time - game.drainedAt < NO_REFUNDS_SECONDS ||
-      game.time - game.refusedAt < NO_REFUNDS_SECONDS,
+    noRefunds: game.status === "over" || game.time - game.drainedAt < NO_REFUNDS_SECONDS,
   };
 }
 
@@ -306,6 +303,9 @@ function PinBunApp() {
     pixelScale: number;
   } | null>(null);
   const { say, sayLater, seatRef, seatId, karaIsHere, talking, balloon } = useKaraVoice(HELLO_LINE);
+  /** What the coin door just said, over the display for a moment. COIN RETURN also lights NO REFUNDS. */
+  const [coinNote, setCoinNote] = useState<{ text: string; refused: boolean } | null>(null);
+  const coinTimerRef = useRef<{ timer: number | undefined }>({ timer: undefined });
 
   const rootRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -455,20 +455,28 @@ function PinBunApp() {
     setCharging(gameRef.current, pressed);
   };
 
-  // The coin door. Stopped, the game doesn't run its frames, so the panel is caught up by hand. The keyboard goes
-  // back to the flippers, or Space would press the button again instead of the plunger.
+  useEffect(() => {
+    const coin = coinTimerRef.current;
+    return () => window.clearTimeout(coin.timer);
+  }, []);
+
+  // The coin door. It isn't part of the table, so what it says goes by real time, not the game's, which stops
+  // while paused and after the game. The keyboard goes back to the flippers, or Space would press the button again.
+  const coinSays = (text: string, refused: boolean) => {
+    window.clearTimeout(coinTimerRef.current.timer);
+    setCoinNote({ text, refused });
+    coinTimerRef.current.timer = window.setTimeout(() => setCoinNote(null), COIN_NOTE_MS);
+    rootRef.current?.focus({ preventScroll: true });
+  };
+
   const handleCoin = () => {
     if (soundOn) playCoinSfx();
-    insertCoin(gameRef.current);
-    afterFrameRef.current();
-    rootRef.current?.focus({ preventScroll: true });
+    coinSays("Coin accepted. Kara ate it.", false);
   };
 
   const handleCoinReturn = () => {
     if (soundOn) playRefusedSfx();
-    pressCoinReturn(gameRef.current);
-    afterFrameRef.current();
-    rootRef.current?.focus({ preventScroll: true });
+    coinSays("NO REFUNDS", true);
   };
 
   /**
@@ -624,7 +632,8 @@ function PinBunApp() {
   // The panel's display: what the table just said, or else what to do now.
   // Over, it's the table's last word, and how to go again sits on the table itself.
   let display: string;
-  if (hud.message) display = hud.message;
+  if (coinNote) display = coinNote.text;
+  else if (hud.message) display = hud.message;
   else if (hud.onPlunger) display = touch ? "Hold anywhere, then let go" : "Hold Space, then let go";
   else display = hud.mission;
 
@@ -733,7 +742,7 @@ function PinBunApp() {
                 <br />
                 or one chicken burger
               </p>
-              <span className={`kara-pinbun__refunds${hud.noRefunds ? " kara-pinbun__refunds--lit" : ""}`}>
+              <span className={`kara-pinbun__refunds${hud.noRefunds || coinNote?.refused ? " kara-pinbun__refunds--lit" : ""}`}>
                 No Refunds
               </span>
             </div>

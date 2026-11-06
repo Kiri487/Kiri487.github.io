@@ -388,8 +388,6 @@ export interface Game {
   slingHits: number[];
   /** When a ball last went down the drain, for lighting NO REFUNDS. */
   drainedAt: number;
-  /** When someone last pressed COIN RETURN, which only ever lights NO REFUNDS. */
-  refusedAt: number;
   /** When a whole set was last done (KARA, or the 4:20 lanes), for the table to light up. */
   bonusAt: number;
   message: { text: string; until: number } | null;
@@ -432,7 +430,6 @@ export function newGame(): Game {
     bumperHits: BUMPERS.map(() => -Infinity),
     slingHits: SLINGS.map(() => -Infinity),
     drainedAt: -Infinity,
-    refusedAt: -Infinity,
     bonusAt: -Infinity,
     message: null,
     events: [],
@@ -519,16 +516,6 @@ export function releaseAll(game: Game) {
   game.flippers.forEach((f) => (f.pressed = false));
   game.charging = false;
   game.charge = 0;
-}
-
-/** The coin door, beside the table. A coin goes in; nothing ever comes back out. */
-export function insertCoin(game: Game) {
-  say(game, "Coin accepted. Kara ate it.");
-}
-
-export function pressCoinReturn(game: Game) {
-  game.refusedAt = game.time;
-  say(game, "NO REFUNDS");
 }
 
 function say(game: Game, text: string) {
