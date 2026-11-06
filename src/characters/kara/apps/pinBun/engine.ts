@@ -316,8 +316,11 @@ export interface Ball {
   vy: number;
   /** How far it has rolled, as an angle, so it can be drawn turning. */
   spin: number;
-  /** Riding the straw: how far along it, and how fast. Null on the playfield. */
-  straw: { s: number; speed: number } | null;
+  /**
+   * Riding the straw: how far along it, how fast, and whether getting to the end counts. Only a ball shot in by
+   * the player does; RUSH HOUR's own extra one just rides it out. Null on the playfield.
+   */
+  straw: { s: number; speed: number; pays: boolean } | null;
   /** Whether it's in each of the top lanes right now, so rolling through counts once. Each ball its own. */
   inLane: boolean[];
 }
@@ -641,7 +644,7 @@ function moveBall(game: Game, ball: Ball, dt: number) {
     ball.vy < 0
   ) {
     const { tx, ty } = strawAt(0);
-    ball.straw = { s: 0, speed: Math.max(0, ball.vx * tx + ball.vy * ty) };
+    ball.straw = { s: 0, speed: Math.max(0, ball.vx * tx + ball.vy * ty), pays: true };
   }
 }
 
@@ -670,7 +673,7 @@ function rideStraw(game: Game, ball: Ball, dt: number) {
   ball.straw = null;
   ball.vx = straw.speed * at.tx;
   ball.vy = straw.speed * at.ty;
-  finishStraw(game);
+  if (straw.pays) finishStraw(game);
 }
 
 function finishStraw(game: Game) {
@@ -697,7 +700,8 @@ function finishStraw(game: Game) {
   const fired = newBall();
   fired.vy = -AUTO_LAUNCH;
   const riding = newBall();
-  riding.straw = { s: STRAW_LENGTH * 0.45, speed: 120 };
+  // Past the top, so it rolls down and out into the right inlane: a ball handed to the player, not a jackpot.
+  riding.straw = { s: STRAW_LENGTH * 0.45, speed: 120, pays: false };
   const start = strawAt(riding.straw.s);
   riding.x = start.x;
   riding.y = start.y;
