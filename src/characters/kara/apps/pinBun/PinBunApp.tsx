@@ -45,7 +45,6 @@ import {
   playStrawSfx,
   playNudgeSfx,
   playButtonSfx,
-  playRefusedSfx as playTiltSfx,
   playRefusedSfx,
   playSetSfx,
   playSlingSfx,
@@ -319,7 +318,8 @@ function PinBunApp() {
         else if (event === "fourTwenty" || event === "rushHour" || event === "jackpot") playRecordSfx();
         else if (event === "straw") playStrawSfx();
         else if (event === "nudge") playNudgeSfx();
-        else if (event === "tilt") playTiltSfx();
+        // The same dull no as COIN RETURN.
+        else if (event === "tilt") playRefusedSfx();
         else if (event === "saved") playLaunchSfx();
         else if (event === "button") playButtonSfx();
         else if (event === "buttonPaid") playSetSfx();
