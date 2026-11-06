@@ -372,7 +372,10 @@ export interface Game {
   /** Nudges close together, and when the last one was. */
   nudges: number;
   nudgedAt: number;
-  /** Nudged too much: the flippers are dead and nothing scores until this ball is gone. */
+  /**
+   * Nudged too much: until this ball is gone, the machine is dead. The flippers don't move, nothing kicks, scores,
+   * lights up or counts towards anything; the ball only bounces off things.
+   */
   tilted: boolean;
   /** How many times DO NOT PRESS has been pressed, this time round, and when it last was. */
   buttonPresses: number;
@@ -670,6 +673,7 @@ function rideStraw(game: Game, ball: Ball, dt: number) {
 }
 
 function finishStraw(game: Game) {
+  if (game.tilted) return;
   game.strawAt = game.time;
   if (game.rushHour) {
     score(game, POINTS.jackpot);
@@ -805,7 +809,7 @@ function collideWalls(game: Game, ball: Ball) {
     }
     const hit = collideSegment(ball, wall, 0, WALL_BOUNCE);
     if (!hit) continue;
-    if (wall.kind === "sling") {
+    if (wall.kind === "sling" && !game.tilted) {
       if (hit.vn < -SLING_MIN_HIT) {
         kick(ball, hit, SLING_KICK);
         const index = wall.ax < PLAYFIELD_MIDDLE ? 0 : 1;
@@ -835,6 +839,7 @@ function collideBumpers(game: Game, ball: Ball) {
       ball.vx -= (1 + BUMPER_BOUNCE) * hit.vn * hit.nx;
       ball.vy -= (1 + BUMPER_BOUNCE) * hit.vn * hit.ny;
     }
+    if (game.tilted) return;
     kick(ball, hit, BUMPER_KICK);
     game.bumperHits[i] = game.time;
     score(game, POINTS.bumper);
@@ -848,7 +853,7 @@ const TARGETS_UP_DELAY = 1.5;
 function collideTargets(game: Game, ball: Ball) {
   TARGETS.forEach((target, i) => {
     if (game.targetsDown[i]) return;
-    if (!collideSegment(ball, target, TARGET_THICKNESS, WALL_BOUNCE)) return;
+    if (!collideSegment(ball, target, TARGET_THICKNESS, WALL_BOUNCE) || game.tilted) return;
     game.targetsDown[i] = true;
     score(game, POINTS.target);
     if (game.targetsDown.every(Boolean)) {
@@ -869,7 +874,7 @@ function collideTargets(game: Game, ball: Ball) {
 function collideThu(game: Game, ball: Ball) {
   THU_TARGETS.forEach((target, i) => {
     if (game.thuDown[i]) return;
-    if (!collideSegment(ball, target, TARGET_THICKNESS, WALL_BOUNCE)) return;
+    if (!collideSegment(ball, target, TARGET_THICKNESS, WALL_BOUNCE) || game.tilted) return;
     game.thuDown[i] = true;
     score(game, POINTS.thu);
     if (game.thuDown.every(Boolean)) {
@@ -899,6 +904,7 @@ function collideSpicy(game: Game, ball: Ball) {
     ball.vx -= (1 + WALL_BOUNCE) * hit.vn * hit.nx;
     ball.vy -= (1 + WALL_BOUNCE) * hit.vn * hit.ny;
   }
+  if (game.tilted) return;
   kick(ball, hit, SPICY_KICK);
   if (game.time - game.spicyHitAt < SPICY_COOLDOWN) return;
   game.spicyHitAt = game.time;
@@ -922,7 +928,7 @@ function collideButton(game: Game, ball: Ball) {
     ball.vx -= (1 + WALL_BOUNCE) * hit.vn * hit.nx;
     ball.vy -= (1 + WALL_BOUNCE) * hit.vn * hit.ny;
   }
-  if (game.time - game.buttonAt < BUTTON_COOLDOWN) return;
+  if (game.tilted || game.time - game.buttonAt < BUTTON_COOLDOWN) return;
   game.buttonAt = game.time;
   say(game, BUTTON_REPLIES[game.buttonPresses]);
   game.buttonPresses++;
@@ -938,6 +944,7 @@ function collideButton(game: Game, ball: Ball) {
 
 /** Counts towards the mission, if it's the one to do. Done, it's the next one, and maybe a better meatball. */
 function advance(game: Game, kind: MissionKind) {
+  if (game.tilted) return;
   const mission = MISSIONS[game.mission];
   if (mission.kind !== kind) return;
   game.missionProgress++;
@@ -993,7 +1000,7 @@ function collideFlippers(game: Game, ball: Ball) {
 function checkLanes(game: Game, ball: Ball) {
   LANES.forEach((lane, i) => {
     const inside = Math.hypot(ball.x - lane.x, ball.y - lane.y) < lane.r + BALL_RADIUS * 0.6;
-    if (inside && !ball.inLane[i] && !game.lanesLit[i]) {
+    if (inside && !ball.inLane[i] && !game.lanesLit[i] && !game.tilted) {
       game.lanesLit[i] = true;
       score(game, POINTS.lane);
       if (game.lanesLit.every(Boolean)) {
