@@ -51,7 +51,7 @@ function KiriApp() {
   };
 
   // The site shares one audio context, so coming back to Kiri doesn't start another. Each visit has a new <audio>
-  // element, which gets its own source; the old one is left behind silent with its paused element.
+  // element, which gets its own source.
   const initAudioContext = useCallback(() => {
     if (!audioRef.current) return;
     const ctx = resumeAudioContext();
@@ -68,6 +68,20 @@ function KiriApp() {
       setAnalyser(analyserNode);
     }
   }, []);
+
+  // Leaving Kiri unplugs this visit's source and analyser, so the old <audio> and its buffered song can be freed.
+  // The context itself stays for the next visit. Plugging in again is harmless, and keeps the music playing when
+  // the effect is re-run without leaving (as React does while developing).
+  useEffect(() => {
+    const source = sourceRef.current;
+    if (!analyser || !source) return;
+    source.connect(analyser);
+    analyser.connect(analyser.context.destination);
+    return () => {
+      source.disconnect();
+      analyser.disconnect();
+    };
+  }, [analyser]);
 
   const toggleBgm = () => {
     initAudioContext();
