@@ -30,8 +30,8 @@
   grid-template-columns: repeat(var(--size), var(--cell));
   grid-auto-rows: var(--cell);
   border: 3px solid;
-  border-color: #a9a690 #fff #fff #a9a690;
-  background: #cfccb8;
+  border-color: var(--kara-bevel-dark) #fff #fff var(--kara-bevel-dark);
+  background: var(--kara-well);
   /* Fingers steer here, so the page mustn't scroll or zoom under them. */
   touch-action: none;
 }

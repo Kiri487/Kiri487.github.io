@@ -24,7 +24,7 @@
 
 [data-skin="kara"] .kara-messenger__mood {
   display: block;
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 [data-skin="kara"] .kara-messenger__list {
@@ -40,7 +40,7 @@
 
 [data-skin="kara"] .kara-messenger__group-title {
   margin: 0 0 3px;
-  color: #3f4d1f;
+  color: var(--kara-text-heading);
   font-size: 12px;
 }
 
@@ -58,7 +58,7 @@
 
 [data-skin="kara"] button.kara-messenger__contact:hover,
 [data-skin="kara"] button.kara-messenger__contact:focus-visible {
-  background: #e6e8d3;
+  background: var(--kara-pane);
   outline: none;
 }
 
@@ -98,7 +98,7 @@
 
 [data-skin="kara"] .kara-messenger__status {
   min-width: 0;
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 [data-skin="kara"] .kara-messenger__hint {
@@ -107,5 +107,5 @@
   padding: 6px 9px;
   border-top: 1px solid #d8d5c3;
   background: var(--kara-menu-face);
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }

@@ -18,7 +18,7 @@
   position: relative;
   top: 1px;
   padding: 3px 9px;
-  border: 1px solid #a7a58f;
+  border: 1px solid var(--kara-border);
   border-bottom: 0;
   border-radius: 3px 3px 0 0;
   background: linear-gradient(#fff, #e6e4d4);
@@ -42,7 +42,7 @@
   min-height: 0;
   padding: 12px;
   overflow-y: auto;
-  border: 1px solid #a7a58f;
+  border: 1px solid var(--kara-border);
   background: #fff;
   line-height: 1.45;
 }
@@ -68,7 +68,7 @@
 }
 
 [data-skin="kara"] .kara-about__facts dt {
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 [data-skin="kara"] .kara-about__facts dd {
@@ -92,7 +92,7 @@
 }
 
 [data-skin="kara"] .kara-about__muted {
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 [data-skin="kara"] .kara-about__group + .kara-about__group {
@@ -101,7 +101,7 @@
 
 [data-skin="kara"] .kara-about__group-title {
   margin: 0 0 4px;
-  color: #3f4d1f;
+  color: var(--kara-text-heading);
   font-size: 12px;
 }
 
@@ -134,7 +134,7 @@
 }
 
 [data-skin="kara"] .kara-tree__category:hover {
-  background: #e6e8d3;
+  background: var(--kara-pane);
 }
 
 [data-skin="kara"] .kara-tree__box {

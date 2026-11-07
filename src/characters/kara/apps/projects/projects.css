@@ -52,7 +52,7 @@
   justify-content: space-between;
   gap: 6px;
   padding: 6px 8px;
-  border-bottom: 1px solid #b4b19e;
+  border-bottom: 1px solid var(--kara-divider);
   background: var(--kara-menu-face);
 }
 
@@ -74,7 +74,7 @@
 }
 
 [data-skin="kara"] .kara-program--expanded {
-  background: #5f7136;
+  background: var(--kara-accent);
   color: #fff;
 }
 
@@ -91,7 +91,7 @@
 }
 
 [data-skin="kara"] .kara-program:not(.kara-program--expanded) .kara-program__head:hover {
-  background: #e6e8d3;
+  background: var(--kara-pane);
 }
 
 [data-skin="kara"] .kara-program__icon {

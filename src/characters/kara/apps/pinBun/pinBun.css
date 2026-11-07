@@ -43,7 +43,7 @@
 [data-skin="kara"] .kara-pinbun__table {
   box-sizing: border-box;
   border: 3px solid;
-  border-color: #a9a690 #fff #fff #a9a690;
+  border-color: var(--kara-bevel-dark) #fff #fff var(--kara-bevel-dark);
   background: #171b2b;
   /* Fingers press flippers here, so the page mustn't scroll or zoom under them. */
   touch-action: none;
@@ -78,7 +78,7 @@
   box-sizing: border-box;
   padding: 10px 8px;
   border: 2px solid;
-  border-color: #a9a690 #fff #fff #a9a690;
+  border-color: var(--kara-bevel-dark) #fff #fff var(--kara-bevel-dark);
   border-radius: 3px;
   background:
     radial-gradient(ellipse at 50% 0%, rgba(255, 173, 66, 0.22), transparent 60%),

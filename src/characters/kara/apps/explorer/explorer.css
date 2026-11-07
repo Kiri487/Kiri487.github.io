@@ -47,7 +47,7 @@
 }
 
 [data-skin="kara"] .kara-explorer__menu-item:hover {
-  background: #5f7136;
+  background: var(--kara-accent);
   color: #fff;
 }
 
@@ -61,12 +61,12 @@
 [data-skin="kara"] .kara-explorer__menu-separator {
   height: 1px;
   margin: 3px 2px;
-  background: #cfccb8;
+  background: var(--kara-well);
 }
 
 [data-skin="kara"] .kara-explorer__menu-heading {
   padding: 3px 8px 3px 20px;
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 [data-skin="kara"] .kara-explorer__toolbar {
@@ -110,7 +110,7 @@
   width: 1px;
   height: 24px;
   margin: 0 3px;
-  background: #cfccb8;
+  background: var(--kara-well);
 }
 
 [data-skin="kara"] .kara-explorer__address {
@@ -118,12 +118,12 @@
   align-items: center;
   gap: 6px;
   padding: 3px 6px;
-  border-bottom: 1px solid #b4b19e;
+  border-bottom: 1px solid var(--kara-divider);
 }
 
 [data-skin="kara"] .kara-explorer__address-label {
   flex: none;
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 [data-skin="kara"] .kara-explorer__address-path {
@@ -168,7 +168,7 @@
   margin: 0;
   padding: 5px 9px;
   background: linear-gradient(90deg, #fff, #dfe3c8);
-  color: #3f4d1f;
+  color: var(--kara-text-heading);
   font-size: 12px;
   font-weight: bold;
 }
@@ -186,7 +186,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #3f4d1f;
+  color: var(--kara-text-heading);
   text-align: left;
 }
 
@@ -236,8 +236,8 @@
   padding: 3px 7px;
   overflow: hidden;
   border: 0;
-  border-right: 1px solid #cfccb8;
-  border-bottom: 1px solid #b4b19e;
+  border-right: 1px solid var(--kara-well);
+  border-bottom: 1px solid var(--kara-divider);
   background: linear-gradient(#fff, #ece9d8);
   color: var(--kara-ink);
   text-align: left;
@@ -318,12 +318,12 @@
 }
 
 [data-skin="kara"] .kara-file--selected .kara-file__name {
-  background: #5f7136;
+  background: var(--kara-accent);
   color: #fff;
 }
 
 [data-skin="kara"] .kara-file--selected .kara-file__frame {
-  border: 2px solid #5f7136;
+  border: 2px solid var(--kara-accent);
 }
 
 [data-skin="kara"] .kara-file--icons.kara-file--selected > img {
@@ -331,14 +331,14 @@
 }
 
 [data-skin="kara"] .kara-file:focus-visible {
-  outline: 1px dotted #5f7136;
+  outline: 1px dotted var(--kara-accent);
 }
 
 [data-skin="kara"] .kara-explorer__status {
   flex: none;
   padding: 3px 7px;
   overflow: hidden;
-  border-top: 1px solid #b4b19e;
+  border-top: 1px solid var(--kara-divider);
   background: var(--kara-menu-face);
   text-overflow: ellipsis;
   white-space: nowrap;
