@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Contact from "../components/Contact";
-import P5Canvas from "../components/P5Canvas";
+import WaveCanvas from "../components/WaveCanvas";
 import { FaCat } from "react-icons/fa";
 import CircularProgress from "@mui/material/CircularProgress";
 
@@ -18,8 +18,8 @@ function Home({ videoWebm, videoMov, analyser }: HomeProps) {
     <div className="home">
       <title>Kiri487</title>
       <meta name="description" content="Kiri487's personal website — a programmer, a creator, and a cat." />
-      <div className="P5-canvas">
-        <P5Canvas analyser={analyser} />
+      <div className="home-background">
+        <WaveCanvas analyser={analyser} />
       </div>
       <div className="intro">
         <p className="intro-greeting">Hi, I'm Kiri!</p>
