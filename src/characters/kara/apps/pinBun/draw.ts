@@ -652,7 +652,7 @@ function drawArcBulbs(c: CanvasRenderingContext2D, game: Game) {
     const x = ARC.x + ARC_BULB_RADIUS * Math.cos(angle);
     const y = ARC.y + ARC_BULB_RADIUS * Math.sin(angle);
     const color = i % 3 === 0 ? C.tomato : i % 3 === 1 ? C.cheese : C.lime;
-    let glow = 0;
+    let glow: number;
     if (bonus) glow = Math.floor(game.time * 8) % 2 === 0 ? 1 : 0.2;
     // 4:20: every bulb on, breathing slowly.
     else if (fourTwenty) glow = 0.6 + 0.4 * Math.sin(game.time * 3 + i * 0.4);

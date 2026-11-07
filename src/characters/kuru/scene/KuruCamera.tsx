@@ -31,7 +31,8 @@ function findCameraXForProjectedX(
   let low = CAMERA_X_SEARCH_MIN;
   let high = CAMERA_X_SEARCH_MAX;
   let lowValue = evaluate(low);
-  let highValue = evaluate(high);
+  // Only the low end is compared inside the search, so the high end is checked once here.
+  const highValue = evaluate(high);
 
   if (!Number.isFinite(lowValue) || !Number.isFinite(highValue)) {
     throw new Error("Could not project a scene boundary point.");
@@ -52,7 +53,6 @@ function findCameraXForProjectedX(
 
     if (lowValue * midValue <= 0) {
       high = mid;
-      highValue = midValue;
     } else {
       low = mid;
       lowValue = midValue;
