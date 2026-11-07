@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import { videoBgmPairs, getRandomIndex } from "../../config/assets";
+import { resumeAudioContext } from "../../shared/audio";
 import { readBoolean, readNumber, readString, writeBoolean, writeString } from "../../shared/storage";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -15,7 +16,6 @@ import "./style.css";
 function KiriApp() {
   const [homeKey, setHomeKey] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
 
@@ -50,28 +50,22 @@ function KiriApp() {
     setCurrentPairIndex(newIndex);
   };
 
+  // The site shares one audio context, so coming back to Kiri doesn't start another. Each visit has a new <audio>
+  // element, which gets its own source; the old one is left behind silent with its paused element.
   const initAudioContext = useCallback(() => {
     if (!audioRef.current) return;
+    const ctx = resumeAudioContext();
 
-    if (!audioContextRef.current) {
-      const ctx = new AudioContext();
-      audioContextRef.current = ctx;
-
+    if (!sourceRef.current) {
       const analyserNode = ctx.createAnalyser();
       analyserNode.fftSize = 256;
 
-      if (!sourceRef.current) {
-        const source = ctx.createMediaElementSource(audioRef.current);
-        sourceRef.current = source;
-        source.connect(analyserNode);
-        analyserNode.connect(ctx.destination);
-      }
+      const source = ctx.createMediaElementSource(audioRef.current);
+      sourceRef.current = source;
+      source.connect(analyserNode);
+      analyserNode.connect(ctx.destination);
 
       setAnalyser(analyserNode);
-    }
-
-    if (audioContextRef.current?.state === 'suspended') {
-      audioContextRef.current.resume();
     }
   }, []);
 

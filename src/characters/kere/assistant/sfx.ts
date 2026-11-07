@@ -1,3 +1,4 @@
+import { resumeAudioContext } from "../../../shared/audio";
 import { readBoolean, writeBoolean } from "../../../shared/storage";
 
 /* Kere's chat sound effects: two short synthesized tones, no audio files.
@@ -17,17 +18,9 @@ export function saveSfxEnabled(enabled: boolean) {
   writeBoolean(STORAGE_KEY, enabled);
 }
 
-let ctx: AudioContext | null = null;
-
-function getCtx(): AudioContext {
-  if (!ctx) ctx = new AudioContext();
-  if (ctx.state === "suspended") void ctx.resume();
-  return ctx;
-}
-
 /** Call from a click or submit, so later sounds (played after a timeout) aren't blocked by the browser. */
 export function unlockSfx() {
-  getCtx();
+  resumeAudioContext();
 }
 
 /** One sine blip: quick attack, exponential decay. */
@@ -50,7 +43,7 @@ function tone(c: AudioContext, frequency: number, start: number, duration: numbe
 
 /** Chat opened: two rising notes, like an old terminal acknowledging you. ~80ms. */
 export function playOpenSfx() {
-  const c = getCtx();
+  const c = resumeAudioContext();
   const t = c.currentTime;
   tone(c, 660, t, 0.035, VOLUME);
   tone(c, 990, t + 0.04, 0.04, VOLUME);
@@ -58,6 +51,6 @@ export function playOpenSfx() {
 
 /** Reply finished: one soft tick, quieter than the open sound. ~40ms. */
 export function playReplySfx() {
-  const c = getCtx();
+  const c = resumeAudioContext();
   tone(c, 880, c.currentTime, 0.04, VOLUME * 0.6);
 }

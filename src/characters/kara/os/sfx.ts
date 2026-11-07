@@ -1,12 +1,12 @@
-/* The desktop's sound: short synthesized tones, no audio files, all through one audio context. If the browser
-   blocks one, it's simply not heard. */
+import { getAudioContext } from "../../../shared/audio";
+
+/* The desktop's sound: short synthesized tones, no audio files, all through the site's audio context. If the
+   browser blocks one, it's simply not heard. */
 
 /** Fixed level, no volume control, well under the radio. */
 export const VOLUME = 0.1;
 /** Roomy, since opening the audio device can take a while on some computers. */
 const MAX_WAKE_UP_MS = 300;
-
-let ctx: AudioContext | null = null;
 
 /**
  * Plays now if the browser allows sound. A new context starts out suspended even when it's allowed, so that gets a
@@ -14,8 +14,7 @@ let ctx: AudioContext | null = null;
  * long over, and all the blocked ones at once.
  */
 export function whenAudible(play: (c: AudioContext) => void) {
-  ctx ??= new AudioContext();
-  const c = ctx;
+  const c = getAudioContext();
   if (c.state === "running") {
     play(c);
     return;
