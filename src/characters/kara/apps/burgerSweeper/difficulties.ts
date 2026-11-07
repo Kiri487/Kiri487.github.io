@@ -1,7 +1,7 @@
 import { readJson } from "../../../../shared/storage";
 import { loadSoundOn as loadGameSoundOn, saveRecord, saveSoundOn as saveGameSoundOn } from "../common/gameStorage";
 
-export type DifficultyId ="snack" | "lunch" | "allYouCanEat";
+export type DifficultyId = "snack" | "lunch" | "allYouCanEat";
 
 export interface Board {
   rows: number;
