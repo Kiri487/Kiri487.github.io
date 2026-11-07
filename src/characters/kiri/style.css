@@ -400,50 +400,8 @@ html[data-skin="kiri"] body {
   z-index: 2;
 }
 
-/* Shown until the video can play: an arc that spins while it grows and shrinks. */
-[data-skin="kiri"] .loading-spinner {
-  display: inline-block;
-  width: 5rem;
-  height: 5rem;
-  animation: kiri-spinner-rotate 1.4s linear infinite;
-}
-
-[data-skin="kiri"] .loading-spinner svg {
-  display: block;
-}
-
-[data-skin="kiri"] .loading-spinner circle {
-  stroke: currentColor;
-  stroke-dasharray: 80px, 200px;
-  stroke-dashoffset: 0;
-  animation: kiri-spinner-dash 1.4s ease-in-out infinite;
-}
-
-@keyframes kiri-spinner-rotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes kiri-spinner-dash {
-  0% {
-    stroke-dasharray: 1px, 200px;
-    stroke-dashoffset: 0;
-  }
-  50% {
-    stroke-dasharray: 100px, 200px;
-    stroke-dashoffset: -15px;
-  }
-  100% {
-    stroke-dasharray: 1px, 200px;
-    stroke-dashoffset: -126px;
-  }
-}
-
-[data-skin="kiri"] .home-video video {
+[data-skin="kiri"] .home-video video,
+[data-skin="kiri"] .home-video-poster {
   width: 100%;
   height: 100%;
   object-fit: cover;

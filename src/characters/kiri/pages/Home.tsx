@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Contact from "../components/Contact";
 import WaveCanvas from "../components/WaveCanvas";
 import { FaCat } from "react-icons/fa";
@@ -6,12 +6,29 @@ import { FaCat } from "react-icons/fa";
 interface HomeProps {
   videoWebm: string;
   videoMov: string;
+  poster: string;
   analyser: AnalyserNode | null;
 }
 
+function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // Which video is ready to show. Tied to the source, so a new video starts on its poster again.
+  const [readySrc, setReadySrc] = useState<string | null>(null);
+  const isLoaded = readySrc === videoWebm;
 
-function Home({ videoWebm, videoMov, analyser }: HomeProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
+  // Waits for the video by looking, not by its canplay event: a video already in the browser's cache can be ready
+  // before React listens, and then the event never arrives and the poster would stay forever.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let frame = 0;
+    const check = () => {
+      if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) setReadySrc(videoWebm);
+      else frame = requestAnimationFrame(check);
+    };
+    frame = requestAnimationFrame(check);
+    return () => cancelAnimationFrame(frame);
+  }, [videoWebm]);
 
   return (
     <div className="home">
@@ -35,17 +52,12 @@ function Home({ videoWebm, videoMov, analyser }: HomeProps) {
       </div>
 
       <div className="home-video">
-        {!isLoaded && (
-          <span className="loading-spinner" role="progressbar" aria-label="Loading video">
-            <svg viewBox="22 22 44 44">
-              <circle cx="44" cy="44" r="20.2" fill="none" strokeWidth="3.6" />
-            </svg>
-          </span>
-        )}
+        {/* The video's first frame, so Kiri is there at once. The video starts from that same frame. */}
+        {!isLoaded && <img className="home-video-poster" src={poster} alt="" fetchPriority="high" />}
         <video
           key={videoWebm}
+          ref={videoRef}
           autoPlay loop muted playsInline
-          onCanPlay={() => setIsLoaded(true) }
           style={{ display: isLoaded ? 'block' : 'none' }}
           aria-label="Looping animation of Kiri's 3D character model">
           <source src={videoMov} type="video/quicktime" />

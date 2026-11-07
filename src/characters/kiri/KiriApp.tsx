@@ -124,7 +124,7 @@ function KiriApp() {
       <div className="App">
         <div className="routes-container">
           <Routes>
-            <Route path="/" element={<Home key={homeKey} videoWebm={selectedPair.webm} videoMov={selectedPair.mov} analyser={analyser} />} />
+            <Route path="/" element={<Home key={homeKey} videoWebm={selectedPair.webm} videoMov={selectedPair.mov} poster={selectedPair.poster} analyser={analyser} />} />
             <Route path="/about" element={<About />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/works" element={<Works />} />
