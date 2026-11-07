@@ -30,7 +30,7 @@
   --kara-bevel-dark: #a9a690;
 
   /* The frame of a focused window, shared by message boxes. */
-  --kara-frame-active: linear-gradient(#7f9150, #5f7136 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
+  --kara-frame-active: linear-gradient(#7f9150, var(--kara-accent) 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
   --kara-frame-shadow: 2px 3px 10px rgba(30, 30, 10, 0.45);
   --kara-title-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
   --kara-font: Tahoma, Verdana, "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
@@ -867,7 +867,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  background: linear-gradient(#7f9150, #5f7136 30%, #6c7e42);
+  background: linear-gradient(#7f9150, var(--kara-accent) 30%, #6c7e42);
   color: #fff;
   font: bold 15px var(--kara-title-font);
   text-shadow: var(--kara-title-shadow);
@@ -944,7 +944,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 5px 8px;
-  background: linear-gradient(#7f9150, #5f7136);
+  background: linear-gradient(#7f9150, var(--kara-accent));
 }
 
 [data-skin="kara"] .kara-start-menu__power {
@@ -990,7 +990,7 @@
 [data-skin="kara"] .kara-shutdown__title {
   margin: 0;
   padding: 10px 12px;
-  background: linear-gradient(#5f7136, #4a5a26);
+  background: linear-gradient(var(--kara-accent), #4a5a26);
   color: #fff;
   font: normal 16px var(--kara-title-font);
 }
@@ -1027,7 +1027,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 8px 12px;
-  background: linear-gradient(#5f7136, #4a5a26);
+  background: linear-gradient(var(--kara-accent), #4a5a26);
 }
 
 [data-skin="kara"] .kara-shutdown__cancel {

@@ -68,7 +68,7 @@
 
 [data-skin="kara"] .kara-viewer__button:hover {
   border-color: #b4bb9c;
-  background: linear-gradient(#fff, #e6e8d3);
+  background: linear-gradient(#fff, var(--kara-pane));
 }
 
 [data-skin="kara"] .kara-viewer__position {

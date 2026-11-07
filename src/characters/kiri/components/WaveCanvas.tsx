@@ -13,14 +13,19 @@ const MIN_AMP = 10;
 const MAX_AMP = 100;
 /** Average loudness (0–255) that already counts as full volume. */
 const LOUD = 150;
-/** How quickly the bend follows the music, per frame. */
+/** How quickly the bend follows the music, per 60th of a second. */
 const FOLLOW = 0.3;
-/** How far the noise drifts each frame, which keeps the lines moving on their own. */
+/** How far the noise drifts each 60th of a second, which keeps the lines moving on their own. */
 const DRIFT = 0.01;
 /** How much the pointer moving across the screen shifts the lines. */
 const POINTER_SHIFT = 0.001;
-/** The lines were tuned at 60 frames a second; faster screens skip frames so they don't speed up. */
+/**
+ * The motion was tuned at 60 frames a second. Each frame moves by however much time has passed instead, so the lines
+ * keep the same speed on any screen.
+ */
 const FRAME_MS = 1000 / 60;
+/** After a long pause, such as a hidden tab, carry on instead of jumping ahead. */
+const MAX_STEPS = 4;
 
 /**
  * Smooth random values along a line, 0 to just under 1. Four layers, each twice as fine and half as strong, give
@@ -68,7 +73,7 @@ function WaveCanvas({ analyser }: { analyser: AnalyserNode | null }) {
     let pointerX = 0;
     let amp = MIN_AMP;
     let drift = 0;
-    let lastFrame = -Infinity;
+    let lastFrame: number | null = null;
     let frame = 0;
 
     // Drawn at the screen's own pixel density, so the lines stay sharp.
@@ -87,7 +92,7 @@ function WaveCanvas({ analyser }: { analyser: AnalyserNode | null }) {
 
     const draw = (now: number) => {
       frame = requestAnimationFrame(draw);
-      if (now - lastFrame < FRAME_MS - 5) return;
+      const steps = lastFrame === null ? 1 : Math.min((now - lastFrame) / FRAME_MS, MAX_STEPS);
       lastFrame = now;
 
       let target = MIN_AMP;
@@ -99,7 +104,7 @@ function WaveCanvas({ analyser }: { analyser: AnalyserNode | null }) {
         const loudness = Math.min(sum / levels.length / LOUD, 1);
         target = MIN_AMP + loudness * (MAX_AMP - MIN_AMP);
       }
-      amp += (target - amp) * FOLLOW;
+      amp += (target - amp) * (1 - (1 - FOLLOW) ** steps);
 
       ctx.fillStyle = BACKGROUND;
       ctx.fillRect(0, 0, width, height);
@@ -119,7 +124,7 @@ function WaveCanvas({ analyser }: { analyser: AnalyserNode | null }) {
         ctx.stroke();
       }
 
-      drift += DRIFT;
+      drift += DRIFT * steps;
     };
 
     resize();

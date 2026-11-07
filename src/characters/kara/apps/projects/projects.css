@@ -16,7 +16,7 @@
   width: 104px;
   padding: 6px 0;
   overflow-y: auto;
-  background: linear-gradient(#7f9150, #5f7136);
+  background: linear-gradient(#7f9150, var(--kara-accent));
 }
 
 [data-skin="kara"] .kara-programs__rail-item {
