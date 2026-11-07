@@ -2,7 +2,6 @@ import { useState } from "react";
 import Contact from "../components/Contact";
 import WaveCanvas from "../components/WaveCanvas";
 import { FaCat } from "react-icons/fa";
-import CircularProgress from "@mui/material/CircularProgress";
 
 interface HomeProps {
   videoWebm: string;
@@ -36,7 +35,13 @@ function Home({ videoWebm, videoMov, analyser }: HomeProps) {
       </div>
 
       <div className="home-video">
-        {!isLoaded && <CircularProgress color="inherit" size="5rem"/>}
+        {!isLoaded && (
+          <span className="loading-spinner" role="progressbar" aria-label="Loading video">
+            <svg viewBox="22 22 44 44">
+              <circle cx="44" cy="44" r="20.2" fill="none" strokeWidth="3.6" />
+            </svg>
+          </span>
+        )}
         <video
           key={videoWebm}
           autoPlay loop muted playsInline

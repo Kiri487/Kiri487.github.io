@@ -36,7 +36,6 @@ build: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'mui-vendor': ['@mui/material', '@mui/lab', '@emotion/react', '@emotion/styled'],
           'icons-vendor': ['react-icons']
         }
       }

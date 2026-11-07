@@ -400,6 +400,49 @@ html[data-skin="kiri"] body {
   z-index: 2;
 }
 
+/* Shown until the video can play: an arc that spins while it grows and shrinks. */
+[data-skin="kiri"] .loading-spinner {
+  display: inline-block;
+  width: 5rem;
+  height: 5rem;
+  animation: kiri-spinner-rotate 1.4s linear infinite;
+}
+
+[data-skin="kiri"] .loading-spinner svg {
+  display: block;
+}
+
+[data-skin="kiri"] .loading-spinner circle {
+  stroke: currentColor;
+  stroke-dasharray: 80px, 200px;
+  stroke-dashoffset: 0;
+  animation: kiri-spinner-dash 1.4s ease-in-out infinite;
+}
+
+@keyframes kiri-spinner-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes kiri-spinner-dash {
+  0% {
+    stroke-dasharray: 1px, 200px;
+    stroke-dashoffset: 0;
+  }
+  50% {
+    stroke-dasharray: 100px, 200px;
+    stroke-dashoffset: -15px;
+  }
+  100% {
+    stroke-dasharray: 1px, 200px;
+    stroke-dashoffset: -126px;
+  }
+}
+
 [data-skin="kiri"] .home-video video {
   width: 100%;
   height: 100%;
@@ -426,6 +469,60 @@ html[data-skin="kiri"] body {
 }
 
 /* about page */
+
+/* Timelines: a white line down the left, a ring at each stop. Sizes match the MUI Timeline this replaced. */
+[data-skin="kiri"] .timeline {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  padding: 6px 16px;
+}
+
+[data-skin="kiri"] .timeline-item {
+  display: flex;
+  position: relative;
+  min-height: 70px;
+  list-style: none;
+}
+
+[data-skin="kiri"] .timeline-separator {
+  display: flex;
+  flex: 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+[data-skin="kiri"] .timeline-connector {
+  flex-grow: 1;
+  width: 2px;
+  background-color: white;
+}
+
+[data-skin="kiri"] .timeline-dot {
+  display: flex;
+  align-self: baseline;
+  margin: 11.5px 0;
+  padding: 4px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+[data-skin="kiri"] .timeline-dot--current {
+  border-color: transparent;
+  background-color: white;
+}
+
+[data-skin="kiri"] .timeline-content {
+  flex: 1;
+  margin: 0;
+  padding: 6px 16px;
+  font-family: 'Oswald';
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.00938em;
+  text-align: left;
+}
 
 [data-skin="kiri"] .timeline-title {
   font-size: 1.2rem;

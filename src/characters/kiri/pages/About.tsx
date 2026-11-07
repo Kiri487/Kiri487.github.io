@@ -1,14 +1,25 @@
-import Timeline from '@mui/lab/Timeline';
-import TimelineItem from '@mui/lab/TimelineItem';
-import TimelineSeparator from '@mui/lab/TimelineSeparator';
-import TimelineConnector from '@mui/lab/TimelineConnector';
-import TimelineContent from '@mui/lab/TimelineContent';
-import TimelineOppositeContent from '@mui/lab/TimelineOppositeContent';
-import TimelineDot from '@mui/lab/TimelineDot';
 import { FaCat, FaBook, FaBriefcase, FaMagic, FaStar } from "react-icons/fa";
 import { FaRegFaceDizzy } from "react-icons/fa6";
 import { educationData, workData, experienceData, skillsData } from "../../../data/portfolio/about";
 import { techIcons } from "../techIcons";
+
+/** One stop on a timeline: a dot on the line, with what and when beside it. A filled dot marks where Kiri is now. */
+function TimelineEntry({ title, info, period, current = false }: { title: string; info: string; period: string; current?: boolean }) {
+  return (
+    <li className="timeline-item">
+      <div className="timeline-separator">
+        <span className="timeline-connector" />
+        <span className={`timeline-dot${current ? " timeline-dot--current" : ""}`} />
+        <span className="timeline-connector" />
+      </div>
+      <div className="timeline-content">
+        <p className="timeline-title">{title}</p>
+        <p className="timeline-info">{info}</p>
+        <p className="timeline-period">{period}</p>
+      </div>
+    </li>
+  );
+}
 
 function About() {
   return (
@@ -23,58 +34,20 @@ function About() {
 
       <h2 className="title"><FaBook aria-hidden="true"/>Education</h2>
       <div className="content">
-        <Timeline position="right">
-          {educationData.map((edu) => (
-            <TimelineItem key={edu.school}>
-              <TimelineOppositeContent sx={{ display: "none" }}>
-              </TimelineOppositeContent>
-              <TimelineSeparator>
-                <TimelineConnector sx={{ backgroundColor: "white" }} />
-                <TimelineDot
-                  variant={edu === educationData[0] ? "filled" : "outlined"}
-                  color="inherit"
-                  sx={{ backgroundColor: edu === educationData[0] ? "white" : "transparent", boxShadow: "none" }}
-                />
-                <TimelineConnector sx={{ backgroundColor: "white" }} />
-              </TimelineSeparator>
-              <TimelineContent sx={{ fontFamily: "'Oswald'" }}>
-                <p className="timeline-title">{edu.school}</p>
-                <p className="timeline-info">
-                  {edu.department}
-                </p>
-                <p className="timeline-period">{edu.period}</p>
-              </TimelineContent>
-            </TimelineItem>
+        <ul className="timeline">
+          {educationData.map((edu, index) => (
+            <TimelineEntry key={edu.school} title={edu.school} info={edu.department} period={edu.period} current={index === 0} />
           ))}
-        </Timeline>
+        </ul>
       </div>
 
       <h2 className="title"><FaBriefcase aria-hidden="true"/>Work Experience</h2>
       <div className="content">
-        <Timeline position="right">
+        <ul className="timeline">
           {workData.map((work) => (
-            <TimelineItem key={work.company}>
-              <TimelineOppositeContent sx={{ display: "none" }}>
-              </TimelineOppositeContent>
-              <TimelineSeparator>
-                <TimelineConnector sx={{ backgroundColor: "white" }} />
-                <TimelineDot
-                  variant="outlined"
-                  color="inherit"
-                  sx={{ backgroundColor: "transparent", boxShadow: "none" }}
-                />
-                <TimelineConnector sx={{ backgroundColor: "white" }} />
-              </TimelineSeparator>
-              <TimelineContent sx={{ fontFamily: "'Oswald'" }}>
-                <p className="timeline-title">{work.company}</p>
-                <p className="timeline-info">
-                  {work.position}
-                </p>
-                <p className="timeline-period">{work.period}</p>
-              </TimelineContent>
-            </TimelineItem>
+            <TimelineEntry key={work.company} title={work.company} info={work.position} period={work.period} />
           ))}
-        </Timeline>
+        </ul>
       </div>
 
       <h2 className="title"><FaStar aria-hidden="true"/>Highlights</h2>

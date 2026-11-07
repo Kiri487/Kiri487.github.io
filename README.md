@@ -20,7 +20,7 @@ last skin you used is remembered, but a `?skin=` link always wins.
 ## Tech Stack
 
 - **Framework:** React 19 + TypeScript, built with Vite
-- **Kiri:** React Router, MUI
+- **Kiri:** React Router
 - **Kuru:** three.js through React Three Fiber, Drei and postprocessing
 - **Kere, Kara:** no extra libraries
 - **Icons:** react-icons; Kara uses the Tango icon theme and Fluent Emoji
