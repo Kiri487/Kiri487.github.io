@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { setCursor } from "../../../shared/scene/cursorManager";
 import { WALL_VIDEOS, type VideoConfig } from "./config";
 import { StackedAlphaVideo } from "../../../shared/scene/StackedAlphaVideo";
+import { prefersReducedMotion } from "../../../shared/motion";
 
 function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, onClick }: {
   config: VideoConfig;
@@ -146,6 +147,8 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
     duration: 0,
     swapAtPeak: false,
     nextGlitch: 6,
+    /** Glitches on its own now and then. Off when less motion is asked for; clicks can still set one off. */
+    ambient: true,
     swapCooldown: 0,
     prevIndex: 0,
     nextIndex: 0,
@@ -153,6 +156,7 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
 
   useEffect(() => {
     glitchState.current.nextGlitch = 6 + Math.random() * 6;
+    glitchState.current.ambient = !prefersReducedMotion();
   }, []);
 
   /* eslint-disable react-hooks/immutability -- R3F frame loop intentionally mutates video playback, refs, and Three.js objects. */
@@ -168,7 +172,7 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
       gs.nextGlitch = 6 + Math.random() * 6;
     }
 
-    if (gs.phase === "idle" && !pauseAmbient) {
+    if (gs.phase === "idle" && !pauseAmbient && gs.ambient) {
       gs.nextGlitch -= delta;
       if (gs.swapCooldown > 0) gs.swapCooldown -= delta;
       if (gs.nextGlitch <= 0) {

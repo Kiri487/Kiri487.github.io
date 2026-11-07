@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { prefersReducedMotion } from "../../../shared/motion";
 
 function KuruLighting({ exitHovered }: { exitHovered: boolean }) {
   const lampTarget = useMemo(() => {
@@ -28,8 +29,9 @@ function KuruLighting({ exitHovered }: { exitHovered: boolean }) {
     until: 0,
   });
 
+  // With less motion asked for, the lights never flicker: a flicker only ever starts from this countdown.
   useEffect(() => {
-    flickerState.current.next = 6 + Math.random() * 10;
+    flickerState.current.next = prefersReducedMotion() ? Infinity : 6 + Math.random() * 10;
   }, []);
 
   useFrame((_, delta) => {

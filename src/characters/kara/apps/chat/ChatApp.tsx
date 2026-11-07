@@ -4,6 +4,7 @@ import { useWindow } from "../../os/context";
 import { pickDifferent } from "../common/pickDifferent";
 import { CHAT_PARTNERS, chatTime, type ChatArgs } from "./conversations";
 import "./chat.css";
+import { prefersReducedMotion } from "../../../../shared/motion";
 
 const SHAKE: Keyframe[] = [
   { translate: "0 0" },
@@ -34,7 +35,7 @@ function ChatApp() {
     lastReplyRef.current = reply;
     setNotices((current) => [...current, "You have just sent a nudge.", reply]);
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (prefersReducedMotion()) return;
     // `translate` is separate from the transform that holds the window's position, so the two don't fight.
     rootRef.current?.closest(".kara-window")?.animate(SHAKE, { duration: 420 });
   };
