@@ -23,10 +23,14 @@ interface SceneProps {
   pauseAmbient?: boolean;
 }
 
+const STREET_MODEL = "/kuru/models/dirty_street.glb";
+/** The model is Draco-compressed. Its decoder is served from the site (copied from three's own), not Google's CDN. */
+const DRACO_DECODER = "/kuru/draco/";
+
 function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick, forceSwapRef, pauseAmbient }: SceneProps) {
   const [exitHovered, setExitHovered] = useState(false);
   const { playGlitch } = useSFX();
-  const { scene } = useGLTF("/kuru/models/dirty_street.glb", true);
+  const { scene } = useGLTF(STREET_MODEL, DRACO_DECODER);
   const graffitiTex = useTexture("/kuru/textures/kiri487_graffiti.webp");
   const worksTex = useTexture("/kuru/textures/works_sticker.webp");
   const creditsTex = useTexture("/kuru/textures/cited_sticker.webp");
@@ -145,6 +149,6 @@ function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCa
   );
 }
 
-useGLTF.preload("/kuru/models/dirty_street.glb", true);
+useGLTF.preload(STREET_MODEL, DRACO_DECODER);
 
 export default KuruScene;

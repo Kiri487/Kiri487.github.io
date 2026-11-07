@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Build and deploy
 
 # Pull requests only get checked; main gets checked and deployed.
 # Needs Settings → Pages → Source set to "GitHub Actions".

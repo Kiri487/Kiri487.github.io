@@ -12,6 +12,7 @@ import { playGrabSfx, playLandSfx, playTalkSfx } from "./petSfx";
 import { useIsPhone } from "./useIsPhone";
 import { readViewport } from "./windowManager";
 import { clamp } from "../../../shared/math";
+import { prefersReducedMotion } from "../../../shared/motion";
 
 /** Half the sprite files' size, so they stay sharp on high-density screens. */
 const WIDTH = 126;
@@ -283,7 +284,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   );
 
   useEffect(() => {
-    const stayStill = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const stayStill = prefersReducedMotion();
     const motion = motionRef.current;
     let frame = 0;
     let previous = performance.now();

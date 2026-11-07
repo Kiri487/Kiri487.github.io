@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
+import { prefersReducedMotion } from "../../../shared/motion";
 
 /* The home page background: faint white lines across the screen that shiver, and shiver more when the music gets
-   loud. A plain canvas, so the home page doesn't need a drawing library for it. */
+   loud. A plain canvas, so the home page doesn't need a drawing library for it. When the visitor has asked for
+   less motion, the lines are drawn once and stay still. */
 
 const BACKGROUND = "rgb(157, 162, 178)";
 const LINE_COLOR = "rgba(255, 255, 255, 0.39)";
@@ -66,6 +68,7 @@ function WaveCanvas({ analyser }: { analyser: AnalyserNode | null }) {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
+    const still = prefersReducedMotion();
     const noise = createNoise();
     const levels = new Uint8Array(128);
     let width = 0;
@@ -91,13 +94,13 @@ function WaveCanvas({ analyser }: { analyser: AnalyserNode | null }) {
     };
 
     const draw = (now: number) => {
-      frame = requestAnimationFrame(draw);
+      if (!still) frame = requestAnimationFrame(draw);
       const steps = lastFrame === null ? 1 : Math.min((now - lastFrame) / FRAME_MS, MAX_STEPS);
       lastFrame = now;
 
       let target = MIN_AMP;
       const source = analyserRef.current;
-      if (source) {
+      if (source && !still) {
         source.getByteFrequencyData(levels);
         let sum = 0;
         for (const level of levels) sum += level;
@@ -127,14 +130,20 @@ function WaveCanvas({ analyser }: { analyser: AnalyserNode | null }) {
       drift += DRIFT * steps;
     };
 
+    // Still lines are only redrawn when the screen changes size.
+    const redraw = () => {
+      resize();
+      if (still) draw(performance.now());
+    };
+
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", redraw);
     window.addEventListener("pointermove", trackPointer);
     frame = requestAnimationFrame(draw);
 
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", redraw);
       window.removeEventListener("pointermove", trackPointer);
     };
   }, []);
