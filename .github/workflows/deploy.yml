@@ -14,10 +14,11 @@ permissions:
   pages: write
   id-token: write
 
-# A newer push to main replaces a deployment still waiting in line.
+# A newer push to a pull request stops checking the old one. Deployments always finish, so the site is never
+# left half-deployed; a newer one waits its turn.
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -42,13 +43,13 @@ jobs:
         run: npm run build
 
       - name: Upload site
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
