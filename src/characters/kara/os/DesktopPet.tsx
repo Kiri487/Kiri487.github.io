@@ -11,6 +11,7 @@ import { findLedge, refreshLedge, type Ledge } from "./petLedges";
 import { playGrabSfx, playLandSfx, playTalkSfx } from "./petSfx";
 import { useIsPhone } from "./useIsPhone";
 import { readViewport } from "./windowManager";
+import { clamp } from "../../../shared/math";
 
 /** Half the sprite files' size, so they stay sharp on high-density screens. */
 const WIDTH = 126;
@@ -159,10 +160,10 @@ function pickWalkTarget(ledge: Ledge | null, maxX: number): number {
   if (!ledge) return Math.random() * maxX;
   if (Math.random() < WALK_OFF_CHANCE) {
     const edge = Math.random() < 0.5 ? ledge.left - 1 : ledge.right + 1;
-    return Math.min(Math.max(edge - WIDTH / 2, 0), maxX);
+    return clamp(edge - WIDTH / 2, 0, maxX);
   }
   const room = Math.max(0, ledge.right - ledge.left - WIDTH);
-  return Math.min(Math.max(ledge.left + Math.random() * room, 0), maxX);
+  return clamp(ledge.left + Math.random() * room, 0, maxX);
 }
 
 /** Kara herself. She lives on the desktop, behind the windows, until somebody picks her up and puts her in front or on top of one. */
@@ -265,7 +266,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     (centerX: number, centerY: number, line: string) => {
       const motion = motionRef.current;
       const viewport = readViewport();
-      motion.x = Math.min(Math.max(centerX - WIDTH / 2, 0), Math.max(0, viewport.width - WIDTH));
+      motion.x = clamp(centerX - WIDTH / 2, 0, viewport.width - WIDTH);
       motion.y = centerY - HEIGHT / 2;
       motion.mode = "fall";
       motion.velocityY = -BIN_HOP_SPEED;
@@ -666,12 +667,12 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     }
 
     const viewport = readViewport();
-    const nextX = Math.min(Math.max(x, 0), Math.max(0, viewport.width - WIDTH));
+    const nextX = clamp(x, 0, viewport.width - WIDTH);
     // A small dead zone, so a shaky hand holding her still doesn't make her flip back and forth.
     if (Math.abs(nextX - motion.x) >= FACING_DEAD_ZONE) setFacingRight(nextX > motion.x);
     motion.x = nextX;
     // Partly off the top is fine: it's how she reaches a window near the top of the screen.
-    motion.y = Math.min(Math.max(y, -HEIGHT / 2), viewport.height - HEIGHT);
+    motion.y = clamp(y, -HEIGHT / 2, viewport.height - HEIGHT);
 
     if (drag.bin) {
       const { box, element } = drag.bin;

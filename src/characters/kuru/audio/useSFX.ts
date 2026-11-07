@@ -1,14 +1,14 @@
 import { useCallback } from "react";
 import { resumeAudioContext } from "../../../shared/audio";
 import { readNumber } from "../../../shared/storage";
-
+import { clamp } from "../../../shared/math";
 
 function getVolume(): number {
-  return Math.max(0, Math.min(1, readNumber("bgmVolume", 0))) * 0.5;
+  return clamp(readNumber("bgmVolume", 0), 0, 1) * 0.5;
 }
 
 function clampSample(value: number): number {
-  return Math.max(-1, Math.min(1, value));
+  return clamp(value, -1, 1);
 }
 
 const useSFX = () => {

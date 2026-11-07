@@ -1,8 +1,8 @@
 import { memo, Suspense, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS } from "../apps/registry";
 import { DRAGGING_CLASS, useOs, WindowContext, type WindowApi } from "./context";
+import { clamp } from "../../../shared/math";
 import {
-  clamp,
   clampPosition,
   readViewport,
   resizeRect,

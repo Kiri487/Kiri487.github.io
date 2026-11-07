@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDialogFocus } from "../../os/useDialogFocus";
 import { DialogFrame, LineField } from "../common/gameDialogs";
 import { CUSTOM_LIMITS, DIFFICULTIES, DIFFICULTY_IDS, maxBurgers, type BestTimes, type Board } from "./difficulties";
+import { clamp } from "../../../../shared/math";
 
 interface CustomValues {
   rows: string;
@@ -19,10 +20,10 @@ function toValues({ rows, cols, burgers }: Board): CustomValues {
  */
 function fitBoard(values: CustomValues): Board {
   const { minRows, maxRows, minCols, maxCols, minBurgers } = CUSTOM_LIMITS;
-  const clamp = (value: string, min: number, max: number) => Math.min(Math.max(Number.parseInt(value, 10) || 0, min), max);
-  const rows = clamp(values.rows, minRows, maxRows);
-  const cols = clamp(values.cols, minCols, maxCols);
-  return { rows, cols, burgers: clamp(values.burgers, minBurgers, maxBurgers(rows, cols)) };
+  const fit = (value: string, min: number, max: number) => clamp(Number.parseInt(value, 10) || 0, min, max);
+  const rows = fit(values.rows, minRows, maxRows);
+  const cols = fit(values.cols, minCols, maxCols);
+  return { rows, cols, burgers: fit(values.burgers, minBurgers, maxBurgers(rows, cols)) };
 }
 
 export function CustomDialog({

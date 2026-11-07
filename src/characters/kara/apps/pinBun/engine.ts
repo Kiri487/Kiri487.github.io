@@ -1,3 +1,5 @@
+import { clamp } from "../../../../shared/math";
+
 /*
  * Pin Bun's table and everything that happens on it: the shapes, the ball's physics and the scoring. No React and
  * no drawing, so it runs the same whether anyone is watching. Units are the table's own pixels, y pointing down,
@@ -189,7 +191,7 @@ export const STRAW_LENGTH = strawLengths.reduce((sum, n) => sum + n, 0);
 
 /** Where along the straw `s` is, and which way the straw runs there. */
 export function strawAt(s: number): { x: number; y: number; tx: number; ty: number } {
-  let rest = Math.max(0, Math.min(STRAW_LENGTH, s));
+  let rest = clamp(s, 0, STRAW_LENGTH);
   for (let i = 0; i < strawLengths.length; i++) {
     const length = strawLengths[i];
     if (rest <= length || i === strawLengths.length - 1) {
@@ -571,7 +573,7 @@ function substep(game: Game, dt: number) {
     const up = flipperUp(game, i as 0 | 1);
     const target = up ? shape.up : shape.rest;
     const speed = up ? FLIPPER_UP_SPEED : FLIPPER_DOWN_SPEED;
-    const turn = Math.max(-speed * dt, Math.min(speed * dt, target - flipper.angle));
+    const turn = clamp(target - flipper.angle, -speed * dt, speed * dt);
     flipper.angle += turn;
     flipper.omega = turn / dt;
   });
@@ -789,7 +791,7 @@ function collideSegment(
 ): Hit | null {
   const dx = s.bx - s.ax;
   const dy = s.by - s.ay;
-  const t = Math.max(0, Math.min(1, ((ball.x - s.ax) * dx + (ball.y - s.ay) * dy) / (dx * dx + dy * dy)));
+  const t = clamp(((ball.x - s.ax) * dx + (ball.y - s.ay) * dy) / (dx * dx + dy * dy), 0, 1);
   const cx = s.ax + t * dx;
   const cy = s.ay + t * dy;
   const ex = ball.x - cx;
