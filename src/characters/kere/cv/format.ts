@@ -2,15 +2,6 @@ import type { Skill } from "../../../data/portfolio";
 
 /** Formatting helpers shared by the CV and the assistant. */
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** Sortable start of a "Mon YYYY - Mon YYYY" period (year * 12 + month); falls back to the bare year. */
-export function periodStart(period: string | undefined, year: string): number {
-  const match = period?.match(/^([A-Z][a-z]{2}) (\d{4})/);
-  if (match) return parseInt(match[2], 10) * 12 + MONTHS.indexOf(match[1]);
-  return parseInt(year, 10) * 12;
-}
-
 const NO_BREAK_SPACE = String.fromCharCode(160);
 
 /**

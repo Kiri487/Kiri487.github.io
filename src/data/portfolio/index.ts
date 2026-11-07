@@ -7,3 +7,4 @@ export type { WorkItem, IconType } from "./works";
 export { contacts } from "./contacts";
 export type { Contact } from "./contacts";
 export type { Tech } from "./tech";
+export { periodStart } from "./period";
