@@ -15,6 +15,11 @@ const REMOVE_REFUSALS: ((title: string) => string)[] = [
   () => "Removed successfully. It came back.",
 ];
 
+/** The 64px copy kept for list icons, in a `thumbs` folder next to the full picture. */
+function thumbnailOf(img: string): string {
+  return img.replace(/\/([^/]+)$/, "/thumbs/$1");
+}
+
 /** Links inside shared descriptions are plain anchors, which would navigate away from the whole desktop. */
 function openLinksInNewTab(event: MouseEvent<HTMLDivElement>) {
   const link = (event.target as Element).closest("a");
@@ -39,7 +44,7 @@ function ProgramRow({
   return (
     <div className={`kara-program${expanded ? " kara-program--expanded" : ""}`}>
       <button type="button" className="kara-program__head" aria-expanded={expanded} onClick={onToggle}>
-        <img className="kara-program__icon" src={project.img} alt="" loading="lazy" decoding="async" draggable={false} />
+        <img className="kara-program__icon" src={thumbnailOf(project.img)} alt="" loading="lazy" decoding="async" draggable={false} />
         <span className="kara-program__name">{project.title}</span>
         <span className="kara-program__kind">{kind}</span>
       </button>

@@ -1,18 +1,18 @@
 import type { Tech } from "./tech";
 
-const SIMPLE_PPT_IMG = "/kiri/img/SimplePPT.png";
-const DATA_VIS_IMG = "/kiri/img/DataVis.png";
-const CT_AND_CE_IMG = "/kiri/img/ComputerTypographyAndCharacterEncoding.png";
-const CA_IMG = "/kiri/img/ComputerAnimation.png";
-const BOXBOB_IMG = "/kiri/img/BoxBob.png";
-const REDDIT_IMG = "/kiri/img/RedditSentimentAnalysis.png";
-const RANSOMCHECK_IMG = "/kiri/img/RANsomCheck.png";
-const ELECOOKIES_IMG = "/kiri/img/Elecookies.png";
-const AI_KASSUS_IMG = "/kiri/img/AiKassus.png";
-const MYSTIC_SHOP_IMG = "/kiri/img/MysticShopLUIS.png";
-const GRAVITY_DRIFT_IMG = "/kiri/img/GravityDrift.png";
-const MIKIRI_MURA_IMG = "/kiri/img/MikiriMura.png";
-const RESTORT_IMG = "/kiri/img/RESTort.jpg";
+const SIMPLE_PPT_IMG = "/kiri/img/SimplePPT.webp";
+const DATA_VIS_IMG = "/kiri/img/DataVis.webp";
+const CT_AND_CE_IMG = "/kiri/img/ComputerTypographyAndCharacterEncoding.webp";
+const CA_IMG = "/kiri/img/ComputerAnimation.webp";
+const BOXBOB_IMG = "/kiri/img/BoxBob.webp";
+const REDDIT_IMG = "/kiri/img/RedditSentimentAnalysis.webp";
+const RANSOMCHECK_IMG = "/kiri/img/RANsomCheck.webp";
+const ELECOOKIES_IMG = "/kiri/img/Elecookies.webp";
+const AI_KASSUS_IMG = "/kiri/img/AiKassus.webp";
+const MYSTIC_SHOP_IMG = "/kiri/img/MysticShopLUIS.webp";
+const GRAVITY_DRIFT_IMG = "/kiri/img/GravityDrift.webp";
+const MIKIRI_MURA_IMG = "/kiri/img/MikiriMura.webp";
+const RESTORT_IMG = "/kiri/img/RESTort.webp";
 
 export interface ProjectLink {
   label: string;
