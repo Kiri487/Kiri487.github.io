@@ -30,19 +30,12 @@ export default defineConfig({
   base: '/',
   plugins: [react(), staticSubpages()],
 build: {
-    // p5 and Kuru's three.js are each one big library, so splitting them further wouldn't get under a lower limit.
+    // Kuru's three.js is one big library, so splitting it further wouldn't get under a lower limit.
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
-      onwarn(warning, warn) {
-        // p5 depends on zod, whose comments Rollup can't read and simply drops. Harmless, and not ours to fix.
-        if (warning.code === 'INVALID_ANNOTATION' && /node_modules[\\/]zod[\\/]/.test(warning.id ?? '')) return
-        warn(warning)
-      },
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'mui-vendor': ['@mui/material', '@mui/lab', '@emotion/react', '@emotion/styled'],
-          'p5-vendor': ['p5'],
           'icons-vendor': ['react-icons']
         }
       }

@@ -12,15 +12,15 @@
   width: min(340px, 100%);
   padding: 0 3px 3px;
   border-radius: 7px 7px 0 0;
-  background: linear-gradient(#7f9150, #5f7136 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
-  box-shadow: 2px 3px 10px rgba(30, 30, 10, 0.45);
+  background: var(--kara-frame-active);
+  box-shadow: var(--kara-frame-shadow);
 }
 
 [data-skin="kara"] .kara-message__title {
   padding: 5px 5px 6px;
   color: #fff;
   font: bold 13px var(--kara-title-font);
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--kara-title-shadow);
 }
 
 [data-skin="kara"] .kara-message__body {

@@ -1,4 +1,5 @@
 import type { AppId } from "../apps/registry";
+import { clamp } from "../../../shared/math";
 
 /** Keep in sync with --kara-taskbar-height in ../style.css. */
 const TASKBAR_HEIGHT = 32;
@@ -64,8 +65,8 @@ export type OsAction =
   | { type: "blur" }
   | { type: "minimize"; id: string }
   | { type: "toggleMaximize"; id: string }
-  | { type: "move"; id: string; x: number; y: number; viewport: Viewport }
-  | { type: "resize"; id: string; rect: WindowRect; viewport: Viewport }
+  /** Moves, and resizes too when a size is given. Either way the title bar stays reachable. */
+  | { type: "place"; id: string; x: number; y: number; size?: WindowSize; viewport: Viewport }
   | { type: "setTitle"; id: string; title: string }
   | { type: "fitViewport"; viewport: Viewport }
   | { type: "reset" };
@@ -80,10 +81,6 @@ export const INITIAL_OS_STATE: OsState = {
 /** The desktop area: everything above the taskbar. */
 export function readViewport(): Viewport {
   return { width: window.innerWidth, height: window.innerHeight - TASKBAR_HEIGHT };
-}
-
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), Math.max(min, max));
 }
 
 /** Windows may hang off the sides and bottom, but their title bar stays reachable. */
@@ -202,17 +199,13 @@ export function osReducer(state: OsState, action: OsAction): OsState {
       return win ? raise(state, win.id, { maximized: !win.maximized }) : state;
     }
 
-    case "move": {
+    case "place": {
       const win = state.windows.find((candidate) => candidate.id === action.id);
       if (!win) return state;
-      const { x, y } = clampPosition(action.x, action.y, win.width, action.viewport);
-      return x === win.x && y === win.y ? state : updateWindow(state, win.id, { x, y });
-    }
-
-    case "resize": {
-      const { width, height } = action.rect;
-      const { x, y } = clampPosition(action.rect.x, action.rect.y, width, action.viewport);
-      return updateWindow(state, action.id, { x, y, width, height });
+      const { width, height } = action.size ?? win;
+      const { x, y } = clampPosition(action.x, action.y, width, action.viewport);
+      const unchanged = x === win.x && y === win.y && width === win.width && height === win.height;
+      return unchanged ? state : updateWindow(state, win.id, { x, y, width, height });
     }
 
     case "setTitle":

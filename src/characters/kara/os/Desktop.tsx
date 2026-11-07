@@ -15,6 +15,7 @@ import { DRAGGING_CLASS, useOs } from "./context";
 import { isTouchPointer, openGesture } from "./openGesture";
 import { usePetInBin } from "./petBin";
 import { useIsPhone } from "./useIsPhone";
+import { clamp } from "../../../shared/math";
 
 /** How far the pointer must travel before a press on the desktop counts as a drag and not a click. */
 const DRAG_THRESHOLD = 3;
@@ -319,8 +320,8 @@ function Desktop() {
     }
 
     const { bounds } = drag;
-    const x = Math.min(Math.max(event.clientX, bounds.left), bounds.right);
-    const y = Math.min(Math.max(event.clientY, bounds.top), bounds.bottom);
+    const x = clamp(event.clientX, bounds.left, bounds.right);
+    const y = clamp(event.clientY, bounds.top, bounds.bottom);
     const box = {
       left: Math.min(drag.startX, x),
       top: Math.min(drag.startY, y),
@@ -395,8 +396,8 @@ function Desktop() {
     }
 
     const { limits } = drag;
-    drag.dx = Math.min(Math.max(event.clientX - drag.startX, limits.left), limits.right);
-    drag.dy = Math.min(Math.max(event.clientY - drag.startY, limits.top), limits.bottom);
+    drag.dx = clamp(event.clientX - drag.startX, limits.left, limits.right);
+    drag.dy = clamp(event.clientY - drag.startY, limits.top, limits.bottom);
     setDragOffset({ labels: new Set(drag.labels), dx: drag.dx, dy: drag.dy });
 
     // Whatever is under the pointer once the carried icons are out of the way. A window over the bin hides it.

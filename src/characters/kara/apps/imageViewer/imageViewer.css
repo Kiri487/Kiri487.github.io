@@ -37,7 +37,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 [data-skin="kara"] .kara-viewer__missing p {
@@ -50,7 +50,7 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-top: 1px solid #b4b19e;
+  border-top: 1px solid var(--kara-divider);
   background: var(--kara-menu-face);
 }
 
@@ -68,18 +68,18 @@
 
 [data-skin="kara"] .kara-viewer__button:hover {
   border-color: #b4bb9c;
-  background: linear-gradient(#fff, #e6e8d3);
+  background: linear-gradient(#fff, var(--kara-pane));
 }
 
 [data-skin="kara"] .kara-viewer__position {
   padding: 0 6px;
-  color: #5c6147;
+  color: var(--kara-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
 [data-skin="kara"] .kara-viewer__link {
   margin-left: auto;
-  color: #3f4d1f;
+  color: var(--kara-text-heading);
 }
 
 [data-skin="kara"] .kara-viewer__link:hover {

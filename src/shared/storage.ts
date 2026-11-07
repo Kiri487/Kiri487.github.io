@@ -36,6 +36,21 @@ export function writeBoolean(key: string, value: boolean): void {
   writeString(key, String(value));
 }
 
+/** The parsed value, or null when nothing is saved or it isn't valid JSON. Callers still check its shape. */
+export function readJson(key: string): unknown {
+  const raw = readString(key);
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function writeJson(key: string, value: unknown): void {
+  writeString(key, JSON.stringify(value));
+}
+
 /** A finite number within [min, max], or `fallback`. */
 export function readNumber(
   key: string,

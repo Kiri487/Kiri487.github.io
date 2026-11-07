@@ -14,7 +14,7 @@
   margin: 8px 8px 0;
   padding: 5px 7px;
   border: 2px solid;
-  border-color: #a9a690 #fff #fff #a9a690;
+  border-color: var(--kara-bevel-dark) #fff #fff var(--kara-bevel-dark);
 }
 
 [data-skin="kara"] .kara-scoreboard__counter {
@@ -96,7 +96,7 @@
 
 /* Pressed in, the way a toggled XP toolbar button looks. */
 [data-skin="kara"] .kara-pad__button[aria-pressed="true"] {
-  background: #cfccb8;
+  background: var(--kara-well);
 }
 
 [data-skin="kara"] .kara-pad__button[aria-pressed="true"] > img {

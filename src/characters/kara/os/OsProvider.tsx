@@ -26,8 +26,9 @@ function OsProvider({ children }: { children: ReactNode }) {
       blurWindows: () => dispatch({ type: "blur" }),
       minimizeWindow: (id) => dispatch({ type: "minimize", id }),
       toggleMaximizeWindow: (id) => dispatch({ type: "toggleMaximize", id }),
-      moveWindow: (id, x, y) => dispatch({ type: "move", id, x, y, viewport: readViewport() }),
-      resizeWindow: (id, rect) => dispatch({ type: "resize", id, rect, viewport: readViewport() }),
+      moveWindow: (id, x, y) => dispatch({ type: "place", id, x, y, viewport: readViewport() }),
+      resizeWindow: (id, { x, y, width, height }) =>
+        dispatch({ type: "place", id, x, y, size: { width, height }, viewport: readViewport() }),
       setWindowTitle: (id, title) => dispatch({ type: "setTitle", id, title }),
       reset: () => dispatch({ type: "reset" }),
     }),

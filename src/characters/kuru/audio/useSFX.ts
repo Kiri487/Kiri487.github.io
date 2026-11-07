@@ -1,24 +1,14 @@
 import { useCallback } from "react";
+import { resumeAudioContext } from "../../../shared/audio";
 import { readNumber } from "../../../shared/storage";
-
-let ctx: AudioContext | null = null;
-
-function getCtx(): AudioContext {
-  if (!ctx) ctx = new AudioContext();
-
-  if (ctx.state === "suspended") {
-    void ctx.resume();
-  }
-
-  return ctx;
-}
+import { clamp } from "../../../shared/math";
 
 function getVolume(): number {
-  return Math.max(0, Math.min(1, readNumber("bgmVolume", 0))) * 0.5;
+  return clamp(readNumber("bgmVolume", 0), 0, 1) * 0.5;
 }
 
 function clampSample(value: number): number {
-  return Math.max(-1, Math.min(1, value));
+  return clamp(value, -1, 1);
 }
 
 const useSFX = () => {
@@ -26,7 +16,7 @@ const useSFX = () => {
     const vol = getVolume();
     if (vol <= 0) return;
 
-    const c = getCtx();
+    const c = resumeAudioContext();
     const t = c.currentTime;
 
     const osc = c.createOscillator();
@@ -52,7 +42,7 @@ const useSFX = () => {
     const vol = getVolume();
     if (vol <= 0) return;
 
-    const c = getCtx();
+    const c = resumeAudioContext();
     const t = c.currentTime;
 
     const duration = 0.19 + Math.random() * 0.07;

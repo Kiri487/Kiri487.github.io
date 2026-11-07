@@ -19,7 +19,7 @@
   min-width: 0;
   padding: 8px 10px;
   overflow-y: auto;
-  border: 1px solid #a7a58f;
+  border: 1px solid var(--kara-border);
   background: #fff;
   line-height: 1.45;
 }
@@ -32,7 +32,7 @@
   margin: 0 0 6px;
   padding-bottom: 2px;
   border-bottom: 1px solid #e3e1d2;
-  color: #5c6147;
+  color: var(--kara-text-muted);
   font-size: 12px;
   font-weight: normal;
 }
@@ -43,7 +43,7 @@
 }
 
 [data-skin="kara"] .kara-chat__sender {
-  color: #3f4d1f;
+  color: var(--kara-text-heading);
   font-weight: bold;
 }
 
@@ -76,7 +76,7 @@
 
 [data-skin="kara"] .kara-chat__status {
   min-width: 0;
-  color: #5c6147;
+  color: var(--kara-text-muted);
 }
 
 /* Two avatars need about 220px of height, and the history needs the width more than they do. */

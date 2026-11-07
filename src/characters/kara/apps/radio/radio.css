@@ -10,7 +10,7 @@
   flex: none;
   padding: 3px 7px;
   border-bottom: 1px solid #d8d5c3;
-  color: #3f4d1f;
+  color: var(--kara-text-heading);
   font-weight: bold;
 }
 
@@ -38,7 +38,7 @@
   flex: none;
   padding: 3px 7px;
   overflow: hidden;
-  border-top: 1px solid #b4b19e;
+  border-top: 1px solid var(--kara-divider);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -58,8 +58,8 @@
 }
 
 [data-skin="kara"] .kara-radio__button:disabled {
-  border-color: #a7a58f;
-  color: #a7a58f;
+  border-color: var(--kara-border);
+  color: var(--kara-border);
 }
 
 [data-skin="kara"] .kara-radio__progress {
@@ -79,7 +79,7 @@
   flex: 1;
   min-width: 0;
   margin: 0;
-  accent-color: #5f7136;
+  accent-color: var(--kara-accent);
 }
 
 [data-skin="kara"] .kara-radio__volume {
@@ -93,7 +93,7 @@
 [data-skin="kara"] .kara-radio__volume-slider {
   width: 80px;
   margin: 0;
-  accent-color: #5f7136;
+  accent-color: var(--kara-accent);
 }
 
 [data-skin="kara"] .kara-radio__tracks {
@@ -101,7 +101,7 @@
   margin: 0;
   padding: 0;
   overflow-y: auto;
-  border-top: 1px solid #b4b19e;
+  border-top: 1px solid var(--kara-divider);
   background: #fff;
   list-style: none;
 }
@@ -119,7 +119,7 @@
 }
 
 [data-skin="kara"] .kara-radio__track:focus {
-  outline: 1px dotted #5f7136;
+  outline: 1px dotted var(--kara-accent);
   outline-offset: -1px;
 }
 

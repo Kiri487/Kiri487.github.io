@@ -1,25 +1,41 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Contact from "../components/Contact";
-import P5Canvas from "../components/P5Canvas";
+import WaveCanvas from "../components/WaveCanvas";
 import { FaCat } from "react-icons/fa";
-import CircularProgress from "@mui/material/CircularProgress";
 
 interface HomeProps {
   videoWebm: string;
   videoMov: string;
+  poster: string;
   analyser: AnalyserNode | null;
 }
 
+function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  // Which video is ready to show. Tied to the source, so a new video starts on its poster again.
+  const [readySrc, setReadySrc] = useState<string | null>(null);
+  const isLoaded = readySrc === videoWebm;
 
-function Home({ videoWebm, videoMov, analyser }: HomeProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
+  // Waits for the video by looking, not by its canplay event: a video already in the browser's cache can be ready
+  // before React listens, and then the event never arrives and the poster would stay forever.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let frame = 0;
+    const check = () => {
+      if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) setReadySrc(videoWebm);
+      else frame = requestAnimationFrame(check);
+    };
+    frame = requestAnimationFrame(check);
+    return () => cancelAnimationFrame(frame);
+  }, [videoWebm]);
 
   return (
     <div className="home">
       <title>Kiri487</title>
       <meta name="description" content="Kiri487's personal website — a programmer, a creator, and a cat." />
-      <div className="P5-canvas">
-        <P5Canvas analyser={analyser} />
+      <div className="home-background">
+        <WaveCanvas analyser={analyser} />
       </div>
       <div className="intro">
         <p className="intro-greeting">Hi, I'm Kiri!</p>
@@ -36,11 +52,12 @@ function Home({ videoWebm, videoMov, analyser }: HomeProps) {
       </div>
 
       <div className="home-video">
-        {!isLoaded && <CircularProgress color="inherit" size="5rem"/>}
+        {/* The video's first frame, so Kiri is there at once. The video starts from that same frame. */}
+        {!isLoaded && <img className="home-video-poster" src={poster} alt="" fetchPriority="high" />}
         <video
           key={videoWebm}
+          ref={videoRef}
           autoPlay loop muted playsInline
-          onCanPlay={() => setIsLoaded(true) }
           style={{ display: isLoaded ? 'block' : 'none' }}
           aria-label="Looping animation of Kiri's 3D character model">
           <source src={videoMov} type="video/quicktime" />

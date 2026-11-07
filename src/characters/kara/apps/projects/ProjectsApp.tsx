@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type MouseEvent } from "react";
+import { useMemo, useRef, useState, type MouseEvent, type SyntheticEvent } from "react";
 import { ComputerIcon, FolderIcon, TerminalIcon } from "../../icons";
 import MessageBox from "../common/MessageBox";
 import { openExternal } from "../common/openExternal";
@@ -14,6 +14,19 @@ const REMOVE_REFUSALS: ((title: string) => string)[] = [
   (title) => `${title} does not consent.`,
   () => "Removed successfully. It came back.",
 ];
+
+/** The 64px copy kept for list icons, in a `thumbs` folder next to the full picture. */
+function thumbnailOf(img: string): string {
+  return img.replace(/\/([^/]+)$/, "/thumbs/$1");
+}
+
+/** A project added without a thumbnail still gets an icon: the full picture, once. */
+function showFullPicture(event: SyntheticEvent<HTMLImageElement>, img: string) {
+  const icon = event.currentTarget;
+  if (icon.dataset.fullPicture) return;
+  icon.dataset.fullPicture = "true";
+  icon.src = img;
+}
 
 /** Links inside shared descriptions are plain anchors, which would navigate away from the whole desktop. */
 function openLinksInNewTab(event: MouseEvent<HTMLDivElement>) {
@@ -39,7 +52,15 @@ function ProgramRow({
   return (
     <div className={`kara-program${expanded ? " kara-program--expanded" : ""}`}>
       <button type="button" className="kara-program__head" aria-expanded={expanded} onClick={onToggle}>
-        <img className="kara-program__icon" src={project.img} alt="" loading="lazy" decoding="async" draggable={false} />
+        <img
+          className="kara-program__icon"
+          src={thumbnailOf(project.img)}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onError={(event) => showFullPicture(event, project.img)}
+        />
         <span className="kara-program__name">{project.title}</span>
         <span className="kara-program__kind">{kind}</span>
       </button>

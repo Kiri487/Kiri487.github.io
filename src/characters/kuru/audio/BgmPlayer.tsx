@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { IoPlaySharp, IoPauseSharp, IoPlaySkipBackSharp, IoPlaySkipForwardSharp, IoVolumeHighSharp, IoVolumeMuteSharp } from "react-icons/io5";
 import { readBoolean, readNumber, writeBoolean, writeString } from "../../../shared/storage";
+import { clamp } from "../../../shared/math";
 
 const TRACKS = [
   { file: "/kuru/bgm/tunetank-lo-fi-hip-hop-background-347200.mp3", title: "Lo-Fi Hip Hop Background" },
@@ -121,7 +122,7 @@ function BgmPlayer() {
     const audio = audioRef.current;
     if (!audio || !audio.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
     audio.currentTime = ratio * audio.duration;
   };
 

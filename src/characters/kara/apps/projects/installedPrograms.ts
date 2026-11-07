@@ -1,24 +1,16 @@
-import { personalProjects, teamProjects, type Project } from "../../../../data/portfolio";
+import { periodStart, personalProjects, teamProjects, type Project } from "../../../../data/portfolio";
 
 export type ProgramSort = "date" | "name" | "type";
 
 export interface InstalledProgram {
   project: Project;
   kind: "Personal" | "Team";
-  /** Months since year 0, from the start of the project's period. Only used for sorting. */
+  /** From periodStart. Only used for sorting. */
   startedAt: number;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function startOf({ period, year }: Project): number {
-  if (!period) return Number(year) * 12;
-  const [month, startYear] = period.split(" - ")[0].split(" ");
-  return Number(startYear) * 12 + MONTHS.indexOf(month);
-}
-
 function toProgram(kind: InstalledProgram["kind"]) {
-  return (project: Project): InstalledProgram => ({ project, kind, startedAt: startOf(project) });
+  return (project: Project): InstalledProgram => ({ project, kind, startedAt: periodStart(project) });
 }
 
 const PROGRAMS: InstalledProgram[] = [...personalProjects.map(toProgram("Personal")), ...teamProjects.map(toProgram("Team"))];

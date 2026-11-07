@@ -17,6 +17,6 @@
 
 [data-skin="kara"] .kara-menu-button:hover,
 [data-skin="kara"] .kara-menu-button[aria-expanded="true"] {
-  background: #5f7136;
+  background: var(--kara-accent);
   color: #fff;
 }

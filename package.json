@@ -8,20 +8,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.7",
-    "@mui/lab": "^7.0.1-beta.21",
-    "@mui/material": "^7.3.7",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@react-three/postprocessing": "^3.0.4",
-    "p5": "^2.1.2",
     "postprocessing": "^6.39.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -31,7 +23,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/p5": "^1.7.7",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.184.1",
@@ -39,7 +30,6 @@
     "eslint": "^9.39.2",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
-    "gh-pages": "^6.3.0",
     "globals": "^17.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.52.0",

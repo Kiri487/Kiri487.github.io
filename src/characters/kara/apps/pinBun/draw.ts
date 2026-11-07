@@ -36,6 +36,7 @@ import {
   isSaving,
   type Game,
 } from "./engine";
+import { clamp } from "../../../../shared/math";
 
 /** How long something stays lit after being hit, in seconds. */
 const HIT_GLOW = 0.15;
@@ -777,7 +778,7 @@ const STRAW_TOTAL = STRAW_DISTANCES[STRAW_DISTANCES.length - 1];
 
 /** A point on one of the straw's offset lines, `s` along it. */
 function along(line: [number, number][], s: number): [number, number] {
-  const at = Math.max(0, Math.min(STRAW_TOTAL, s));
+  const at = clamp(s, 0, STRAW_TOTAL);
   let i = 1;
   while (i < STRAW_DISTANCES.length - 1 && STRAW_DISTANCES[i] < at) i++;
   const from = STRAW_DISTANCES[i - 1];

@@ -355,7 +355,7 @@ html[data-skin="kiri"] body {
   padding: 1rem 0;
 }
 
-[data-skin="kiri"] .P5-canvas {
+[data-skin="kiri"] .home-background {
   position: fixed;
   top: 0;
   left: 0;
@@ -364,6 +364,12 @@ html[data-skin="kiri"] body {
   overflow: hidden;
   z-index: 1;
   touch-action: none;
+}
+
+[data-skin="kiri"] .wave-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 [data-skin="kiri"] .intro {
@@ -394,7 +400,8 @@ html[data-skin="kiri"] body {
   z-index: 2;
 }
 
-[data-skin="kiri"] .home-video video {
+[data-skin="kiri"] .home-video video,
+[data-skin="kiri"] .home-video-poster {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -420,6 +427,60 @@ html[data-skin="kiri"] body {
 }
 
 /* about page */
+
+/* Timelines: a white line down the left, a ring at each stop. Sizes match the MUI Timeline this replaced. */
+[data-skin="kiri"] .timeline {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  padding: 6px 16px;
+}
+
+[data-skin="kiri"] .timeline-item {
+  display: flex;
+  position: relative;
+  min-height: 70px;
+  list-style: none;
+}
+
+[data-skin="kiri"] .timeline-separator {
+  display: flex;
+  flex: 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+[data-skin="kiri"] .timeline-connector {
+  flex-grow: 1;
+  width: 2px;
+  background-color: white;
+}
+
+[data-skin="kiri"] .timeline-dot {
+  display: flex;
+  align-self: baseline;
+  margin: 11.5px 0;
+  padding: 4px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+}
+
+[data-skin="kiri"] .timeline-dot--current {
+  border-color: transparent;
+  background-color: white;
+}
+
+[data-skin="kiri"] .timeline-content {
+  flex: 1;
+  margin: 0;
+  padding: 6px 16px;
+  font-family: 'Oswald';
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.00938em;
+  text-align: left;
+}
 
 [data-skin="kiri"] .timeline-title {
   font-size: 1.2rem;

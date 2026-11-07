@@ -17,6 +17,22 @@
   --kara-window-face: #e9e7d8;
   --kara-menu-face: #f1efe2;
   --kara-olive-dark: #4e5e28;
+  /* Selection, menu highlights and other solid olive accents. */
+  --kara-accent: #5f7136;
+  --kara-text-muted: #5c6147;
+  --kara-text-heading: #3f4d1f;
+  /* Light panes, sunken wells and the lines between them. */
+  --kara-pane: #e6e8d3;
+  --kara-well: #cfccb8;
+  --kara-divider: #b4b19e;
+  --kara-border: #a7a58f;
+  /* The dark side of a sunken bevel; the light side is white. */
+  --kara-bevel-dark: #a9a690;
+
+  /* The frame of a focused window, shared by message boxes. */
+  --kara-frame-active: linear-gradient(#7f9150, var(--kara-accent) 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
+  --kara-frame-shadow: 2px 3px 10px rgba(30, 30, 10, 0.45);
+  --kara-title-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
   --kara-font: Tahoma, Verdana, "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
   --kara-title-font: "Trebuchet MS", Tahoma, "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif;
 }
@@ -219,7 +235,7 @@
 [data-skin="kara"] .kara-context-menu__item:hover,
 [data-skin="kara"] .kara-context-menu__item:focus-visible,
 [data-skin="kara"] .kara-context-menu__item[aria-expanded="true"] {
-  background: #5f7136;
+  background: var(--kara-accent);
   color: #fff;
   outline: none;
 }
@@ -279,12 +295,12 @@
   padding: 0 3px 3px;
   border-radius: 8px 8px 0 0;
   background: linear-gradient(#b4bb9c, #a3ab89 45%, #959d7b);
-  box-shadow: 2px 3px 10px rgba(30, 30, 10, 0.45);
+  box-shadow: var(--kara-frame-shadow);
   pointer-events: auto;
 }
 
 [data-skin="kara"] .kara-window--focused {
-  background: linear-gradient(#7f9150, #5f7136 12%, #6c7e42 45%, #586a30 88%, #4a5a26);
+  background: var(--kara-frame-active);
 }
 
 /* visibility, not display: a hidden window keeps its size, so a 3D canvas doesn't collapse and video keeps playing. */
@@ -307,7 +323,7 @@
   padding: 0 3px 0 7px;
   color: #fff;
   font: bold 13px var(--kara-title-font);
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--kara-title-shadow);
   touch-action: none;
 }
 
@@ -821,7 +837,7 @@
   width: 16px;
   height: 16px;
   padding: 0;
-  border: 1px solid #a7a58f;
+  border: 1px solid var(--kara-border);
   border-radius: 2px;
   background: none;
   color: #000;
@@ -851,10 +867,10 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  background: linear-gradient(#7f9150, #5f7136 30%, #6c7e42);
+  background: linear-gradient(#7f9150, var(--kara-accent) 30%, #6c7e42);
   color: #fff;
   font: bold 15px var(--kara-title-font);
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--kara-title-shadow);
 }
 
 [data-skin="kara"] .kara-avatar {
@@ -896,8 +912,8 @@
 }
 
 [data-skin="kara"] .kara-start-menu__column--side {
-  border-left: 1px solid #cfccb8;
-  background: #e6e8d3;
+  border-left: 1px solid var(--kara-well);
+  background: var(--kara-pane);
 }
 
 [data-skin="kara"] .kara-start-menu__item {
@@ -919,7 +935,7 @@
 
 [data-skin="kara"] .kara-start-menu__item:hover,
 [data-skin="kara"] .kara-start-menu__item:focus-visible {
-  background: #5f7136;
+  background: var(--kara-accent);
   color: #fff;
   outline: none;
 }
@@ -928,7 +944,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 5px 8px;
-  background: linear-gradient(#7f9150, #5f7136);
+  background: linear-gradient(#7f9150, var(--kara-accent));
 }
 
 [data-skin="kara"] .kara-start-menu__power {
@@ -974,7 +990,7 @@
 [data-skin="kara"] .kara-shutdown__title {
   margin: 0;
   padding: 10px 12px;
-  background: linear-gradient(#5f7136, #4a5a26);
+  background: linear-gradient(var(--kara-accent), #4a5a26);
   color: #fff;
   font: normal 16px var(--kara-title-font);
 }
@@ -995,7 +1011,7 @@
   border: 0;
   background: none;
   color: #fff;
-  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--kara-title-shadow);
 }
 
 [data-skin="kara"] .kara-shutdown__option-icon {
@@ -1011,7 +1027,7 @@
   display: flex;
   justify-content: flex-end;
   padding: 8px 12px;
-  background: linear-gradient(#5f7136, #4a5a26);
+  background: linear-gradient(var(--kara-accent), #4a5a26);
 }
 
 [data-skin="kara"] .kara-shutdown__cancel {

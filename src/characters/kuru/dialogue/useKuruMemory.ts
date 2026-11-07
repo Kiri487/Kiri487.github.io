@@ -9,6 +9,7 @@ import {
   type TimePeriod,
   type DialogueEntry,
 } from "./catDialogues";
+import { readJson, writeJson } from "../../../shared/storage";
 
 const STORAGE_KEY = "kuruMemory";
 const VISIT_INTERVAL_MS = 3 * 60 * 60 * 1000;
@@ -20,34 +21,27 @@ interface KuruMemory {
 }
 
 function loadMemory(): KuruMemory {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { score: 0, lastVisit: 0, answeredChoices: [] };
-
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed === "object" && parsed !== null &&
-      "score" in parsed && "lastVisit" in parsed &&
-      typeof (parsed as KuruMemory).score === "number" &&
-      Number.isFinite((parsed as KuruMemory).score) &&
-      typeof (parsed as KuruMemory).lastVisit === "number" &&
-      Number.isFinite((parsed as KuruMemory).lastVisit)
-    ) {
-      const ac = (parsed as Record<string, unknown>).answeredChoices;
-      return {
-        score: Math.max(0, (parsed as KuruMemory).score),
-        lastVisit: Math.max(0, (parsed as KuruMemory).lastVisit),
-        answeredChoices: Array.isArray(ac) ? ac.filter((v): v is string => typeof v === "string") : [],
-      };
-    }
-  } catch { /* corrupt or unavailable storage */ }
+  const parsed = readJson(STORAGE_KEY);
+  if (
+    typeof parsed === "object" && parsed !== null &&
+    "score" in parsed && "lastVisit" in parsed &&
+    typeof (parsed as KuruMemory).score === "number" &&
+    Number.isFinite((parsed as KuruMemory).score) &&
+    typeof (parsed as KuruMemory).lastVisit === "number" &&
+    Number.isFinite((parsed as KuruMemory).lastVisit)
+  ) {
+    const ac = (parsed as Record<string, unknown>).answeredChoices;
+    return {
+      score: Math.max(0, (parsed as KuruMemory).score),
+      lastVisit: Math.max(0, (parsed as KuruMemory).lastVisit),
+      answeredChoices: Array.isArray(ac) ? ac.filter((v): v is string => typeof v === "string") : [],
+    };
+  }
   return { score: 0, lastVisit: 0, answeredChoices: [] };
 }
 
 function saveMemory(mem: KuruMemory): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(mem));
-  } catch { /* storage unavailable */ }
+  writeJson(STORAGE_KEY, mem);
 }
 
 function initializeMemory(): KuruMemory {

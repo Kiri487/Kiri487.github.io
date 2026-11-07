@@ -31,7 +31,7 @@
   grid-template-columns: repeat(var(--cols), var(--cell));
   grid-auto-rows: var(--cell);
   border: 3px solid;
-  border-color: #a9a690 #fff #fff #a9a690;
+  border-color: var(--kara-bevel-dark) #fff #fff var(--kara-bevel-dark);
   touch-action: manipulation;
 }
 
@@ -64,13 +64,13 @@
 
 [data-skin="kara"] .kara-sweeper__cell:not(.kara-sweeper__cell--open):not(:disabled):active {
   border: 1px solid #b4b19c;
-  background: #cfccb8;
+  background: var(--kara-well);
 }
 
 [data-skin="kara"] .kara-sweeper__cell--open {
   border: 1px solid #b4b19c;
   border-width: 0 1px 1px 0;
-  background: #cfccb8;
+  background: var(--kara-well);
 }
 
 /* The burger that was stepped on. */
