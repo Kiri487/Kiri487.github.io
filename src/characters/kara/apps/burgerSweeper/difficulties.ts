@@ -1,4 +1,7 @@
-export type DifficultyId = "snack" | "lunch" | "allYouCanEat";
+import { readJson } from "../../../../shared/storage";
+import { loadSoundOn as loadGameSoundOn, saveRecord, saveSoundOn as saveGameSoundOn } from "../common/gameStorage";
+
+export type DifficultyId ="snack" | "lunch" | "allYouCanEat";
 
 export interface Board {
   rows: number;
@@ -47,46 +50,23 @@ function isOldDefault(entry: BestTime): boolean {
   return entry.name === "Kara" && entry.seconds === 999;
 }
 
-/** Only in this browser. Storage can be missing or blocked, in which case the records last as long as the page. */
+/** Each difficulty separately: a missing or unreadable one keeps its default. */
 export function loadBestTimes(): BestTimes {
   const best = defaultBestTimes();
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Partial<BestTimes> | null;
-    for (const id of DIFFICULTY_IDS) {
-      const entry = saved?.[id];
-      if (entry && typeof entry.name === "string" && typeof entry.seconds === "number" && !isOldDefault(entry)) {
-        best[id] = entry;
-      }
+  const saved = readJson(STORAGE_KEY) as Partial<Record<DifficultyId, Partial<BestTime>>> | null;
+  for (const id of DIFFICULTY_IDS) {
+    const entry = saved?.[id];
+    if (entry && typeof entry.name === "string" && typeof entry.seconds === "number") {
+      const time = { name: entry.name, seconds: entry.seconds };
+      if (!isOldDefault(time)) best[id] = time;
     }
-  } catch {
-    // Nothing saved that can be read: the defaults it is.
   }
   return best;
 }
 
+export const saveBestTimes = (best: BestTimes) => saveRecord(STORAGE_KEY, best);
+
 const SOUND_KEY = "kara-burger-sweeper-sound";
 
-/** On unless it was turned off in this browser. */
-export function loadSoundOn(): boolean {
-  try {
-    return localStorage.getItem(SOUND_KEY) !== "off";
-  } catch {
-    return true;
-  }
-}
-
-export function saveSoundOn(on: boolean) {
-  try {
-    localStorage.setItem(SOUND_KEY, on ? "on" : "off");
-  } catch {
-    // Not saved, still applies until the page closes.
-  }
-}
-
-export function saveBestTimes(best: BestTimes) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(best));
-  } catch {
-    // Not saved, still shown until the page closes.
-  }
-}
+export const loadSoundOn = () => loadGameSoundOn(SOUND_KEY);
+export const saveSoundOn = (on: boolean) => saveGameSoundOn(SOUND_KEY, on);
