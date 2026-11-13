@@ -5,9 +5,16 @@ import react from '@vitejs/plugin-react'
 const SUBPAGES = ['about', 'projects', 'works', 'cited']
 
 /**
- * GitHub Pages has no file for /about etc., so it answers with 404.html (status 404), which redirects in JS.
- * Link-preview crawlers don't run JS and see a bare 404. Copying index.html to about.html etc. makes those
- * URLs real pages (GitHub Pages serves /about from about.html) with the Open Graph tags, and skips the redirect.
+ * Every skin's own address, /kara/ and so on — keep in sync with SKIN_IDS in src/SkinContext.tsx.
+ * public/ already has folders named after some skins, so GitHub Pages treats /kere as a folder and looks for
+ * kere/index.html. /kiri/ is only there to send old or guessed links to "/".
+ */
+const SKIN_PAGES = ['kiri', 'kuru', 'kere', 'kara']
+
+/**
+ * GitHub Pages has no file for /about or /kara/, so it answers with 404.html (status 404), which redirects in JS.
+ * Link-preview crawlers don't run JS and see a bare 404. Copying index.html to about.html, kara/index.html etc.
+ * makes those URLs real pages with the Open Graph tags, and skips the redirect.
  */
 function staticSubpages(): Plugin {
   return {
@@ -21,6 +28,9 @@ function staticSubpages(): Plugin {
       for (const page of SUBPAGES) {
         this.emitFile({ type: 'asset', fileName: `${page}.html`, source: index.source })
       }
+      for (const skin of SKIN_PAGES) {
+        this.emitFile({ type: 'asset', fileName: `${skin}/index.html`, source: index.source })
+      }
     },
   }
 }
@@ -29,7 +39,7 @@ function staticSubpages(): Plugin {
 export default defineConfig({
   base: '/',
   plugins: [react(), staticSubpages()],
-build: {
+  build: {
     // Kuru's three.js is one big library, so splitting it further wouldn't get under a lower limit.
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
