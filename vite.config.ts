@@ -16,7 +16,7 @@ interface ShareText {
  * public/ already has folders named after some skins, so GitHub Pages treats /kere as a folder and looks for
  * kere/index.html; that's why each one is a folder with an index.html.
  * Keep in sync with SKIN_IDS in src/SkinContext.tsx. /kiri/ only sends old or guessed links to "/", so it
- * keeps Kiri's text. All of them share Kiri's og:image for now.
+ * keeps Kiri's text and isn't in the sitemap. All of them share Kiri's og:image for now.
  */
 const SKIN_PAGES: Record<string, ShareText | null> = {
   kiri: null,
@@ -44,6 +44,9 @@ const PAGES: Page[] = [
   })),
 ]
 
+/** Every address worth finding in a search, "/" first. */
+const SITEMAP_PATHS = ['/', ...PAGES.map((page) => page.path).filter((path) => path !== '/')]
+
 function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
@@ -67,11 +70,16 @@ function pageHtml(index: string, { path, text }: Page): string {
   return html
 }
 
+function sitemap(): string {
+  const urls = SITEMAP_PATHS.map((path) => `  <url><loc>${SITE}${path}</loc></url>`).join('\n')
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
+}
+
 /**
  * GitHub Pages has no file for /about or /kara/, so it answers with 404.html (status 404), which redirects in JS.
  * Link-preview crawlers don't run JS and see a bare 404. Copying index.html to about.html, kara/index.html etc.
  * makes those URLs real pages with the Open Graph tags, and skips the redirect. Each copy names its own address,
- * and each skin gets its own title and description.
+ * and each skin gets its own title and description. The sitemap lists the same pages.
  */
 function staticSubpages(): Plugin {
   return {
@@ -87,6 +95,7 @@ function staticSubpages(): Plugin {
       for (const page of PAGES) {
         this.emitFile({ type: 'asset', fileName: page.fileName, source: pageHtml(index.source, page) })
       }
+      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemap() })
     },
   }
 }
