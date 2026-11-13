@@ -97,6 +97,26 @@ html[data-skin="kuru"] body {
 [data-skin="kuru"] .kuru-loading--fade {
   opacity: 0;
 }
+
+/* When the street can't load (KuruErrorBoundary): the loading box with a message and a way out. */
+[data-skin="kuru"] .kuru-crash__message {
+  margin: 0.4em 0;
+  color: #ddd;
+}
+[data-skin="kuru"] .kuru-crash__exit {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #0af;
+  font: inherit;
+  cursor: pointer;
+}
+[data-skin="kuru"] .kuru-crash__exit:hover,
+[data-skin="kuru"] .kuru-crash__exit:focus-visible {
+  outline: none;
+  text-shadow: 0 0 8px rgba(0, 170, 255, 0.6);
+}
 [data-skin="kuru"] .kuru-loading__box {
   width: min(400px, 70vw);
   border: 1px solid #0af;
