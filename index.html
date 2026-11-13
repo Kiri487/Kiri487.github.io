@@ -6,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Kiri487</title>
     <meta name="description" content="Projects, works, and a few other sides of Kiri." />
+    <link rel="canonical" href="https://kiri487.github.io/" />
 
-    <!-- Link previews (Discord, LINE, Facebook, X…). Crawlers don't run JS, so every page and skin address shares this card. -->
+    <!-- Link previews (Discord, LINE, Facebook, X…). Crawlers don't run JS, so the build copies this page for every
+         address and gives each its own canonical link and og:url (vite.config.ts). Otherwise they share this card. -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://kiri487.github.io/" />
     <meta property="og:title" content="Kiri487" />

@@ -1,6 +1,8 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const SITE = 'https://kiri487.github.io'
+
 /** Kiri's routes besides "/" — keep in sync with the <Routes> in src/characters/kiri/KiriApp.tsx. */
 const SUBPAGES = ['about', 'projects', 'works', 'cited']
 
@@ -11,10 +13,38 @@ const SUBPAGES = ['about', 'projects', 'works', 'cited']
  */
 const SKIN_PAGES = ['kiri', 'kuru', 'kere', 'kara']
 
+interface Page {
+  fileName: string
+  /** The address it is shared under, which its canonical link and og:url name. */
+  path: string
+}
+
+const PAGES: Page[] = [
+  ...SUBPAGES.map((page) => ({ fileName: `${page}.html`, path: `/${page}` })),
+  ...SKIN_PAGES.map((skin) => ({ fileName: `${skin}/index.html`, path: skin === 'kiri' ? '/' : `/${skin}/` })),
+]
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+/** Replaces one tag's value, and fails the build if index.html no longer has that tag. */
+function setValue(html: string, pattern: RegExp, value: string): string {
+  if (!pattern.test(html)) throw new Error(`static-subpages: index.html has no match for ${pattern}`)
+  return html.replace(pattern, (_, before: string, after: string) => `${before}${escapeHtml(value)}${after}`)
+}
+
+function pageHtml(index: string, { path }: Page): string {
+  let html = index
+  html = setValue(html, /(<link rel="canonical" href=")[^"]*(")/, `${SITE}${path}`)
+  html = setValue(html, /(<meta property="og:url" content=")[^"]*(")/, `${SITE}${path}`)
+  return html
+}
+
 /**
  * GitHub Pages has no file for /about or /kara/, so it answers with 404.html (status 404), which redirects in JS.
  * Link-preview crawlers don't run JS and see a bare 404. Copying index.html to about.html, kara/index.html etc.
- * makes those URLs real pages with the Open Graph tags, and skips the redirect.
+ * makes those URLs real pages with the Open Graph tags, and skips the redirect. Each copy names its own address.
  */
 function staticSubpages(): Plugin {
   return {
@@ -24,12 +54,11 @@ function staticSubpages(): Plugin {
     enforce: 'post',
     generateBundle(_, bundle) {
       const index = bundle['index.html']
-      if (index?.type !== 'asset') throw new Error('static-subpages: index.html not found in the bundle')
-      for (const page of SUBPAGES) {
-        this.emitFile({ type: 'asset', fileName: `${page}.html`, source: index.source })
+      if (index?.type !== 'asset' || typeof index.source !== 'string') {
+        throw new Error('static-subpages: index.html not found in the bundle')
       }
-      for (const skin of SKIN_PAGES) {
-        this.emitFile({ type: 'asset', fileName: `${skin}/index.html`, source: index.source })
+      for (const page of PAGES) {
+        this.emitFile({ type: 'asset', fileName: page.fileName, source: pageHtml(index.source, page) })
       }
     },
   }
