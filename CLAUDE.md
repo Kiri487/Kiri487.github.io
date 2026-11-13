@@ -8,7 +8,7 @@ built with Vite, deployed to GitHub Pages by `.github/workflows/deploy.yml`.
 ```
 src/
   App.tsx              lazy-loads the active skin
-  SkinContext.tsx      the active skin, kept in ?skin= and localStorage
+  SkinContext.tsx      the active skin, read from the address (/kara/ etc.; Kiri is /)
   SkinSwitcher.tsx     the badges on Kiri's page that open the other skins
   data/portfolio/      the shared content: about, projects, works, contacts
   config/assets.tsx    Kiri's home videos, their posters and music
@@ -44,13 +44,14 @@ Skins: `kiri` (the main site), `kuru` (3D street, React Three Fiber), `kere` (La
   listed in `src/config/assets.tsx`. The poster needs the VP9 decoder named, or the transparency is lost:
   `ffmpeg -c:v libvpx-vp9 -i X.webm -frames:v 1 -c:v libwebp -quality 85 posters/X.webp`
 - **Fonts** are self-hosted next to their OFL licence, in the skin's own `public/<skin>/fonts/`.
-- Kiri's routes are mirrored in `SUBPAGES` in `vite.config.ts`, so GitHub Pages serves them with a 200.
+- Kiri's routes are mirrored in `SUBPAGES` in `vite.config.ts`, and the skin ids in `SKIN_PAGES`, so GitHub Pages
+  serves them with a 200.
 
 ## Commands
 
 ```bash
 npm ci           # install
-npm run dev      # dev server at http://localhost:5173 (?skin=kara etc.)
+npm run dev      # dev server at http://localhost:5173 (/kara/ etc.)
 npm run lint
 npm run build    # type-check and build
 ```
