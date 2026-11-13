@@ -1,38 +1,58 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { readString, writeString } from "./shared/storage";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
-/** Add a new id here whenever you create another character under src/characters/. */
+/**
+ * Add a new id here whenever you create another character under src/characters/,
+ * and to SKIN_PAGES in vite.config.ts so its address is a real page.
+ */
 export type Skin = "kiri" | "kuru" | "kere" | "kara";
 
 const SKIN_IDS: Skin[] = ["kiri", "kuru", "kere", "kara"];
-const DEFAULT_SKIN: Skin = "kiri";
-const STORAGE_KEY = "skin";
-/** `?skin=kere` opens that skin directly, so any character can be shared as a link. */
-const URL_PARAM = "skin";
+/** Kiri is the hub and lives at "/", with her own pages below it. */
+const HUB: Skin = "kiri";
+/** Old links used `?skin=kere`. They still work and are rewritten to the skin's own address. */
+const LEGACY_PARAM = "skin";
 
-function isSkin(value: string | null): value is Skin {
-  return value !== null && SKIN_IDS.includes(value as Skin);
+function isSkin(value: string | null | undefined): value is Skin {
+  return value != null && SKIN_IDS.includes(value as Skin);
 }
 
-function readSkinFromUrl(): Skin | null {
-  const fromUrl = new URLSearchParams(window.location.search).get(URL_PARAM);
-  return isSkin(fromUrl) ? fromUrl : null;
+/** `/kere/` (or `/kere`) is Kere. Any other path, Kiri's pages and her 404 included, belongs to Kiri. */
+function skinFromPath(pathname: string): Skin {
+  const first = pathname.split("/")[1];
+  return isSkin(first) ? first : HUB;
 }
 
-/** The URL wins over the last visit, so a shared link always opens the intended skin. */
-function readInitialSkin(): Skin {
-  const fromUrl = readSkinFromUrl();
-  if (fromUrl) return fromUrl;
-  const saved = readString(STORAGE_KEY);
-  return isSkin(saved) ? saved : DEFAULT_SKIN;
+function readSkinFromUrl(): Skin {
+  const legacy = new URLSearchParams(window.location.search).get(LEGACY_PARAM);
+  return isSkin(legacy) ? legacy : skinFromPath(window.location.pathname);
 }
 
-/** The current address with this skin in it. The default skin needs no parameter. */
-function urlForSkin(skin: Skin): URL {
-  const url = new URL(window.location.href);
-  if (skin === DEFAULT_SKIN) url.searchParams.delete(URL_PARAM);
-  else url.searchParams.set(URL_PARAM, skin);
-  return url;
+/** The address a skin should show. Every skin but Kiri has one fixed address; Kiri's is the page given. */
+function addressFor(skin: Skin, kiriPage: string): string {
+  return skin === HUB ? kiriPage : `/${skin}/`;
+}
+
+/** Kiri's page in the current address: its path and query without the old `?skin=`, or "/" for `/kiri/`. */
+function currentKiriPage(): string {
+  const { pathname, search, hash } = window.location;
+  if (pathname.split("/")[1] === HUB) return "/";
+  const params = new URLSearchParams(search);
+  params.delete(LEGACY_PARAM);
+  const query = params.toString();
+  return `${pathname}${query ? `?${query}` : ""}${hash}`;
+}
+
+/**
+ * Tidies the address the site was opened at: `?skin=kara` becomes `/kara/`, `/kara` gets its slash and
+ * `/kiri/` becomes "/". Call once before the first render, so Kiri's router never sees the untidy one.
+ * Replaced, not pushed, so Back still leaves the site in one press.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function tidyInitialAddress() {
+  const skin = readSkinFromUrl();
+  const tidy = addressFor(skin, skin === HUB ? currentKiriPage() : "/");
+  const { pathname, search, hash } = window.location;
+  if (tidy !== `${pathname}${search}${hash}`) window.history.replaceState(window.history.state, "", tidy);
 }
 
 interface SkinContextValue {
@@ -43,24 +63,19 @@ interface SkinContextValue {
 const SkinContext = createContext<SkinContextValue | undefined>(undefined);
 
 export function SkinProvider({ children }: { children: ReactNode }) {
-  const [skin, setSkinState] = useState<Skin>(readInitialSkin);
+  const [skin, setSkinState] = useState<Skin>(readSkinFromUrl);
+  /** Where to return in Kiri after visiting another skin. Lost on reload, when "/" is the answer. */
+  const kiriReturn = useRef("/");
 
   useEffect(() => {
-    writeString(STORAGE_KEY, skin);
     // Scopes each skin's CSS — every skin's stylesheet is written under
     // [data-skin="<id>"], so only the active skin's rules apply.
     document.documentElement.dataset.skin = skin;
-
-    // Only differs on the first load, when a skin remembered from last time isn't in the address yet.
-    // Replacing it means Back doesn't take an extra press to leave the site.
-    const url = urlForSkin(skin);
-    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url);
   }, [skin]);
 
-  // Back and Forward. No parameter in a past address means the default skin, not the remembered one:
-  // that entry was the default skin when it was visited. Kiri's router handles its own paths as usual.
+  // Back and Forward between skins. Kiri's router handles moves between her own pages.
   useEffect(() => {
-    const syncWithUrl = () => setSkinState(readSkinFromUrl() ?? DEFAULT_SKIN);
+    const syncWithUrl = () => setSkinState(readSkinFromUrl());
     window.addEventListener("popstate", syncWithUrl);
     return () => window.removeEventListener("popstate", syncWithUrl);
   }, []);
@@ -69,7 +84,8 @@ export function SkinProvider({ children }: { children: ReactNode }) {
   const setSkin = useCallback(
     (next: Skin) => {
       if (next === skin) return;
-      window.history.pushState(null, "", urlForSkin(next));
+      if (skin === HUB) kiriReturn.current = currentKiriPage();
+      window.history.pushState(null, "", addressFor(next, kiriReturn.current));
       setSkinState(next);
     },
     [skin],

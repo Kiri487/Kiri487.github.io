@@ -9,13 +9,13 @@ My projects, works, and a few other sides of me.
 | Skin | Link | What it is |
 |---|---|---|
 | Kiri | [`/`](https://kiri487.github.io/) | The main site |
-| Kuru | [`?skin=kuru`](https://kiri487.github.io/?skin=kuru) | A 3D street at night, with a chill cat |
-| Kere | [`?skin=kere`](https://kiri487.github.io/?skin=kere) | A LaTeX-style CV, with a very professional assistant |
-| Kara | [`?skin=kara`](https://kiri487.github.io/?skin=kara) | An old desktop computer that belongs to someone strange, with games |
+| Kuru | [`/kuru/`](https://kiri487.github.io/kuru/) | A 3D street at night, with a chill cat |
+| Kere | [`/kere/`](https://kiri487.github.io/kere/) | A LaTeX-style CV, with a very professional assistant |
+| Kara | [`/kara/`](https://kiri487.github.io/kara/) | An old desktop computer that belongs to someone strange, with games |
 | Koro | — | Coming soon |
 
-Kiri is the hub: the switcher in the bottom-right corner opens the others, and each of them has a way back. The
-last skin you used is remembered, but a `?skin=` link always wins.
+Kiri is the hub: the switcher in the bottom-right corner opens the others, and each of them has a way back. Every
+skin has its own address, and old `?skin=` links still work.
 
 ## Tech Stack
 
