@@ -9,13 +9,14 @@ import CharacterDialogue, { type CharacterDialogueHandle } from "../../shared/di
 import type { DialogueEntry } from "./dialogue/catDialogues";
 import BgmPlayer from "./audio/BgmPlayer";
 import LoadingScreen from "./LoadingScreen";
+import KuruErrorBoundary from "./KuruErrorBoundary";
 import useKuruMemory from "./dialogue/useKuruMemory";
 import useSFX from "./audio/useSFX";
 import "./style.css";
 
 import type { SectionId, Phase } from "./types";
 
-function KuruApp() {
+function KuruStreet() {
   const { setSkin } = useSkin();
   const { recordClick, pickDialogue, applyScore } = useKuruMemory();
   const [activeSection, setActiveSection] = useState<SectionId | null>(null);
@@ -133,6 +134,14 @@ function KuruApp() {
       <BgmPlayer />
       <LoadingScreen />
     </div>
+  );
+}
+
+function KuruApp() {
+  return (
+    <KuruErrorBoundary>
+      <KuruStreet />
+    </KuruErrorBoundary>
   );
 }
 
