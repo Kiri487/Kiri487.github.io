@@ -1,4 +1,4 @@
-import { memo, Suspense, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS } from "../apps/registry";
 import { DRAGGING_CLASS, useOs, WindowContext, type WindowApi } from "./context";
 import { clamp } from "../../../shared/math";
@@ -73,6 +73,25 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
     }),
     [id, args, minimized, os],
   );
+
+  // The keyboard follows the window that comes to the front, whether it was just opened, brought back from the
+  // taskbar or left on top when another closed. An app that already put the focus somewhere inside keeps it.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!focused || minimized || !root || root.contains(document.activeElement)) return;
+    root.focus({ preventScroll: true });
+  }, [focused, minimized]);
+
+  // Closing hands the focus back to whatever opened the window, such as its desktop icon. If another window
+  // comes to the front instead, the effect above then moves it there.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const opener = document.activeElement;
+    return () => {
+      if (!root?.contains(document.activeElement)) return;
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, []);
 
   // The same element each render, so moving or focusing the window doesn't re-render the app. It still hears `api` through context.
   const content = useMemo(() => <App />, [App]);
@@ -193,6 +212,7 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
       className={classNames.join(" ")}
       style={positionStyle}
       aria-label={win.title}
+      tabIndex={-1}
       onPointerDownCapture={() => os.focusWindow(id)}
     >
       <div

@@ -299,6 +299,11 @@
   pointer-events: auto;
 }
 
+/* Holds the keyboard focus when it moves into a window (Window.tsx); the title bar already shows which is active. */
+[data-skin="kara"] .kara-window:focus {
+  outline: none;
+}
+
 [data-skin="kara"] .kara-window--focused {
   background: var(--kara-frame-active);
 }
