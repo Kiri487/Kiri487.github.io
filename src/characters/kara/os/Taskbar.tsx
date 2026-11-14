@@ -19,6 +19,7 @@ function Taskbar({ onTurnOff }: { onTurnOff: () => void }) {
             <button
               key={win.id}
               type="button"
+              data-window-id={win.id}
               className={`kara-taskbar__window${active ? " kara-taskbar__window--active" : ""}`}
               aria-pressed={active}
               onClick={() => (active ? os.minimizeWindow(win.id) : os.focusWindow(win.id))}

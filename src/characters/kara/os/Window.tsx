@@ -82,6 +82,13 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
     root.focus({ preventScroll: true });
   }, [focused, minimized]);
 
+  // Minimizing hides the window, which would drop the focus on the page itself. It goes to the window's taskbar
+  // button instead, ready to bring it back; if another window comes to the front, the effect above takes it on.
+  useLayoutEffect(() => {
+    if (!minimized || !rootRef.current?.contains(document.activeElement)) return;
+    document.querySelector<HTMLElement>(`.kara-taskbar__window[data-window-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+  }, [minimized, id]);
+
   // Closing hands the focus back to whatever opened the window, such as its desktop icon. If another window
   // comes to the front instead, the effect above then moves it there.
   useLayoutEffect(() => {
