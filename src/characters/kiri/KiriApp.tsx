@@ -121,7 +121,8 @@ function KiriApp() {
   return (
     <Router basename="/">
       <FocusOnNavigate />
-      <audio ref={audioRef} src={selectedPair.bgm} loop crossOrigin="anonymous" />
+      {/* Music is off by default, so the song is only downloaded once it's asked to play. */}
+      <audio ref={audioRef} src={selectedPair.bgm} preload="none" loop crossOrigin="anonymous" />
       <Navbar onRefresh={handleRefresh} bgmEnabled={bgmEnabled} toggleBgm={toggleBgm} volume={volume} setVolume={setVolume}/>
       <div className="App">
         <div className="routes-container">
