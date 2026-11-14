@@ -118,12 +118,17 @@ function BgmPlayer() {
     };
   }, [next, playing]);
 
-  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+  /** Moves to a point in the song, and shows it at once: the clock only ticks on its own while playing. */
+  const seekTo = (seconds: number) => {
     const audio = audioRef.current;
     if (!audio || !audio.duration) return;
+    audio.currentTime = clamp(seconds, 0, audio.duration);
+    setCurrentTime(audio.currentTime);
+  };
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-    audio.currentTime = ratio * audio.duration;
+    seekTo(clamp((e.clientX - rect.left) / rect.width, 0, 1) * (audioRef.current?.duration ?? 0));
   };
 
   const progress = duration > 0 ? currentTime / duration : 0;
