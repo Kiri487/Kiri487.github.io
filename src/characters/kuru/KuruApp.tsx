@@ -89,10 +89,12 @@ function KuruStreet() {
   }, [phase, activeDialogue, recordClick, pickDialogue]);
 
   const handleHotspotKey = useCallback((id: HotspotId) => {
+    // Mid-conversation the dialogue box takes Enter and Space itself; a click from the same key would skip a line.
+    if (id === "cat" && activeDialogue) return;
     if (id === "exit") handleExit();
     else if (id === "cat") handleDialogueAdvance();
     else handleSectionClick(id);
-  }, [handleExit, handleDialogueAdvance, handleSectionClick]);
+  }, [activeDialogue, handleExit, handleDialogueAdvance, handleSectionClick]);
 
   return (
     <div className="kuru">

@@ -94,7 +94,9 @@ function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCa
     id === "cat" ? WALL_VIDEOS[catIndexRef.current].position : HOTSPOT_POSITIONS[id]
   ), []);
 
-  const glowing = (section: SectionId) => (zoomTarget === section && phase !== "idle") || focused === section;
+  // The keyboard lights things up only while the mouse could click them too.
+  const glowing = (section: SectionId) =>
+    (zoomTarget === section && phase !== "idle") || (focused === section && !pauseAmbient);
 
   const graffitiImg = texSize(graffitiTex);
   const aspect = graffitiImg ? graffitiImg.width / graffitiImg.height : 1.5;
@@ -106,7 +108,7 @@ function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCa
       <Environment preset="night" environmentIntensity={0.25} />
       <ambientLight intensity={0.12} />
 
-      <KuruLighting exitHovered={exitHovered || focused === "exit"} />
+      <KuruLighting exitHovered={exitHovered || (focused === "exit" && !pauseAmbient)} />
 
       <primitive object={scene} />
 
