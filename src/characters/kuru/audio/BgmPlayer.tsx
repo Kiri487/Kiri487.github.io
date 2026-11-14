@@ -13,6 +13,9 @@ function randomIdx() {
   return Math.floor(Math.random() * TRACKS.length);
 }
 
+/** How far an arrow key moves through the song. */
+const SEEK_STEP = 5;
+
 function fmt(sec: number) {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
@@ -131,6 +134,17 @@ function BgmPlayer() {
     seekTo(clamp((e.clientX - rect.left) / rect.width, 0, 1) * (audioRef.current?.duration ?? 0));
   };
 
+  // No End key: the end of the song moves straight on to the next one, which the Next button already does.
+  const seekByKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (e.key === "ArrowLeft" || e.key === "ArrowDown") seekTo(audio.currentTime - SEEK_STEP);
+    else if (e.key === "ArrowRight" || e.key === "ArrowUp") seekTo(audio.currentTime + SEEK_STEP);
+    else if (e.key === "Home") seekTo(0);
+    else return;
+    e.preventDefault();
+  };
+
   const progress = duration > 0 ? currentTime / duration : 0;
 
   return (
@@ -147,7 +161,18 @@ function BgmPlayer() {
       </button>
       <span className="kuru-bgm__track">{track.title}</span>
       <span className="kuru-bgm__time">{fmt(currentTime)}</span>
-      <div className="kuru-bgm__bar" onClick={seek}>
+      <div
+        className="kuru-bgm__bar"
+        role="slider"
+        tabIndex={0}
+        aria-label="Song position"
+        aria-valuemin={0}
+        aria-valuemax={Math.floor(duration)}
+        aria-valuenow={Math.floor(currentTime)}
+        aria-valuetext={`${fmt(currentTime)} of ${fmt(duration)}`}
+        onClick={seek}
+        onKeyDown={seekByKey}
+      >
         <div className="kuru-bgm__fill" style={{ width: `${progress * 100}%` }} />
       </div>
       <span className="kuru-bgm__time">{fmt(duration)}</span>

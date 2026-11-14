@@ -833,6 +833,17 @@ html[data-skin="kuru"] body {
   transition: width 0.3s linear;
 }
 
+/* Pointed at or reached with the keyboard: the whole bar brightens, not only the part played, which early in a
+   song is a few pixels long. */
+[data-skin="kuru"] .kuru-bgm__bar:hover,
+[data-skin="kuru"] .kuru-bgm__bar:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+}
+[data-skin="kuru"] .kuru-bgm__bar:hover .kuru-bgm__fill,
+[data-skin="kuru"] .kuru-bgm__bar:focus-visible .kuru-bgm__fill {
+  background: #fff;
+}
+
 [data-skin="kuru"] .kuru-bgm__vol-wrap {
   position: relative;
   display: flex;
