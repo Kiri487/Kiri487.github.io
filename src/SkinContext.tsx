@@ -1,12 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 /**
- * Add a new id here whenever you create another character under src/characters/,
- * and to SKIN_PAGES in vite.config.ts so its address is a real page.
+ * Add a new id here whenever you create another character under src/characters/. TypeScript then asks for it in
+ * App.tsx; add it to SKIN_PAGES in vite.config.ts by hand too, so its address is a real page.
  */
-export type Skin = "kiri" | "kuru" | "kere" | "kara";
-
-const SKIN_IDS: Skin[] = ["kiri", "kuru", "kere", "kara"];
+const SKIN_IDS = ["kiri", "kuru", "kere", "kara"] as const;
+export type Skin = (typeof SKIN_IDS)[number];
 /** Kiri is the hub and lives at "/", with her own pages below it. */
 const HUB: Skin = "kiri";
 /** Old links used `?skin=kere`. They still work and are rewritten to the skin's own address. */
