@@ -90,13 +90,23 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
   }, [minimized, id]);
 
   // Closing hands the focus back to whatever opened the window, such as its desktop icon. If another window
-  // comes to the front instead, the effect above then moves it there.
+  // comes to the front instead, the effect above moves it there. The opener is kept from the first run only:
+  // React may run this again while the window stays (Strict Mode), when the focus is already inside it.
+  const openerRef = useRef<Element | null>(null);
   useLayoutEffect(() => {
     const root = rootRef.current;
-    const opener = document.activeElement;
+    if (!openerRef.current && !root?.contains(document.activeElement)) openerRef.current = document.activeElement;
     return () => {
       if (!root?.contains(document.activeElement)) return;
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+      // Waits until the window is gone: a message box inside it gives the focus back inside as it closes too.
+      // Until the browser repaints, the focus can still point at the removed button rather than <body>.
+      queueMicrotask(() => {
+        if (root.isConnected) return;
+        const now = document.activeElement;
+        if (now && now !== document.body && now.isConnected) return;
+        const opener = openerRef.current;
+        if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+      });
     };
   }, []);
 
