@@ -14,6 +14,7 @@ export const stackedAlphaFragmentShader = /* glsl */ `
   uniform float uBrightness;
   uniform vec3 uTint;
   uniform float uAlpha;
+  uniform float uGlow;
   varying vec2 vUv;
 
   float hash(float n) { return fract(sin(n) * 43758.5453); }
@@ -54,6 +55,9 @@ export const stackedAlphaFragmentShader = /* glsl */ `
     a = clamp((a - 0.063) / 0.859, 0.0, 1.0);
 
     rgb = pow(rgb, vec3(uGamma)) * uBrightness * uTint;
+
+    // Lights up while pointed at, as an emissive map of the picture itself would
+    rgb *= 1.0 + uGlow;
 
     // Brightness spike during glitch
     rgb *= 1.0 + g * 1.0;

@@ -114,6 +114,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
       glitchRef={glitchRef}
       alphaRef={alphaRef}
       videoRef={videoRef}
+      glowingRef={hoveringCharacterRef}
       onPointerMove={interactive ? handlePointerMove : undefined}
       onPointerOut={interactive ? handlePointerOut : undefined}
       onClick={interactive ? handleClick : undefined}
