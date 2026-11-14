@@ -58,13 +58,20 @@
 /* document level */
 
 html[data-skin="kiri"] {
+  /* Kiri's colours. On <html>, so the skin switcher's badges (SkinSwitcher.css) see them too. */
+  --kiri-bg: #9DA2B2;
+  /* The flat offset shadow under titles, icons and anything pointed at, and the phone menu's highlight. */
+  --kiri-shadow: #6b7484a3;
+  --kiri-text-dim: rgba(255, 255, 255, 0.7);
+  --kiri-scrollbar: #7d8595;
+
   font-family: 'Oswald', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
   color-scheme: light dark;
   color: white;
-  background-color: #9DA2B2;
+  background-color: var(--kiri-bg);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -81,7 +88,7 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] ::selection {
   background-color: #ffffff;
-  color: #9DA2B2;
+  color: var(--kiri-bg);
 }
 
 [data-skin="kiri"] ::-webkit-scrollbar {
@@ -89,13 +96,13 @@ html[data-skin="kiri"] body {
 }
 
 [data-skin="kiri"] ::-webkit-scrollbar-track {
-  background: #7d8595;
+  background: var(--kiri-scrollbar);
 }
 
 [data-skin="kiri"] ::-webkit-scrollbar-thumb {
   background: white;
   border-radius: 8px;
-  border: 3px solid #7d8595;
+  border: 3px solid var(--kiri-scrollbar);
 }
 
 [data-skin="kiri"] ::-webkit-scrollbar-thumb:hover {
@@ -159,7 +166,7 @@ html[data-skin="kiri"] body {
   align-items: center;
   padding: 0 32px;
   box-sizing: border-box;
-  background: #9DA2B2;
+  background: var(--kiri-bg);
   z-index: 1000;
 }
 
@@ -174,12 +181,12 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .navbar-logo-container:hover {
   transform: scale(1.05);
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
   text-decoration: none;
 }
 
 [data-skin="kiri"] .navbar-logo-container:hover .navbar-logo-img {
-  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
+  filter: drop-shadow(2.5px 2.5px 0px var(--kiri-shadow));
 }
 
 [data-skin="kiri"] .navbar-logo-img {
@@ -207,7 +214,7 @@ html[data-skin="kiri"] body {
 }
 
 [data-skin="kiri"] .nav-link {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--kiri-text-dim);
   font-size: 1.1rem;
   text-decoration: none;
   position: relative;
@@ -344,20 +351,20 @@ html[data-skin="kiri"] body {
 [data-skin="kiri"] .title {
   font-size: 2rem;
   margin: 1rem 0;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
   display: flex;
   align-items: center;
 }
 
 [data-skin="kiri"] .title svg {
   margin-right: 0.5rem;
-  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
+  filter: drop-shadow(2.5px 2.5px 0px var(--kiri-shadow));
 }
 
 [data-skin="kiri"] .subtitle {
   font-size: 1.5rem;
   margin: 1rem 0;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .content {
@@ -381,7 +388,7 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .tag:hover {
   background-color: white;
-  color: #9DA2B2;
+  color: var(--kiri-bg);
 }
 
 /* home page */
@@ -395,7 +402,7 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .intro-greeting {
   font-size: 2rem;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
   /* An h1 for screen readers and search engines, still drawn like the paragraph it used to be. */
   font-weight: 400;
   line-height: 1.5;
@@ -433,12 +440,12 @@ html[data-skin="kiri"] body {
 }
 
 [data-skin="kiri"] .model-info {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--kiri-text-dim);
   font-size: 0.9rem;
 }
 
 [data-skin="kiri"] .model-info a {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--kiri-text-dim);
 }
 
 [data-skin="kiri"] .model-info a:hover {
@@ -478,7 +485,7 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .contact a:hover {
   transform: scale(1.2);
-  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  filter: drop-shadow(2px 2px 0px var(--kiri-shadow));
 }
 
 /* about page */
@@ -544,12 +551,12 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .timeline-info {
   font-size: 1.2rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--kiri-text-dim);
 }
 
 [data-skin="kiri"] .timeline-period {
   font-size: 1rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--kiri-text-dim);
   margin-bottom: 1.5rem;
 }
 
@@ -602,7 +609,7 @@ html[data-skin="kiri"] body {
   top: 16px;
   right: 0;
   background-color: white;
-  color: #9DA2B2;
+  color: var(--kiri-bg);
   font-size: 1.2rem;
   font-weight: 800;
   font-family: 'Oswald', sans-serif;
@@ -624,7 +631,7 @@ html[data-skin="kiri"] body {
   font-size: 1.5rem;
   font-weight: bold;
   margin-bottom: 0.5rem;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .card-desc {
@@ -660,7 +667,7 @@ html[data-skin="kiri"] body {
 [data-skin="kiri"] .card-tag:hover {
   color: white;
   transform: scale(1.2);
-  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  filter: drop-shadow(2px 2px 0px var(--kiri-shadow));
 }
 
 [data-skin="kiri"] .card-links {
@@ -683,7 +690,7 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .card-link:hover {
   transform: translateX(3px);
-  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  filter: drop-shadow(2px 2px 0px var(--kiri-shadow));
 }
 
 /* works page */
@@ -698,8 +705,8 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .filter-button {
   background: transparent;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  color: rgba(255, 255, 255, 0.7);
+  border: 2px solid var(--kiri-text-dim);
+  color: var(--kiri-text-dim);
   padding: 0.5rem 1.2rem;
   border-radius: 20px;
   display: flex;
@@ -714,7 +721,7 @@ html[data-skin="kiri"] body {
 [data-skin="kiri"] .filter-button:hover,
 [data-skin="kiri"] .filter-button.active {
   background: white;
-  color: #9DA2B2;
+  color: var(--kiri-bg);
   border-color: white;
 }
 
@@ -817,7 +824,7 @@ html[data-skin="kiri"] body {
 [data-skin="kiri"] .not-found-title {
   font-size: 4rem;
   margin: 1rem 0;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -825,7 +832,7 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .not-found-title svg {
   margin-right: 1rem;
-  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
+  filter: drop-shadow(2.5px 2.5px 0px var(--kiri-shadow));
 }
 
 [data-skin="kiri"] .not-found-message {
@@ -845,7 +852,7 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .return-button:hover {
   background-color: white;
-  color: #9DA2B2;
+  color: var(--kiri-bg);
   text-decoration: none;
 }
 
@@ -874,7 +881,7 @@ html[data-skin="kiri"] body {
     top: 70px;
     left: 0;
     width: 100%;
-    background: #9DA2B2;
+    background: var(--kiri-bg);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -898,7 +905,7 @@ html[data-skin="kiri"] body {
   [data-skin="kiri"] .mobile-link {
     font-size: 1.5rem;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--kiri-text-dim);
     text-decoration: none;
     width: 100%;
     text-align: center;
@@ -909,7 +916,7 @@ html[data-skin="kiri"] body {
   [data-skin="kiri"] .mobile-link:hover,
   [data-skin="kiri"] .mobile-link.active {
     color: white;
-    background: #6b7484a3;
+    background: var(--kiri-shadow);
     text-decoration: none;
   }
 
@@ -955,44 +962,44 @@ html[data-skin="kiri"] body {
 [data-skin="kiri"] a:focus-visible {
   color: white;
   text-decoration: underline;
-  text-shadow: 2px 2px 0px #6b7484a3;
+  text-shadow: 2px 2px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .navbar-logo-container:focus-visible {
   transform: scale(1.05);
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
   text-decoration: none;
 }
 
 [data-skin="kiri"] .navbar-logo-container:focus-visible .navbar-logo-img {
-  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
+  filter: drop-shadow(2.5px 2.5px 0px var(--kiri-shadow));
 }
 
 [data-skin="kiri"] .nav-link:focus-visible {
   color: white;
   text-decoration: none;
-  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .nav-link:focus-visible::after {
   width: 100%;
-  box-shadow: 2.5px 2.5px 0px #6b7484a3;
+  box-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .bgm-button:focus-visible,
 [data-skin="kiri"] .mobile-menu-button:focus-visible {
   transform: scale(1.1);
-  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  filter: drop-shadow(2px 2px 0px var(--kiri-shadow));
 }
 
 [data-skin="kiri"] .volume-slider:focus-visible::-webkit-slider-thumb {
   transform: scale(1.2);
-  box-shadow: 2px 2px 0px #6b7484a3;
+  box-shadow: 2px 2px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .volume-slider:focus-visible::-moz-range-thumb {
   transform: scale(1.2);
-  box-shadow: 2px 2px 0px #6b7484a3;
+  box-shadow: 2px 2px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .model-info a:focus-visible {
@@ -1001,28 +1008,28 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .contact a:focus-visible {
   transform: scale(1.2);
-  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  filter: drop-shadow(2px 2px 0px var(--kiri-shadow));
   text-shadow: none;
 }
 
 [data-skin="kiri"] .card-link:focus-visible {
   transform: translateX(3px);
-  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  filter: drop-shadow(2px 2px 0px var(--kiri-shadow));
   text-decoration: none;
   text-shadow: none;
 }
 
 [data-skin="kiri"] .filter-button:focus-visible {
   background: white;
-  color: #9DA2B2;
+  color: var(--kiri-bg);
   border-color: white;
-  box-shadow: 2.5px 2.5px 0px #6b7484a3;
+  box-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .gallery-item:focus-visible {
   transform: scale(1.02);
   z-index: 10;
-  box-shadow: 3px 3px 0px #6b7484a3;
+  box-shadow: 3px 3px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .gallery-item:focus-visible .gallery-overlay {
@@ -1035,15 +1042,15 @@ html[data-skin="kiri"] body {
 
 [data-skin="kiri"] .return-button:focus-visible {
   background-color: white;
-  color: #9DA2B2;
+  color: var(--kiri-bg);
   text-decoration: none;
   text-shadow: none;
-  box-shadow: 2.5px 2.5px 0px #6b7484a3;
+  box-shadow: 2.5px 2.5px 0px var(--kiri-shadow);
 }
 
 [data-skin="kiri"] .mobile-link:focus-visible {
   color: white;
-  background: #6b7484a3;
+  background: var(--kiri-shadow);
   text-decoration: none;
   text-shadow: none;
 }
