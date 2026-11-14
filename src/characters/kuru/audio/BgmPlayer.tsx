@@ -198,6 +198,7 @@ function BgmPlayer() {
           max={1}
           step={0.01}
           value={volume}
+          style={{ "--kuru-vol": `${volume * 100}%` } as React.CSSProperties}
           onChange={(e) => setVolume(parseFloat(e.target.value))}
           aria-label="Volume"
         />

@@ -856,7 +856,14 @@ html[data-skin="kuru"] body {
   height: 3px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.1);
+  /* Filled up to the volume, like the song bar up to where the song is. --kuru-vol is set by BgmPlayer. */
+  --kuru-vol-fill: rgba(255, 255, 255, 0.35);
+  --kuru-vol-rest: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+    to right,
+    var(--kuru-vol-fill) var(--kuru-vol, 50%),
+    var(--kuru-vol-rest) var(--kuru-vol, 50%)
+  );
   outline: none;
   cursor: pointer;
   transition: width 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
@@ -884,6 +891,20 @@ html[data-skin="kuru"] body {
   border: none;
   cursor: pointer;
 }
+/* Pointed at or reached with the keyboard: it brightens and the knob turns white, as the song bar does. */
+[data-skin="kuru"] .kuru-bgm__vol:hover,
+[data-skin="kuru"] .kuru-bgm__vol:focus-visible {
+  --kuru-vol-fill: #fff;
+  --kuru-vol-rest: rgba(255, 255, 255, 0.3);
+}
+[data-skin="kuru"] .kuru-bgm__vol:hover::-webkit-slider-thumb,
+[data-skin="kuru"] .kuru-bgm__vol:focus-visible::-webkit-slider-thumb {
+  background: #fff;
+}
+[data-skin="kuru"] .kuru-bgm__vol:hover::-moz-range-thumb,
+[data-skin="kuru"] .kuru-bgm__vol:focus-visible::-moz-range-thumb {
+  background: #fff;
+}
 
 /* ---- keyboard focus: the text lights up in its section's colour, with no frame ----
    The transparent outline is for Windows' high-contrast mode, which drops text-shadow but draws outlines. */
@@ -895,14 +916,6 @@ html[data-skin="kuru"] body {
   text-shadow:
     0 0 6px var(--kuru-accent, #fff),
     0 0 14px var(--kuru-accent-glow, rgba(255, 255, 255, 0.5));
-}
-[data-skin="kuru"] .kuru-bgm__vol:focus-visible::-webkit-slider-thumb {
-  background: #fff;
-  box-shadow: 0 0 6px #fff, 0 0 14px rgba(255, 255, 255, 0.5);
-}
-[data-skin="kuru"] .kuru-bgm__vol:focus-visible::-moz-range-thumb {
-  background: #fff;
-  box-shadow: 0 0 6px #fff, 0 0 14px rgba(255, 255, 255, 0.5);
 }
 
 /* ---- cat dialogue (RPG-style) ---- */
