@@ -7,8 +7,9 @@ function Cited() {
     <div className="cited">
       <title>Kiri487 | Cited</title>
       <meta name="description" content="Sources and credits for the background music and video motions used on this website." />
+      <h1 className="visually-hidden">Cited</h1>
 
-      <h2 className="title"><PiMusicNotesFill />BGM</h2>
+      <h2 className="title"><PiMusicNotesFill aria-hidden="true"/>BGM</h2>
       <div className="content">
         <ul className="cited-content">
           {bgmList.map((item) => (
@@ -19,7 +20,7 @@ function Cited() {
         </ul>
       </div>
 
-      <h2 className="title"><FaRegCirclePlay />Video Motion</h2>
+      <h2 className="title"><FaRegCirclePlay aria-hidden="true"/>Video Motion</h2>
       <div className="content">
         <ul className="cited-content">
           {videoMotionList.map((item) => (

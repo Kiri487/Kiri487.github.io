@@ -124,6 +124,16 @@ html[data-skin="kiri"] body {
   margin-bottom: 0.5rem;
 }
 
+/* Read out and found by search engines, but never drawn: a page's heading where the design shows none. */
+[data-skin="kiri"] .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 [data-skin="kiri"] button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -396,6 +406,10 @@ html[data-skin="kiri"] body {
 [data-skin="kiri"] .intro-greeting {
   font-size: 2rem;
   text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  /* An h1 for screen readers and search engines, still drawn like the paragraph it used to be. */
+  font-weight: 400;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
 }
 
 [data-skin="kiri"] .intro-desc {

@@ -41,7 +41,7 @@ function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
         <WaveCanvas analyser={analyser} />
       </div>
       <div className="intro">
-        <p className="intro-greeting">Hi, I'm Kiri!</p>
+        <h1 className="intro-greeting">Hi, I'm Kiri!</h1>
         <p className="intro-desc">
           A programmer, a creator, and a cat <FaCat aria-hidden="true"/>
         </p>
