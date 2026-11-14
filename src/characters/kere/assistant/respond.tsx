@@ -148,7 +148,7 @@ function projectReply(p: CvProject, lang: Lang): Reply {
     lines: [
       lang === "zh" ? `${p.title}：${PROJECT_KIND_ZH[p.kind]}專案，${period}。` : `${p.title}. ${p.kind} project, ${period}.`,
       p.description,
-      ...(p.links.length > 0 ? [<ProjectLinks links={p.links} />] : []),
+      ...(p.links.length > 0 ? [<ProjectLinks links={p.links} project={p.title} />] : []),
     ],
     jump: { id: projectAnchor(p.title), label: lang === "zh" ? "到 CV 上看" : "View on the CV" },
   };

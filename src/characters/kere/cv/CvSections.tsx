@@ -53,7 +53,7 @@ function Projects() {
       </ul>
       {p.links.length > 0 && (
         <div className="kere-entry__links">
-          <ProjectLinks links={p.links} />
+          <ProjectLinks links={p.links} project={p.title} />
         </div>
       )}
     </CvEntry>
