@@ -851,7 +851,8 @@ html[data-skin="kuru"] body {
   transition: width 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
   margin-left: 0;
 }
-[data-skin="kuru"] .kuru-bgm__vol-wrap:hover .kuru-bgm__vol {
+[data-skin="kuru"] .kuru-bgm__vol-wrap:hover .kuru-bgm__vol,
+[data-skin="kuru"] .kuru-bgm__vol-wrap:focus-within .kuru-bgm__vol {
   width: 50px;
   opacity: 1;
   margin-left: 0.4rem;
@@ -871,6 +872,26 @@ html[data-skin="kuru"] body {
   background: rgba(255, 255, 255, 0.5);
   border: none;
   cursor: pointer;
+}
+
+/* ---- keyboard focus: the text lights up in its section's colour, with no frame ----
+   The transparent outline is for Windows' high-contrast mode, which drops text-shadow but draws outlines. */
+
+[data-skin="kuru"] .kuru-overlay :focus-visible,
+[data-skin="kuru"] .kuru-bgm :focus-visible {
+  outline: 1px solid transparent;
+  color: var(--kuru-accent, #fff);
+  text-shadow:
+    0 0 6px var(--kuru-accent, #fff),
+    0 0 14px var(--kuru-accent-glow, rgba(255, 255, 255, 0.5));
+}
+[data-skin="kuru"] .kuru-bgm__vol:focus-visible::-webkit-slider-thumb {
+  background: #fff;
+  box-shadow: 0 0 6px #fff, 0 0 14px rgba(255, 255, 255, 0.5);
+}
+[data-skin="kuru"] .kuru-bgm__vol:focus-visible::-moz-range-thumb {
+  background: #fff;
+  box-shadow: 0 0 6px #fff, 0 0 14px rgba(255, 255, 255, 0.5);
 }
 
 /* ---- cat dialogue (RPG-style) ---- */
