@@ -5,6 +5,7 @@ import { resumeAudioContext } from "../../shared/audio";
 import { readBoolean, readNumber, readString, writeBoolean, writeString } from "../../shared/storage";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import FocusOnNavigate from "./components/FocusOnNavigate";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Projects from "./pages/Projects";
@@ -119,6 +120,7 @@ function KiriApp() {
 
   return (
     <Router basename="/">
+      <FocusOnNavigate />
       <audio ref={audioRef} src={selectedPair.bgm} loop crossOrigin="anonymous" />
       <Navbar onRefresh={handleRefresh} bgmEnabled={bgmEnabled} toggleBgm={toggleBgm} volume={volume} setVolume={setVolume}/>
       <div className="App">

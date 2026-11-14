@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useThree, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import type { SectionId, Phase } from "../types";
+import type { SectionId, Phase, HotspotId } from "../types";
+import { prefersReducedMotion } from "../../../shared/motion";
 import {
   HOME_POS, IS_MOBILE, ZOOM_TARGETS,
   LEFT_BOUNDARY_POINT, RIGHT_BOUNDARY_POINT,
@@ -62,10 +63,16 @@ function findCameraXForProjectedX(
   return (low + high) / 2;
 }
 
-function KuruCamera({ target, phase, onDone }: {
+/** How far off center, in screen units, something reached with the keyboard may be before the camera turns to it. */
+const FOCUS_IN_VIEW_NDC_X = 0.75;
+
+function KuruCamera({ target, phase, onDone, focused = null, focusPoint }: {
   target: SectionId | null;
   phase: Phase;
   onDone: () => void;
+  /** What the keyboard is on: the camera turns to it if it's off to one side. */
+  focused?: HotspotId | null;
+  focusPoint?: (id: HotspotId) => [number, number, number];
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
@@ -77,6 +84,8 @@ function KuruCamera({ target, phase, onDone }: {
   const touchRef = useRef({ startX: 0, lastX: 0, active: false });
   const velocityX = useRef(0);
   const boundsRef = useRef({ lo: HOME_POS.x, hi: HOME_POS.x });
+  /** Jump straight to panX on the next frame instead of easing there, for less motion. */
+  const snapRef = useRef(false);
 
   useEffect(() => {
     doneRef.current = false;
@@ -115,6 +124,23 @@ function KuruCamera({ target, phase, onDone }: {
     );
 
   }, [camera, size.width, size.height]);
+
+  useEffect(() => {
+    if (!focused || !focusPoint || phase !== "idle" || size.width <= 0 || size.height <= 0) return;
+
+    // Judged from where the camera is heading, not where it is: it may still be easing toward something else.
+    const point = new THREE.Vector3(...focusPoint(focused));
+    const settled = camera.clone();
+    settled.position.set(panX.current, HOME_POS.y, HOME_POS.z);
+    settled.updateMatrixWorld(true);
+    const onScreen = point.clone().project(settled);
+    if (Math.abs(onScreen.x) <= FOCUS_IN_VIEW_NDC_X) return;
+
+    const centered = findCameraXForProjectedX(camera, size.width / size.height, point, 0);
+    panX.current = THREE.MathUtils.clamp(centered, boundsRef.current.lo, boundsRef.current.hi);
+    velocityX.current = 0;
+    if (prefersReducedMotion()) snapRef.current = true;
+  }, [focused, focusPoint, phase, camera, size.width, size.height]);
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -199,7 +225,12 @@ function KuruCamera({ target, phase, onDone }: {
         boundsRef.current.hi,
       );
 
-      camera.position.x += (panX.current - camera.position.x) * 0.08;
+      if (snapRef.current) {
+        snapRef.current = false;
+        camera.position.x = panX.current;
+      } else {
+        camera.position.x += (panX.current - camera.position.x) * 0.08;
+      }
       camera.position.y += (HOME_POS.y - camera.position.y) * 0.04;
       camera.position.z += (HOME_POS.z - camera.position.z) * 0.04;
       return;

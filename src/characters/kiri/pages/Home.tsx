@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Contact from "../components/Contact";
 import WaveCanvas from "../components/WaveCanvas";
 import { FaCat } from "react-icons/fa";
+import { prefersReducedMotion } from "../../../shared/motion";
 
 interface HomeProps {
   videoWebm: string;
@@ -15,12 +16,14 @@ function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
   // Which video is ready to show. Tied to the source, so a new video starts on its poster again.
   const [readySrc, setReadySrc] = useState<string | null>(null);
   const isLoaded = readySrc === videoWebm;
+  // Less motion asked for: Kiri stays as her poster, and the video isn't even loaded.
+  const [stillOnly] = useState(prefersReducedMotion);
 
   // Waits for the video by looking, not by its canplay event: a video already in the browser's cache can be ready
   // before React listens, and then the event never arrives and the poster would stay forever.
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || stillOnly) return;
     let frame = 0;
     const check = () => {
       if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) setReadySrc(videoWebm);
@@ -28,7 +31,7 @@ function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
     };
     frame = requestAnimationFrame(check);
     return () => cancelAnimationFrame(frame);
-  }, [videoWebm]);
+  }, [videoWebm, stillOnly]);
 
   return (
     <div className="home">
@@ -38,7 +41,7 @@ function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
         <WaveCanvas analyser={analyser} />
       </div>
       <div className="intro">
-        <p className="intro-greeting">Hi, I'm Kiri!</p>
+        <h1 className="intro-greeting">Hi, I'm Kiri!</h1>
         <p className="intro-desc">
           A programmer, a creator, and a cat <FaCat aria-hidden="true"/>
         </p>
@@ -53,8 +56,12 @@ function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
 
       <div className="home-video">
         {/* The video's first frame, so Kiri is there at once. The video starts from that same frame. */}
-        {!isLoaded && <img className="home-video-poster" src={poster} alt="" fetchPriority="high" />}
-        <video
+        {stillOnly ? (
+          <img className="home-video-poster" src={poster} alt="Kiri's 3D character model" fetchPriority="high" />
+        ) : (
+          !isLoaded && <img className="home-video-poster" src={poster} alt="" fetchPriority="high" />
+        )}
+        {!stillOnly && <video
           key={videoWebm}
           ref={videoRef}
           autoPlay loop muted playsInline
@@ -63,7 +70,7 @@ function Home({ videoWebm, videoMov, poster, analyser }: HomeProps) {
           <source src={videoMov} type="video/quicktime" />
           <source src={videoWebm} type="video/webm" />
           Your browser does not support video playback.
-        </video>
+        </video>}
       </div>
     </div>
   );

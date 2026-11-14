@@ -48,6 +48,7 @@ function Projects() {
     <div className="projects">
       <title>Kiri487 | Projects</title>
       <meta name="description" content="Explore Kiri's personal and team software development projects." />
+      <h1 className="visually-hidden">Projects</h1>
       <h2 className="title"><BsPersonFill aria-hidden="true"/>Personal</h2>
       <div className="projects-grid">
         {personalProjects.map((project) => (

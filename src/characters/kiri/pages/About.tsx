@@ -26,6 +26,7 @@ function About() {
     <div className="about">
       <title>Kiri487 | About</title>
       <meta name="description" content="Get to know Kiri — a graduate student at National Taiwan University interested in software development, web front-end design, and information security." />
+      <h1 className="visually-hidden">About</h1>
 
       <h2 className="title"><FaCat aria-hidden="true"/>whoami</h2>
       <div className="content">

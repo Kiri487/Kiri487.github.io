@@ -5,6 +5,10 @@ import { stackedAlphaVertexShader, stackedAlphaFragmentShader } from "./stackedA
 
 const DEFAULT_TINT: [number, number, number] = [1, 1, 1];
 
+/** How bright it gets while glowing, and how fast it gets there: the same as InteractivePlane's hover. */
+const GLOW = 0.5;
+const GLOW_EASE = 0.08;
+
 export interface StackedAlphaVideoProps {
   src: string;
   aspect: number;
@@ -15,6 +19,9 @@ export interface StackedAlphaVideoProps {
   glitchRef: React.MutableRefObject<{ value: number }>;
   alphaRef: React.MutableRefObject<number>;
   videoRef: React.MutableRefObject<HTMLVideoElement | null>;
+  /** Glows while this is true, read every frame, or while `glowing` is. */
+  glowingRef?: React.RefObject<boolean>;
+  glowing?: boolean;
   onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: () => void;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
@@ -22,7 +29,7 @@ export interface StackedAlphaVideoProps {
 
 export function StackedAlphaVideo({
   src, aspect, rotation, gamma = 1, brightness = 1, tint = DEFAULT_TINT,
-  glitchRef, alphaRef, videoRef,
+  glitchRef, alphaRef, videoRef, glowingRef, glowing = false,
   onPointerMove, onPointerOut, onClick,
 }: StackedAlphaVideoProps) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
@@ -67,6 +74,7 @@ export function StackedAlphaVideo({
         uTime: { value: 0 },
         uGlitch: { value: 0 },
         uAlpha: { value: 1 },
+        uGlow: { value: 0 },
         uGamma: { value: gamma },
         uBrightness: { value: brightness },
         uTint: { value: new THREE.Vector3(tintR, tintG, tintB) },
@@ -99,6 +107,8 @@ export function StackedAlphaVideo({
     material.uniforms.uTime.value += delta;
     material.uniforms.uGlitch.value = glitchRef.current.value;
     material.uniforms.uAlpha.value = alphaRef.current;
+    const glow = material.uniforms.uGlow;
+    glow.value += ((glowing || glowingRef?.current ? GLOW : 0) - glow.value) * GLOW_EASE;
   });
   /* eslint-enable react-hooks/immutability */
 

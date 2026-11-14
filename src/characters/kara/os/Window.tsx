@@ -1,4 +1,4 @@
-import { memo, Suspense, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
 import { APPS } from "../apps/registry";
 import { DRAGGING_CLASS, useOs, WindowContext, type WindowApi } from "./context";
 import { clamp } from "../../../shared/math";
@@ -73,6 +73,42 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
     }),
     [id, args, minimized, os],
   );
+
+  // The keyboard follows the window that comes to the front, whether it was just opened, brought back from the
+  // taskbar or left on top when another closed. An app that already put the focus somewhere inside keeps it.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!focused || minimized || !root || root.contains(document.activeElement)) return;
+    root.focus({ preventScroll: true });
+  }, [focused, minimized]);
+
+  // Minimizing hides the window, which would drop the focus on the page itself. It goes to the window's taskbar
+  // button instead, ready to bring it back; if another window comes to the front, the effect above takes it on.
+  useLayoutEffect(() => {
+    if (!minimized || !rootRef.current?.contains(document.activeElement)) return;
+    document.querySelector<HTMLElement>(`.kara-taskbar__window[data-window-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+  }, [minimized, id]);
+
+  // Closing hands the focus back to whatever opened the window, such as its desktop icon. If another window
+  // comes to the front instead, the effect above moves it there. The opener is kept from the first run only:
+  // React may run this again while the window stays (Strict Mode), when the focus is already inside it.
+  const openerRef = useRef<Element | null>(null);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!openerRef.current && !root?.contains(document.activeElement)) openerRef.current = document.activeElement;
+    return () => {
+      if (!root?.contains(document.activeElement)) return;
+      // Waits until the window is gone: a message box inside it gives the focus back inside as it closes too.
+      // Until the browser repaints, the focus can still point at the removed button rather than <body>.
+      queueMicrotask(() => {
+        if (root.isConnected) return;
+        const now = document.activeElement;
+        if (now && now !== document.body && now.isConnected) return;
+        const opener = openerRef.current;
+        if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+      });
+    };
+  }, []);
 
   // The same element each render, so moving or focusing the window doesn't re-render the app. It still hears `api` through context.
   const content = useMemo(() => <App />, [App]);
@@ -193,6 +229,7 @@ function Window({ win, focused }: { win: WindowState; focused: boolean }) {
       className={classNames.join(" ")}
       style={positionStyle}
       aria-label={win.title}
+      tabIndex={-1}
       onPointerDownCapture={() => os.focusWindow(id)}
     >
       <div

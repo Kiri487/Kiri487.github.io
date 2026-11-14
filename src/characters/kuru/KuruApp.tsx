@@ -9,12 +9,13 @@ import CharacterDialogue, { type CharacterDialogueHandle } from "../../shared/di
 import type { DialogueEntry } from "./dialogue/catDialogues";
 import BgmPlayer from "./audio/BgmPlayer";
 import LoadingScreen from "./LoadingScreen";
+import HotspotKeys from "./HotspotKeys";
 import KuruErrorBoundary from "./KuruErrorBoundary";
 import useKuruMemory from "./dialogue/useKuruMemory";
 import useSFX from "./audio/useSFX";
 import "./style.css";
 
-import type { SectionId, Phase } from "./types";
+import type { SectionId, Phase, HotspotId } from "./types";
 
 function KuruStreet() {
   const { setSkin } = useSkin();
@@ -23,6 +24,7 @@ function KuruStreet() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [activeDialogue, setActiveDialogue] = useState<DialogueEntry | null>(null);
   const [dialogueKey, setDialogueKey] = useState(0);
+  const [focusedHotspot, setFocusedHotspot] = useState<HotspotId | null>(null);
   const { playBlip } = useSFX();
   const dialogueRef = useRef<CharacterDialogueHandle>(null);
   const pendingForceSwap = useRef(false);
@@ -86,6 +88,14 @@ function KuruStreet() {
     setActiveDialogue(pickDialogue());
   }, [phase, activeDialogue, recordClick, pickDialogue]);
 
+  const handleHotspotKey = useCallback((id: HotspotId) => {
+    // Mid-conversation the dialogue box takes Enter and Space itself; a click from the same key would skip a line.
+    if (id === "cat" && activeDialogue) return;
+    if (id === "exit") handleExit();
+    else if (id === "cat") handleDialogueAdvance();
+    else handleSectionClick(id);
+  }, [activeDialogue, handleExit, handleDialogueAdvance, handleSectionClick]);
+
   return (
     <div className="kuru">
       <title>Kuru's Hideout</title>
@@ -106,9 +116,11 @@ function KuruStreet() {
             onCatClick={handleDialogueAdvance}
             forceSwapRef={forceSwapRef}
             pauseAmbient={activeDialogue !== null}
+            focused={focusedHotspot}
           />
         </Suspense>
       </Canvas>
+      <HotspotKeys onFocusChange={setFocusedHotspot} onActivate={handleHotspotKey} />
       <ConnectOverlay
         section={activeSection}
         active={phase === "connecting"}

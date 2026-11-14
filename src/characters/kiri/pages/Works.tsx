@@ -41,8 +41,9 @@ function Works() {
     <div className="works">
       <title>Kiri487 | Works</title>
       <meta name="description" content="Browse Kiri's gallery of illustrations, videos, and other creative works." />
+      <h1 className="visually-hidden">Works</h1>
 
-      <h2 className="title"><BsStars />Gallery</h2>
+      <h2 className="title"><BsStars aria-hidden="true"/>Gallery</h2>
 
       <div className="filter-container">
         <button

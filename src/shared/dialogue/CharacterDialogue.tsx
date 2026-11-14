@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { isDialogueChoice, type DialogueEntry, type DialogueChoice } from "./types";
+import { prefersReducedMotion } from "../motion";
 
 export interface CharacterDialogueHandle {
   advance: () => void;
@@ -16,6 +17,16 @@ interface CharacterDialogueProps {
 
 type DialoguePhase = "lines" | "choosing" | "response";
 
+/** Out of sight but still read out, the way a skin's own "visually hidden" class would do it. */
+const VISUALLY_HIDDEN: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clipPath: "inset(50%)",
+  whiteSpace: "nowrap",
+};
+
 const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueProps>(
   ({ dialogue, characterName, className = "character-dialogue", playBlip, onClose, onChoiceScore }, ref) => {
     const isChoice = isDialogueChoice(dialogue);
@@ -28,6 +39,13 @@ const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueP
     const [confirmedChoice, setConfirmedChoice] = useState<number | null>(null);
     const [chosenResponse, setChosenResponse] = useState<string[] | null>(null);
     const typewriterRef = useRef<number>(0);
+    // The spoken copy starts empty for a frame: some screen readers miss what a live region already holds when it appears.
+    const [speaking, setSpeaking] = useState(false);
+
+    useEffect(() => {
+      const frame = requestAnimationFrame(() => setSpeaking(true));
+      return () => cancelAnimationFrame(frame);
+    }, []);
 
     const currentLines =
       phase === "response" && chosenResponse
@@ -44,11 +62,13 @@ const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueP
       setDisplayedChars(0);
       const line = currentLines[lineIndex];
       let charIndex = 0;
+      // Less motion asked for: the whole line at once, on the first tick, with a single blip.
+      const instant = prefersReducedMotion();
 
       const id = window.setInterval(() => {
-        charIndex++;
+        charIndex = instant ? line.length : charIndex + 1;
         setDisplayedChars(charIndex);
-        if (line[charIndex - 1] !== " ") playBlip?.();
+        if (instant || line[charIndex - 1] !== " ") playBlip?.();
         if (charIndex >= line.length) clearInterval(id);
       }, 65);
 
@@ -126,9 +146,14 @@ const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueP
       >
         <div className={`${className}__name`}>{characterName}</div>
 
+        {/* Screen readers hear each whole line once, as it starts, not the typewriter one letter at a time. */}
+        <div style={VISUALLY_HIDDEN} aria-live="polite">
+          {speaking && `${characterName.replace(/^[^\p{L}]+/u, "")}: ${currentLine}`}
+        </div>
+
         {phase === "choosing" ? (
           <>
-            <div className={`${className}__text`}>{currentLine}</div>
+            <div className={`${className}__text`} aria-hidden="true">{currentLine}</div>
             <div className={`${className}__choices`}>
               {(dialogue as DialogueChoice).choices.map((opt, i) => (
                 <button
@@ -145,12 +170,12 @@ const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueP
           </>
         ) : (
           <>
-            <div className={`${className}__text`}>
+            <div className={`${className}__text`} aria-hidden="true">
               {currentLine.slice(0, displayedChars)}
               {isTyping && <span className={`${className}__cursor`}>|</span>}
             </div>
             {!isTyping && !closing && (
-              <div className={`${className}__next`}>{"▼"}</div>
+              <div className={`${className}__next`} aria-hidden="true">{"▼"}</div>
             )}
           </>
         )}
