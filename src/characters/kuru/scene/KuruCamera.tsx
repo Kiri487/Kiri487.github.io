@@ -128,8 +128,12 @@ function KuruCamera({ target, phase, onDone, focused = null, focusPoint }: {
   useEffect(() => {
     if (!focused || !focusPoint || phase !== "idle" || size.width <= 0 || size.height <= 0) return;
 
+    // Judged from where the camera is heading, not where it is: it may still be easing toward something else.
     const point = new THREE.Vector3(...focusPoint(focused));
-    const onScreen = point.clone().project(camera);
+    const settled = camera.clone();
+    settled.position.set(panX.current, HOME_POS.y, HOME_POS.z);
+    settled.updateMatrixWorld(true);
+    const onScreen = point.clone().project(settled);
     if (Math.abs(onScreen.x) <= FOCUS_IN_VIEW_NDC_X) return;
 
     const centered = findCameraXForProjectedX(camera, size.width / size.height, point, 0);
