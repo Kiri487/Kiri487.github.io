@@ -4,8 +4,8 @@ import type { HotspotId } from "./types";
 const HOTSPOTS: { id: HotspotId; label: string }[] = [
   { id: "projects", label: "Projects" },
   { id: "exit", label: "Back to Kiri" },
-  { id: "credits", label: "Credits" },
   { id: "works", label: "Works" },
+  { id: "credits", label: "Credits" },
   { id: "about", label: "About" },
   { id: "cat", label: "Talk to Kuru" },
 ];
