@@ -153,7 +153,7 @@ const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueP
 
         {phase === "choosing" ? (
           <>
-            <div className={`${className}__text`}>{currentLine}</div>
+            <div className={`${className}__text`} aria-hidden="true">{currentLine}</div>
             <div className={`${className}__choices`}>
               {(dialogue as DialogueChoice).choices.map((opt, i) => (
                 <button
