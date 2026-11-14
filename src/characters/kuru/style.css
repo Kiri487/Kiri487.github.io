@@ -59,6 +59,16 @@ html[data-skin="kuru"] body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Never seen: the keyboard lights things up in the scene instead (HotspotKeys.tsx). */
+[data-skin="kuru"] .kuru-hotspot-keys {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* ---- overlay: section accent colors ---- */
 
 [data-skin="kuru"] .kuru-overlay[data-section="about"],

@@ -19,8 +19,9 @@ export interface StackedAlphaVideoProps {
   glitchRef: React.MutableRefObject<{ value: number }>;
   alphaRef: React.MutableRefObject<number>;
   videoRef: React.MutableRefObject<HTMLVideoElement | null>;
-  /** Glows while this is true, read every frame. */
+  /** Glows while this is true, read every frame, or while `glowing` is. */
   glowingRef?: React.RefObject<boolean>;
+  glowing?: boolean;
   onPointerMove?: (e: ThreeEvent<PointerEvent>) => void;
   onPointerOut?: () => void;
   onClick?: (e: ThreeEvent<MouseEvent>) => void;
@@ -28,7 +29,7 @@ export interface StackedAlphaVideoProps {
 
 export function StackedAlphaVideo({
   src, aspect, rotation, gamma = 1, brightness = 1, tint = DEFAULT_TINT,
-  glitchRef, alphaRef, videoRef, glowingRef,
+  glitchRef, alphaRef, videoRef, glowingRef, glowing = false,
   onPointerMove, onPointerOut, onClick,
 }: StackedAlphaVideoProps) {
   const [material, setMaterial] = useState<THREE.ShaderMaterial | null>(null);
@@ -107,7 +108,7 @@ export function StackedAlphaVideo({
     material.uniforms.uGlitch.value = glitchRef.current.value;
     material.uniforms.uAlpha.value = alphaRef.current;
     const glow = material.uniforms.uGlow;
-    glow.value += ((glowingRef?.current ? GLOW : 0) - glow.value) * GLOW_EASE;
+    glow.value += ((glowing || glowingRef?.current ? GLOW : 0) - glow.value) * GLOW_EASE;
   });
   /* eslint-enable react-hooks/immutability */
 

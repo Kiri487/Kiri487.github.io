@@ -11,6 +11,15 @@ export const ZOOM_TARGETS: Record<SectionId, THREE.Vector3> = {
   credits: new THREE.Vector3(-1.45, -0.95, -0.65),
 };
 
+/** Where each clickable thing on the street stands; the camera turns to it when it's reached with the keyboard. */
+export const HOTSPOT_POSITIONS: Record<SectionId | "exit", [number, number, number]> = {
+  about: [-2.6, -0.6, -0.08],
+  projects: [1.10, -0.67, 1.01],
+  works: [-0.94, -1.82, 0.12],
+  credits: [-1.47, -0.96, 0.53],
+  exit: [-0.13, -0.16, 0.99],
+};
+
 export interface VideoConfig {
   src: string;
   aspect: number;

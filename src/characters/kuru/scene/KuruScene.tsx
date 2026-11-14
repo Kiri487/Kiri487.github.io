@@ -1,14 +1,15 @@
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState, useRef, useCallback } from "react";
 import { useThree } from "@react-three/fiber";
 import { useGLTF, useTexture, Environment } from "@react-three/drei";
 import * as THREE from "three";
-import type { SectionId, Phase } from "../types";
+import type { SectionId, Phase, HotspotId } from "../types";
 import useSFX from "../audio/useSFX";
 import KuruPostProcessing from "./KuruPostProcessing";
 import KuruCamera from "./KuruCamera";
 import KuruLighting from "./KuruLighting";
 import { GraffitiHotspot, WallObject, ExitHotspot } from "./KuruHotspots";
 import { VideoWithShadow } from "./KuruCharacter";
+import { HOTSPOT_POSITIONS, WALL_VIDEOS } from "./config";
 
 const texSize = (tex: THREE.Texture) => tex.image as { width: number; height: number } | undefined;
 
@@ -21,14 +22,18 @@ interface SceneProps {
   onCatClick?: () => void;
   forceSwapRef?: React.MutableRefObject<boolean>;
   pauseAmbient?: boolean;
+  /** What the keyboard is on, which lights up as if pointed at. */
+  focused?: HotspotId | null;
 }
 
 const STREET_MODEL = "/kuru/models/dirty_street.glb";
 /** The model is Draco-compressed. Its decoder is served from the site (copied from three's own), not Google's CDN. */
 const DRACO_DECODER = "/kuru/draco/";
 
-function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick, forceSwapRef, pauseAmbient }: SceneProps) {
+function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCatClick, forceSwapRef, pauseAmbient, focused = null }: SceneProps) {
   const [exitHovered, setExitHovered] = useState(false);
+  /** Which of Kuru's videos is showing, so the camera knows where she is. */
+  const catIndexRef = useRef(0);
   const { playGlitch } = useSFX();
   const { scene } = useGLTF(STREET_MODEL, DRACO_DECODER);
   const graffitiTex = useTexture("/kuru/textures/kiri487_graffiti.webp");
@@ -85,17 +90,23 @@ function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCa
     });
   }, [scene]);
 
+  const focusPoint = useCallback((id: HotspotId): [number, number, number] => (
+    id === "cat" ? WALL_VIDEOS[catIndexRef.current].position : HOTSPOT_POSITIONS[id]
+  ), []);
+
+  const glowing = (section: SectionId) => (zoomTarget === section && phase !== "idle") || focused === section;
+
   const graffitiImg = texSize(graffitiTex);
   const aspect = graffitiImg ? graffitiImg.width / graffitiImg.height : 1.5;
 
   return (
     <>
-      <KuruCamera target={zoomTarget} phase={phase} onDone={onZoomDone} />
+      <KuruCamera target={zoomTarget} phase={phase} onDone={onZoomDone} focused={focused} focusPoint={focusPoint} />
 
       <Environment preset="night" environmentIntensity={0.25} />
       <ambientLight intensity={0.12} />
 
-      <KuruLighting exitHovered={exitHovered} />
+      <KuruLighting exitHovered={exitHovered || focused === "exit"} />
 
       <primitive object={scene} />
 
@@ -104,45 +115,53 @@ function KuruScene({ onSectionClick, onExit, zoomTarget, phase, onZoomDone, onCa
       <GraffitiHotspot
         texture={graffitiTex}
         aspect={aspect}
-        glowing={zoomTarget === "about" && phase !== "idle"}
+        glowing={glowing("about")}
         disabled={pauseAmbient}
         onClick={() => onSectionClick("about")}
       />
 
       <WallObject
-        position={[1.10, -0.67, 1.01]}
+        position={HOTSPOT_POSITIONS.projects}
         rotation={[0, -3.14, 0]}
         scale={[posterAspect * posterScale, posterScale]}
         texture={posterTex}
         cursorOwner="projects"
-        glowing={zoomTarget === "projects" && phase !== "idle"}
+        glowing={glowing("projects")}
         disabled={pauseAmbient}
         onClick={() => onSectionClick("projects")}
       />
 
       <WallObject
-        position={[-0.94, -1.82, 0.12]}
+        position={HOTSPOT_POSITIONS.works}
         rotation={[-0.06, -3.49, 0.01]}
         scale={[worksAspect * worksScale, worksScale]}
         texture={worksTex}
         cursorOwner="works"
-        glowing={zoomTarget === "works" && phase !== "idle"}
+        glowing={glowing("works")}
         disabled={pauseAmbient}
         onClick={() => onSectionClick("works")}
       />
 
       <WallObject
-        position={[-1.47, -0.96, 0.53]}
+        position={HOTSPOT_POSITIONS.credits}
         rotation={[0, -3.14, 0]}
         scale={[creditsAspect * creditsScale, creditsScale]}
         texture={creditsTex}
         cursorOwner="credits"
-        glowing={zoomTarget === "credits" && phase !== "idle"}
+        glowing={glowing("credits")}
         disabled={pauseAmbient}
         onClick={() => onSectionClick("credits")}
       />
 
-      <VideoWithShadow contactShadowTex={contactShadowTex} onCatClick={onCatClick} playGlitch={playGlitch} forceSwapRef={forceSwapRef} pauseAmbient={pauseAmbient} />
+      <VideoWithShadow
+        contactShadowTex={contactShadowTex}
+        onCatClick={onCatClick}
+        playGlitch={playGlitch}
+        forceSwapRef={forceSwapRef}
+        pauseAmbient={pauseAmbient}
+        focused={focused === "cat"}
+        visibleIndexRef={catIndexRef}
+      />
 
       <KuruPostProcessing />
     </>

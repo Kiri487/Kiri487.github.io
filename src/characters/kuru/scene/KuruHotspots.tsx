@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import * as THREE from "three";
 import { InteractivePlane } from "../../../shared/scene/InteractivePlane";
 import { setCursor } from "../../../shared/scene/cursorManager";
+import { HOTSPOT_POSITIONS } from "./config";
 
 interface GraffitiHotspotProps {
   texture: THREE.Texture;
@@ -15,7 +16,7 @@ export function GraffitiHotspot({ texture, aspect, glowing, disabled, onClick }:
   const scale = 0.55;
   return (
     <InteractivePlane
-      position={[-2.6, -0.6, -0.08]}
+      position={HOTSPOT_POSITIONS.about}
       rotation={[0, -3.13, -0.14]}
       scale={[aspect * scale, scale]}
       texture={texture}
@@ -67,7 +68,7 @@ export function ExitHotspot({ onClick, onHoverChange, disabled }: {
 
   return (
     <mesh
-      position={[-0.13, -0.16, 0.99]}
+      position={HOTSPOT_POSITIONS.exit}
       rotation={[0, -3.14, 0]}
       onPointerOver={disabled ? undefined : () => { onHoverChange(true); setCursor("exit", true); }}
       onPointerOut={disabled ? undefined : () => { onHoverChange(false); setCursor("exit", false); }}

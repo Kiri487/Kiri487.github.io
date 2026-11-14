@@ -6,12 +6,14 @@ import { WALL_VIDEOS, type VideoConfig } from "./config";
 import { StackedAlphaVideo } from "../../../shared/scene/StackedAlphaVideo";
 import { prefersReducedMotion } from "../../../shared/motion";
 
-function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, onClick }: {
+function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, focused, onClick }: {
   config: VideoConfig;
   glitchRef: React.MutableRefObject<{ value: number }>;
   alphaRef: React.MutableRefObject<number>;
   videoRef: React.MutableRefObject<HTMLVideoElement | null>;
   interactive: boolean;
+  /** Reached with the keyboard: lights up as if pointed at. */
+  focused: boolean;
   onClick?: () => void;
 }) {
   const hitCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -115,6 +117,7 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
       alphaRef={alphaRef}
       videoRef={videoRef}
       glowingRef={hoveringCharacterRef}
+      glowing={interactive && focused}
       onPointerMove={interactive ? handlePointerMove : undefined}
       onPointerOut={interactive ? handlePointerOut : undefined}
       onClick={interactive ? handleClick : undefined}
@@ -122,18 +125,24 @@ function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, o
   );
 }
 
-export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forceSwapRef, pauseAmbient }: {
+export function VideoWithShadow({
+  contactShadowTex, onCatClick, playGlitch, forceSwapRef, pauseAmbient, focused = false, visibleIndexRef: sharedIndexRef,
+}: {
   contactShadowTex: THREE.Texture;
   onCatClick?: () => void;
   playGlitch: () => void;
   forceSwapRef?: React.MutableRefObject<boolean>;
   pauseAmbient?: boolean;
+  focused?: boolean;
+  /** Kept up to date with which video is showing, for anyone outside who needs to know where Kuru is. */
+  visibleIndexRef?: React.MutableRefObject<number>;
 }) {
   const videoRefs = useMemo(
     () => WALL_VIDEOS.map(() => ({ current: null as HTMLVideoElement | null })),
     [],
   );
-  const visibleIndexRef = useRef(0);
+  const ownIndexRef = useRef(0);
+  const visibleIndexRef = sharedIndexRef ?? ownIndexRef;
   const [activeIndex, setActiveIndex] = useState(0);
   const containerRefs = useRef<(THREE.Group | null)[]>([]);
   const alphaRefs = useMemo(
@@ -261,6 +270,7 @@ export function VideoWithShadow({ contactShadowTex, onCatClick, playGlitch, forc
                 alphaRef={alphaRefs[i]}
                 videoRef={videoRefs[i]}
                 interactive={activeIndex === i}
+                focused={focused}
                 onClick={activeIndex === i ? onCatClick : undefined}
               />
             </group>
