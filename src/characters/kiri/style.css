@@ -878,13 +878,17 @@ html[data-skin="kiri"] body {
     transform: translateY(-20px);
     opacity: 0;
     pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Hidden from the keyboard too once closed, after it has faded out. */
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.3s;
   }
 
   [data-skin="kiri"] .mobile-menu-dropdown.open {
     transform: translateY(0);
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s;
   }
 
   [data-skin="kiri"] .mobile-link {
