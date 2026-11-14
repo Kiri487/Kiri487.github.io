@@ -11,7 +11,6 @@ src/
   SkinContext.tsx      the active skin, read from the address (/kara/ etc.; Kiri is /)
   SkinSwitcher.tsx     the badges on Kiri's page that open the other skins
   data/portfolio/      the shared content: about, projects, works, contacts
-  config/assets.tsx    Kiri's home videos, their posters and music
   shared/              only what every skin can use (see below)
   characters/<skin>/   everything else, one folder per skin
 public/<skin>/         large media and fonts, served as-is
@@ -30,6 +29,9 @@ Skins: `kiri` (the main site), `kuru` (3D street, React Three Fiber), `kere` (La
   - `shared/audio.ts` for the one AudioContext the whole site shares. Never create another.
   - `shared/math.ts` for `clamp`.
   - `shared/motion.ts` for `prefersReducedMotion()`. Anything that moves on its own should stay still when it's true.
+  - `shared/useDialogFocus.ts` for any modal dialog: focus moves in, Tab stays inside, Escape closes, and focus
+    goes back to what opened it.
+  - `shared/visuallyHidden.ts` for text only screen readers should get, such as a heading the design doesn't show.
 - **No new dependencies without asking.** Kere and Kara are built by hand on React and react-icons; Kara's window
   system, games and sounds included.
 - React Hooks lint is strict: keep `Math.random()` and `Date.now()` out of render, and don't set state
@@ -41,7 +43,7 @@ Skins: `kiri` (the main site), `kuru` (3D street, React Three Fiber), `kere` (La
   `public/kiri/img/thumbs/` for Kara's program list:
   `ffmpeg -i X.png -vf "scale=64:64:force_original_aspect_ratio=increase,crop=64:64" -c:v libwebp -quality 80 thumbs/X.webp`
 - **Home video:** a `.webm` (VP9 with alpha), an `_iOS.mov` (HEVC with alpha) and a poster of the first frame,
-  listed in `src/config/assets.tsx`. The poster needs the VP9 decoder named, or the transparency is lost:
+  listed in `src/characters/kiri/assets.ts`. The poster needs the VP9 decoder named, or the transparency is lost:
   `ffmpeg -c:v libvpx-vp9 -i X.webm -frames:v 1 -c:v libwebp -quality 85 posters/X.webp`
 - **Fonts** are self-hosted next to their OFL licence, in the skin's own `public/<skin>/fonts/`.
 - Kiri's routes are mirrored in `SUBPAGES` in `vite.config.ts`, and the skin ids in `SKIN_PAGES`, so GitHub Pages

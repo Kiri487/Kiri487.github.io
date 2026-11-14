@@ -17,6 +17,8 @@
 /* ---- palette & document ---- */
 
 html[data-skin="kuru"] {
+  /* Kuru's own blue: the loading screen, the dialogue, the crash screen, and the About panel's accent. */
+  --kuru-blue: #0af;
   --kuru-ink: #1a1a1a;
   --kuru-cream: #f5f0e8;
   --kuru-red: #c23b22;
@@ -59,23 +61,11 @@ html[data-skin="kuru"] body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Never seen: the keyboard lights things up in the scene instead (HotspotKeys.tsx), and the loading screen's
-   spoken status stands in for its terminal lines (LoadingScreen.tsx). */
-[data-skin="kuru"] .kuru-hotspot-keys,
-[data-skin="kuru"] .kuru-loading__spoken {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 /* ---- overlay: section accent colors ---- */
 
 [data-skin="kuru"] .kuru-overlay[data-section="about"],
 [data-skin="kuru"] .kuru-connect[data-section="about"] {
-  --kuru-accent: #0af;
+  --kuru-accent: var(--kuru-blue);
   --kuru-accent-glow: rgba(0, 170, 255, 0.5);
 }
 [data-skin="kuru"] .kuru-overlay[data-section="projects"],
@@ -120,7 +110,7 @@ html[data-skin="kuru"] body {
   padding: 0;
   border: none;
   background: none;
-  color: #0af;
+  color: var(--kuru-blue);
   font: inherit;
   cursor: pointer;
 }
@@ -131,7 +121,7 @@ html[data-skin="kuru"] body {
 }
 [data-skin="kuru"] .kuru-loading__box {
   width: min(400px, 70vw);
-  border: 1px solid #0af;
+  border: 1px solid var(--kuru-blue);
   background: rgba(0, 0, 0, 0.85);
   box-shadow: 0 0 20px rgba(0, 170, 255, 0.4);
 }
@@ -139,7 +129,7 @@ html[data-skin="kuru"] body {
   padding: 10px 16px;
   font-family: 'Courier New', monospace;
   font-size: 0.82rem;
-  color: #0af;
+  color: var(--kuru-blue);
   line-height: 1.6;
 }
 [data-skin="kuru"] .kuru-loading__line {
@@ -159,7 +149,7 @@ html[data-skin="kuru"] body {
 }
 [data-skin="kuru"] .kuru-loading__bar-fill {
   height: 100%;
-  background: #0af;
+  background: var(--kuru-blue);
   box-shadow: 0 0 6px rgba(0, 170, 255, 0.6);
   transition: width 0.3s ease;
 }
@@ -180,7 +170,7 @@ html[data-skin="kuru"] body {
   min-height: 2px;
   display: grid;
   grid-template-rows: 0fr;
-  background: var(--kuru-accent, #0af);
+  background: var(--kuru-accent, var(--kuru-blue));
   opacity: 1;
   transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.2s ease;
@@ -188,7 +178,7 @@ html[data-skin="kuru"] body {
 }
 [data-skin="kuru"] .kuru-connect__box--open {
   grid-template-rows: 1fr;
-  border: 1px solid var(--kuru-accent, #0af);
+  border: 1px solid var(--kuru-accent, var(--kuru-blue));
   background: rgba(0, 0, 0, 0.85);
 }
 [data-skin="kuru"] .kuru-connect__box--close {
@@ -201,7 +191,7 @@ html[data-skin="kuru"] body {
   padding: 10px 16px;
   font-family: 'Courier New', monospace;
   font-size: 0.82rem;
-  color: var(--kuru-accent, #0af);
+  color: var(--kuru-accent, var(--kuru-blue));
   line-height: 1.6;
 }
 [data-skin="kuru"] .kuru-connect__line {
@@ -373,7 +363,7 @@ html[data-skin="kuru"] body {
   user-select: text;
 }
 [data-skin="kuru"] .kuru-overlay__panel ::selection {
-  background: var(--kuru-accent, #0af);
+  background: var(--kuru-accent, var(--kuru-blue));
   color: #000;
 }
 
@@ -445,7 +435,7 @@ html[data-skin="kuru"] body {
   font-family: 'Courier New', monospace;
   font-weight: bold;
   font-size: 1.1rem;
-  color: var(--kuru-accent, #0af);
+  color: var(--kuru-accent, var(--kuru-blue));
   white-space: nowrap;
   letter-spacing: 0.04em;
 }
@@ -453,13 +443,13 @@ html[data-skin="kuru"] body {
 [data-skin="kuru"] .kuru-term__line {
   flex: 1;
   height: 1px;
-  background: linear-gradient(to right, var(--kuru-accent, #0af) 40%, transparent);
+  background: linear-gradient(to right, var(--kuru-accent, var(--kuru-blue)) 40%, transparent);
   opacity: 0.25;
 }
 
 [data-skin="kuru"] .kuru-term__meta {
   font-size: 0.7rem;
-  color: var(--kuru-accent, #0af);
+  color: var(--kuru-accent, var(--kuru-blue));
   opacity: 0.45;
   white-space: nowrap;
 }
@@ -485,7 +475,7 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-term__label {
-  color: var(--kuru-accent, #0af);
+  color: var(--kuru-accent, var(--kuru-blue));
   flex-shrink: 0;
 }
 
@@ -544,7 +534,7 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-term__group-cat {
-  color: var(--kuru-accent, #0af);
+  color: var(--kuru-accent, var(--kuru-blue));
   font-size: 0.8rem;
   margin-bottom: 0.15rem;
 }
@@ -726,7 +716,7 @@ html[data-skin="kuru"] body {
   left: 0.5rem;
   font-family: 'Courier New', monospace;
   font-size: 0.55rem;
-  color: var(--kuru-accent, #0af);
+  color: var(--kuru-accent, var(--kuru-blue));
   opacity: 0.4;
   letter-spacing: 0.05em;
   background: rgba(10, 10, 16, 0.92);
@@ -739,7 +729,7 @@ html[data-skin="kuru"] body {
   right: 0.5rem;
   font-family: 'Courier New', monospace;
   font-size: 0.55rem;
-  color: var(--kuru-accent, #0af);
+  color: var(--kuru-accent, var(--kuru-blue));
   opacity: 0.2;
   letter-spacing: 0.05em;
   background: rgba(10, 10, 16, 0.92);
@@ -933,7 +923,7 @@ html[data-skin="kuru"] body {
   padding: 0.8rem 1.2rem;
   padding-bottom: 2.2rem;
   background: rgba(0, 0, 0, 0.88);
-  border: 1px solid #0af;
+  border: 1px solid var(--kuru-blue);
   box-shadow: 0 0 15px rgba(0, 170, 255, 0.3);
   font-family: 'Courier New', monospace;
   cursor: pointer;
@@ -947,7 +937,7 @@ html[data-skin="kuru"] body {
 [data-skin="kuru"] .kuru-dialogue__name {
   font-size: 0.7rem;
   font-weight: bold;
-  color: #0af;
+  color: var(--kuru-blue);
   letter-spacing: 0.08em;
   margin-bottom: 0.4rem;
   text-shadow: 0 0 6px rgba(0, 170, 255, 0.4);
@@ -961,7 +951,7 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-dialogue__cursor {
-  color: #0af;
+  color: var(--kuru-blue);
 }
 
 [data-skin="kuru"] .kuru-dialogue--choosing {
@@ -991,16 +981,16 @@ html[data-skin="kuru"] body {
 }
 
 [data-skin="kuru"] .kuru-dialogue__choice--active {
-  color: #0af;
+  color: var(--kuru-blue);
 }
 
 [data-skin="kuru"] .kuru-dialogue__choice:focus-visible {
-  color: #0af;
+  color: var(--kuru-blue);
   outline: none;
 }
 
 [data-skin="kuru"] .kuru-dialogue__choice--confirmed {
-  color: #0af;
+  color: var(--kuru-blue);
   text-shadow: 0 0 6px rgba(0, 170, 255, 0.4);
   transform: translateX(4px);
   transition: color 0.15s, text-shadow 0.15s, transform 0.2s ease-out;
@@ -1020,7 +1010,7 @@ html[data-skin="kuru"] body {
   bottom: 0.4rem;
   right: 0.8rem;
   font-size: 0.7rem;
-  color: #0af;
+  color: var(--kuru-blue);
   animation: kuru-next-blink 1s ease-in-out infinite;
 }
 

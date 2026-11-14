@@ -1,9 +1,9 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import { setCursor } from "../../../shared/scene/cursorManager";
+import { setCursor } from "./cursorManager";
 import { WALL_VIDEOS, type VideoConfig } from "./config";
-import { StackedAlphaVideo } from "../../../shared/scene/StackedAlphaVideo";
+import { StackedAlphaVideo } from "./StackedAlphaVideo";
 import { prefersReducedMotion } from "../../../shared/motion";
 
 function VideoWallObject({ config, glitchRef, alphaRef, videoRef, interactive, focused, onClick }: {

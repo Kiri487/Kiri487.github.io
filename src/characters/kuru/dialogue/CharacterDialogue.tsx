@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { isDialogueChoice, type DialogueEntry, type DialogueChoice } from "./types";
-import { prefersReducedMotion } from "../motion";
+import { prefersReducedMotion } from "../../../shared/motion";
+import { visuallyHidden } from "../../../shared/visuallyHidden";
 
 export interface CharacterDialogueHandle {
   advance: () => void;
@@ -16,16 +17,6 @@ interface CharacterDialogueProps {
 }
 
 type DialoguePhase = "lines" | "choosing" | "response";
-
-/** Out of sight but still read out, the way a skin's own "visually hidden" class would do it. */
-const VISUALLY_HIDDEN: React.CSSProperties = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  overflow: "hidden",
-  clipPath: "inset(50%)",
-  whiteSpace: "nowrap",
-};
 
 const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueProps>(
   ({ dialogue, characterName, className = "character-dialogue", playBlip, onClose, onChoiceScore }, ref) => {
@@ -147,7 +138,7 @@ const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueP
         <div className={`${className}__name`}>{characterName}</div>
 
         {/* Screen readers hear each whole line once, as it starts, not the typewriter one letter at a time. */}
-        <div style={VISUALLY_HIDDEN} aria-live="polite">
+        <div style={visuallyHidden} aria-live="polite">
           {speaking && `${characterName.replace(/^[^\p{L}]+/u, "")}: ${currentLine}`}
         </div>
 

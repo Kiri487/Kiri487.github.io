@@ -1,5 +1,5 @@
 import { ErrorIcon, InfoIcon } from "../../icons";
-import { useDialogFocus } from "../../os/useDialogFocus";
+import { useDialogFocus } from "../../../../shared/useDialogFocus";
 import "./messageBox.css";
 
 interface MessageBoxProps {

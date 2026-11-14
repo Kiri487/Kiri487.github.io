@@ -5,7 +5,7 @@ import { useSkin } from "../../SkinContext";
 import KuruScene from "./scene/KuruScene";
 import Overlay from "./Overlay";
 import ConnectOverlay from "./ConnectOverlay";
-import CharacterDialogue, { type CharacterDialogueHandle } from "../../shared/dialogue/CharacterDialogue";
+import CharacterDialogue, { type CharacterDialogueHandle } from "./dialogue/CharacterDialogue";
 import type { DialogueEntry } from "./dialogue/catDialogues";
 import BgmPlayer from "./audio/BgmPlayer";
 import LoadingScreen from "./LoadingScreen";

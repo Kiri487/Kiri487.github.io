@@ -1,7 +1,7 @@
 import { useSkin } from "../../../SkinContext";
 import { PowerIcon, RestartIcon } from "../icons";
 import { useOs } from "./context";
-import { useDialogFocus } from "./useDialogFocus";
+import { useDialogFocus } from "../../../shared/useDialogFocus";
 
 function ShutdownDialog({ onCancel }: { onCancel: () => void }) {
   const os = useOs();

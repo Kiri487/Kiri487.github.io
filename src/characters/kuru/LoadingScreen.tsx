@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useProgress } from "@react-three/drei";
+import { visuallyHidden } from "../../shared/visuallyHidden";
 
 const LINES = [
   "> INIT kuru://street-scene",
@@ -48,7 +49,7 @@ function LoadingScreen() {
   return (
     <div className={`kuru-loading${fadeOut ? " kuru-loading--fade" : ""}`}>
       {/* What a screen reader hears instead of the terminal lines and their running percentage. */}
-      <span className="kuru-loading__spoken" role="status">
+      <span style={visuallyHidden} role="status">
         {ready ? "The street is ready." : "Loading the street…"}
       </span>
       <div className="kuru-loading__box" aria-hidden="true">

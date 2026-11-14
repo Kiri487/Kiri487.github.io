@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import { videoBgmPairs, getRandomIndex } from "../../config/assets";
+import { videoBgmPairs, getRandomIndex } from "./assets";
 import { resumeAudioContext } from "../../shared/audio";
 import { readBoolean, readNumber, readString, writeBoolean, writeString } from "../../shared/storage";
 import Navbar from "./components/Navbar";
