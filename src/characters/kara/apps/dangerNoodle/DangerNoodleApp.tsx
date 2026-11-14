@@ -20,7 +20,7 @@ import MessageBox from "../common/MessageBox";
 import { pickDifferent } from "../common/pickDifferent";
 import { useKaraVoice } from "../common/useKaraVoice";
 import { useRasterIcon } from "../common/rasterIcon";
-import { useDialogFocus } from "../../os/useDialogFocus";
+import { useDialogFocus } from "../../../../shared/useDialogFocus";
 import "../common/menuBar.css";
 import { playCrashSfx, playEatSfx, playRecordSfx } from "./noodleSfx";
 import { DEFAULT_BEST, loadBest, loadSoundOn, saveBest, saveSoundOn, type BestScore } from "./scores";

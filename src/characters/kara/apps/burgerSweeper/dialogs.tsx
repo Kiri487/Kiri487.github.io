@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useDialogFocus } from "../../os/useDialogFocus";
+import { useDialogFocus } from "../../../../shared/useDialogFocus";
 import { DialogFrame, LineField } from "../common/gameDialogs";
 import { CUSTOM_LIMITS, DIFFICULTIES, DIFFICULTY_IDS, maxBurgers, type BestTimes, type Board } from "./difficulties";
 import { clamp } from "../../../../shared/math";

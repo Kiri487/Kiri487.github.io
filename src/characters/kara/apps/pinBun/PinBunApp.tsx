@@ -10,7 +10,7 @@ import {
 import ContextMenu, { type ContextMenuItem } from "../../os/ContextMenu";
 import { useWindow } from "../../os/context";
 import { isTouchPointer } from "../../os/openGesture";
-import { useDialogFocus } from "../../os/useDialogFocus";
+import { useDialogFocus } from "../../../../shared/useDialogFocus";
 import { DialogFrame, RecordDialog } from "../common/gameDialogs";
 import { Counter, KaraScoreboard } from "../common/KaraScoreboard";
 import MessageBox from "../common/MessageBox";

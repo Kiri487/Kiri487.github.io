@@ -6,7 +6,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { useDialogFocus } from "../../os/useDialogFocus";
+import { useDialogFocus } from "../../../../shared/useDialogFocus";
 import "./gameDialogs.css";
 import "./messageBox.css";
 
