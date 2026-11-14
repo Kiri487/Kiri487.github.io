@@ -73,7 +73,7 @@ const Navbar = ({ onRefresh, bgmEnabled, toggleBgm, volume, setVolume }: NavbarP
                 type="range" min="0" max="1" step="0.01"
                 value={volume} onChange={handleVolumeChange}
                 className="volume-slider"
-                style={{ backgroundImage: `linear-gradient(to right, white ${volume * 100}%, rgba(255, 255, 255, 0.7) ${volume * 100}%)` }}
+                style={{ backgroundImage: `linear-gradient(to right, white ${volume * 100}%, var(--kiri-text-dim) ${volume * 100}%)` }}
                 aria-label="Volume control" />
             </div>
           </div>
