@@ -2,6 +2,7 @@ import { FaCat, FaBook, FaBriefcase, FaMagic, FaStar } from "react-icons/fa";
 import { FaRegFaceDizzy } from "react-icons/fa6";
 import { educationData, workData, experienceData, skillsData } from "../../../data/portfolio/about";
 import { techIcons } from "../techIcons";
+import { visuallyHidden } from "../../../shared/visuallyHidden";
 
 /** One stop on a timeline: a dot on the line, with what and when beside it. A filled dot marks where Kiri is now. */
 function TimelineEntry({ title, info, period, current = false }: { title: string; info: string; period: string; current?: boolean }) {
@@ -26,7 +27,7 @@ function About() {
     <div className="about">
       <title>Kiri487 | About</title>
       <meta name="description" content="Get to know Kiri — a graduate student at National Taiwan University interested in software development, web front-end design, and information security." />
-      <h1 className="visually-hidden">About</h1>
+      <h1 style={visuallyHidden}>About</h1>
 
       <h2 className="title"><FaCat aria-hidden="true"/>whoami</h2>
       <div className="content">

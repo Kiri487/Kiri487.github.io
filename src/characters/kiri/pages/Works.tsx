@@ -4,6 +4,7 @@ import { FaYoutube, FaFilter, FaPalette, FaVideo, FaLink } from "react-icons/fa"
 import { FaXTwitter } from "react-icons/fa6";
 import { IoPaw } from "react-icons/io5";
 import { worksData, IconType } from '../../../data/portfolio/works';
+import { visuallyHidden } from "../../../shared/visuallyHidden";
 
 function Works() {
   const [filter, setFilter] = useState<'all' | 'illustration' | 'video' | 'other'>('all');
@@ -41,7 +42,7 @@ function Works() {
     <div className="works">
       <title>Kiri487 | Works</title>
       <meta name="description" content="Browse Kiri's gallery of illustrations, videos, and other creative works." />
-      <h1 className="visually-hidden">Works</h1>
+      <h1 style={visuallyHidden}>Works</h1>
 
       <h2 className="title"><BsStars aria-hidden="true"/>Gallery</h2>
 

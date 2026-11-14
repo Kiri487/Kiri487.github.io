@@ -1,13 +1,14 @@
 import { PiMusicNotesFill } from "react-icons/pi";
 import { FaRegCirclePlay } from "react-icons/fa6";
 import { bgmList, videoMotionList } from "../credits";
+import { visuallyHidden } from "../../../shared/visuallyHidden";
 
 function Cited() {
   return (
     <div className="cited">
       <title>Kiri487 | Cited</title>
       <meta name="description" content="Sources and credits for the background music and video motions used on this website." />
-      <h1 className="visually-hidden">Cited</h1>
+      <h1 style={visuallyHidden}>Cited</h1>
 
       <h2 className="title"><PiMusicNotesFill aria-hidden="true"/>BGM</h2>
       <div className="content">

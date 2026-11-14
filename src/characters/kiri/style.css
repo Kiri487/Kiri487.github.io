@@ -124,16 +124,6 @@ html[data-skin="kiri"] body {
   margin-bottom: 0.5rem;
 }
 
-/* Read out and found by search engines, but never drawn: a page's heading where the design shows none. */
-[data-skin="kiri"] .visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 [data-skin="kiri"] button {
   border-radius: 8px;
   border: 1px solid transparent;

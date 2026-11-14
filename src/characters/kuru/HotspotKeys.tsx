@@ -1,4 +1,5 @@
 import type { HotspotId } from "./types";
+import { visuallyHidden } from "../../shared/visuallyHidden";
 
 /** Left to right as the street shows them. Kuru moves between two spots, so she comes last. */
 const HOTSPOTS: { id: HotspotId; label: string }[] = [
@@ -21,7 +22,7 @@ interface HotspotKeysProps {
  */
 function HotspotKeys({ onFocusChange, onActivate }: HotspotKeysProps) {
   return (
-    <nav className="kuru-hotspot-keys" aria-label="Street">
+    <nav style={visuallyHidden} aria-label="Street">
       {HOTSPOTS.map(({ id, label }) => (
         <button
           key={id}

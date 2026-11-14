@@ -2,6 +2,7 @@ import { BsPersonFill, BsPeopleFill } from "react-icons/bs";
 import { RiArrowRightDoubleLine } from "react-icons/ri";
 import { personalProjects, teamProjects, Project } from "../../../data/portfolio/projects";
 import { techIcons } from "../techIcons";
+import { visuallyHidden } from "../../../shared/visuallyHidden";
 
 const ProjectCard = ({ project }: { project: Project }) => {
   return (
@@ -48,7 +49,7 @@ function Projects() {
     <div className="projects">
       <title>Kiri487 | Projects</title>
       <meta name="description" content="Explore Kiri's personal and team software development projects." />
-      <h1 className="visually-hidden">Projects</h1>
+      <h1 style={visuallyHidden}>Projects</h1>
       <h2 className="title"><BsPersonFill aria-hidden="true"/>Personal</h2>
       <div className="projects-grid">
         {personalProjects.map((project) => (
