@@ -939,3 +939,102 @@ html[data-skin="kiri"] body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- keyboard focus ----
+   What the mouse gets on hover, plus Kiri's flat offset shadow, and no frame. The transparent outline is for
+   Windows' high-contrast mode, which drops shadows but draws outlines. */
+
+[data-skin="kiri"] :focus-visible {
+  outline: 1px solid transparent;
+}
+
+[data-skin="kiri"] a:focus-visible {
+  color: white;
+  text-decoration: underline;
+  text-shadow: 2px 2px 0px #6b7484a3;
+}
+
+[data-skin="kiri"] .navbar-logo-container:focus-visible {
+  transform: scale(1.05);
+  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+  text-decoration: none;
+}
+
+[data-skin="kiri"] .navbar-logo-container:focus-visible .navbar-logo-img {
+  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
+}
+
+[data-skin="kiri"] .nav-link:focus-visible {
+  color: white;
+  text-decoration: none;
+  text-shadow: 2.5px 2.5px 0px #6b7484a3;
+}
+
+[data-skin="kiri"] .nav-link:focus-visible::after {
+  width: 100%;
+  box-shadow: 2.5px 2.5px 0px #6b7484a3;
+}
+
+[data-skin="kiri"] .bgm-button:focus-visible,
+[data-skin="kiri"] .mobile-menu-button:focus-visible {
+  transform: scale(1.1);
+  filter: drop-shadow(2px 2px 0px #6b7484a3);
+}
+
+[data-skin="kiri"] .volume-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.2);
+  box-shadow: 2px 2px 0px #6b7484a3;
+}
+
+[data-skin="kiri"] .model-info a:focus-visible {
+  text-decoration: none;
+}
+
+[data-skin="kiri"] .contact a:focus-visible {
+  transform: scale(1.2);
+  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  text-shadow: none;
+}
+
+[data-skin="kiri"] .card-link:focus-visible {
+  transform: translateX(3px);
+  filter: drop-shadow(2px 2px 0px #6b7484a3);
+  text-decoration: none;
+  text-shadow: none;
+}
+
+[data-skin="kiri"] .filter-button:focus-visible {
+  background: white;
+  color: #9DA2B2;
+  border-color: white;
+  box-shadow: 2.5px 2.5px 0px #6b7484a3;
+}
+
+[data-skin="kiri"] .gallery-item:focus-visible {
+  transform: scale(1.02);
+  z-index: 10;
+  box-shadow: 3px 3px 0px #6b7484a3;
+}
+
+[data-skin="kiri"] .gallery-item:focus-visible .gallery-overlay {
+  opacity: 1;
+}
+
+[data-skin="kiri"] .gallery-item:focus-visible .overlay-icon {
+  transform: translateY(0);
+}
+
+[data-skin="kiri"] .return-button:focus-visible {
+  background-color: white;
+  color: #9DA2B2;
+  text-decoration: none;
+  text-shadow: none;
+  box-shadow: 2.5px 2.5px 0px #6b7484a3;
+}
+
+[data-skin="kiri"] .mobile-link:focus-visible {
+  color: white;
+  background: #6b7484a3;
+  text-decoration: none;
+  text-shadow: none;
+}

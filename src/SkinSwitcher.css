@@ -29,6 +29,12 @@
   transform: scale(1.05);
 }
 
+/* The keyboard gets the hover, plus Kiri's flat offset shadow (style.css). */
+[data-skin="kiri"] .skin-switcher__entry:focus-visible {
+  transform: scale(1.05);
+  filter: drop-shadow(2.5px 2.5px 0px #6b7484a3);
+}
+
 /* Matches MOBILE_QUERY in src/shared/breakpoints.ts. */
 @media (max-width: 640px) {
   [data-skin="kiri"] .skin-switcher {
