@@ -59,8 +59,10 @@ html[data-skin="kuru"] body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Never seen: the keyboard lights things up in the scene instead (HotspotKeys.tsx). */
-[data-skin="kuru"] .kuru-hotspot-keys {
+/* Never seen: the keyboard lights things up in the scene instead (HotspotKeys.tsx), and the loading screen's
+   spoken status stands in for its terminal lines (LoadingScreen.tsx). */
+[data-skin="kuru"] .kuru-hotspot-keys,
+[data-skin="kuru"] .kuru-loading__spoken {
   position: absolute;
   width: 1px;
   height: 1px;

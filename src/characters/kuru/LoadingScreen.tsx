@@ -47,7 +47,11 @@ function LoadingScreen() {
 
   return (
     <div className={`kuru-loading${fadeOut ? " kuru-loading--fade" : ""}`}>
-      <div className="kuru-loading__box">
+      {/* What a screen reader hears instead of the terminal lines and their running percentage. */}
+      <span className="kuru-loading__spoken" role="status">
+        {ready ? "The street is ready." : "Loading the street…"}
+      </span>
+      <div className="kuru-loading__box" aria-hidden="true">
         <div className="kuru-loading__content">
           {LINES.slice(0, visibleStep).map((line, i) => (
             <div key={i} className="kuru-loading__line">
