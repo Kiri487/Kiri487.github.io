@@ -1000,6 +1000,11 @@ html[data-skin="kiri"] body {
   box-shadow: 2px 2px 0px #6b7484a3;
 }
 
+[data-skin="kiri"] .volume-slider:focus-visible::-moz-range-thumb {
+  transform: scale(1.2);
+  box-shadow: 2px 2px 0px #6b7484a3;
+}
+
 [data-skin="kiri"] .model-info a:focus-visible {
   text-decoration: none;
 }
