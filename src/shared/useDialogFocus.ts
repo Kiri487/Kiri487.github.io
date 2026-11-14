@@ -30,6 +30,8 @@ export function useDialogFocus<T extends HTMLElement = HTMLButtonElement>(onClos
   }, [enabled]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    // Not yet: a dialog still opening leaves the keys alone, as it hasn't taken the focus either.
+    if (!enabled) return;
     if (event.key === "Escape") {
       onClose();
       return;
@@ -41,7 +43,10 @@ export function useDialogFocus<T extends HTMLElement = HTMLButtonElement>(onClos
     const last = focusable[focusable.length - 1];
     if (!first || !last) return;
 
-    if (event.shiftKey ? document.activeElement === first : document.activeElement === last) {
+    // The dialog itself can hold the focus too (after a click on its text, say): Tab from there goes in,
+    // never out behind it.
+    const onEdge = event.shiftKey ? document.activeElement === first : document.activeElement === last;
+    if (onEdge || document.activeElement === event.currentTarget) {
       event.preventDefault();
       (event.shiftKey ? last : first).focus();
     }
