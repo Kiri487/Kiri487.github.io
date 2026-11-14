@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { isDialogueChoice, type DialogueEntry, type DialogueChoice } from "./types";
+import { prefersReducedMotion } from "../motion";
 
 export interface CharacterDialogueHandle {
   advance: () => void;
@@ -61,11 +62,13 @@ const CharacterDialogue = forwardRef<CharacterDialogueHandle, CharacterDialogueP
       setDisplayedChars(0);
       const line = currentLines[lineIndex];
       let charIndex = 0;
+      // Less motion asked for: the whole line at once, on the first tick, with a single blip.
+      const instant = prefersReducedMotion();
 
       const id = window.setInterval(() => {
-        charIndex++;
+        charIndex = instant ? line.length : charIndex + 1;
         setDisplayedChars(charIndex);
-        if (line[charIndex - 1] !== " ") playBlip?.();
+        if (instant || line[charIndex - 1] !== " ") playBlip?.();
         if (charIndex >= line.length) clearInterval(id);
       }, 65);
 
