@@ -179,7 +179,7 @@ function BgmPlayer() {
       <div className="kuru-bgm__vol-wrap">
         <button
           className="kuru-bgm__btn kuru-bgm__vol-icon"
-          aria-label="Volume"
+          aria-label={volume === 0 ? "Unmute" : "Mute"}
           onClick={() => {
             if (volume > 0) {
               prevVolume.current = volume;
