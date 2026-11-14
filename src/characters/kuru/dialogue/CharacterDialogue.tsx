@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { isDialogueChoice, type DialogueEntry, type DialogueChoice } from "./types";
-import { prefersReducedMotion } from "../motion";
-import { visuallyHidden } from "../visuallyHidden";
+import { prefersReducedMotion } from "../../../shared/motion";
+import { visuallyHidden } from "../../../shared/visuallyHidden";
 
 export interface CharacterDialogueHandle {
   advance: () => void;

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import * as THREE from "three";
-import { InteractivePlane } from "../../../shared/scene/InteractivePlane";
-import { setCursor } from "../../../shared/scene/cursorManager";
+import { InteractivePlane } from "./InteractivePlane";
+import { setCursor } from "./cursorManager";
 import { HOTSPOT_POSITIONS } from "./config";
 
 interface GraffitiHotspotProps {

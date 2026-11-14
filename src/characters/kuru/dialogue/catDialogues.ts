@@ -1,7 +1,7 @@
-import type { DialogueEntry } from "../../../shared/dialogue/types";
+import type { DialogueEntry } from "./types";
 
-export type { DialogueChoiceOption, DialogueChoice, DialogueEntry } from "../../../shared/dialogue/types";
-export { isDialogueChoice } from "../../../shared/dialogue/types";
+export type { DialogueChoiceOption, DialogueChoice, DialogueEntry } from "./types";
+export { isDialogueChoice } from "./types";
 
 export type FamiliarityTier = "hostile" | "neutral" | "warming" | "trusting";
 export type TimePeriod = "night" | "morning" | "afternoon" | "evening";
