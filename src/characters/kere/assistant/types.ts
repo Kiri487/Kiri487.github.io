@@ -34,8 +34,11 @@ export interface Reply {
   options?: QuickOption[];
   /** Language the reply is written in; `respond` fills it in. Chinese replies are marked up as zh-Hant. */
   lang?: Lang;
-  /** Side effect after the reply is shown — "exit" sends the visitor back to Kiri; "sfx-*" toggles sound effects. */
-  action?: "exit" | "sfx-on" | "sfx-off";
+  /**
+   * Side effect after the reply is shown — "exit" sends the visitor back to Kiri; "xr" hands them over to XR's review;
+   * "sfx-*" toggles sound effects.
+   */
+  action?: "exit" | "xr" | "sfx-on" | "sfx-off";
 }
 
 /** Hand-written reply: one of `replies` is picked at random each time it fires. */
@@ -50,5 +53,5 @@ export interface ScriptedRule {
   jump?: Reply["jump"];
   /** Link text for `jump` in Chinese replies. */
   jumpLabelZh?: string;
-  action?: "exit";
+  action?: "exit" | "xr";
 }

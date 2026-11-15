@@ -4,7 +4,8 @@ import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
 import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./respond";
-import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES } from "./script";
+import { loadXrMode } from "../xrer/load";
+import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
 import { isReplyList, type Expression, type Reply } from "./types";
 import { useChatViewport } from "./useChatViewport";
@@ -12,20 +13,31 @@ import "./assistant.css";
 
 /** Long enough to read the sign-off line before the skin switches. */
 const EXIT_DELAY_MS = 1000;
+/** Kere's handover line stays up a while before XR takes over. */
+const XR_HANDOFF_DELAY_MS = 3000;
 
 type Message =
   | { id: number; from: "you"; text: string }
   | { id: number; from: "kere"; reply: Reply };
 
-function KereAssistant() {
+interface KereAssistantProps {
+  /** Kere hands the visitor over to XR (the `xrer` easter egg). */
+  onEnterXr: () => void;
+  /** Back from XR's review: open straight away with Kere's welcome back. */
+  welcomeBack?: boolean;
+}
+
+function KereAssistant({ onEnterXr, welcomeBack = false }: KereAssistantProps) {
   const { setSkin } = useSkin();
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [open, setOpen] = useState(welcomeBack);
+  const [messages, setMessages] = useState<Message[]>(() =>
+    welcomeBack ? [{ id: -1, from: "kere", reply: { lines: [WELCOME_BACK], lang: "zh" } }] : [],
+  );
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [expression, setExpression] = useState<Expression>("normal");
   // Once opened, the visitor knows Kere is clickable — drop the "Ask Kere" hint until the next page load.
-  const [hintSeen, setHintSeen] = useState(false);
+  const [hintSeen, setHintSeen] = useState(welcomeBack);
   const [sfxEnabled, setSfxEnabled] = useState(loadSfxEnabled);
   // A reply landed while the panel was minimized — show "!" over the cat until it's reopened.
   const [unread, setUnread] = useState(false);
@@ -106,6 +118,11 @@ function KereAssistant() {
       if (soundOn) playReplySfx();
       if (reply.action === "exit") {
         timer.current = window.setTimeout(() => setSkin("kiri"), EXIT_DELAY_MS);
+      }
+      if (reply.action === "xr") {
+        // Start fetching XR's code now, so it's usually there by the time the handover line has been read.
+        void loadXrMode();
+        timer.current = window.setTimeout(onEnterXr, XR_HANDOFF_DELAY_MS);
       }
     }, THINKING_MS);
   };
