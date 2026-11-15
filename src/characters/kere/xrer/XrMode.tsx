@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type R
 import { readJson, writeJson } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
+import { loadSfxEnabled, unlockSfx } from "../assistant/sfx";
 import { useChatViewport } from "../assistant/useChatViewport";
 import { SECTIONS } from "../cv/layout";
 import {
@@ -17,6 +18,7 @@ import {
 import { XR_THINKING_MS, type XrFace } from "./faces";
 import { createRound, isXr, type Round } from "./round";
 import * as S from "./script";
+import { playXrOpenSfx, playXrReplySfx } from "./sfx";
 import XrAvatar from "./XrAvatar";
 import { ApplicantDocument, RecordDocument, RulesDocument } from "./XrDocuments";
 import "./xrer.css";
@@ -109,6 +111,8 @@ function XrMode({ onLeave }: XrModeProps) {
   const [thinking, setThinking] = useState(false);
   const [open, setOpen] = useState(true);
   const [unread, setUnread] = useState(false);
+  // Kere's sound setting covers XR too: muting her mutes him.
+  const [sfxEnabled] = useState(loadSfxEnabled);
 
   const nextId = useRef(1);
   const timers = useRef<number[]>([]);
@@ -118,6 +122,9 @@ function XrMode({ onLeave }: XrModeProps) {
   const launcherRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
   const openRef = useRef(open);
+  /** The face as of now, for the reply tick, which sours as XR does. Closing steps set it before they speak. */
+  const faceRef = useRef<XrFace>("normal");
+  const openSfxPlayed = useRef(false);
 
   useEffect(() => {
     openRef.current = open;
@@ -156,9 +163,21 @@ function XrMode({ onLeave }: XrModeProps) {
     const numbered = msgs.map((msg) => ({ ...msg, id: nextId.current++ }) as Message);
     setMessages((m) => [...m, ...numbered]);
     if (!openRef.current) setUnread(true);
+    if (sfxEnabled) playXrReplySfx(faceRef.current);
   };
 
   const face: XrFace = faceOverride ?? faceForViolations(violations);
+
+  useEffect(() => {
+    faceRef.current = face;
+  }, [face]);
+
+  // XR's arrival sound, once (the guard keeps development's double effects from playing it twice).
+  useEffect(() => {
+    if (!sfxEnabled || openSfxPlayed.current) return;
+    openSfxPlayed.current = true;
+    playXrOpenSfx();
+  }, [sfxEnabled]);
   /** Only the newest choices stay on screen: an old "合格" would stamp whichever file is on the desk now. */
   const lastWithOptions = [...messages].reverse().find((m) => m.from !== "you" && m.options)?.id;
   const busy = thinking || phase === "closing" || phase === "leaving";
@@ -231,6 +250,7 @@ function XrMode({ onLeave }: XrModeProps) {
       at += s.delay + 1200;
       later(() => {
         setFaceOverride(s.face);
+        faceRef.current = s.face;
         post({ from: "xr", lines: s.lines });
       }, at);
     });
@@ -353,6 +373,8 @@ function XrMode({ onLeave }: XrModeProps) {
     setMessages((m) => [...m, { id, from: "you", text: trimmed }]);
     setInput("");
     setThinking(true);
+    // A user gesture: lets the reply tick play after the timeout.
+    unlockSfx();
     later(() => {
       setThinking(false);
       reply(trimmed);
