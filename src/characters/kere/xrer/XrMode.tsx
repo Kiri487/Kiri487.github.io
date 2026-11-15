@@ -669,6 +669,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       seed: round?.seed ?? "",
       protect: round?.protect ?? [],
       lang,
+      uneasy: clauseIssued,
     });
     panel = <RecordDocument record={record} fx={fx} />;
   } else if (round) {

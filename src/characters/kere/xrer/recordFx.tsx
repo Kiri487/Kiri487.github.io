@@ -1,4 +1,6 @@
 import type { FieldFx } from "../cv/CvSections";
+import { KIRI_CV } from "../cv/data";
+import { SECTIONS } from "../cv/layout";
 import { Corrupt, Redact, Struck, type Strength } from "./fx";
 import type { Lang } from "./script";
 import { chance } from "./seeded";
@@ -50,12 +52,47 @@ interface RecordFxOptions {
   /** Fields the reader needs this round (what a fake changed, what clause 7 contradicts): left readable. */
   protect: readonly string[];
   lang: Lang;
+  /** Clause 7 is out: even an untouched record shows a "correction" or two, though nothing has changed. */
+  uneasy?: boolean;
+}
+
+/** Every field of Kiri's record that may rot, named as CvSections names them. */
+function rottableFields(protect: readonly string[]): string[] {
+  const cv = KIRI_CV;
+  const fields = [
+    ...SECTIONS.map((s) => `section.${s.id}`),
+    ...cv.skills.map((_, i) => `skills.${i}`),
+    ...(["education", "work"] as const).flatMap((list) =>
+      cv[list].flatMap((e, i) => [`${list}.${i}.date`, ...(e.location ? [`${list}.${i}.location`] : [])]),
+    ),
+    // Only what's drawn as text: no tags line without tags, no description that's more than a string.
+    ...cv.projects.flatMap((p, i) => [
+      `projects.${i}.title`,
+      `projects.${i}.date`,
+      ...(p.tags.length > 0 ? [`projects.${i}.tags`] : []),
+      ...(typeof p.description === "string" ? [`projects.${i}.description`] : []),
+    ]),
+    ...cv.lists.flatMap((l) => l.items.flatMap((_, j) => [`lists.${l.category}.${j}.title`, `lists.${l.category}.${j}.date`])),
+  ];
+  return fields.filter((f) => !protect.includes(f) && MAY_ROT.some((r) => r.test(f)));
+}
+
+/**
+ * Before any violation, once clause 7 is out: one or two fields "corrected" to what they already said. Picked from
+ * the round's seed, so the same ones every time the record is drawn.
+ */
+function uneasyFields(seed: string, protect: readonly string[]): Set<string> {
+  const count = chance(`${seed}:uneasy`) < 0.5 ? 1 : 2;
+  const ranked = rottableFields(protect).sort((a, b) => chance(`${seed}:uneasy:${a}`) - chance(`${seed}:uneasy:${b}`));
+  return new Set(ranked.slice(0, count));
 }
 
 /** How Kiri's record decays as XR does. Everything the reader needs to judge this round's files stays legible. */
-export function recordFx({ level, violations, seed, protect, lang }: RecordFxOptions): FieldFx {
+export function recordFx({ level, violations, seed, protect, lang, uneasy = false }: RecordFxOptions): FieldFx {
+  const clean = level === 0 && violations === 0;
+  const struck = clean && uneasy ? uneasyFields(seed, protect) : undefined;
   return (field, text) => {
-    if (level === 0 && violations === 0) return text;
+    if (clean) return struck?.has(field) ? <Struck text={text} /> : text;
     if (protect.includes(field) || !MAY_ROT.some((r) => r.test(field))) return text;
     // Separate rolls, so which fields are redacted, corrupted and "corrected" don't line up.
     if (redacted(field, chance(`${seed}:redact:${field}`), violations, level)) return <Redact length={text.length} lang={lang} />;
