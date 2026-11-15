@@ -47,6 +47,8 @@ const ROUNDS_KEY = "xrRounds";
 const IMPOSTOR_CHANCE = 0.25;
 /** Words that, said to her, answer her: her own offer, mostly. Any other words that aren't a command do too. */
 const ANSWER_PHRASES = ["轉接", "返回", "transfer", "back", "go back"];
+/** Endings that leave Kere quoting clause 9 when the visitor comes back. */
+const RATTLING: readonly EndingId[] = ["overflow", "overwrite", "ruleFailure"];
 /** The name the Kere message goes under, and what's left of it once blacked out. */
 const KERE_NAME = "Kere";
 const REDACTED_NAME = "████";
@@ -619,7 +621,12 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     setThinking(false);
     setPhase("leaving");
     post({ from: "xr", lines: [line] });
-    const note: WelcomeNote | undefined = metImpostor ? "impostor" : undefined;
+    const ended = (phase === "done" || phase === "closing") && round ? decideOutcome(round, verdicts, lang).id : undefined;
+    const note: WelcomeNote | undefined = metImpostor
+      ? "impostor"
+      : ended && RATTLING.includes(ended)
+        ? "rattled"
+        : undefined;
     later(() => onLeave(to, lang, note), LEAVE_DELAY_MS);
   };
 

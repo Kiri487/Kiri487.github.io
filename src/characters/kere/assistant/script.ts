@@ -207,20 +207,22 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
 
 /** Kere's first line when the visitor comes back from XR's review, in the language the review ran in. */
 export const WELCOME_BACK: Localized<string> = {
-  en: "Welcome back. I seem to have been on leave for a moment.",
-  zh: "歡迎回來，我剛剛好像請假了一下。",
+  en: "Welcome back. I had to step away for a moment.",
+  zh: "歡迎回來，剛剛有點事走開了一下。",
 };
 
 /**
  * In place of WELCOME_BACK, after certain reviews. "impostor": a message in XR's chat went out under Kere's name,
- * answered or not; she knows nothing of it.
+ * answered or not; she knows nothing of it. "rattled": the review ended in a way that leaves her quoting clause 9.
  */
 export const WELCOME_BACK_NOTED: Localized<Record<WelcomeNote, string>> = {
   en: {
     impostor: "Welcome back. Good work in there. You were busy, so I made a point of not interrupting.",
+    rattled: "Welcome back. Per Article 9... Sorry. I had to step away for a moment.",
   },
   zh: {
     impostor: "歡迎回來，辛苦了。您剛剛在忙，我就刻意沒有打擾您。",
+    rattled: "歡迎回來。依第 9 條……抱歉，剛剛有點事走開了一下。",
   },
 };
 

@@ -7,9 +7,10 @@ export type { Expression };
 export type Lang = "en" | "zh";
 
 /**
- * What happened in XR's review that Kere's welcome back reflects: "impostor", someone used her name in there.
+ * What happened in XR's review that Kere's welcome back reflects: "impostor", someone used her name in there;
+ * "rattled", the review ended badly enough to leave a trace on her.
  */
-export type WelcomeNote = "impostor";
+export type WelcomeNote = "impostor" | "rattled";
 
 /** The same copy in both languages. */
 export type Localized<T> = Record<Lang, T>;
