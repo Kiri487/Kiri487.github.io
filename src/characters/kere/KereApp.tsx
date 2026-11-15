@@ -24,6 +24,12 @@ function KereApp() {
   /** What from the review, if anything, colours that welcome back. */
   const [backNote, setBackNote] = useState<WelcomeNote | undefined>(undefined);
 
+  /**
+   * XR failed to load or to run. React keeps a failed lazy load, so trying again in this tab would only scan the
+   * page black and fail again: Kere says so instead.
+   */
+  const [xrDown, setXrDown] = useState(false);
+
   /** The language Kere was asked in, when the handover came from her. */
   const [triggerLang, setTriggerLang] = useState<Lang | undefined>(undefined);
 
@@ -55,7 +61,12 @@ function KereApp() {
         precedence="default"
       />
       {mode === "xr" ? (
-        <XrBoundary onFail={() => setMode("kere")}>
+        <XrBoundary
+          onFail={() => {
+            setXrDown(true);
+            setMode("kere");
+          }}
+        >
           <Suspense fallback={null}>
             <XrMode onLeave={leaveXr} triggerLang={triggerLang} />
           </Suspense>
@@ -70,6 +81,7 @@ function KereApp() {
             key={mode}
             welcomeBack={mode === "back" ? backLang : undefined}
             welcomeNote={mode === "back" ? backNote : undefined}
+            xrDown={xrDown}
             onEnterXr={enterXr}
           />
         </>

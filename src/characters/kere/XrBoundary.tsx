@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from "react";
+import { clearXrSession } from "./xrer/session";
 import { removeCover } from "./xrer/transition";
 
 interface XrBoundaryProps {
@@ -10,7 +11,8 @@ interface XrBoundaryProps {
 /**
  * Around XR's review, whose code loads only when it's called up. If that fails (offline, or a deploy swapped the files
  * out), the page has already been scanned black and nobody is coming to take the cover off: do it here, put the
- * colours back, and return the visitor to Kere instead of leaving a dark, empty page.
+ * colours back, and return the visitor to Kere instead of leaving a dark, empty page. The saved review goes too, or
+ * every refresh would walk straight back into the same failure.
  */
 class XrBoundary extends Component<XrBoundaryProps, { failed: boolean }> {
   state = { failed: false };
@@ -20,6 +22,7 @@ class XrBoundary extends Component<XrBoundaryProps, { failed: boolean }> {
   }
 
   componentDidCatch() {
+    clearXrSession();
     removeCover();
     document.documentElement.removeAttribute("data-xr");
     this.props.onFail();

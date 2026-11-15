@@ -306,7 +306,9 @@ function restore(): Restored | null {
   const { seed, ...fields } = saved.rs;
   const round = seed ? createRound(seed) : null;
   if (saved.phase !== "consent" && !round) return null;
-  const { lang, phase, tab, metImpostor } = saved;
+  const { lang, phase, metImpostor } = saved;
+  // An applicant's tab only if the round, rebuilt from its seed, still has that applicant (a deploy may change rounds).
+  const tab = /^\d+$/.test(saved.tab) && !round?.applicants[Number(saved.tab)] ? "record" : saved.tab;
   let rs: RoundState = { ...freshRound(round), ...fields, round };
   let messages = saved.messages;
   let nextId = saved.nextId;
@@ -316,7 +318,7 @@ function restore(): Restored | null {
   const kereMsg = answered && messages.find((m) => m.id === answered.id);
   if (answered && kereMsg && kereMsg.from === "kere" && !kereMsg.redacted) {
     const t = S.COPY[lang];
-    rs = { ...rs, violations: rs.violations + 1 };
+    rs = { ...rs, violations: rs.violations + 1, faceOverride: null };
     messages = [
       ...messages.map((m) => (m.id === answered.id && m.from === "kere" ? { ...m, redacted: true, options: undefined } : m)),
       { from: "xr", lines: [t.TRANSFER_VOID], options: reviewOptions(t), strength: 1, seed: seed ?? "", lang, id: nextId++ } as Message,
@@ -433,7 +435,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
 
   // Save the review after every change, so a refresh can resume it. Leaving clears it instead.
   useEffect(() => {
-    if (phase === "leaving") return;
+    // Cleared here as well as in abort: a save effect still pending from before the click could otherwise write it back.
+    if (phase === "leaving") {
+      clearXrSession();
+      return;
+    }
     const { round: saving, ...fields } = rs;
     const snapshot: Snapshot = {
       v: 3,
@@ -455,7 +461,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     const root = document.documentElement;
     root.setAttribute("data-xr", "");
     removeCover();
-    return () => root.removeAttribute("data-xr");
+    return () => {
+      root.removeAttribute("data-xr");
+      // Gone mid false transfer (the browser's Back, say): its cover goes too.
+      removeCover();
+    };
   }, []);
 
   useEffect(() => {
@@ -965,7 +975,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       uneasy: clauseIssued,
     });
     panel = <RecordDocument record={record} fx={fx} />;
-  } else if (round) {
+  } else if (round?.applicants[Number(tab)]) {
     const i = Number(tab);
     const a = round.applicants[i];
     panel = <ApplicantDocument cv={a.cv} letter={a.letter[lang]} pass={verdicts[i]?.pass} lang={lang} />;

@@ -9,7 +9,7 @@ import { XR_FACES } from "../xrer/faces";
 import { loadXrMode } from "../xrer/load";
 import { animate, coverAll, morphFace, NAME_MS, removeCover, rollName, SCAN_MS, scanIn, scanOut } from "../xrer/transition";
 import { prefersReducedMotion } from "../../../shared/motion";
-import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK, WELCOME_BACK_NOTED } from "./script";
+import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK, WELCOME_BACK_NOTED, XR_UNAVAILABLE } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
 import { isReplyList, type Expression, type Lang, type QuickOption, type Reply, type WelcomeNote } from "./types";
 import { useChatViewport } from "./useChatViewport";
@@ -53,9 +53,11 @@ interface KereAssistantProps {
   welcomeBack?: Lang;
   /** Something from the review that changes what that welcome back says. */
   welcomeNote?: WelcomeNote;
+  /** XR has failed once already in this tab: no handover, Kere says she can't reach her. */
+  xrDown?: boolean;
 }
 
-function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantProps) {
+function KereAssistant({ onEnterXr, welcomeBack, welcomeNote, xrDown = false }: KereAssistantProps) {
   const { setSkin } = useSkin();
   const [open, setOpen] = useState(welcomeBack !== undefined);
   const [messages, setMessages] = useState<Message[]>(() =>
@@ -139,10 +141,14 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
   useEffect(() => {
     if (welcomeBack === undefined || prefersReducedMotion()) return;
     let live = true;
-    void Promise.all([scanOut(), animate(CROSSING_MS, (t) => live && setCrossing({ dir: -1, t }))]).then(
-      () => live && setCrossing(null),
-    );
+    void Promise.all([scanOut(), animate(CROSSING_MS, (t) => live && setCrossing({ dir: -1, t }))]).then(() => {
+      if (!live) return;
+      live = false;
+      setCrossing(null);
+    });
     return () => {
+      // Left before the scan had withdrawn (the browser's Back, say): don't leave it drawing over the next page.
+      if (live) removeCover();
       live = false;
     };
   }, [welcomeBack]);
@@ -205,7 +211,9 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
     // Submitting is a user gesture; the tick plays after the timeout, which some browsers would otherwise block.
     unlockSfx();
     timer.current = window.setTimeout(() => {
-      const reply = respond(trimmed, memory.current, sfxEnabled);
+      const answer = respond(trimmed, memory.current, sfxEnabled);
+      const reply: Reply =
+        answer.action === "xr" && xrDown ? { lines: [XR_UNAVAILABLE[answer.lang ?? "en"]], lang: answer.lang } : answer;
       setMessages((m) => [...m, { id: nextId.current++, from: "kere", reply }]);
       setExpression(reply.expression ?? "normal");
       setThinking(false);

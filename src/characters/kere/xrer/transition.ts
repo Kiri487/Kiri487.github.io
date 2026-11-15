@@ -173,10 +173,18 @@ function frameAt(frames: ScanFrame[], t: number): number[] {
   return frames[frames.length - 1].fill;
 }
 
-function play(frames: ScanFrame[], canvas: HTMLCanvasElement): Promise<void> {
+/**
+ * Bumped by every scan, and by taking the cover off. A scan that's been overtaken (a newer one started, or its page
+ * left) stops drawing and never resolves, so whatever was waiting on it doesn't go on as if it had finished, and it
+ * never takes away a cover that now belongs to a newer scan.
+ */
+let generation = 0;
+
+function play(frames: ScanFrame[], canvas: HTMLCanvasElement, gen: number): Promise<void> {
   return new Promise((resolve) => {
     let i = 0;
     const next = () => {
+      if (gen !== generation) return;
       if (i >= frames.length) {
         resolve();
         return;
@@ -192,24 +200,27 @@ function play(frames: ScanFrame[], canvas: HTMLCanvasElement): Promise<void> {
 
 /** Kere → XR: scan the page black from the top. The cover stays until XR is on screen (see `removeCover`). */
 export function scanIn(): Promise<void> {
+  const gen = ++generation;
   const canvas = overlay();
   if (prefersReducedMotion()) {
     draw(canvas, FULL);
     return Promise.resolve();
   }
-  return play(SCAN, canvas);
+  return play(SCAN, canvas, gen);
 }
 
 /** XR → Kere, the first instant: cover the page at once, so Kere's white page appears black, as XR's was. */
 export function coverAll() {
+  generation++;
   draw(overlay(), FULL);
 }
 
 /** XR → Kere: the scan played backwards, withdrawing from the bottom up, then the cover is gone. */
 export async function scanOut(): Promise<void> {
+  const gen = ++generation;
   const canvas = overlay();
   if (!prefersReducedMotion()) {
-    await play([...WITHDRAW, { fill: Array<number>(COLS).fill(0), hold: 0 }], canvas);
+    await play([...WITHDRAW, { fill: Array<number>(COLS).fill(0), hold: 0 }], canvas, gen);
   }
   removeCover();
 }
@@ -225,11 +236,13 @@ const FALSE_HOLD_MS = 400;
  * the name and face can turn towards Kere's and back with it. Callers skip it with reduced motion.
  */
 export function falseCrossing(frame: (t: number) => void): Promise<void> {
+  const gen = ++generation;
   const canvas = overlay();
   const total = FALSE_HALF_MS * 2 + FALSE_HOLD_MS;
   return new Promise((resolve) => {
     const start = performance.now();
     const tick = (now: number) => {
+      if (gen !== generation) return;
       const e = now - start;
       const t = e < FALSE_HALF_MS ? e : e < FALSE_HALF_MS + FALSE_HOLD_MS ? FALSE_HALF_MS : Math.max(0, total - e);
       draw(canvas, frameAt(WITHDRAW, t), true);
@@ -245,6 +258,8 @@ export function falseCrossing(frame: (t: number) => void): Promise<void> {
   });
 }
 
+/** Takes the cover off, and stops any scan still drawing on it. */
 export function removeCover() {
+  generation++;
   document.getElementById(OVERLAY_ID)?.remove();
 }

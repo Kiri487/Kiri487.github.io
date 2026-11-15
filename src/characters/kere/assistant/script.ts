@@ -252,6 +252,12 @@ export const XR_HINT = {
   } satisfies Localized<string[]>,
 };
 
+/** In place of the handover, once XR has failed to load in this tab. */
+export const XR_UNAVAILABLE: Localized<string> = {
+  en: "Sorry, that colleague can't be reached right now. Please try again later.",
+  zh: "抱歉，那位同事現在聯絡不上，請稍後再試。",
+};
+
 /** The handover to XR, for a visitor who got there through the hints instead of the usual "outside my scope". */
 export const XR_HANDOFF_FOUND: Localized<string> = {
   en: "...You found her. I'll transfer you. Good luck.",
