@@ -4,7 +4,7 @@ import { XR_EARS, XR_FACES, XR_FRAME_MS, XR_THINKING_FRAMES, type XrFace } from 
 
 interface XrAvatarProps {
   face: XrFace;
-  /** Checking a file. Only shows while his eye is still steady; once he's rattled, the face stays as it is. */
+  /** Checking a file. Only shows while her eye is still steady; once she's rattled, the face stays as it is. */
   thinking?: boolean;
 }
 

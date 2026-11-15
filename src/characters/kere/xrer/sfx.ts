@@ -50,7 +50,7 @@ const UNEASE: Record<XrFace, { off: number; sag: number } | null> = {
   normal: { off: SEMITONE, sag: 0.98 },
   alert: { off: SEMITONE * 1.015, sag: 0.95 },
   anxious: { off: SEMITONE * 1.035, sag: 0.9 },
-  // When he breaks, nothing: the silence says more.
+  // When she breaks, nothing: the silence says more.
   broken: null,
 };
 

@@ -112,7 +112,7 @@ function XrMode({ onLeave }: XrModeProps) {
   const [thinking, setThinking] = useState(false);
   const [open, setOpen] = useState(true);
   const [unread, setUnread] = useState(false);
-  // Kere's sound setting covers XR too: muting her mutes him, and muting him mutes her.
+  // Kere's sound setting covers XR too: muting either one mutes both.
   const [sfxEnabled] = useState(loadSfxEnabled);
   /** The live setting: a mute command takes effect on its own reply, before the next render. */
   const soundOn = useRef(sfxEnabled);

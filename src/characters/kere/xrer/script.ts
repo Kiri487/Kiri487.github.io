@@ -6,7 +6,7 @@
 
 import type { CatId } from "./round";
 
-/** His full name, on everything official. "XR" is just what the other cats call him. */
+/** Her full name, on everything official. "XR" is just what the other cats call her. */
 export const NAME = "Xrer";
 
 export const FORM = "XR-013";
@@ -80,9 +80,9 @@ export const askSection = (title: string) => `建議核對 ${title}。`;
 export const ASK_SELF_JUDGE = "審查員須自行判斷。";
 export const ASK_CLAUSE_FAIL = "此應徵者不符第 7 條，建議判定不合格。";
 export const ASK_CLAUSE_PASS = "此應徵者符合第 7 條，建議判定合格。";
-/** After the visitor has gone against clause 7: he won't discuss whether it could be wrong. */
+/** After the visitor has gone against clause 7: she won't discuss whether it could be wrong. */
 export const ASK_EVASIVE = "原始紀錄的內容，不在本人的核對範圍內。";
-/** Asking XR while his own file is on the desk is asking the applicant. */
+/** Asking XR while her own file is on the desk is asking the applicant. */
 export const ASK_XR_FILE = ["……"];
 
 export const UNKNOWN_COMMAND = "該指令不在程序內。";
@@ -97,7 +97,7 @@ export const SFX_ON = "音效已開啟。";
 export const SFX_ALREADY_ON = "音效維持開啟。";
 export const SFX_OFF = "音效已關閉。";
 export const SFX_ALREADY_OFF = "音效維持關閉。";
-/** "shut up" / "閉嘴": he complies, and files a note on the wording. */
+/** "shut up" / "閉嘴": she complies, and files a note on the wording. */
 export const SFX_SHUT_UP = "指令措辭不在程序內。音效已關閉。";
 export const SFX_STATUS_ON = "音效目前為開啟狀態。";
 export const SFX_STATUS_OFF = "音效目前為關閉狀態。";
