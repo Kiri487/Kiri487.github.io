@@ -117,8 +117,8 @@ export const AGAIN_LABEL = "再審一輪";
 
 /* ---- easter eggs: Xrer doesn't chat, but some words get a procedural answer ---- */
 
-/** "rot13" again: Xrer through ROT13 is Kere, so the way in is also the way out. */
-export const ROT13_PHRASES = ["rot13", "rot 13"];
+/** "rot13" again: Xrer through ROT13 is Kere, so the way in is also the way out. Same words as Kere's. */
+export { ROT13_PHRASES } from "./triggers";
 export const ROT13_LINE = "ROT13 再轉一次，即為原名。";
 
 export interface Egg {

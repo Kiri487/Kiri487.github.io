@@ -21,7 +21,8 @@ import {
   TOPIC_PHRASES,
   type TimePeriod,
 } from "./script";
-import type { Lang, Reply } from "./types";
+import { halfWidth } from "../xrer/triggers";
+import type { Lang, Reply, ScriptedRule } from "./types";
 
 const CHINESE = /[㐀-鿿]/;
 
@@ -35,7 +36,7 @@ export function detectLang(text: string): Lang {
  * Runs of Chinese are spaced off from Latin text, so "看projects" still contains the word "projects".
  */
 export function normalize(text: string): string {
-  const spaced = text
+  const spaced = halfWidth(text)
     .toLowerCase()
     .replace(/[^a-z0-9㐀-鿿]+/g, " ")
     .replace(/[㐀-鿿]+/g, " $& ");
@@ -203,11 +204,16 @@ function findProject(normalized: string): CvProject | undefined {
   return allProjects.find((p) => matches(normalized, [p.title, ...(PROJECT_ALIASES[p.title] ?? [])]));
 }
 
-/** Sound commands → "中文" → easter eggs → project names → topics → fallback. */
+/** XR's words → sound commands → "中文" → easter eggs → project names → topics → fallback. */
 export function respond(input: string, memory: ReplyMemory, sfxEnabled: boolean): Reply {
   const text = normalize(input);
   const lang = detectLang(input);
-  const reply = sfxReply(text, memory, sfxEnabled, lang) ?? match(text, memory, lang);
+  // XR's words win over everything, "中文" and sound commands included: "xrer 中文" goes to XR, in Chinese.
+  const xr = EASTER_EGGS.find((rule) => rule.action === "xr");
+  const reply =
+    (xr && matches(text, xr.phrases) ? eggReply(xr, memory, lang) : undefined) ??
+    sfxReply(text, memory, sfxEnabled, lang) ??
+    match(text, memory, lang);
   if (reply) {
     memory.missStreak = 0;
     return { ...reply, lang: reply.lang ?? lang };
@@ -230,21 +236,23 @@ export function respond(input: string, memory: ReplyMemory, sfxEnabled: boolean)
   };
 }
 
+function eggReply(egg: ScriptedRule, memory: ReplyMemory, lang: Lang): Reply {
+  // An egg without Chinese lines answers in English, even to a Chinese message.
+  const zh = lang === "zh" ? egg.repliesZh : undefined;
+  return {
+    lines: [zh ? pick(memory, `${egg.id}-zh`, zh) : pick(memory, egg.id, egg.replies)],
+    expression: egg.expression,
+    jump: zh && egg.jump && egg.jumpLabelZh ? { ...egg.jump, label: egg.jumpLabelZh } : egg.jump,
+    action: egg.action,
+    lang: zh ? "zh" : "en",
+  };
+}
+
 function match(text: string, memory: ReplyMemory, lang: Lang): Reply | undefined {
   if (matches(text, CHINESE_PHRASES)) return { lines: [CHINESE_INTRO], options: HELP_OPTIONS.zh, lang: "zh" };
 
   const egg = EASTER_EGGS.find((rule) => matches(text, rule.phrases));
-  if (egg) {
-    // An egg without Chinese lines answers in English, even to a Chinese message.
-    const zh = lang === "zh" ? egg.repliesZh : undefined;
-    return {
-      lines: [zh ? pick(memory, `${egg.id}-zh`, zh) : pick(memory, egg.id, egg.replies)],
-      expression: egg.expression,
-      jump: zh && egg.jump && egg.jumpLabelZh ? { ...egg.jump, label: egg.jumpLabelZh } : egg.jump,
-      action: egg.action,
-      lang: zh ? "zh" : "en",
-    };
-  }
+  if (egg) return eggReply(egg, memory, lang);
 
   const project = findProject(text);
   if (project) return projectReply(project, lang);

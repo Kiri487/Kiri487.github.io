@@ -23,6 +23,7 @@ import { createRound, isXr, type Round } from "./round";
 import * as S from "./script";
 import { clearXrSession, readXrSession, writeXrSession } from "./session";
 import { playXrOpenSfx, playXrReplySfx } from "./sfx";
+import { halfWidth } from "./triggers";
 import XrAvatar from "./XrAvatar";
 import { ApplicantDocument, RecordDocument, RulesDocument } from "./XrDocuments";
 import "./xrer.css";
@@ -75,7 +76,7 @@ const REVIEW_OPTIONS = [S.PASS_LABEL, S.FAIL_LABEL, S.ASK_LABEL];
 
 /** Lowercase, punctuation → spaces, padded so English phrases match whole words. */
 function normalize(text: string): string {
-  return ` ${text.toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, " ").trim()} `;
+  return ` ${halfWidth(text).toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, " ").trim()} `;
 }
 
 function said(text: string, phrases: readonly string[]): boolean {

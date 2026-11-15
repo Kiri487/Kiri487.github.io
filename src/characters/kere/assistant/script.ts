@@ -1,3 +1,4 @@
+import { XR_TRIGGERS } from "../xrer/triggers";
 import type { Localized, QuickOption, ScriptedRule } from "./types";
 
 /* ============================================================
@@ -185,9 +186,9 @@ export const WELCOME_BACK = "歡迎回來，我剛剛好像請假了一下。";
 /** Checked before anything else, top to bottom. */
 export const EASTER_EGGS: ScriptedRule[] = [
   {
-    // XR, Kere's ROT13 reflection. "rot13" works too: Kere through ROT13 is Xrer.
+    // XR, Kere's ROT13 reflection. Checked before everything else (see respond.tsx); the words are in xrer/triggers.ts.
     id: "xrer",
-    phrases: ["xrer", "rot13", "rot 13"],
+    phrases: XR_TRIGGERS,
     action: "xr",
     replies: ["That keyword is outside my scope. I'll transfer you to the colleague in charge."],
     repliesZh: ["這個關鍵字不在我的處理範圍內，我幫您轉接負責的同事。"],
