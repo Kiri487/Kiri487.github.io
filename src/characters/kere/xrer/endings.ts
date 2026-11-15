@@ -69,12 +69,12 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       showRecord: false,
       steps: xrPassed
         ? [
-            step([`合格者共 ${passed.length} 位，其中包含本人。`], "alert", 0),
+            step([`合格者共 ${passed.length} 位。`], "alert", 0),
             step(["本人與本案有利害關係，依規定迴避。"], "normal"),
             step([hireLine], "normal"),
           ]
         : [
-            step([`應徵者 ${xr.no} 已判定不合格。`, "該應徵者為本人。"], "normal", 0),
+            step([`應徵者 ${xr.no} 已判定不合格。`], "normal", 0),
             step(["程序正確。"], "normal", 2000),
             step([hireLine], "normal"),
           ],
@@ -131,7 +131,7 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       steps: [
         step([`審查完成。合格者一位：應徵者 ${only.no}。`], "alert", 0),
         step(["該應徵者不符第 7 條。", `第 7 條：${clause.text}`], "anxious"),
-        step(["原始紀錄……不是這樣寫的。", "兩份都是有效文件。"], "anxious"),
+        step(["原始紀錄……不符合。", "兩份都是有效文件……"], "anxious"),
         step(["請審查員稍候，本人需要重新核對。"], "anxious"),
       ],
     };

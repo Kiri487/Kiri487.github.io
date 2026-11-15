@@ -180,7 +180,7 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
 };
 
 /** Kere's first line when the visitor comes back from XR's review (which runs in Chinese for now). */
-export const WELCOME_BACK = "歡迎回來。我剛剛好像請假了一下。";
+export const WELCOME_BACK = "歡迎回來，我剛剛好像請假了一下。";
 
 /** Checked before anything else, top to bottom. */
 export const EASTER_EGGS: ScriptedRule[] = [
