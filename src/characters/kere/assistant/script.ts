@@ -150,6 +150,12 @@ export const SFX_REPLIES: Localized<Record<
   },
 };
 
+/** The night line that hints at XR (see XR_HINT). */
+const NIGHT_SHIFT_HINT: Localized<string> = {
+  en: "It's late. Around this hour the night shift takes over, so I'd finish up soon.",
+  zh: "很晚了，這個時間通常是夜班接手，建議您早點問完。",
+};
+
 /** Time periods follow the visitor's own clock; lines never name an exact hour. Same split as Kuru. */
 export type TimePeriod = "night" | "morning" | "afternoon" | "evening";
 
@@ -159,6 +165,7 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
     night: [
       "It's late. Why are we both still here?",
       "This is well outside office hours. I'll make an exception.",
+      NIGHT_SHIFT_HINT.en,
     ],
     // 6:00–11:59
     morning: [
@@ -180,6 +187,7 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
     night: [
       "很晚了，怎麼我們兩個都還沒下班？",
       "已經過了上班時間很久了，這次就破例一下。",
+      NIGHT_SHIFT_HINT.zh,
     ],
     morning: [
       "早安，先讓我喝杯咖啡，再來回答問題。",
@@ -202,6 +210,54 @@ export const WELCOME_BACK: Localized<string> = {
   en: "Welcome back. I seem to have been on leave for a moment.",
   zh: "歡迎回來，我剛剛好像請假了一下。",
 };
+
+/**
+ * The trail to XR, for visitors curious enough to follow it. A few of Kere's lines hint at a night-shift colleague
+ * (XR_HINT_LINES: the dark-mode egg, a night line, and the steps below). Only right after one of them, a follow-up question
+ * gets the next step, each a little less vague, never her name or the number. Anywhere else these words mean nothing,
+ * so they can be short and broad; 誰 breaks the two-character rule for that reason.
+ */
+export const XR_HINT = {
+  followUps: [
+    "who", "colleague", "colleagues", "night shift", "black", "why", "what do you mean", "tell me more", "caesar",
+    "誰", "同事", "夜班", "接手", "全黑", "為什麼", "什麼意思", "說清楚", "然後呢", "凱薩", "凱撒",
+  ],
+  /** In order; the last one repeats. */
+  steps: {
+    en: [
+      "I'd rather not say her name, though it probably has something to do with mine.",
+      "Have you heard of the Caesar cipher? No particular reason.",
+      "Half a turn of the alphabet, and I'm her. A full turn, and I'm me again.",
+    ],
+    zh: [
+      "我不太想說她的名字，不過大概跟我的名字有點關聯吧。",
+      "您聽過凱薩加密嗎？沒什麼，隨口問問。",
+      "字母表轉半圈，我就是她；轉一整圈，我又是我。",
+    ],
+  } satisfies Localized<string[]>,
+};
+
+/** The handover to XR, for a visitor who got there through the hints instead of the usual "outside my scope". */
+export const XR_HANDOFF_FOUND: Localized<string> = {
+  en: "...You found her. I'll transfer you. Good luck.",
+  zh: "……您找到她了。我幫您轉接，祝您好運。",
+};
+
+const DARK_MODE_REPLIES: Localized<string[]> = {
+  en: [
+    "There's no dark mode. There is a colleague whose page is entirely black, but that isn't a theme. That's just how she works.",
+  ],
+  zh: ["這裡沒有深色模式。是有一位同事的頁面全黑，不過那不是主題，她本來就是那樣工作的。"],
+};
+
+/** Every line after which a follow-up question leads on towards XR. */
+export const XR_HINT_LINES: ReadonlySet<string> = new Set(
+  (["en", "zh"] as const).flatMap((lang) => [
+    ...DARK_MODE_REPLIES[lang],
+    NIGHT_SHIFT_HINT[lang],
+    ...XR_HINT.steps[lang],
+  ]),
+);
 
 /** Checked before anything else, top to bottom. */
 export const EASTER_EGGS: ScriptedRule[] = [
@@ -229,6 +285,13 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "我先下線了，有需要可以再回來找我。",
       "好，帶您回 Kiri 那邊。",
     ],
+  },
+  {
+    // Kere has no dark mode, but she knows who does. One of the hints at XR (see XR_HINT).
+    id: "dark-mode",
+    phrases: ["dark mode", "dark theme", "night mode", "深色模式", "暗色模式", "黑暗模式", "夜間模式"],
+    replies: DARK_MODE_REPLIES.en,
+    repliesZh: DARK_MODE_REPLIES.zh,
   },
   {
     // Early, so "your skills are useless" gets this instead of the skills list. Kere stays calm and polite.

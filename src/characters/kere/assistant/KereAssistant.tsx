@@ -3,7 +3,7 @@ import { useSkin } from "../../../SkinContext";
 import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
-import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./respond";
+import { createReplyMemory, currentPeriod, detectLang, noteHint, pick, respond } from "./respond";
 import { FACES } from "../avatar/faces";
 import { XR_FACES } from "../xrer/faces";
 import { loadXrMode } from "../xrer/load";
@@ -141,6 +141,8 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
     const lines: Reply["lines"] = [pick(memory.current, `greeting-${lang}`, GREETINGS[lang])];
     // Late at night is the one time Kere remarks on the hour without being asked.
     if (currentPeriod() === "night") lines.push(pick(memory.current, `night-greeting-${lang}`, TIME_REPLIES[lang].night));
+    // The night line may hint at XR, and a greeting is a message like any other.
+    noteHint(memory.current, lines);
     return { id: nextId.current++, from: "kere", reply: { lines, options: GREETING_OPTIONS[lang], lang } };
   };
 

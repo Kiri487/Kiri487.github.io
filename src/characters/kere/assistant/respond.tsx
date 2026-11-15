@@ -19,6 +19,9 @@ import {
   SFX_REPLIES,
   TIME_REPLIES,
   TOPIC_PHRASES,
+  XR_HANDOFF_FOUND,
+  XR_HINT,
+  XR_HINT_LINES,
   type TimePeriod,
 } from "./script";
 import { halfWidth } from "../xrer/triggers";
@@ -57,10 +60,28 @@ export interface ReplyMemory {
   lastPick: Map<string, number>;
   /** Unmatched inputs in a row. */
   missStreak: number;
+  /** Kere's last message hinted at XR, so a follow-up question gets the next step (see XR_HINT). */
+  hinted: boolean;
+  /** XR_HINT steps given so far. */
+  hintSteps: number;
 }
 
 export function createReplyMemory(): ReplyMemory {
-  return { lastPick: new Map(), missStreak: 0 };
+  return { lastPick: new Map(), missStreak: 0, hinted: false, hintSteps: 0 };
+}
+
+/** Remembers whether a message Kere just sent hinted at XR. Every message she sends goes through here. */
+export function noteHint(memory: ReplyMemory, lines: readonly unknown[]) {
+  memory.hinted = lines.some((line) => typeof line === "string" && XR_HINT_LINES.has(line));
+}
+
+/** The next step towards XR, only as the answer to a follow-up on one of Kere's hints. */
+function hintReply(text: string, memory: ReplyMemory, lang: Lang): Reply | undefined {
+  if (!memory.hinted || !matches(text, XR_HINT.followUps)) return undefined;
+  const steps = XR_HINT.steps[lang];
+  const line = steps[Math.min(memory.hintSteps, steps.length - 1)];
+  memory.hintSteps += 1;
+  return { lines: [line] };
 }
 
 export function pick(memory: ReplyMemory, key: string, options: readonly string[]): string {
@@ -204,14 +225,22 @@ function findProject(normalized: string): CvProject | undefined {
   return allProjects.find((p) => matches(normalized, [p.title, ...(PROJECT_ALIASES[p.title] ?? [])]));
 }
 
-/** XR's words → sound commands → "中文" → easter eggs → project names → topics → fallback. */
+/** Kere's answer to one message, remembering whether it hints at XR. */
 export function respond(input: string, memory: ReplyMemory, sfxEnabled: boolean): Reply {
+  const reply = answer(input, memory, sfxEnabled);
+  noteHint(memory, reply.lines);
+  return reply;
+}
+
+/** XR's words → a follow-up on a hint at XR → sound commands → "中文" → easter eggs → project names → topics → fallback. */
+function answer(input: string, memory: ReplyMemory, sfxEnabled: boolean): Reply {
   const text = normalize(input);
   const lang = detectLang(input);
   // XR's words win over everything, "中文" and sound commands included: "xrer 中文" goes to XR, in Chinese.
   const xr = EASTER_EGGS.find((rule) => rule.action === "xr");
   const reply =
-    (xr && matches(text, xr.phrases) ? eggReply(xr, memory, lang) : undefined) ??
+    (xr && matches(text, xr.phrases) ? xrReply(xr, memory, lang) : undefined) ??
+    hintReply(text, memory, lang) ??
     sfxReply(text, memory, sfxEnabled, lang) ??
     match(text, memory, lang);
   if (reply) {
@@ -234,6 +263,12 @@ export function respond(input: string, memory: ReplyMemory, sfxEnabled: boolean)
     options: HELP_OPTIONS[lang],
     lang,
   };
+}
+
+/** The handover to XR: the usual line, or, once the visitor has followed Kere's hints, one that knows they did. */
+function xrReply(xr: ScriptedRule, memory: ReplyMemory, lang: Lang): Reply {
+  if (memory.hintSteps === 0) return eggReply(xr, memory, lang);
+  return { lines: [XR_HANDOFF_FOUND[lang]], action: "xr", lang };
 }
 
 function eggReply(egg: ScriptedRule, memory: ReplyMemory, lang: Lang): Reply {
