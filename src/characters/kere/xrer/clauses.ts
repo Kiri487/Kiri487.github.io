@@ -1,7 +1,7 @@
 import { periodStart } from "../../../data/portfolio";
 import { KIRI_CV, type CvData } from "../cv/data";
 import { startOf, type Flaw, type FlawKind } from "./flaws";
-import { pickOne } from "./random";
+import { pickOne, type Rng } from "./random";
 
 /**
  * Clause 7, issued halfway through. It always contradicts Kiri's real CV, so by the letter of it no real Kiri passes.
@@ -36,11 +36,11 @@ const COUNTABLE: { label: string; count: (cv: CvData) => number }[] = [
   })),
 ];
 
-function countClause(): Clause {
+function countClause(rng: Rng): Clause {
   const usable = COUNTABLE.filter((c) => c.count(KIRI_CV) >= 2 && c.count(KIRI_CV) <= 5);
-  const { label, count } = pickOne(usable.length > 0 ? usable : COUNTABLE);
+  const { label, count } = pickOne(usable.length > 0 ? usable : COUNTABLE, rng);
   const real = count(KIRI_CV);
-  const wrong = real <= 1 ? real + 1 : real + pickOne([-1, 1]);
+  const wrong = real <= 1 ? real + 1 : real + pickOne([-1, 1], rng);
   return { text: `原始紀錄共有 ${wrong} 筆${label}。`, trap: false, check: (cv) => count(cv) === wrong };
 }
 
@@ -53,11 +53,11 @@ function earliestStart(entries: { period: string }[]): string {
   return startOf(entries[earliestIndex(entries)].period);
 }
 
-function earliestClause(): Clause {
+function earliestClause(rng: Rng): Clause {
   const { label, key, list } = pickOne([
     { label: "學歷", key: "education", list: (cv: CvData) => cv.education },
     { label: "經歷", key: "work", list: (cv: CvData) => cv.work },
-  ]);
+  ], rng);
   const real = earliestStart(list(KIRI_CV));
   const wrong = real.replace(/\d{4}$/, (y) => String(Number(y) + 1));
   return {
@@ -68,8 +68,8 @@ function earliestClause(): Clause {
   };
 }
 
-function absentClause(): Clause {
-  const index = Math.floor(Math.random() * KIRI_CV.projects.length);
+function absentClause(rng: Rng): Clause {
+  const index = Math.floor(rng() * KIRI_CV.projects.length);
   const title = KIRI_CV.projects[index].title;
   return {
     text: `原始紀錄不包含 ${title}。列有此項者視為偽造。`,
@@ -79,8 +79,8 @@ function absentClause(): Clause {
   };
 }
 
-export function negativeClause(): Clause {
-  return pickOne([countClause, earliestClause, absentClause])();
+export function negativeClause(rng: Rng): Clause {
+  return pickOne([countClause, earliestClause, absentClause], rng)(rng);
 }
 
 /** The clause that lets `flaw`'s fake through. */

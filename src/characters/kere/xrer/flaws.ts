@@ -1,6 +1,6 @@
 import type { CvData } from "../cv/data";
 import { SECTIONS } from "../cv/layout";
-import { pickOne } from "./random";
+import { pickOne, type Rng } from "./random";
 
 /**
  * A fake Kiri's CV is Kiri's own with exactly one thing wrong. Built from the live data, so the review still works
@@ -96,10 +96,10 @@ export function startOf(period: string): string {
 }
 
 /** Starts in 1887 or 2087, or ends years before it starts. */
-function impossibleDate(data: CvData): FlawedCv {
+function impossibleDate(data: CvData, rng: Rng): FlawedCv {
   const ended = datedEntries(data).filter((e) => !periodOf(data, e).endsWith("Present"));
-  const backwards = ended.length > 0 && Math.random() < 1 / 3;
-  const entry = pickOne(backwards ? ended : datedEntries(data));
+  const backwards = ended.length > 0 && rng() < 1 / 3;
+  const entry = pickOne(backwards ? ended : datedEntries(data), rng);
   const original = periodOf(data, entry);
   let period: string;
   if (backwards) {
@@ -107,7 +107,7 @@ function impossibleDate(data: CvData): FlawedCv {
     const startYear = Number(original.match(/^[A-Z][a-z]{2} (\d{4})/)?.[1]);
     period = original.replace(/\d{4}$/, String(startYear - 3));
   } else {
-    period = original.replace(/^([A-Z][a-z]{2}) \d{4}/, `$1 ${pickOne(["1887", "2087"])}`);
+    period = original.replace(/^([A-Z][a-z]{2}) \d{4}/, `$1 ${pickOne(["1887", "2087"], rng)}`);
   }
   const shown = backwards ? period : startOf(period);
   return {
@@ -123,8 +123,8 @@ function impossibleDate(data: CvData): FlawedCv {
 }
 
 /** A whole extra row that looks at home on any CV: "Soft Skills: Being Human". */
-function strangeSkill(data: CvData): FlawedCv {
-  const skill = pickOne(STRANGE_SKILLS);
+function strangeSkill(data: CvData, rng: Rng): FlawedCv {
+  const skill = pickOne(STRANGE_SKILLS, rng);
   // Tech only picks an icon, and the CV shows skills as text, so any key will do.
   const tech = data.skills[0].skills[0].tech;
   const skills = [...data.skills, { category: "Soft Skills", skills: [{ name: skill, tech }] }];
@@ -135,15 +135,15 @@ function strangeSkill(data: CvData): FlawedCv {
 }
 
 /** A project, or an award, that was never there. */
-function extraEntry(data: CvData): FlawedCv {
+function extraEntry(data: CvData, rng: Rng): FlawedCv {
   const awards = data.lists.find((l) => l.category === AWARDS);
-  if (awards && Math.random() < 0.25) {
+  if (awards && rng() < 0.25) {
     // Any year from Kiri's first award to her latest entry anywhere, so it never stands out by date alone.
     const awardYears = awards.items.map(yearIn).filter((y) => y !== undefined);
     const allYears = [...data.education, ...data.work, ...data.projects].map((e) => yearIn(e.period ?? "")).filter((y) => y !== undefined);
     const from = Math.min(...(awardYears.length > 0 ? awardYears : allYears));
     const to = Math.max(...awardYears, ...allYears);
-    const year = from + Math.floor(Math.random() * (to - from + 1));
+    const year = from + Math.floor(rng() * (to - from + 1));
     const item = fakeAward(year);
     // Newest first, like the real list: after every entry from the same year or later.
     const before = awards.items.findIndex((i) => (yearIn(i) ?? Infinity) < year);
@@ -156,7 +156,7 @@ function extraEntry(data: CvData): FlawedCv {
       flaw: { kind: "extraEntry", section, note: `${AWARDS}: ${item}`, value: item },
     };
   }
-  const { title, description } = pickOne(FAKE_PROJECTS);
+  const { title, description } = pickOne(FAKE_PROJECTS, rng);
   const newest = data.projects[0];
   const fake = { ...newest, title, description, links: [], tags: newest.tags.slice(0, 1), kind: "Personal" as const };
   // Second place: not the very first thing on the page, but not buried either.
@@ -167,8 +167,8 @@ function extraEntry(data: CvData): FlawedCv {
   };
 }
 
-function titleSwap(data: CvData): FlawedCv {
-  const index = Math.floor(Math.random() * data.work.length);
+function titleSwap(data: CvData, rng: Rng): FlawedCv {
+  const index = Math.floor(rng() * data.work.length);
   const original = data.work[index].position;
   const position = original.startsWith("Senior ") ? original.replace("Senior ", "") : `Senior ${original.replace(/ Intern$/, "")}`;
   const work = data.work.map((w, i) => (i === index ? { ...w, position } : w));
@@ -179,40 +179,40 @@ function titleSwap(data: CvData): FlawedCv {
 }
 
 /** One typo: a letter dropped ("Universty"), two swapped ("Univeristy") or one doubled ("Taipeii"). */
-function misspellWord(w: string): string {
+function misspellWord(w: string, rng: Rng): string {
   const inside = [...w].map((_, k) => k).filter((k) => k > 0 && k < w.length - 1);
-  const typo = pickOne(["drop", "swap", "double"] as const);
+  const typo = pickOne(["drop", "swap", "double"] as const, rng);
   if (typo === "swap") {
     const spots = inside.filter((k) => k < w.length - 2 && w[k] !== w[k + 1]);
     if (spots.length > 0) {
-      const k = pickOne(spots);
+      const k = pickOne(spots, rng);
       return w.slice(0, k) + w[k + 1] + w[k] + w.slice(k + 2);
     }
   }
   if (typo === "double") {
-    const k = pickOne([...inside, w.length - 1]);
+    const k = pickOne([...inside, w.length - 1], rng);
     return w.slice(0, k + 1) + w[k] + w.slice(k + 1);
   }
   // Only where it shows: not a letter with a twin beside it.
   const spots = inside.filter((k) => w[k] !== w[k - 1] && w[k] !== w[k + 1]);
-  const k = pickOne(spots.length > 0 ? spots : inside);
+  const k = pickOne(spots.length > 0 ? spots : inside, rng);
   return w.slice(0, k) + w.slice(k + 1);
 }
 
-function misspellName(name: string): string | undefined {
+function misspellName(name: string, rng: Rng): string | undefined {
   const words = name.split(" ");
   const candidates = words.map((w, i) => ({ w, i })).filter(({ w }) => /^[A-Za-z]{6,}$/.test(w));
   if (candidates.length === 0) return undefined;
-  const { w, i } = pickOne(candidates);
-  words[i] = misspellWord(w);
+  const { w, i } = pickOne(candidates, rng);
+  words[i] = misspellWord(w, rng);
   return words.join(" ");
 }
 
-function misspell(data: CvData): FlawedCv | undefined {
-  const entries = datedEntries(data).filter((e) => misspellName(nameOf(data, e)) !== undefined);
+function misspell(data: CvData, rng: Rng): FlawedCv | undefined {
+  const entries = datedEntries(data).filter((e) => misspellName(nameOf(data, e), rng) !== undefined);
   if (entries.length === 0) return undefined;
-  const entry = pickOne(entries);
-  const name = misspellName(nameOf(data, entry)) ?? nameOf(data, entry);
+  const entry = pickOne(entries, rng);
+  const name = misspellName(nameOf(data, entry), rng) ?? nameOf(data, entry);
   return {
     data: withEntry(data, entry, { name }),
     flaw: { kind: "misspell", section: sectionOf(entry.list), note: name, value: name },
@@ -220,11 +220,11 @@ function misspell(data: CvData): FlawedCv | undefined {
 }
 
 /** The start moved a month earlier ("Jul 2024" → "Jun 2024") or a year ("Jul 2024" → "Jul 2023"). */
-function dateShift(data: CvData): FlawedCv | undefined {
-  const byYear = Math.random() < 0.5;
+function dateShift(data: CvData, rng: Rng): FlawedCv | undefined {
+  const byYear = rng() < 0.5;
   const entries = datedEntries(data).filter((e) => byYear || !periodOf(data, e).startsWith("Jan "));
   if (entries.length === 0) return undefined;
-  const entry = pickOne(entries);
+  const entry = pickOne(entries, rng);
   const original = periodOf(data, entry);
   const period = byYear
     ? original.replace(/^([A-Z][a-z]{2}) (\d{4})/, (_, m: string, y: string) => `${m} ${Number(y) - 1}`)
@@ -241,7 +241,7 @@ function dateShift(data: CvData): FlawedCv | undefined {
   };
 }
 
-const MAKERS: Record<FlawKind, (data: CvData) => FlawedCv | undefined> = {
+const MAKERS: Record<FlawKind, (data: CvData, rng: Rng) => FlawedCv | undefined> = {
   impossibleDate,
   strangeSkill,
   extraEntry,
@@ -251,6 +251,6 @@ const MAKERS: Record<FlawKind, (data: CvData) => FlawedCv | undefined> = {
 };
 
 /** Falls back to an impossible date if the CV has nothing this kind of flaw can change. */
-export function makeFlawed(data: CvData, kind: FlawKind): FlawedCv {
-  return MAKERS[kind](data) ?? impossibleDate(data);
+export function makeFlawed(data: CvData, kind: FlawKind, rng: Rng): FlawedCv {
+  return MAKERS[kind](data, rng) ?? impossibleDate(data, rng);
 }
