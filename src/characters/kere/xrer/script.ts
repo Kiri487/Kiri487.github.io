@@ -91,6 +91,17 @@ export const ABORTED = "審查中止。";
 
 export const AGAIN_LABEL = "再審一輪";
 
+/* ---- sound (Kere's commands: mute, unmute, 靜音, 閉嘴…) ---- */
+
+export const SFX_ON = "音效已開啟。";
+export const SFX_ALREADY_ON = "音效維持開啟。";
+export const SFX_OFF = "音效已關閉。";
+export const SFX_ALREADY_OFF = "音效維持關閉。";
+/** "shut up" / "閉嘴": he complies, and files a note on the wording. */
+export const SFX_SHUT_UP = "指令措辭不在程序內。音效已關閉。";
+export const SFX_STATUS_ON = "音效目前為開啟狀態。";
+export const SFX_STATUS_OFF = "音效目前為關閉狀態。";
+
 /* ---- leaving ---- */
 
 /** Any of these goes back to Kere. Kere's own exit words, plus a few more. */

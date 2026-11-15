@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type R
 import { readJson, writeJson } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
-import { loadSfxEnabled, unlockSfx } from "../assistant/sfx";
+import { loadSfxEnabled, saveSfxEnabled, unlockSfx } from "../assistant/sfx";
+import { SFX_PHRASES } from "../assistant/script";
 import { useChatViewport } from "../assistant/useChatViewport";
 import { SECTIONS } from "../cv/layout";
 import {
@@ -111,8 +112,10 @@ function XrMode({ onLeave }: XrModeProps) {
   const [thinking, setThinking] = useState(false);
   const [open, setOpen] = useState(true);
   const [unread, setUnread] = useState(false);
-  // Kere's sound setting covers XR too: muting her mutes him.
+  // Kere's sound setting covers XR too: muting her mutes him, and muting him mutes her.
   const [sfxEnabled] = useState(loadSfxEnabled);
+  /** The live setting: a mute command takes effect on its own reply, before the next render. */
+  const soundOn = useRef(sfxEnabled);
 
   const nextId = useRef(1);
   const timers = useRef<number[]>([]);
@@ -163,7 +166,7 @@ function XrMode({ onLeave }: XrModeProps) {
     const numbered = msgs.map((msg) => ({ ...msg, id: nextId.current++ }) as Message);
     setMessages((m) => [...m, ...numbered]);
     if (!openRef.current) setUnread(true);
-    if (sfxEnabled) playXrReplySfx(faceRef.current);
+    if (soundOn.current) playXrReplySfx(faceRef.current);
   };
 
   const face: XrFace = faceOverride ?? faceForViolations(violations);
@@ -174,9 +177,9 @@ function XrMode({ onLeave }: XrModeProps) {
 
   // XR's arrival sound, once (the guard keeps development's double effects from playing it twice).
   useEffect(() => {
-    if (!sfxEnabled || openSfxPlayed.current) return;
+    if (openSfxPlayed.current) return;
     openSfxPlayed.current = true;
-    playXrOpenSfx();
+    if (sfxEnabled) playXrOpenSfx();
   }, [sfxEnabled]);
   /** Only the newest choices stay on screen: an old "合格" would stamp whichever file is on the desk now. */
   const lastWithOptions = [...messages].reverse().find((m) => m.from !== "you" && m.options)?.id;
@@ -336,6 +339,36 @@ function XrMode({ onLeave }: XrModeProps) {
   const reply = (text: string) => {
     if (said(text, S.KIRI_PHRASES) || said(text, S.EXIT_PHRASES)) {
       abort(said(text, S.KIRI_PHRASES) ? "kiri" : "kere");
+      return;
+    }
+
+    // Sound commands work at any point, with whatever choices were on screen.
+    const options =
+      phase === "consent" ? [S.START_LABEL, S.BACK_LABEL] : phase === "done" ? [S.AGAIN_LABEL, S.BACK_LABEL] : REVIEW_OPTIONS;
+    const setSound = (on: boolean, line: string) => {
+      // Turning sound on confirms itself with the tick; turning it off stays silent.
+      soundOn.current = on;
+      saveSfxEnabled(on);
+      post({ from: "xr", lines: [line], options });
+    };
+    if (said(text, SFX_PHRASES.on)) {
+      if (soundOn.current) post({ from: "xr", lines: [S.SFX_ALREADY_ON], options });
+      else setSound(true, S.SFX_ON);
+      return;
+    }
+    if (said(text, SFX_PHRASES.shutUp)) {
+      setFaceOverride("alert");
+      if (soundOn.current) setSound(false, S.SFX_SHUT_UP);
+      else post({ from: "xr", lines: [S.SFX_ALREADY_OFF], options });
+      return;
+    }
+    if (said(text, SFX_PHRASES.off)) {
+      if (soundOn.current) setSound(false, S.SFX_OFF);
+      else post({ from: "xr", lines: [S.SFX_ALREADY_OFF], options });
+      return;
+    }
+    if (said(text, SFX_PHRASES.status)) {
+      post({ from: "xr", lines: [soundOn.current ? S.SFX_STATUS_ON : S.SFX_STATUS_OFF], options });
       return;
     }
 
