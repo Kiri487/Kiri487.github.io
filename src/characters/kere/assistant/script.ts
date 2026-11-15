@@ -376,7 +376,7 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "\"Always Chill and Cool.\" Skips every standup. Ships at 3 a.m. Writes no documentation. Annoyingly, it works.",
     ],
     repliesZh: [
-      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問他進度了。",
+      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問她進度了。",
       "「Always Chill and Cool.」平均回訊息長度：一個字，急的時候兩個字。",
       "「Always Chill and Cool.」早會從來不出席，凌晨三點才上線，文件一個字都沒寫，偏偏東西都能動，而且還不錯。",
     ],
