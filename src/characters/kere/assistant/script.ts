@@ -208,7 +208,7 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
 /** Kere's first line when the visitor comes back from XR's review, in the language the review ran in. */
 export const WELCOME_BACK: Localized<string> = {
   en: "Welcome back. I had to step away for a moment.",
-  zh: "歡迎回來，剛剛有點事走開了一下。",
+  zh: "歡迎回來，剛剛有點事離開了一下。",
 };
 
 /**
@@ -222,7 +222,7 @@ export const WELCOME_BACK_NOTED: Localized<Record<WelcomeNote, string>> = {
   },
   zh: {
     impostor: "歡迎回來，辛苦了。您剛剛在忙，我就刻意沒有打擾您。",
-    rattled: "歡迎回來。依第 9 條……抱歉，剛剛有點事走開了一下。",
+    rattled: "歡迎回來。依第 9 條……抱歉，剛剛有點事離開了一下。",
   },
 };
 
