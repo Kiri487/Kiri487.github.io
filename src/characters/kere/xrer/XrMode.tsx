@@ -195,104 +195,152 @@ function consentForm(lang: S.Lang): XrMessage {
   return { from: "form", title: t.CONSENT_TITLE, lines: t.CONSENT, options: consentOptions(t), lang };
 }
 
-/** What a refresh needs to pick up where the visitor was. The round itself is rebuilt from its seed. */
-interface Snapshot {
-  v: 2;
-  lang: S.Lang;
-  seed: string | null;
-  phase: Phase;
+/** "kiri", "blank", or the index of the fake whose CV overwrote it: the record as saved. */
+type SavedRecord = "kiri" | "blank" | number;
+
+/**
+ * Everything about the round on the desk, kept as one: a new round, a language switch and a refresh each set it in
+ * one go, so a new piece of round state can't be forgotten in one of them.
+ */
+interface RoundState {
+  /** Rebuilt from its seed after a refresh; null before the first round. */
+  round: Round | null;
+  /** The file on the desk. */
   current: number;
   verdicts: Verdict[];
   clauseIssued: boolean;
+  /** Clauses that grew after clause 7, in the order they grew: "7-1", "8"… */
   grown: string[];
   /** Every violation: clause 7's, and answering the Kere message. The face and the rot follow this. */
   violations: number;
-  /** Clause 7's alone: what grows 7-1 to 8 and what XR says about it. Missing in older saves. */
-  clauseBreaks?: number;
-  /** This round has a Kere message coming. */
-  impostorDue?: boolean;
-  impostor?: Impostor | null;
-  /** This round, clause 10 is carried out: a question about Kiri's CV. */
-  verifyDue?: boolean;
-  /** This round, XR asks why the visitor first came. */
-  whyDue?: boolean;
-  /** A question of XR's waiting for an answer before the review goes on. */
-  interlude?: Interlude | null;
-  verifyDone?: boolean;
-  whyDone?: boolean;
-  /** One has appeared, this round or an earlier one in this visit: Kere will have something to say. */
-  metImpostor?: boolean;
+  /** Clause 7's alone: what grows 7-1 to 8 and what XR says about it. */
+  clauseBreaks: number;
+  /** Questions asked per file. */
   asks: number[];
-  /** "kiri", "blank", or the index of the fake whose CV overwrote it. */
-  record: "kiri" | "blank" | number;
+  record: SavedRecord;
+  /** A face held for a moment (or for the rest of the round, in the closing). */
   faceOverride: XrFace | null;
+  /** This round has a Kere message coming (clause 9), and how it went once it came. */
+  impostorDue: boolean;
+  impostor: Impostor | null;
+  /** This round, clause 10 is carried out (a question about Kiri's CV); and XR asks why the visitor first came. */
+  verifyDue: boolean;
+  whyDue: boolean;
+  /** One of those questions, waiting for an answer before the review goes on. */
+  interlude: Interlude | null;
+  verifyDone: boolean;
+  whyDone: boolean;
+}
+
+/** A round before anything has happened in it; `round` null for the time before the first one. */
+function freshRound(round: Round | null = null, setup: Partial<RoundState> = {}): RoundState {
+  return {
+    round,
+    current: 0,
+    verdicts: [],
+    clauseIssued: false,
+    grown: [],
+    violations: 0,
+    clauseBreaks: 0,
+    asks: round ? round.applicants.map(() => 0) : [],
+    record: "kiri",
+    faceOverride: null,
+    impostorDue: false,
+    impostor: null,
+    verifyDue: false,
+    whyDue: false,
+    interlude: null,
+    verifyDone: false,
+    whyDone: false,
+    ...setup,
+  };
+}
+
+/** The record as it's shown: Kiri's own, blank, or a fake's CV in its place. */
+function recordShown({ round, record }: RoundState): RecordState {
+  if (record === "blank") return { type: "blank" };
+  if (typeof record === "number" && round?.applicants[record]) return { type: "overwritten", cv: round.applicants[record].cv };
+  return { type: "kiri" };
+}
+
+/** An ending's record, as saved. */
+function recordSaved(record: RecordState, round: Round): SavedRecord {
+  if (record.type === "blank") return "blank";
+  if (record.type === "overwritten") {
+    const by = round.applicants.findIndex((a) => a.cv === record.cv);
+    return by >= 0 ? by : "kiri";
+  }
+  return "kiri";
+}
+
+/** What a refresh needs to pick up where the visitor was. The round itself is rebuilt from its seed. */
+interface Snapshot {
+  v: 3;
+  lang: S.Lang;
+  phase: Phase;
   tab: TabId;
   messages: Message[];
   nextId: number;
+  /** A Kere message has appeared this visit, in this round or an earlier one: Kere will have something to say. */
+  metImpostor: boolean;
+  /** The round, with its seed in place of the round itself. */
+  rs: Omit<RoundState, "round"> & { seed: string | null };
 }
 
-type Restored = Omit<Snapshot, "v" | "seed" | "record"> & {
-  round: Round | null;
-  record: RecordState;
+interface Restored {
+  lang: S.Lang;
+  phase: Phase;
+  tab: TabId;
+  messages: Message[];
+  nextId: number;
+  metImpostor: boolean;
+  rs: RoundState;
   /** The visitor's last words, if a refresh came before XR answered them: she answers them now. */
   unanswered?: string;
-};
+}
 
 /** The review saved before a refresh, if there is one that still makes sense. */
 function restore(): Restored | null {
   const saved = readXrSession() as Snapshot | null;
-  if (!saved || saved.v !== 2 || !Array.isArray(saved.messages)) return null;
-  const round = saved.seed ? createRound(saved.seed) : null;
+  if (!saved || saved.v !== 3 || !Array.isArray(saved.messages) || !saved.rs) return null;
+  const { seed, ...fields } = saved.rs;
+  const round = seed ? createRound(seed) : null;
   if (saved.phase !== "consent" && !round) return null;
-  let record: RecordState = { type: "kiri" };
-  if (saved.record === "blank") record = { type: "blank" };
-  else if (typeof saved.record === "number" && round?.applicants[saved.record]) {
-    record = { type: "overwritten", cv: round.applicants[saved.record].cv };
-  }
-  let restored: Restored = { ...saved, round, record };
+  const { lang, phase, tab, metImpostor } = saved;
+  let rs: RoundState = { ...freshRound(round), ...fields, round };
+  let messages = saved.messages;
+  let nextId = saved.nextId;
 
   // Refreshed during a transfer that wasn't going through: finish what it would have done.
-  const answered = saved.impostor?.state === "answered" ? saved.impostor : null;
-  const kereMsg = answered && saved.messages.find((m) => m.id === answered.id);
+  const answered = rs.impostor?.state === "answered" ? rs.impostor : null;
+  const kereMsg = answered && messages.find((m) => m.id === answered.id);
   if (answered && kereMsg && kereMsg.from === "kere" && !kereMsg.redacted) {
-    const t = S.COPY[saved.lang];
-    let nextId = saved.nextId;
-    restored = {
-      ...restored,
-      violations: saved.violations + 1,
-      messages: [
-        ...saved.messages.map((m) => (m.id === answered.id && m.from === "kere" ? { ...m, redacted: true, options: undefined } : m)),
-        { from: "xr", lines: [t.TRANSFER_VOID], options: reviewOptions(t), strength: 1, seed: saved.seed ?? "", lang: saved.lang, id: nextId++ } as Message,
-      ],
-      nextId,
-    };
+    const t = S.COPY[lang];
+    rs = { ...rs, violations: rs.violations + 1 };
+    messages = [
+      ...messages.map((m) => (m.id === answered.id && m.from === "kere" ? { ...m, redacted: true, options: undefined } : m)),
+      { from: "xr", lines: [t.TRANSFER_VOID], options: reviewOptions(t), strength: 1, seed: seed ?? "", lang, id: nextId++ } as Message,
+    ];
   }
 
   // Refreshed while XR was thinking: the visitor's words are saved, her answer isn't yet.
-  const last = restored.messages[restored.messages.length - 1];
-  if (last?.from === "you" && (saved.phase === "consent" || saved.phase === "review" || saved.phase === "done")) {
-    restored = { ...restored, unanswered: last.text };
-  }
+  const last = messages[messages.length - 1];
+  const unanswered = last?.from === "you" && (phase === "consent" || phase === "review" || phase === "done") ? last.text : undefined;
 
-  if (saved.phase !== "closing" || !round) return restored;
+  if (phase !== "closing" || !round) return { lang, phase, tab, messages, nextId, metImpostor, rs, unanswered };
 
   // Refreshed while XR was reading out the ending: skip straight to the settlement sheet.
-  const lang = saved.lang;
-  const outcome = decideOutcome(round, saved.verdicts, lang);
-  const lastFace = outcome.steps[outcome.steps.length - 1]?.face ?? null;
-  let nextId = restored.nextId;
-  const sheet = settlementMessages(round, saved.verdicts, outcome, recordEnding(outcome.id), lang).map(
+  const outcome = decideOutcome(round, rs.verdicts, lang);
+  const sheet = settlementMessages(round, rs.verdicts, outcome, recordEnding(outcome.id), lang).map(
     (m) => ({ strength: 1, seed: round.seed, lang, ...m, id: nextId++ }) as Message,
   );
-  return {
-    ...restored,
-    phase: "done",
-    record: outcome.record,
-    grown: saved.grown.includes("9") ? saved.grown : [...saved.grown, "9"],
-    faceOverride: lastFace,
-    messages: [...restored.messages, ...sheet],
-    nextId,
+  rs = {
+    ...rs,
+    record: recordSaved(outcome.record, round),
+    grown: rs.grown.includes("9") ? rs.grown : [...rs.grown, "9"],
+    faceOverride: outcome.steps[outcome.steps.length - 1]?.face ?? null,
   };
+  return { lang, phase: "done", tab, messages: [...messages, ...sheet], nextId, metImpostor, rs };
 }
 
 interface XrModeProps {
@@ -308,30 +356,33 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   const [phase, setPhase] = useState<Phase>(initial?.phase ?? "consent");
   // Like Kere, XR answers in the language she was called up in ("xrer" alone is English); the visitor can switch.
   const [lang, setLang] = useState<S.Lang>(() => initial?.lang ?? triggerLang ?? "en");
-  const [round, setRound] = useState<Round | null>(initial?.round ?? null);
-  /** The file on the desk. */
-  const [current, setCurrent] = useState(initial?.current ?? 0);
-  const [verdicts, setVerdicts] = useState<Verdict[]>(initial?.verdicts ?? []);
-  const [clauseIssued, setClauseIssued] = useState(initial?.clauseIssued ?? false);
-  /** Clauses that grew after clause 7, in order: "7-1", "8"… */
-  const [grown, setGrown] = useState<string[]>(initial?.grown ?? []);
-  const [violations, setViolations] = useState(initial?.violations ?? 0);
-  const [clauseBreaks, setClauseBreaks] = useState(initial?.clauseBreaks ?? initial?.violations ?? 0);
-  const [impostorDue, setImpostorDue] = useState(initial?.impostorDue ?? false);
-  const [impostor, setImpostor] = useState<Impostor | null>(initial?.impostor ?? null);
+  // Everything about the round on the desk, in one piece (see RoundState).
+  const [rs, setRs] = useState<RoundState>(() => initial?.rs ?? freshRound());
+  const {
+    round,
+    current,
+    verdicts,
+    clauseIssued,
+    grown,
+    violations,
+    clauseBreaks,
+    asks,
+    faceOverride,
+    impostorDue,
+    impostor,
+    verifyDue,
+    whyDue,
+    interlude,
+    verifyDone,
+    whyDone,
+  } = rs;
+  const record = recordShown(rs);
+  /** Changes part of the round. A function gets the latest round, for changes made from timers. */
+  const patch = (change: Partial<RoundState> | ((now: RoundState) => Partial<RoundState>)) =>
+    setRs((now) => ({ ...now, ...(typeof change === "function" ? change(now) : change) }));
   const [metImpostor, setMetImpostor] = useState(initial?.metImpostor ?? false);
-  const [verifyDue, setVerifyDue] = useState(initial?.verifyDue ?? false);
-  const [whyDue, setWhyDue] = useState(initial?.whyDue ?? false);
-  const [interlude, setInterlude] = useState<Interlude | null>(initial?.interlude ?? null);
-  const [verifyDone, setVerifyDone] = useState(initial?.verifyDone ?? false);
-  const [whyDone, setWhyDone] = useState(initial?.whyDone ?? false);
   /** Time into a transfer that isn't going through, while it plays (see falseCrossing). */
   const [falseT, setFalseT] = useState<number | null>(null);
-  /** Questions asked per file. */
-  const [asks, setAsks] = useState<number[]>(initial?.asks ?? []);
-  const [record, setRecord] = useState<RecordState>(initial?.record ?? { type: "kiri" });
-  /** A face held for a moment (or for the rest of the round, in the closing). */
-  const [faceOverride, setFaceOverride] = useState<XrFace | null>(initial?.faceOverride ?? null);
   const [tab, setTab] = useState<TabId>(initial?.tab ?? "record");
 
   const [messages, setMessages] = useState<Message[]>(() => initial?.messages ?? [{ ...consentForm(lang), id: 0 } as Message]);
@@ -358,7 +409,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   const faceRef = useRef<XrFace>("normal");
   const openSfxPlayed = useRef(false);
   /** The current round's seed, for messages posted from timers. */
-  const seedRef = useRef(initial?.round?.seed ?? "");
+  const seedRef = useRef(initial?.rs.round?.seed ?? "");
   /** The review's language, for messages posted from timers. */
   const langRef = useRef<S.Lang>(lang);
 
@@ -383,58 +434,19 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   // Save the review after every change, so a refresh can resume it. Leaving clears it instead.
   useEffect(() => {
     if (phase === "leaving") return;
-    const overwrittenBy = record.type === "overwritten" ? (round?.applicants.findIndex((a) => a.cv === record.cv) ?? -1) : -1;
+    const { round: saving, ...fields } = rs;
     const snapshot: Snapshot = {
-      v: 2,
+      v: 3,
       lang,
-      seed: round?.seed ?? null,
       phase,
-      current,
-      verdicts,
-      clauseIssued,
-      grown,
-      violations,
-      clauseBreaks,
-      impostorDue,
-      impostor,
-      metImpostor,
-      verifyDue,
-      whyDue,
-      interlude,
-      verifyDone,
-      whyDone,
-      asks,
-      record: record.type === "blank" ? "blank" : overwrittenBy >= 0 ? overwrittenBy : "kiri",
-      faceOverride,
       tab,
       messages,
       nextId: nextId.current,
+      metImpostor,
+      rs: { ...fields, seed: saving?.seed ?? null },
     };
     writeXrSession(snapshot);
-  }, [
-    phase,
-    lang,
-    round,
-    current,
-    verdicts,
-    clauseIssued,
-    grown,
-    violations,
-    clauseBreaks,
-    impostorDue,
-    impostor,
-    metImpostor,
-    verifyDue,
-    whyDue,
-    interlude,
-    verifyDone,
-    whyDone,
-    asks,
-    record,
-    faceOverride,
-    tab,
-    messages,
-  ]);
+  }, [phase, lang, tab, messages, metImpostor, rs]);
 
   // The whole page goes negative while XR is here (see xrer.css).
   // Before the first paint, both at once: turn the page negative and take off the cover the crossing from Kere left.
@@ -520,27 +532,18 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     const before = readNumber(ROUNDS_KEY, 0, { min: 0 });
     const no = before + 1;
     writeString(ROUNDS_KEY, String(no));
-    setImpostorDue(before >= 1 && chance(`${r.seed}:impostor`) < IMPOSTOR_CHANCE);
-    setImpostor(null);
-    setClauseBreaks(0);
-    setVerifyDue(no >= VERIFY_FROM && chance(`${r.seed}:verify`) < VERIFY_CHANCE);
-    setWhyDue(no >= WHY_FROM && readString(ASKED_WHY_KEY) === null && chance(`${r.seed}:why`) < WHY_CHANCE);
-    setInterlude(null);
-    setVerifyDone(false);
-    setWhyDone(false);
     seedRef.current = r.seed;
     langRef.current = chosen;
     setLang(chosen);
-    setRound(r);
-    setCurrent(0);
-    setVerdicts([]);
-    setClauseIssued(false);
-    // Clause 10 arrives on the fifth round and is simply there from then on.
-    setGrown(no >= CLAUSE_10_FROM ? ["10"] : []);
-    setViolations(0);
-    setAsks(r.applicants.map(() => 0));
-    setRecord({ type: "kiri" });
-    setFaceOverride(null);
+    setRs(
+      freshRound(r, {
+        // Clause 10 arrives on the fifth round and is simply there from then on.
+        grown: no >= CLAUSE_10_FROM ? ["10"] : [],
+        impostorDue: before >= 1 && chance(`${r.seed}:impostor`) < IMPOSTOR_CHANCE,
+        verifyDue: no >= VERIFY_FROM && chance(`${r.seed}:verify`) < VERIFY_CHANCE,
+        whyDue: no >= WHY_FROM && readString(ASKED_WHY_KEY) === null && chance(`${r.seed}:why`) < WHY_CHANCE,
+      }),
+    );
     setTab("rules");
     setPhase("review");
     const brief = again ? tt.BRIEFING_AGAIN : tt.BRIEFING;
@@ -563,10 +566,10 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   const ask = (r: Round) => {
     const applicant = r.applicants[current];
     const n = asks[current] ?? 0;
-    setAsks((a) => a.map((v, i) => (i === current ? v + 1 : v)));
+    patch({ asks: asks.map((v, i) => (i === current ? v + 1 : v)) });
 
     if (isXr(applicant)) {
-      setFaceOverride("anxious");
+      patch({ faceOverride: "anxious" });
       post({ from: "xr", lines: t.ASK_XR_FILE, options: reviewOptions(t) });
       return;
     }
@@ -576,7 +579,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     else if (!clauseIssued) line = t.ASK_GENERIC;
     else if (clauseBreaks > 0) line = t.ASK_EVASIVE;
     else line = r.clause.check(applicant.cv) ? t.ASK_CLAUSE_PASS : t.ASK_CLAUSE_FAIL;
-    setFaceOverride(null);
+    patch({ faceOverride: null });
     post({ from: "xr", lines: [line], options: reviewOptions(t) });
   };
 
@@ -585,13 +588,13 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     setPhase("closing");
     const reviewLang = lang;
     const outcome: Outcome = decideOutcome(r, finalVerdicts, reviewLang);
-    setRecord(outcome.record);
+    patch({ record: recordSaved(outcome.record, r) });
 
     let at = 0;
     outcome.steps.forEach((s) => {
       at += s.delay + 1200;
       later(() => {
-        setFaceOverride(s.face);
+        patch({ faceOverride: s.face });
         faceRef.current = s.face;
         post({ from: "xr", lines: s.lines });
       }, at);
@@ -600,7 +603,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     at += SETTLEMENT_DELAY_MS;
     later(() => {
       // Every round ends with one more clause, about Kere.
-      setGrown((g) => (g.includes("9") ? g : [...g, "9"]));
+      patch((now) => ({ grown: now.grown.includes("9") ? now.grown : [...now.grown, "9"] }));
       post(...settlementMessages(r, finalVerdicts, outcome, recordEnding(outcome.id), reviewLang));
       setPhase("done");
     }, at);
@@ -611,7 +614,9 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     const violation = pass && clauseIssued && !r.clause.check(applicant.cv);
     const passedBefore = verdicts.filter((v) => v.pass).length;
     const nextVerdicts = [...verdicts, { pass, afterClause: clauseIssued }];
-    setVerdicts(nextVerdicts);
+    // Everything this stamp changes in the round, applied at the end in one go.
+    const change: Partial<RoundState> = { verdicts: nextVerdicts };
+    let nextGrown = grown;
 
     const receipt = readNumber(RECEIPT_KEY, 0, { min: 0 }) + 1;
     writeString(RECEIPT_KEY, String(receipt));
@@ -622,16 +627,16 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     if (violation) {
       ack.push(clauseBreaks === 0 ? t.VIOLATION_FIRST : t.VIOLATION_AGAIN);
       const count = clauseBreaks + 1;
-      setClauseBreaks(count);
-      setViolations((v) => v + 1);
+      change.clauseBreaks = count;
+      change.violations = violations + 1;
       if (count <= 3) sprouted.push(`7-${count}`);
       if (count === 2) sprouted.push("8");
-      if (sprouted.length > 0) setGrown((g) => [...g, ...sprouted]);
+      nextGrown = [...nextGrown, ...sprouted];
     } else if (pass && passedBefore > 0) {
       ack.push(t.SECOND_PASS);
       held = "alert";
     }
-    setFaceOverride(held);
+    change.faceOverride = held;
 
     const msgs: XrMessage[] = [{ from: "xr", lines: ack }];
     sprouted.forEach((id) =>
@@ -644,39 +649,41 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     const stamped = current + 1;
     const issueNow = !clauseIssued && stamped === r.clauseAfter;
     if (issueNow) {
-      setClauseIssued(true);
+      change.clauseIssued = true;
       msgs.push({ from: "xr", lines: [t.RULES_UPDATED, t.STAMPED_UNAFFECTED], attachments: [{ tab: "rules", label: t.TAB_RULES }] });
     }
 
     if (stamped < r.applicants.length) {
-      setCurrent(stamped);
+      change.current = stamped;
       msgs.push(fileMessage(r, stamped, false));
       // The first stamp after clause 7 with a file still to come: clause 9 appears, and then, as if on cue, Kere.
       if (impostorDue && clauseIssued && !impostor) {
-        setGrown((g) => (g.includes("9") ? g : [...g, "9"]));
+        if (!nextGrown.includes("9")) nextGrown = [...nextGrown, "9"];
         msgs.push(
           { from: "xr", lines: [t.RULES_UPDATED], attachments: [{ tab: "rules", label: t.TAB_RULES }] },
           { from: "kere", lines: [t.KERE_IMPOSTOR], options: [t.KERE_YES, ...reviewOptions(t)] },
         );
         // post numbers messages in order from here, and never splits one that isn't XR's.
-        setImpostor({ id: nextId.current + msgs.length - 1, state: "pending" });
+        change.impostor = { id: nextId.current + msgs.length - 1, state: "pending" };
         setMetImpostor(true);
       } else if (verifyDue && !verifyDone && stamped >= 2) {
         // Clause 10, carried out: the review waits on the Reviewer's answer.
         const quiz = buildQuiz(r.seed);
         msgs.push({ from: "xr", lines: [t.ELIGIBILITY, t.verifyAsk(quiz.question[lang])], options: quiz.options });
-        setInterlude("verify");
-        setVerifyDone(true);
+        change.interlude = "verify";
+        change.verifyDone = true;
       } else if (whyDue && !whyDone) {
         msgs.push({ from: "xr", lines: [t.WHY_ASK], options: t.WHY_OPTIONS });
-        setInterlude("why");
-        setWhyDone(true);
+        change.interlude = "why";
+        change.whyDone = true;
         writeString(ASKED_WHY_KEY, "1");
       }
+      patch({ ...change, grown: nextGrown });
       post(...msgs);
       return;
     }
 
+    patch({ ...change, grown: nextGrown });
     post(...msgs);
     close(r, nextVerdicts);
   };
@@ -693,21 +700,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     seedRef.current = "";
     setLang(other);
     setPhase("consent");
-    setRound(null);
-    setCurrent(0);
-    setVerdicts([]);
-    setClauseIssued(false);
-    setGrown([]);
-    setViolations(0);
-    setClauseBreaks(0);
-    setImpostorDue(false);
-    setImpostor(null);
-    setVerifyDue(false);
-    setWhyDue(false);
-    setInterlude(null);
-    setAsks([]);
-    setRecord({ type: "kiri" });
-    setFaceOverride(null);
+    setRs(freshRound());
     setTab("record");
     setMessages([{ ...consentForm(other), id: nextId.current++ } as Message]);
     if (soundOn.current) playXrReplySfx("normal");
@@ -740,12 +733,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
    * clause 7 violation, but grows nothing and changes no ending.
    */
   const answerImpostor = (id: number) => {
-    setImpostor({ id, state: "answered" });
+    patch({ impostor: { id, state: "answered" } });
     const done = () => {
       setFalseT(null);
       redact(id);
-      setViolations((v) => v + 1);
-      setFaceOverride(null);
+      patch((now) => ({ violations: now.violations + 1, faceOverride: null }));
       post({ from: "xr", lines: [t.TRANSFER_VOID], options: reviewOptions(t) });
     };
     if (prefersReducedMotion()) {
@@ -771,7 +763,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
         answerImpostor(impostor.id);
         return;
       }
-      setImpostor({ ...impostor, state: "ignored" });
+      patch({ impostor: { ...impostor, state: "ignored" } });
       redact(impostor.id);
     }
     if (said(text, S.ROT13_PHRASES)) {
@@ -787,7 +779,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     if (interlude && round) {
       if (interlude === "why") {
         // Whatever the answer.
-        setInterlude(null);
+        patch({ interlude: null });
         post({ from: "xr", lines: [t.WHY_REPLY], options: reviewOptions(t) });
         return;
       }
@@ -797,7 +789,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
         post({ from: "xr", lines: [t.CHOOSE], options: quiz.options });
         return;
       }
-      setInterlude(null);
+      patch({ interlude: null });
       post({ from: "xr", lines: [picked === quiz.answer ? t.VERIFY_PASS : t.VERIFY_FAIL], options: reviewOptions(t) });
       return;
     }
@@ -821,7 +813,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       return;
     }
     if (said(text, SFX_PHRASES.shutUp)) {
-      setFaceOverride("alert");
+      patch({ faceOverride: "alert" });
       if (soundOn.current) setSound(false, t.SFX_SHUT_UP);
       else post({ from: "xr", lines: [t.SFX_ALREADY_OFF], options });
       return;
@@ -844,7 +836,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
         return true;
       }
       if (!egg) return false;
-      setFaceOverride(egg.alert ? "alert" : null);
+      patch({ faceOverride: egg.alert ? "alert" : null });
       // Once 7-1 exists, doubting clause 7 is itself against the rules.
       const line = egg.alert && grown.includes("7-1") ? t.DOUBT_AFTER_7_1 : egg.line[lang];
       post({ from: "xr", lines: [line], options });
@@ -877,7 +869,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     } else if (said(text, S.RECORD_PHRASES)) {
       post({ from: "xr", lines: [], attachments: [{ tab: "record", label: t.TAB_RECORD }], options });
     } else {
-      setFaceOverride("alert");
+      patch({ faceOverride: "alert" });
       post({ from: "xr", lines: [t.UNKNOWN_COMMAND], options });
     }
   };
