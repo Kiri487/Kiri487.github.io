@@ -25,6 +25,9 @@ function decayRule(rule: string, i: number, violations: number, level: DocLevel,
   return out;
 }
 
+/** The clauses that can grow after clause 7, in the order the rulebook lists them. */
+const GROWN_ORDER = ["7-1", "7-2", "7-3", "8", "9", "10"];
+
 interface RulesDocumentProps {
   /** Clause 7, once it has appeared. */
   clause?: Clause;
@@ -46,9 +49,11 @@ export function RulesDocument({ clause, grown, level, violations, seed, lang }: 
   const strength = decayStrength(violations, level);
   const base = t.RULES.map((rule, i) => decayRule(rule, i, violations, level, seed, lang));
   // Clause 8 carries its own correction, so it's left as written.
+  // In clause order, whichever grew first: clause 9 can come before 7-1.
+  const ordered = [...grown].sort((a, b) => GROWN_ORDER.indexOf(a) - GROWN_ORDER.indexOf(b));
   const later = [
     ...(clause ? [{ no: "7", text: clause.text[lang] }] : []),
-    ...grown.map((id) => ({ no: id, text: t.GROWN_CLAUSES[id] })),
+    ...ordered.map((id) => ({ no: id, text: t.GROWN_CLAUSES[id] })),
   ].map(({ no, text }) => ({ no, text: violations >= 1 || level === 3 ? (text.includes("~~") ? text : `{${text}}`) : text }));
   return (
     <article className="kere xr-doc" lang={htmlLang(lang)}>

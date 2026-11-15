@@ -6,9 +6,11 @@ interface XrAvatarProps {
   face: XrFace;
   /** Checking a file. Only shows while her eye is still steady; once she's rattled, the face stays as it is. */
   thinking?: boolean;
+  /** A face drawn by the caller instead: part-way through turning into Kere's. */
+  drawn?: string;
 }
 
-function XrAvatar({ face, thinking = false }: XrAvatarProps) {
+function XrAvatar({ face, thinking = false, drawn }: XrAvatarProps) {
   const [tick, setTick] = useState(0);
   const animate = thinking && face === "normal";
 
@@ -18,7 +20,7 @@ function XrAvatar({ face, thinking = false }: XrAvatarProps) {
     return () => window.clearInterval(id);
   }, [animate]);
 
-  const text = animate ? XR_THINKING_FRAMES[tick % XR_THINKING_FRAMES.length] : XR_FACES[face];
+  const text = drawn ?? (animate ? XR_THINKING_FRAMES[tick % XR_THINKING_FRAMES.length] : XR_FACES[face]);
 
   return (
     <span className="kere-avatar xr-avatar" data-face={face} aria-hidden="true">

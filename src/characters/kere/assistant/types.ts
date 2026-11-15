@@ -6,6 +6,11 @@ export type { Expression };
 /** Kere answers in the language of each message: Chinese if it contains any Chinese character, else English. */
 export type Lang = "en" | "zh";
 
+/**
+ * What happened in XR's review that Kere's welcome back reflects: "impostor", someone used her name in there.
+ */
+export type WelcomeNote = "impostor";
+
 /** The same copy in both languages. */
 export type Localized<T> = Record<Lang, T>;
 

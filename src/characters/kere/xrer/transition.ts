@@ -109,6 +109,9 @@ function buildScan(): ScanFrame[] {
 const SCAN = buildScan();
 const FULL = Array<number>(COLS).fill(ROWS);
 
+/** The scan played backwards, withdrawing from the bottom up: each step held as long as its partner going in. */
+const WITHDRAW: ScanFrame[] = [...SCAN].reverse().map((f, i, all) => ({ fill: f.fill, hold: all[i + 1]?.hold ?? 0 }));
+
 /** How long the scan takes, either way: the face changes over the same stretch. */
 export const SCAN_MS = SCAN.reduce((sum, f) => sum + f.hold, 0);
 
@@ -137,19 +140,37 @@ function overlay(): HTMLCanvasElement {
   return canvas;
 }
 
-function draw(canvas: HTMLCanvasElement, fill: number[]) {
+/**
+ * Each column covered `fill` rows down from the top, or, `fromBottom`, everything below them instead: the same scan
+ * seen from the other side, for a page that starts out black.
+ */
+function draw(canvas: HTMLCanvasElement, fill: number[], fromBottom = false) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
   const { width, height } = canvas;
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#fff";
   fill.forEach((rows, c) => {
-    if (rows <= 0) return;
     // Whole pixels, so neighbouring cells never leave a hairline gap.
     const x = Math.floor((c * width) / COLS);
     const w = Math.floor(((c + 1) * width) / COLS) - x;
-    ctx.fillRect(x, 0, w, Math.ceil((rows * height) / ROWS));
+    const edge = Math.ceil((rows * height) / ROWS);
+    if (fromBottom) {
+      if (edge < height) ctx.fillRect(x, edge, w, height - edge);
+    } else if (rows > 0) {
+      ctx.fillRect(x, 0, w, edge);
+    }
   });
+}
+
+/** The frame showing `t` ms into `frames`. */
+function frameAt(frames: ScanFrame[], t: number): number[] {
+  let at = 0;
+  for (const f of frames) {
+    at += f.hold;
+    if (t < at) return f.fill;
+  }
+  return frames[frames.length - 1].fill;
 }
 
 function play(frames: ScanFrame[], canvas: HTMLCanvasElement): Promise<void> {
@@ -188,10 +209,40 @@ export function coverAll() {
 export async function scanOut(): Promise<void> {
   const canvas = overlay();
   if (!prefersReducedMotion()) {
-    const backwards = [...SCAN].reverse().map((f, i, all) => ({ fill: f.fill, hold: all[i + 1]?.hold ?? 0 }));
-    await play([...backwards, { fill: Array<number>(COLS).fill(0), hold: 0 }], canvas);
+    await play([...WITHDRAW, { fill: Array<number>(COLS).fill(0), hold: 0 }], canvas);
   }
   removeCover();
+}
+
+/** How far a transfer that doesn't go through gets: about halfway. */
+export const FALSE_HALF_MS = SCAN_MS / 2;
+/** How long it stops there before going back. */
+const FALSE_HOLD_MS = 400;
+
+/**
+ * XR → Kere that doesn't go through: the black page starts clearing to white from the bottom, as when leaving, stops
+ * halfway, holds, and fills back in. `frame` gets the time into the crossing, rising and then falling back to 0, so
+ * the name and face can turn towards Kere's and back with it. Callers skip it with reduced motion.
+ */
+export function falseCrossing(frame: (t: number) => void): Promise<void> {
+  const canvas = overlay();
+  const total = FALSE_HALF_MS * 2 + FALSE_HOLD_MS;
+  return new Promise((resolve) => {
+    const start = performance.now();
+    const tick = (now: number) => {
+      const e = now - start;
+      const t = e < FALSE_HALF_MS ? e : e < FALSE_HALF_MS + FALSE_HOLD_MS ? FALSE_HALF_MS : Math.max(0, total - e);
+      draw(canvas, frameAt(WITHDRAW, t), true);
+      frame(t);
+      if (e < total) {
+        requestAnimationFrame(tick);
+      } else {
+        removeCover();
+        resolve();
+      }
+    };
+    requestAnimationFrame(tick);
+  });
 }
 
 export function removeCover() {

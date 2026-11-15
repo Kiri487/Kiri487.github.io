@@ -9,9 +9,9 @@ import { XR_FACES } from "../xrer/faces";
 import { loadXrMode } from "../xrer/load";
 import { animate, coverAll, morphFace, NAME_MS, rollName, SCAN_MS, scanIn, scanOut } from "../xrer/transition";
 import { prefersReducedMotion } from "../../../shared/motion";
-import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK } from "./script";
+import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK, WELCOME_BACK_NOTED } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
-import { isReplyList, type Expression, type Lang, type QuickOption, type Reply } from "./types";
+import { isReplyList, type Expression, type Lang, type QuickOption, type Reply, type WelcomeNote } from "./types";
 import { useChatViewport } from "./useChatViewport";
 import "./assistant.css";
 
@@ -51,13 +51,26 @@ interface KereAssistantProps {
   onEnterXr: (lang: Lang) => void;
   /** Back from XR's review: open straight away with Kere's welcome back. */
   welcomeBack?: Lang;
+  /** Something from the review that changes what that welcome back says. */
+  welcomeNote?: WelcomeNote;
 }
 
-function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
+function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantProps) {
   const { setSkin } = useSkin();
   const [open, setOpen] = useState(welcomeBack !== undefined);
   const [messages, setMessages] = useState<Message[]>(() =>
-    welcomeBack ? [{ id: -1, from: "kere", reply: { lines: [WELCOME_BACK[welcomeBack]], lang: welcomeBack } }] : [],
+    welcomeBack
+      ? [
+          {
+            id: -1,
+            from: "kere",
+            reply: {
+              lines: [welcomeNote ? WELCOME_BACK_NOTED[welcomeBack][welcomeNote] : WELCOME_BACK[welcomeBack]],
+              lang: welcomeBack,
+            },
+          },
+        ]
+      : [],
   );
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);

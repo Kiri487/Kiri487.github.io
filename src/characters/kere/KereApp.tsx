@@ -3,7 +3,7 @@ import { useSkin } from "../../SkinContext";
 import CvHeader from "./cv/CvHeader";
 import CvSections from "./cv/CvSections";
 import KereAssistant from "./assistant/KereAssistant";
-import type { Lang } from "./assistant/types";
+import type { Lang, WelcomeNote } from "./assistant/types";
 import { loadXrMode } from "./xrer/load";
 import { hasXrSession } from "./xrer/session";
 import "./style.css";
@@ -20,6 +20,8 @@ function KereApp() {
   const [mode, setMode] = useState<Mode>(() => (hasXrSession() ? "xr" : "kere"));
   /** The language XR's review ran in, for Kere's welcome back. */
   const [backLang, setBackLang] = useState<Lang>("en");
+  /** What from the review, if anything, colours that welcome back. */
+  const [backNote, setBackNote] = useState<WelcomeNote | undefined>(undefined);
 
   /** The language Kere was asked in, when the handover came from her. */
   const [triggerLang, setTriggerLang] = useState<Lang | undefined>(undefined);
@@ -30,13 +32,14 @@ function KereApp() {
     setMode("xr");
   };
 
-  const leaveXr = (to: "kere" | "kiri", lang: Lang) => {
+  const leaveXr = (to: "kere" | "kiri", lang: Lang, note?: WelcomeNote) => {
     if (to === "kiri") {
       setSkin("kiri");
       return;
     }
     window.scrollTo(0, 0);
     setBackLang(lang);
+    setBackNote(note);
     setMode("back");
   };
 
@@ -60,7 +63,12 @@ function KereApp() {
             <CvHeader />
             <CvSections />
           </main>
-          <KereAssistant key={mode} welcomeBack={mode === "back" ? backLang : undefined} onEnterXr={enterXr} />
+          <KereAssistant
+            key={mode}
+            welcomeBack={mode === "back" ? backLang : undefined}
+            welcomeNote={mode === "back" ? backNote : undefined}
+            onEnterXr={enterXr}
+          />
         </>
       )}
     </>

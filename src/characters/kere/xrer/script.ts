@@ -286,6 +286,11 @@ const zh = {
   INPUT_PLACEHOLDER: "輸入指令…",
   ROT13_LINE: "ROT13 再轉一次，即為原名。",
 
+  /* Kere, or someone using her name (clause 9) */
+  KERE_IMPOSTOR: "審查員，您會累嗎？要不要我先幫您轉接回來？",
+  KERE_YES: "好，麻煩您",
+  TRANSFER_VOID: "依第 9 條，轉接無效。",
+
   SFX_ON: "音效已開啟。",
   SFX_ALREADY_ON: "音效維持開啟。",
   SFX_OFF: "音效已關閉。",
@@ -449,6 +454,10 @@ const en: Copy = {
   ABORTED: "Review terminated.",
   INPUT_PLACEHOLDER: "Type an instruction…",
   ROT13_LINE: "ROT13 once more restores the original name.",
+
+  KERE_IMPOSTOR: "Reviewer, are you tired? Shall I transfer you back for now?",
+  KERE_YES: "Yes, please",
+  TRANSFER_VOID: "Per Article 9, the transfer is void.",
 
   SFX_ON: "Sound effects on.",
   SFX_ALREADY_ON: "Sound effects remain on.",

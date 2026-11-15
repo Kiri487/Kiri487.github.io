@@ -2,6 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type Keyb
 import { readJson, readNumber, writeJson, writeString } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
+import { FACES } from "../avatar/faces";
+import type { WelcomeNote } from "../assistant/types";
+import { prefersReducedMotion } from "../../../shared/motion";
 import { loadSfxEnabled, saveSfxEnabled, unlockSfx } from "../assistant/sfx";
 import { SFX_PHRASES } from "../assistant/script";
 import { useChatViewport } from "../assistant/useChatViewport";
@@ -16,7 +19,7 @@ import {
   type SettlementRow,
   type Verdict,
 } from "./endings";
-import { XR_THINKING_BY_FACE, type XrFace } from "./faces";
+import { XR_FACES, XR_THINKING_BY_FACE, type XrFace } from "./faces";
 import { Fx, type Strength } from "./fx";
 import { recordFx, type DocLevel } from "./recordFx";
 import { createRound, isXr, type Round } from "./round";
@@ -24,7 +27,7 @@ import { chance } from "./seeded";
 import * as S from "./script";
 import { clearXrSession, readXrSession, writeXrSession } from "./session";
 import { playXrOpenSfx, playXrReplySfx } from "./sfx";
-import { removeCover } from "./transition";
+import { falseCrossing, morphFace, removeCover, rollName } from "./transition";
 import { halfWidth } from "./triggers";
 import XrAvatar from "./XrAvatar";
 import { ApplicantDocument, RecordDocument, RulesDocument } from "./XrDocuments";
@@ -37,6 +40,18 @@ const SETTLEMENT_DELAY_MS = 1800;
 const ENDINGS_KEY = "xrEndingsSeen";
 /** The last receipt number given out. Counts up across rounds and visits. */
 const RECEIPT_KEY = "xrReceiptNo";
+/** Rounds begun, across visits. XR keeps count. */
+const ROUNDS_KEY = "xrRounds";
+
+/** Chance, per round after the visitor's first, that someone writes in as Kere once clause 7 is out (clause 9). */
+const IMPOSTOR_CHANCE = 0.25;
+/** Words that, said to her, answer her: her own offer, mostly. Any other words that aren't a command do too. */
+const ANSWER_PHRASES = ["轉接", "返回", "transfer", "back", "go back"];
+/** The name the Kere message goes under, and what's left of it once blacked out. */
+const KERE_NAME = "Kere";
+const REDACTED_NAME = "████";
+/** The cells of the face that turn into Kere's, in order: right eye, mouth, then the hair. */
+const TO_KERE_ORDER = [4, 3, 2];
 
 /** How corrupted a line comes out, by XR's face when she said it. */
 const FACE_STRENGTH: Record<XrFace, Strength> = { normal: 1, alert: 1, anxious: 2, broken: 4 };
@@ -75,7 +90,8 @@ type Message =
   | { id: number; from: "you"; text: string; lang?: S.Lang }
   | {
       id: number;
-      from: "xr" | "form";
+      /** "kere": a message under Kere's name. Not from her (clause 9). */
+      from: "xr" | "form" | "kere";
       /** A form's heading, ruled off from the rest. */
       title?: string;
       lines: string[];
@@ -91,9 +107,17 @@ type Message =
       /** The round it was said in, so the same line corrupts differently from round to round. */
       seed?: string;
       lang?: S.Lang;
+      /** Blacked out, name and all: the Kere message, once it's been dealt with. */
+      redacted?: boolean;
     };
 
-type XrMessage = Omit<Extract<Message, { from: "xr" | "form" }>, "id">;
+type XrMessage = Omit<Extract<Message, { lines: string[] }>, "id">;
+
+/** The message under Kere's name this round: waiting for an answer, ignored, or answered. */
+interface Impostor {
+  id: number;
+  state: "pending" | "ignored" | "answered";
+}
 
 const reviewOptions = (t: S.Copy) => [t.PASS_LABEL, t.FAIL_LABEL, t.ASK_LABEL];
 
@@ -169,7 +193,15 @@ interface Snapshot {
   verdicts: Verdict[];
   clauseIssued: boolean;
   grown: string[];
+  /** Every violation: clause 7's, and answering the Kere message. The face and the rot follow this. */
   violations: number;
+  /** Clause 7's alone: what grows 7-1 to 8 and what XR says about it. Missing in older saves. */
+  clauseBreaks?: number;
+  /** This round has a Kere message coming. */
+  impostorDue?: boolean;
+  impostor?: Impostor | null;
+  /** One has appeared, this round or an earlier one in this visit: Kere will have something to say. */
+  metImpostor?: boolean;
   asks: number[];
   /** "kiri", "blank", or the index of the fake whose CV overwrote it. */
   record: "kiri" | "blank" | number;
@@ -215,8 +247,8 @@ function restore(): Restored | null {
 }
 
 interface XrModeProps {
-  /** `lang`: the language the review ran in, so Kere welcomes the visitor back in it. */
-  onLeave: (to: "kere" | "kiri", lang: S.Lang) => void;
+  /** `lang`: the language the review ran in, so Kere welcomes the visitor back in it; `note`, anything she'd remark on. */
+  onLeave: (to: "kere" | "kiri", lang: S.Lang, note?: WelcomeNote) => void;
   /** Set when Kere handed over: the language she was asked in. */
   triggerLang?: S.Lang;
 }
@@ -235,6 +267,12 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   /** Clauses that grew after clause 7, in order: "7-1", "8"… */
   const [grown, setGrown] = useState<string[]>(initial?.grown ?? []);
   const [violations, setViolations] = useState(initial?.violations ?? 0);
+  const [clauseBreaks, setClauseBreaks] = useState(initial?.clauseBreaks ?? initial?.violations ?? 0);
+  const [impostorDue, setImpostorDue] = useState(initial?.impostorDue ?? false);
+  const [impostor, setImpostor] = useState<Impostor | null>(initial?.impostor ?? null);
+  const [metImpostor, setMetImpostor] = useState(initial?.metImpostor ?? false);
+  /** Time into a transfer that isn't going through, while it plays (see falseCrossing). */
+  const [falseT, setFalseT] = useState<number | null>(null);
   /** Questions asked per file. */
   const [asks, setAsks] = useState<number[]>(initial?.asks ?? []);
   const [record, setRecord] = useState<RecordState>(initial?.record ?? { type: "kiri" });
@@ -300,6 +338,10 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       clauseIssued,
       grown,
       violations,
+      clauseBreaks,
+      impostorDue,
+      impostor,
+      metImpostor,
       asks,
       record: record.type === "blank" ? "blank" : overwrittenBy >= 0 ? overwrittenBy : "kiri",
       faceOverride,
@@ -308,7 +350,25 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       nextId: nextId.current,
     };
     writeXrSession(snapshot);
-  }, [phase, lang, round, current, verdicts, clauseIssued, grown, violations, asks, record, faceOverride, tab, messages]);
+  }, [
+    phase,
+    lang,
+    round,
+    current,
+    verdicts,
+    clauseIssued,
+    grown,
+    violations,
+    clauseBreaks,
+    impostorDue,
+    impostor,
+    metImpostor,
+    asks,
+    record,
+    faceOverride,
+    tab,
+    messages,
+  ]);
 
   // The whole page goes negative while XR is here (see xrer.css).
   // Before the first paint, both at once: turn the page negative and take off the cover the crossing from Kere left.
@@ -366,7 +426,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   }, [sfxEnabled]);
   /** Only the newest choices stay on screen: an old "合格" would stamp whichever file is on the desk now. */
   const lastWithOptions = [...messages].reverse().find((m) => m.from !== "you" && m.options)?.id;
-  const busy = thinking || phase === "closing" || phase === "leaving";
+  const busy = thinking || falseT !== null || phase === "closing" || phase === "leaving";
   /** Same speaker as the message before: drop the name and tuck it closer. Forms always stand alone. */
   const continues = (i: number) => {
     const m = messages[i];
@@ -386,6 +446,12 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   const startRound = (again: boolean, chosen: S.Lang) => {
     const tt = S.COPY[chosen];
     const r = createRound();
+    // Never on the visitor's first round: that one is the review as it's meant to go.
+    const before = readNumber(ROUNDS_KEY, 0, { min: 0 });
+    writeString(ROUNDS_KEY, String(before + 1));
+    setImpostorDue(before >= 1 && chance(`${r.seed}:impostor`) < IMPOSTOR_CHANCE);
+    setImpostor(null);
+    setClauseBreaks(0);
     seedRef.current = r.seed;
     langRef.current = chosen;
     setLang(chosen);
@@ -424,7 +490,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     if (n >= 2) line = t.ASK_SELF_JUDGE;
     else if (n === 1) line = t.askSection(sectionTitle(applicant.hintSection));
     else if (!clauseIssued) line = t.ASK_GENERIC;
-    else if (violations > 0) line = t.ASK_EVASIVE;
+    else if (clauseBreaks > 0) line = t.ASK_EVASIVE;
     else line = r.clause.check(applicant.cv) ? t.ASK_CLAUSE_PASS : t.ASK_CLAUSE_FAIL;
     setFaceOverride(null);
     post({ from: "xr", lines: [line], options: reviewOptions(t) });
@@ -470,9 +536,10 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     // The rulebook answers a violation by itself: 7-1, 7-2, 7-3, and clause 8 with the second.
     const sprouted: string[] = [];
     if (violation) {
-      ack.push(violations === 0 ? t.VIOLATION_FIRST : t.VIOLATION_AGAIN);
-      const count = violations + 1;
-      setViolations(count);
+      ack.push(clauseBreaks === 0 ? t.VIOLATION_FIRST : t.VIOLATION_AGAIN);
+      const count = clauseBreaks + 1;
+      setClauseBreaks(count);
+      setViolations((v) => v + 1);
       if (count <= 3) sprouted.push(`7-${count}`);
       if (count === 2) sprouted.push("8");
       if (sprouted.length > 0) setGrown((g) => [...g, ...sprouted]);
@@ -500,6 +567,17 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     if (stamped < r.applicants.length) {
       setCurrent(stamped);
       msgs.push(fileMessage(r, stamped, false));
+      // The first stamp after clause 7 with a file still to come: clause 9 appears, and then, as if on cue, Kere.
+      if (impostorDue && clauseIssued && !impostor) {
+        setGrown((g) => (g.includes("9") ? g : [...g, "9"]));
+        msgs.push(
+          { from: "xr", lines: [t.RULES_UPDATED], attachments: [{ tab: "rules", label: t.TAB_RULES }] },
+          { from: "kere", lines: [t.KERE_IMPOSTOR], options: [t.KERE_YES, ...reviewOptions(t)] },
+        );
+        // post numbers messages in order from here, and never splits one that isn't XR's.
+        setImpostor({ id: nextId.current + msgs.length - 1, state: "pending" });
+        setMetImpostor(true);
+      }
       post(...msgs);
       return;
     }
@@ -522,6 +600,9 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     setClauseIssued(false);
     setGrown([]);
     setViolations(0);
+    setClauseBreaks(0);
+    setImpostorDue(false);
+    setImpostor(null);
     setAsks([]);
     setRecord({ type: "kiri" });
     setFaceOverride(null);
@@ -538,10 +619,52 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     setThinking(false);
     setPhase("leaving");
     post({ from: "xr", lines: [line] });
-    later(() => onLeave(to, lang), LEAVE_DELAY_MS);
+    const note: WelcomeNote | undefined = metImpostor ? "impostor" : undefined;
+    later(() => onLeave(to, lang, note), LEAVE_DELAY_MS);
+  };
+
+  /** The Kere message, blacked out: what's left of it once it's been ignored or answered. */
+  const redact = (id: number) => {
+    setMessages((ms) => ms.map((m) => (m.id === id && m.from === "kere" ? { ...m, redacted: true, options: undefined } : m)));
+  };
+
+  /**
+   * Answering the Kere message: the transfer starts, gets halfway, and goes back. Counts against the visitor like a
+   * clause 7 violation, but grows nothing and changes no ending.
+   */
+  const answerImpostor = (id: number) => {
+    setImpostor({ id, state: "answered" });
+    const done = () => {
+      setFalseT(null);
+      redact(id);
+      setViolations((v) => v + 1);
+      setFaceOverride(null);
+      post({ from: "xr", lines: [t.TRANSFER_VOID], options: reviewOptions(t) });
+    };
+    if (prefersReducedMotion()) {
+      done();
+      return;
+    }
+    setFalseT(0);
+    void falseCrossing((ft) => setFalseT(ft)).then(done);
   };
 
   const reply = (text: string) => {
+    // Kere's message is waiting. Words for her offer, or anything that isn't a command, answer it; a command ignores
+    // it, and it's blacked out. Plain exit words still leave, and so does the button: the way out always works.
+    if (impostor?.state === "pending") {
+      const command =
+        !said(text, ANSWER_PHRASES) &&
+        [S.ROT13_PHRASES, S.KIRI_PHRASES, S.EXIT_PHRASES, S.FAIL_PHRASES, S.PASS_PHRASES, S.ASK_PHRASES, S.RULES_PHRASES, S.RECORD_PHRASES, ...Object.values(SFX_PHRASES)].some(
+          (phrases) => said(text, phrases),
+        );
+      if (!command) {
+        answerImpostor(impostor.id);
+        return;
+      }
+      setImpostor({ ...impostor, state: "ignored" });
+      redact(impostor.id);
+    }
     if (said(text, S.ROT13_PHRASES)) {
       abort("kere", t.ROT13_LINE);
       return;
@@ -666,6 +789,10 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
 
   /* ---- page ---- */
 
+  // Mid false transfer, her name and face turn towards Kere's and back.
+  const shownName = falseT !== null ? rollName(S.NAME, falseT, -1) : S.NAME;
+  const shownFace = falseT !== null ? morphFace(XR_FACES[face], FACES.normal, falseT, TO_KERE_ORDER) : undefined;
+
   const delivered = round ? (phase === "review" ? current + 1 : round.applicants.length) : 0;
   const tabs: Attachment[] = [
     ...(round ? [{ tab: "rules", label: t.TAB_RULES }] : []),
@@ -734,7 +861,12 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
               {tb.label}
             </button>
           ))}
-          <button type="button" className="xr-tabs__leave" onClick={() => abort("kere")} disabled={phase === "leaving"}>
+          <button
+            type="button"
+            className="xr-tabs__leave"
+            onClick={() => abort("kere")}
+            disabled={phase === "leaving" || falseT !== null}
+          >
             ▸ {t.BACK_LABEL}
           </button>
         </div>
@@ -754,8 +886,8 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
           }}
         >
           <div className="kere-chat__head">
-            <XrAvatar key={String(thinking)} face={face} thinking={thinking} />
-            <span className="kere-chat__name">{S.NAME}</span>
+            <XrAvatar key={String(thinking)} face={face} thinking={thinking} drawn={shownFace} />
+            <span className="kere-chat__name">{shownName}</span>
             <button type="button" className="kere-chat__minimize" onClick={() => setOpen(false)} aria-label="Minimize">
               –
             </button>
@@ -779,11 +911,17 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
                     .join(" ")}
                 >
                   {m.from === "xr" && <span className="kere-msg__who">{continues(i) ? "" : S.NAME}</span>}
+                  {m.from === "kere" && <span className="kere-msg__who">{m.redacted ? REDACTED_NAME : KERE_NAME}</span>}
                   <div className="kere-msg__body" lang={S.htmlLang(m.lang ?? "zh")}>
                     {m.title && <p className="xr-form__title">{m.title}</p>}
                     {m.lines.map((line, i) => (
                       <p key={i}>
-                        <Fx text={line} strength={m.strength ?? 1} seed={m.seed} lang={m.lang} />
+                        <Fx
+                          text={m.redacted ? "█".repeat([...line].length) : line}
+                          strength={m.strength ?? 1}
+                          seed={m.seed}
+                          lang={m.lang}
+                        />
                       </p>
                     ))}
                     {m.settlement && (

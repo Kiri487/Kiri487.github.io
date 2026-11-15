@@ -1,5 +1,5 @@
 import { XR_TRIGGERS } from "../xrer/triggers";
-import type { Localized, QuickOption, ScriptedRule } from "./types";
+import type { Localized, QuickOption, ScriptedRule, WelcomeNote } from "./types";
 
 /* ============================================================
    Everything Kere says that isn't generated from portfolio data.
@@ -209,6 +209,19 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
 export const WELCOME_BACK: Localized<string> = {
   en: "Welcome back. I seem to have been on leave for a moment.",
   zh: "歡迎回來，我剛剛好像請假了一下。",
+};
+
+/**
+ * In place of WELCOME_BACK, after certain reviews. "impostor": a message in XR's chat went out under Kere's name,
+ * answered or not; she knows nothing of it.
+ */
+export const WELCOME_BACK_NOTED: Localized<Record<WelcomeNote, string>> = {
+  en: {
+    impostor: "Welcome back. Good work in there. You were busy, so I made a point of not interrupting.",
+  },
+  zh: {
+    impostor: "歡迎回來，辛苦了。您剛剛在忙，我就刻意沒有打擾您。",
+  },
 };
 
 /**
