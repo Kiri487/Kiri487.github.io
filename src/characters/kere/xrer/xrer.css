@@ -217,6 +217,12 @@ html[data-skin="kere"][data-xr] {
   border-bottom: 1px solid var(--kere-faint);
 }
 
+/* The ✓ / ✗ column is centred under its heading. */
+[data-skin="kere"] .xr-settlement th:first-child,
+[data-skin="kere"] .xr-settlement td:first-child {
+  text-align: center;
+}
+
 [data-skin="kere"] .xr-settlement th:last-child,
 [data-skin="kere"] .xr-settlement td:last-child {
   width: 100%;
