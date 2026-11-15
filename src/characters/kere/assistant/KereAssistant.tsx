@@ -7,7 +7,7 @@ import { createReplyMemory, currentPeriod, detectLang, noteHint, pick, respond }
 import { FACES } from "../avatar/faces";
 import { XR_FACES } from "../xrer/faces";
 import { loadXrMode } from "../xrer/load";
-import { animate, coverAll, morphFace, NAME_MS, rollName, SCAN_MS, scanIn, scanOut } from "../xrer/transition";
+import { animate, coverAll, morphFace, NAME_MS, removeCover, rollName, SCAN_MS, scanIn, scanOut } from "../xrer/transition";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK, WELCOME_BACK_NOTED } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
@@ -74,6 +74,9 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
   );
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  /** Kere has signed off (to Kiri) or is handing over (to XR): the chat stays as it is until she's gone. */
+  const [leaving, setLeaving] = useState(false);
+  const busy = thinking || leaving;
   const [expression, setExpression] = useState<Expression>("normal");
   // Once opened, the visitor knows Kere is clickable — drop the "Ask Kere" hint until the next page load.
   const [hintSeen, setHintSeen] = useState(welcomeBack !== undefined);
@@ -88,6 +91,8 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
   const nextId = useRef(0);
   const memory = useRef(createReplyMemory());
   const timer = useRef<number | undefined>(undefined);
+  /** The handover to XR while it plays; `live` until XR has been called up, or the handover abandoned. */
+  const handoff = useRef<{ live: boolean } | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -100,10 +105,18 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
     openRef.current = open;
   }, [open]);
 
-  // Don't deliver a pending reply after the skin unmounts.
+  // Don't deliver a pending reply after the skin unmounts. A handover cut short (the browser's Back, say) leaves no
+  // cover behind: XR, who would have taken it off, is never coming.
   useEffect(() => {
     const pending = timer;
-    return () => window.clearTimeout(pending.current);
+    const crossing = handoff;
+    return () => {
+      window.clearTimeout(pending.current);
+      if (crossing.current?.live) {
+        crossing.current.live = false;
+        removeCover();
+      }
+    };
   }, []);
 
   // Keep the newest message in view.
@@ -161,7 +174,7 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
 
   /** "切換為中文" / "Switch to English": the chat starts over, greeting and all, in that language. */
   const restartIn = (lang: Lang) => {
-    if (thinking) return;
+    if (busy) return;
     setMessages([greeting(lang)]);
     setExpression("normal");
     if (sfxEnabled) playReplySfx();
@@ -177,7 +190,7 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
 
   const send = (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || thinking) return;
+    if (!trimmed || busy) return;
     // Typing the switch works like choosing it.
     const switchTo = SWITCH_WORDS.get(trimmed.toLowerCase().replace(/\s+/g, ""));
     if (switchTo) {
@@ -207,9 +220,11 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
       // "sound on" confirms itself with the tick; "mute" stays silent.
       if (soundOn) playReplySfx();
       if (reply.action === "exit") {
+        setLeaving(true);
         timer.current = window.setTimeout(() => setSkin("kiri"), EXIT_DELAY_MS);
       }
       if (reply.action === "xr") {
+        setLeaving(true);
         // Start fetching XR's code now, so it's usually there by the time the crossing is over.
         void loadXrMode();
         const lang = reply.lang ?? "en";
@@ -217,8 +232,12 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
           timer.current = window.setTimeout(() => onEnterXr(lang), XR_HANDOFF_STILL_MS);
         } else {
           // Name, face and scan all at once; XR takes the cover off once she's on screen.
+          const h = { live: true };
+          handoff.current = h;
           timer.current = window.setTimeout(async () => {
-            await Promise.all([scanIn(), animate(CROSSING_MS, (t) => setCrossing({ dir: 1, t }))]);
+            await Promise.all([scanIn(), animate(CROSSING_MS, (t) => h.live && setCrossing({ dir: 1, t }))]);
+            if (!h.live) return;
+            h.live = false;
             onEnterXr(lang);
           }, XR_HANDOFF_DELAY_MS);
         }
@@ -295,7 +314,7 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
               </div>
             </div>
           ) : (
-            <KereMessage key={m.id} reply={m.reply} onOption={choose} onJump={jumpTo} disabled={thinking} />
+            <KereMessage key={m.id} reply={m.reply} onOption={choose} onJump={jumpTo} disabled={busy} />
           ),
         )}
         {thinking && (
@@ -328,7 +347,7 @@ function KereAssistant({ onEnterXr, welcomeBack, welcomeNote }: KereAssistantPro
         <button
           type="submit"
           className="kere-chat__send"
-          disabled={thinking || !input.trim()}
+          disabled={busy || !input.trim()}
           // Don't take focus from the message box, so the phone keyboard stays up — same as its own send key.
           onMouseDown={(e) => e.preventDefault()}
         >

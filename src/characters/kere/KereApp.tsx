@@ -4,6 +4,7 @@ import CvHeader from "./cv/CvHeader";
 import CvSections from "./cv/CvSections";
 import KereAssistant from "./assistant/KereAssistant";
 import type { Lang, WelcomeNote } from "./assistant/types";
+import XrBoundary from "./XrBoundary";
 import { loadXrMode } from "./xrer/load";
 import { hasXrSession } from "./xrer/session";
 import "./style.css";
@@ -54,9 +55,11 @@ function KereApp() {
         precedence="default"
       />
       {mode === "xr" ? (
-        <Suspense fallback={null}>
-          <XrMode onLeave={leaveXr} triggerLang={triggerLang} />
-        </Suspense>
+        <XrBoundary onFail={() => setMode("kere")}>
+          <Suspense fallback={null}>
+            <XrMode onLeave={leaveXr} triggerLang={triggerLang} />
+          </Suspense>
+        </XrBoundary>
       ) : (
         <>
           <main className="kere">
