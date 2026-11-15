@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import { readJson, readNumber, readString, writeJson, writeString } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
@@ -923,11 +924,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     send(input);
   };
 
-  /** An attachment means "go read this": the chat steps aside on every screen, so it doesn't cover the stamp. */
+  /** An attachment means "go read this". On a phone the chat covers the page, so it steps aside; elsewhere it stays. */
   const openTab = (id: TabId) => {
     setTab(id);
     window.scrollTo(0, 0);
-    setOpen(false);
+    if (window.matchMedia(MOBILE_QUERY).matches) setOpen(false);
   };
 
   /* ---- page ---- */
