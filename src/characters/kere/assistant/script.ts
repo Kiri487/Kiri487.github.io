@@ -7,21 +7,38 @@ import type { Localized, QuickOption, ScriptedRule } from "./types";
    characters (one character hides inside too many other words) and written in Traditional Chinese.
    ============================================================ */
 
-/** One is picked at random when the chat first opens. "Kere" looks like a typo of "Kiri", so each says who he is. */
-export const GREETINGS = [
-  "Hello. I'm Kere, Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
-  "Hello. I'm Kere — not a typo, just Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
-  "Hello. I'm Kere. Yes, with an e. I'm the part of Kiri that reads the documentation. Ask me about education, experience, projects, skills, or contact.",
-];
+/**
+ * One is picked at random when the chat opens: in English, until the visitor switches. "Kere" looks like a typo of
+ * "Kiri", so each says who she is.
+ */
+export const GREETINGS: Localized<string[]> = {
+  en: [
+    "Hello. I'm Kere, Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
+    "Hello. I'm Kere — not a typo, just Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
+    "Hello. I'm Kere. Yes, with an e. I'm the part of Kiri that reads the documentation. Ask me about education, experience, projects, skills, or contact.",
+  ],
+  zh: [
+    "您好，我是 Kere，工作模式的 Kiri。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。",
+    "您好，我是 Kere，不是打錯字，就是工作模式的 Kiri。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。",
+    "您好，我是 Kere。對，是 e 不是 i，我是 Kiri 負責讀文件的那一部分。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。",
+  ],
+};
 
-/** Added under every greeting: the greeting is English (Kere can't know the language yet), so tell Chinese speakers. */
-export const GREETING_CHINESE_HINT = "用中文也可以。";
-
-export const GREETING_OPTIONS: QuickOption[] = [
-  { label: "Projects", query: "projects" },
-  { label: "Skills", query: "skills" },
-  { label: "Contact", query: "contact" },
-];
+/** The greeting's choices. The last one starts the chat over in the other language, and is written in it. */
+export const GREETING_OPTIONS: Localized<QuickOption[]> = {
+  en: [
+    { label: "Projects", query: "projects" },
+    { label: "Skills", query: "skills" },
+    { label: "Contact", query: "contact" },
+    { label: "切換為中文", query: "切換為中文", switchTo: "zh" },
+  ],
+  zh: [
+    { label: "專案", query: "專案" },
+    { label: "技能", query: "技能" },
+    { label: "聯絡", query: "聯絡" },
+    { label: "Switch to English", query: "switch to english", switchTo: "en" },
+  ],
+};
 
 export const HELLO_REPLIES: Localized<string[]> = {
   en: [

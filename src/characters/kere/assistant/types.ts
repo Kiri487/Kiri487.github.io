@@ -13,6 +13,8 @@ export type Localized<T> = Record<Lang, T>;
 export interface QuickOption {
   label: string;
   query: string;
+  /** Instead of sending anything, start the chat over in this language. */
+  switchTo?: Lang;
 }
 
 /** A bulleted list inside a reply, drawn like the CV's own lists. */

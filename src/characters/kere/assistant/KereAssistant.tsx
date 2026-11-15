@@ -5,11 +5,17 @@ import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
 import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./respond";
 import { loadXrMode } from "../xrer/load";
-import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK } from "./script";
+import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
-import { isReplyList, type Expression, type Lang, type Reply } from "./types";
+import { isReplyList, type Expression, type Lang, type QuickOption, type Reply } from "./types";
 import { useChatViewport } from "./useChatViewport";
 import "./assistant.css";
+
+/** The greeting's language switch, typed out (spaces and case ignored). */
+const SWITCH_WORDS = new Map<string, Lang>([
+  ["切換為中文", "zh"],
+  ["switchtoenglish", "en"],
+]);
 
 /** Long enough to read the sign-off line before the skin switches. */
 const EXIT_DELAY_MS = 1000;
@@ -79,14 +85,23 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
     wasOpen.current = open;
   }, [open]);
 
+  const greeting = (lang: Lang): Message => {
+    const lines: Reply["lines"] = [pick(memory.current, `greeting-${lang}`, GREETINGS[lang])];
+    // Late at night is the one time Kere remarks on the hour without being asked.
+    if (currentPeriod() === "night") lines.push(pick(memory.current, `night-greeting-${lang}`, TIME_REPLIES[lang].night));
+    return { id: nextId.current++, from: "kere", reply: { lines, options: GREETING_OPTIONS[lang], lang } };
+  };
+
+  /** "切換為中文" / "Switch to English": the chat starts over, greeting and all, in that language. */
+  const restartIn = (lang: Lang) => {
+    if (thinking) return;
+    setMessages([greeting(lang)]);
+    setExpression("normal");
+    if (sfxEnabled) playReplySfx();
+  };
+
   const openPanel = () => {
-    if (messages.length === 0) {
-      const lines: Reply["lines"] = [pick(memory.current, "greeting", GREETINGS)];
-      // Late at night is the one time Kere remarks on the hour without being asked.
-      if (currentPeriod() === "night") lines.push(pick(memory.current, "night-greeting", TIME_REPLIES.en.night));
-      lines.push(<span lang="zh-Hant">{GREETING_CHINESE_HINT}</span>);
-      setMessages([{ id: nextId.current++, from: "kere", reply: { lines, options: GREETING_OPTIONS } }]);
-    }
+    if (messages.length === 0) setMessages([greeting("en")]);
     setOpen(true);
     setHintSeen(true);
     setUnread(false);
@@ -96,6 +111,13 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
   const send = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || thinking) return;
+    // Typing the switch works like choosing it.
+    const switchTo = SWITCH_WORDS.get(trimmed.toLowerCase().replace(/\s+/g, ""));
+    if (switchTo) {
+      setInput("");
+      restartIn(switchTo);
+      return;
+    }
     setMessages((m) => [...m, { id: nextId.current++, from: "you", text: trimmed }]);
     setInput("");
     setThinking(true);
@@ -127,6 +149,11 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
         timer.current = window.setTimeout(() => onEnterXr(lang), XR_HANDOFF_DELAY_MS);
       }
     }, THINKING_MS);
+  };
+
+  const choose = (option: QuickOption) => {
+    if (option.switchTo) restartIn(option.switchTo);
+    else send(option.query);
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -193,7 +220,7 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
               </div>
             </div>
           ) : (
-            <KereMessage key={m.id} reply={m.reply} onOption={send} onJump={jumpTo} disabled={thinking} />
+            <KereMessage key={m.id} reply={m.reply} onOption={choose} onJump={jumpTo} disabled={thinking} />
           ),
         )}
         {thinking && (
@@ -239,7 +266,7 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
 
 interface KereMessageProps {
   reply: Reply;
-  onOption: (query: string) => void;
+  onOption: (option: QuickOption) => void;
   onJump: (id: string) => void;
   disabled: boolean;
 }
@@ -270,7 +297,7 @@ function KereMessage({ reply, onOption, onJump, disabled }: KereMessageProps) {
         {reply.options && (
           <div className="kere-msg__options">
             {reply.options.map((o) => (
-              <button key={o.query} type="button" onClick={() => onOption(o.query)} disabled={disabled}>
+              <button key={o.query} type="button" onClick={() => onOption(o)} disabled={disabled}>
                 ▸ {o.label}
               </button>
             ))}
