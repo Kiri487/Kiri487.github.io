@@ -39,7 +39,7 @@ export const RULES_PHRASES = ["守則", "rules", "regulations"];
 export const RECORD_PHRASES = ["原始紀錄", "record", "original record"];
 
 /** Any of these goes back to Kere. Kere's own exit words, plus a few more. */
-export const EXIT_PHRASES = ["exit", "leave", "quit", "go back", "back", "end", "離開", "退出", "返回", "結束"];
+export const EXIT_PHRASES = ["exit", "leave", "quit", "go back", "back", "end", "transfer", "離開", "退出", "返回", "結束", "轉接"];
 /** These skip Kere and go straight to Kiri. */
 export const KIRI_PHRASES = ["back to kiri", "回kiri", "回到kiri"];
 
@@ -197,7 +197,7 @@ const zh = {
   CONSENT_TITLE: `表單 ${FORM}｜人事異常審查程序`,
   CONSENT: ["本程序包含異常內容與輕度心理恐怖要素，不含血腥，也沒有突然的驚嚇畫面。", "您隨時可以輸入 exit 轉接回 Kere。"],
   START_LABEL: "開始審查",
-  BACK_LABEL: "返回 Kere",
+  BACK_LABEL: "轉接 Kere",
   /** The consent form's third choice, written in the language it switches to. */
   SWITCH_LABEL: "Switch to English",
   BRIEFING: [
@@ -370,7 +370,7 @@ const en: Copy = {
     "You may type exit at any time to be transferred back to Kere.",
   ],
   START_LABEL: "Begin review",
-  BACK_LABEL: "Back to Kere",
+  BACK_LABEL: "Transfer to Kere",
   SWITCH_LABEL: "切換為中文",
   BRIEFING: [
     `This Senior Reviewer is ${NAME}. Position under review today: Kiri. Openings: one.`,
