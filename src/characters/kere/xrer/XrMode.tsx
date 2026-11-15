@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { readJson, readNumber, writeJson, writeString } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
@@ -23,6 +23,7 @@ import { createRound, isXr, type Round } from "./round";
 import * as S from "./script";
 import { clearXrSession, readXrSession, writeXrSession } from "./session";
 import { playXrOpenSfx, playXrReplySfx } from "./sfx";
+import { removeCover } from "./transition";
 import { halfWidth } from "./triggers";
 import XrAvatar from "./XrAvatar";
 import { ApplicantDocument, RecordDocument, RulesDocument } from "./XrDocuments";
@@ -289,9 +290,12 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   }, [phase, lang, round, current, verdicts, clauseIssued, grown, violations, asks, record, faceOverride, tab, messages]);
 
   // The whole page goes negative while XR is here (see xrer.css).
-  useEffect(() => {
+  // Before the first paint, both at once: turn the page negative and take off the cover the crossing from Kere left.
+  // Done after a paint instead, one frame would show the negative page through the cover, inverted back to white.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-xr", "");
+    removeCover();
     return () => root.removeAttribute("data-xr");
   }, []);
 

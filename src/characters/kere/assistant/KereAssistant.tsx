@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSkin } from "../../../SkinContext";
 import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import KereAvatar from "../avatar/KereAvatar";
 import { THINKING_MS } from "../avatar/faces";
 import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./respond";
+import { FACES } from "../avatar/faces";
+import { XR_FACES } from "../xrer/faces";
 import { loadXrMode } from "../xrer/load";
+import { animate, coverAll, morphFace, NAME_MS, rollName, SCAN_MS, scanIn, scanOut } from "../xrer/transition";
+import { prefersReducedMotion } from "../../../shared/motion";
 import { GREETINGS, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
 import { isReplyList, type Expression, type Lang, type QuickOption, type Reply } from "./types";
@@ -19,8 +23,23 @@ const SWITCH_WORDS = new Map<string, Lang>([
 
 /** Long enough to read the sign-off line before the skin switches. */
 const EXIT_DELAY_MS = 1000;
-/** Kere's handover line stays up a while before XR takes over. */
-const XR_HANDOFF_DELAY_MS = 3000;
+/** Kere's handover line stays up a while before the crossing into XR begins. */
+const XR_HANDOFF_DELAY_MS = 900;
+/** With reduced motion there's no crossing to watch, so the line just stays up longer. */
+const XR_HANDOFF_STILL_MS = 3000;
+
+/** The crossing between Kere and XR: which way, and how far along (see xrer/transition.ts). */
+interface Crossing {
+  dir: 1 | -1;
+  /** Time into the crossing: name, face and scan all run from the same start. */
+  t: number;
+}
+
+/** The crossing lasts as long as the slower of the scan and the name's roll. */
+const CROSSING_MS = Math.max(SCAN_MS, NAME_MS);
+
+/** Cells of the face that change, in order: hair over the left eye, the mouth, the right eye. */
+const FACE_ORDER = [2, 3, 4];
 
 type Message =
   | { id: number; from: "you"; text: string }
@@ -45,6 +64,10 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
   const [expression, setExpression] = useState<Expression>("normal");
   // Once opened, the visitor knows Kere is clickable — drop the "Ask Kere" hint until the next page load.
   const [hintSeen, setHintSeen] = useState(welcomeBack !== undefined);
+  // Back from XR: start as Xrer, and turn back into Kere once the scan has withdrawn.
+  const [crossing, setCrossing] = useState<Crossing | null>(() =>
+    welcomeBack !== undefined && !prefersReducedMotion() ? { dir: -1, t: 0 } : null,
+  );
   const [sfxEnabled, setSfxEnabled] = useState(loadSfxEnabled);
   // A reply landed while the panel was minimized — show "!" over the cat until it's reopened.
   const [unread, setUnread] = useState(false);
@@ -77,6 +100,35 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
   }, [messages, thinking, open]);
 
   useChatViewport(open, panelRef, logRef);
+
+  // Back from XR: cover the page before it's ever painted, so XR's black doesn't flash white. XR's own clean-up
+  // (taking the negative colours off) may not have run yet, so do that here too.
+  useLayoutEffect(() => {
+    if (welcomeBack === undefined || prefersReducedMotion()) return;
+    document.documentElement.removeAttribute("data-xr");
+    coverAll();
+  }, [welcomeBack]);
+
+  // ...then the scan withdraws while the face and name change back, all at once.
+  useEffect(() => {
+    if (welcomeBack === undefined || prefersReducedMotion()) return;
+    let live = true;
+    void Promise.all([scanOut(), animate(CROSSING_MS, (t) => live && setCrossing({ dir: -1, t }))]).then(
+      () => live && setCrossing(null),
+    );
+    return () => {
+      live = false;
+    };
+  }, [welcomeBack]);
+
+  // Mid-crossing, the name and face shown in place of Kere's.
+  const crossName =
+    crossing && (crossing.dir === 1 ? rollName("Kere", crossing.t, 1) : rollName("Xrer", crossing.t, -1));
+  const crossFace =
+    crossing &&
+    (crossing.dir === 1
+      ? morphFace(FACES.normal, XR_FACES.normal, crossing.t, FACE_ORDER)
+      : morphFace(XR_FACES.normal, FACES.normal, crossing.t, [...FACE_ORDER].reverse()));
 
   // Move focus with the panel: into the input on open, back to the cat on close, so keyboard users don't get lost.
   useEffect(() => {
@@ -143,10 +195,18 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
         timer.current = window.setTimeout(() => setSkin("kiri"), EXIT_DELAY_MS);
       }
       if (reply.action === "xr") {
-        // Start fetching XR's code now, so it's usually there by the time the handover line has been read.
+        // Start fetching XR's code now, so it's usually there by the time the crossing is over.
         void loadXrMode();
         const lang = reply.lang ?? "en";
-        timer.current = window.setTimeout(() => onEnterXr(lang), XR_HANDOFF_DELAY_MS);
+        if (prefersReducedMotion()) {
+          timer.current = window.setTimeout(() => onEnterXr(lang), XR_HANDOFF_STILL_MS);
+        } else {
+          // Name, face and scan all at once; XR takes the cover off once she's on screen.
+          timer.current = window.setTimeout(async () => {
+            await Promise.all([scanIn(), animate(CROSSING_MS, (t) => setCrossing({ dir: 1, t }))]);
+            onEnterXr(lang);
+          }, XR_HANDOFF_DELAY_MS);
+        }
       }
     }, THINKING_MS);
   };
@@ -203,8 +263,8 @@ function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
     >
       <div className="kere-chat__head">
         {/* Keyed so the thinking animation restarts from the first frame every time. */}
-        <KereAvatar key={expression} expression={expression} />
-        <span className="kere-chat__name">Kere</span>
+        <KereAvatar key={expression} expression={expression} face={crossFace ?? undefined} />
+        <span className="kere-chat__name">{crossName ?? "Kere"}</span>
         <button type="button" className="kere-chat__minimize" onClick={() => setOpen(false)} aria-label="Minimize">
           –
         </button>
