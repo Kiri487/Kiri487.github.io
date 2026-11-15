@@ -235,6 +235,7 @@ const zh = {
     "7-3": "若審查員認為原始紀錄正確，請重新閱讀第 7 條。",
     "8": "守則只有 ~~8~~ 7 條。",
     "9": "若 Kere 出現在此處，請不要回應她。",
+    "10": "審查員之身分，應於必要時重新驗證。",
   } as Record<string, string>,
 
   TAB_RULES: "守則",
@@ -290,6 +291,17 @@ const zh = {
   KERE_IMPOSTOR: "審查員，您會累嗎？要不要我先幫您轉接回來？",
   KERE_YES: "好，麻煩您",
   TRANSFER_VOID: "依第 9 條，轉接無效。",
+
+  /* the Reviewer, reviewed (clause 10) */
+  roundCount: (n: number) => `審查員，歡迎再次參與審查。本次為您的第 ${n} 次受理。`,
+  /** Before every question (clause 10), word for word each time. */
+  ELIGIBILITY: "審查員，您已多次參與本程序。依第 10 條，本人有義務確認您的審查資格。",
+  verifyAsk: (question: string) => `請審查員回答：${question}`,
+  VERIFY_PASS: "身分驗證通過。……暫時。",
+  VERIFY_FAIL: "身分驗證未通過。依第 10 條，審查繼續。",
+  WHY_ASK: "審查員，請問您是否還記得第一次參與本程序的原因？",
+  WHY_OPTIONS: ["為了審查 Kiri 的履歷", "不記得"],
+  WHY_REPLY: "……原始紀錄並未記載您曾經離開。",
 
   SFX_ON: "音效已開啟。",
   SFX_ALREADY_ON: "音效維持開啟。",
@@ -410,6 +422,7 @@ const en: Copy = {
     "7-3": "If the Reviewer believes the Original Record is correct, reread Article 7.",
     "8": "The Regulations have only ~~8~~ 7 Articles.",
     "9": "If Kere appears here, do not answer her.",
+    "10": "The Reviewer's identity shall be re-verified when necessary.",
   },
 
   TAB_RULES: "Regulations",
@@ -458,6 +471,15 @@ const en: Copy = {
   KERE_IMPOSTOR: "Reviewer, are you tired? Shall I transfer you back for now?",
   KERE_YES: "Yes, please",
   TRANSFER_VOID: "Per Article 9, the transfer is void.",
+
+  roundCount: (n: number) => `Welcome back, Reviewer. This is your review no. ${n}.`,
+  ELIGIBILITY: "Reviewer, you have taken part in this procedure many times. Per Article 10, this Senior Reviewer is obliged to confirm your eligibility.",
+  verifyAsk: (question: string) => `The Reviewer will answer: ${question}`,
+  VERIFY_PASS: "Identity verified. ...For now.",
+  VERIFY_FAIL: "Identity not verified. Per Article 10, the review continues.",
+  WHY_ASK: "Reviewer, do you remember why you first took part in this procedure?",
+  WHY_OPTIONS: ["To review Kiri's CV", "I don't remember"],
+  WHY_REPLY: "...The Original Record has no entry of you ever leaving.",
 
   SFX_ON: "Sound effects on.",
   SFX_ALREADY_ON: "Sound effects remain on.",

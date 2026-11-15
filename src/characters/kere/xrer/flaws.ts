@@ -44,7 +44,7 @@ export interface FlawedCv {
 /** Added as a "Soft Skills" row. Clause 6 quotes whichever one its fake carries. */
 const STRANGE_SKILLS = ["Being Human", "Breathing (Advanced)", "Remembering Kiri"];
 
-const FAKE_PROJECTS = [
+export const FAKE_PROJECTS = [
   { title: "Kiri Simulator", description: "A faithful simulation of Kiri, accurate in every detail." },
   { title: "Project Human", description: "A faithful simulation of Kiri, accurate in every detail." },
   { title: "Mirror Test", description: "Confirmed that the reflection is Kiri." },
@@ -97,7 +97,7 @@ function withEntry(data: CvData, { list, index }: Dated, change: { period?: stri
   return { ...data, work };
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "Sep 2018" → the start of "Sep 2018 - Jun 2021". */
 export function startOf(period: string): string {
@@ -297,7 +297,7 @@ function missingEntry(data: CvData, rng: Rng): FlawedCv | undefined {
 }
 
 /** A near neighbour for each technology on Kiri's projects: easy to read past, hard to call impossible. */
-const TECH_SWAPS: Record<string, string> = {
+export const TECH_SWAPS: Record<string, string> = {
   "C#": "Java",
   "C++": "C",
   JavaScript: "TypeScript",

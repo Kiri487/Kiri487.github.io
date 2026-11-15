@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { readJson, readNumber, writeJson, writeString } from "../../../shared/storage";
+import { readJson, readNumber, readString, writeJson, writeString } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
 import { FACES } from "../avatar/faces";
@@ -22,6 +22,7 @@ import {
 import { XR_FACES, XR_THINKING_BY_FACE, type XrFace } from "./faces";
 import { Fx, type Strength } from "./fx";
 import { recordFx, type DocLevel } from "./recordFx";
+import { buildQuiz } from "./quiz";
 import { createRound, isXr, type Round } from "./round";
 import { chance } from "./seeded";
 import * as S from "./script";
@@ -42,6 +43,18 @@ const ENDINGS_KEY = "xrEndingsSeen";
 const RECEIPT_KEY = "xrReceiptNo";
 /** Rounds begun, across visits. XR keeps count. */
 const ROUNDS_KEY = "xrRounds";
+/** Set once XR has asked why the visitor first came: she asks only once, ever. */
+const ASKED_WHY_KEY = "xrAskedWhy";
+
+/** From this round on, XR reports the count; on the fifth, clause 10 appears, and stays from then on. */
+const COUNT_FROM = 3;
+const CLAUSE_10_FROM = 5;
+/** From this round on, now and then, clause 10 is carried out: one question about Kiri's CV. */
+const VERIFY_FROM = 7;
+const VERIFY_CHANCE = 1 / 3;
+/** From this round on, rarely, and only once: whether the visitor remembers why they came. */
+const WHY_FROM = 10;
+const WHY_CHANCE = 1 / 4;
 
 /** Chance, per round after the visitor's first, that someone writes in as Kere once clause 7 is out (clause 9). */
 const IMPOSTOR_CHANCE = 0.25;
@@ -114,6 +127,9 @@ type Message =
     };
 
 type XrMessage = Omit<Extract<Message, { lines: string[] }>, "id">;
+
+/** XR's own questions to the Reviewer (clause 10). */
+type Interlude = "verify" | "why";
 
 /** The message under Kere's name this round: waiting for an answer, ignored, or answered. */
 interface Impostor {
@@ -202,6 +218,14 @@ interface Snapshot {
   /** This round has a Kere message coming. */
   impostorDue?: boolean;
   impostor?: Impostor | null;
+  /** This round, clause 10 is carried out: a question about Kiri's CV. */
+  verifyDue?: boolean;
+  /** This round, XR asks why the visitor first came. */
+  whyDue?: boolean;
+  /** A question of XR's waiting for an answer before the review goes on. */
+  interlude?: Interlude | null;
+  verifyDone?: boolean;
+  whyDone?: boolean;
   /** One has appeared, this round or an earlier one in this visit: Kere will have something to say. */
   metImpostor?: boolean;
   asks: number[];
@@ -273,6 +297,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   const [impostorDue, setImpostorDue] = useState(initial?.impostorDue ?? false);
   const [impostor, setImpostor] = useState<Impostor | null>(initial?.impostor ?? null);
   const [metImpostor, setMetImpostor] = useState(initial?.metImpostor ?? false);
+  const [verifyDue, setVerifyDue] = useState(initial?.verifyDue ?? false);
+  const [whyDue, setWhyDue] = useState(initial?.whyDue ?? false);
+  const [interlude, setInterlude] = useState<Interlude | null>(initial?.interlude ?? null);
+  const [verifyDone, setVerifyDone] = useState(initial?.verifyDone ?? false);
+  const [whyDone, setWhyDone] = useState(initial?.whyDone ?? false);
   /** Time into a transfer that isn't going through, while it plays (see falseCrossing). */
   const [falseT, setFalseT] = useState<number | null>(null);
   /** Questions asked per file. */
@@ -344,6 +373,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       impostorDue,
       impostor,
       metImpostor,
+      verifyDue,
+      whyDue,
+      interlude,
+      verifyDone,
+      whyDone,
       asks,
       record: record.type === "blank" ? "blank" : overwrittenBy >= 0 ? overwrittenBy : "kiri",
       faceOverride,
@@ -365,6 +399,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     impostorDue,
     impostor,
     metImpostor,
+    verifyDue,
+    whyDue,
+    interlude,
+    verifyDone,
+    whyDone,
     asks,
     record,
     faceOverride,
@@ -450,10 +489,16 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     const r = createRound();
     // Never on the visitor's first round: that one is the review as it's meant to go.
     const before = readNumber(ROUNDS_KEY, 0, { min: 0 });
-    writeString(ROUNDS_KEY, String(before + 1));
+    const no = before + 1;
+    writeString(ROUNDS_KEY, String(no));
     setImpostorDue(before >= 1 && chance(`${r.seed}:impostor`) < IMPOSTOR_CHANCE);
     setImpostor(null);
     setClauseBreaks(0);
+    setVerifyDue(no >= VERIFY_FROM && chance(`${r.seed}:verify`) < VERIFY_CHANCE);
+    setWhyDue(no >= WHY_FROM && readString(ASKED_WHY_KEY) === null && chance(`${r.seed}:why`) < WHY_CHANCE);
+    setInterlude(null);
+    setVerifyDone(false);
+    setWhyDone(false);
     seedRef.current = r.seed;
     langRef.current = chosen;
     setLang(chosen);
@@ -461,17 +506,25 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     setCurrent(0);
     setVerdicts([]);
     setClauseIssued(false);
-    setGrown([]);
+    // Clause 10 arrives on the fifth round and is simply there from then on.
+    setGrown(no >= CLAUSE_10_FROM ? ["10"] : []);
     setViolations(0);
     setAsks(r.applicants.map(() => 0));
     setRecord({ type: "kiri" });
     setFaceOverride(null);
     setTab("rules");
     setPhase("review");
+    const brief = again ? tt.BRIEFING_AGAIN : tt.BRIEFING;
     post(
       {
         from: "xr",
-        lines: again ? tt.BRIEFING_AGAIN : tt.BRIEFING,
+        // Who she is and what's under review always come first; the count and clause 10 follow.
+        lines: [
+          brief[0],
+          ...(no >= COUNT_FROM ? [tt.roundCount(no)] : []),
+          ...(no === CLAUSE_10_FROM ? [tt.RULES_UPDATED] : []),
+          ...brief.slice(1),
+        ],
         attachments: [{ tab: "rules", label: tt.TAB_RULES }],
       },
       fileMessage(r, 0, true, tt),
@@ -579,6 +632,17 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
         // post numbers messages in order from here, and never splits one that isn't XR's.
         setImpostor({ id: nextId.current + msgs.length - 1, state: "pending" });
         setMetImpostor(true);
+      } else if (verifyDue && !verifyDone && stamped >= 2) {
+        // Clause 10, carried out: the review waits on the Reviewer's answer.
+        const quiz = buildQuiz(r.seed);
+        msgs.push({ from: "xr", lines: [t.ELIGIBILITY, t.verifyAsk(quiz.question[lang])], options: quiz.options });
+        setInterlude("verify");
+        setVerifyDone(true);
+      } else if (whyDue && !whyDone) {
+        msgs.push({ from: "xr", lines: [t.WHY_ASK], options: t.WHY_OPTIONS });
+        setInterlude("why");
+        setWhyDone(true);
+        writeString(ASKED_WHY_KEY, "1");
       }
       post(...msgs);
       return;
@@ -605,6 +669,9 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     setClauseBreaks(0);
     setImpostorDue(false);
     setImpostor(null);
+    setVerifyDue(false);
+    setWhyDue(false);
+    setInterlude(null);
     setAsks([]);
     setRecord({ type: "kiri" });
     setFaceOverride(null);
@@ -678,6 +745,25 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     }
     if (said(text, S.KIRI_PHRASES) || said(text, S.EXIT_PHRASES)) {
       abort(said(text, S.KIRI_PHRASES) ? "kiri" : "kere", t.ABORTED);
+      return;
+    }
+
+    // XR's question comes first: the review waits until it's answered.
+    if (interlude && round) {
+      if (interlude === "why") {
+        // Whatever the answer.
+        setInterlude(null);
+        post({ from: "xr", lines: [t.WHY_REPLY], options: reviewOptions(t) });
+        return;
+      }
+      const quiz = buildQuiz(round.seed);
+      const picked = quiz.options.find((o) => normalize(o) === normalize(text));
+      if (!picked) {
+        post({ from: "xr", lines: [t.CHOOSE], options: quiz.options });
+        return;
+      }
+      setInterlude(null);
+      post({ from: "xr", lines: [picked === quiz.answer ? t.VERIFY_PASS : t.VERIFY_FAIL], options: reviewOptions(t) });
       return;
     }
 
@@ -834,7 +920,8 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       level: docLevel,
       violations,
       seed: round?.seed ?? "",
-      protect: round?.protect ?? [],
+      // The answer to this round's question (clause 10) stays readable, like everything else a judgment needs.
+      protect: round ? [...round.protect, ...(verifyDue ? [buildQuiz(round.seed).field] : [])] : [],
       lang,
       uneasy: clauseIssued,
     });
