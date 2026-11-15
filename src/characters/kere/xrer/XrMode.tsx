@@ -7,6 +7,7 @@ import type { WelcomeNote } from "../assistant/types";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { loadSfxEnabled, saveSfxEnabled, unlockSfx } from "../assistant/sfx";
 import { SFX_PHRASES } from "../assistant/script";
+import { matches, normalize } from "../assistant/respond";
 import { useChatViewport } from "../assistant/useChatViewport";
 import { SECTIONS } from "../cv/layout";
 import {
@@ -29,7 +30,6 @@ import * as S from "./script";
 import { clearXrSession, readXrSession, writeXrSession } from "./session";
 import { playXrOpenSfx, playXrReplySfx } from "./sfx";
 import { falseCrossing, morphFace, removeCover, rollName } from "./transition";
-import { halfWidth } from "./triggers";
 import XrAvatar from "./XrAvatar";
 import { ApplicantDocument, RecordDocument, RulesDocument } from "./XrDocuments";
 import "./xrer.css";
@@ -142,15 +142,9 @@ const reviewOptions = (t: S.Copy) => [t.PASS_LABEL, t.FAIL_LABEL, t.ASK_LABEL];
 /** For marking up what the visitor typed with the right lang attribute. */
 const CHINESE = /[㐀-鿿]/;
 
-/** Lowercase, punctuation → spaces, padded so English phrases match whole words. */
-function normalize(text: string): string {
-  return ` ${halfWidth(text).toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g, " ").trim()} `;
-}
-
+/** Kere's matching, so XR understands the same mixed input she does ("我要pass", "看rules"). */
 function said(text: string, phrases: readonly string[]): boolean {
-  const n = normalize(text);
-  const compact = n.replace(/ /g, "");
-  return phrases.some((p) => (/[㐀-鿿]/.test(p) ? compact.includes(p.replace(/ /g, "")) : n.includes(` ${p} `)));
+  return matches(normalize(text), phrases);
 }
 
 function loadSeenEndings(): EndingId[] {
@@ -727,11 +721,13 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     // Kere's message is waiting. Words for her offer, or anything that isn't a command, answer it; a command ignores
     // it, and it's blacked out. Plain exit words still leave, and so does the button: the way out always works.
     if (impostor?.state === "pending") {
+      // Going back to Kiri is never an answer to her, whatever words it uses.
       const command =
-        !said(text, ANSWER_PHRASES) &&
+        said(text, S.KIRI_PHRASES) ||
+        (!said(text, ANSWER_PHRASES) &&
         [S.ROT13_PHRASES, S.KIRI_PHRASES, S.EXIT_PHRASES, S.FAIL_PHRASES, S.PASS_PHRASES, S.ASK_PHRASES, S.RULES_PHRASES, S.RECORD_PHRASES, ...Object.values(SFX_PHRASES)].some(
           (phrases) => said(text, phrases),
-        );
+        ));
       if (!command) {
         answerImpostor(impostor.id);
         return;

@@ -1,3 +1,4 @@
+import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { seeded } from "./seeded";
 
@@ -76,7 +77,6 @@ interface ScanFrame {
   hold: number;
 }
 
-const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
 /**
  * The scan, worked out once with a fixed seed, so it moves the same way every time and leaving can replay it exactly

@@ -47,7 +47,7 @@ export function normalize(text: string): string {
 }
 
 /** English phrases match whole words. Chinese has no spaces between words, so those match anywhere, spaces ignored. */
-function matches(normalized: string, phrases: readonly string[]): boolean {
+export function matches(normalized: string, phrases: readonly string[]): boolean {
   const compact = normalized.replace(/ /g, "");
   return phrases.some((p) =>
     CHINESE.test(p) ? compact.includes(normalize(p).replace(/ /g, "")) : normalized.includes(normalize(p)),
