@@ -212,7 +212,7 @@ const zh = {
   RULES_TITLE: "人事異常審查守則",
   RULES: [
     "僅核對履歷之事實欄位。申請動機不列入評估。",
-    "事實欄位須與原始紀錄完全一致，包含日期、名稱與拼字。",
+    "事實欄位與條目須與原始紀錄完全一致，包含日期、名稱與拼字。",
     "原始紀錄中不存在的條目，一律視為偽造。",
     "本職位名額為一位，由資深審查員於全部應徵資料審查完畢後決定。",
     "審查員不得與應徵者交談。",
@@ -384,7 +384,7 @@ const en: Copy = {
   RULES_TITLE: "Personnel Anomaly Review Regulations",
   RULES: [
     "Check only the factual fields of a CV. Cover Letters are not assessed.",
-    "Factual fields must match the Original Record exactly, including dates, names and spelling.",
+    "Factual fields and entries must match the Original Record exactly, including dates, names and spelling.",
     "Any entry not found in the Original Record is to be treated as forged.",
     "There is one opening. The Senior Reviewer fills it once every application has been reviewed.",
     "The Reviewer shall not converse with Candidates.",

@@ -6,13 +6,22 @@ import { pickOne, type Rng } from "./random";
  * A fake Kiri's CV is Kiri's own with exactly one thing wrong. Built from the live data, so the review still works
  * after Kiri updates her CV.
  */
-export type FlawKind = "impossibleDate" | "strangeSkill" | "extraEntry" | "titleSwap" | "misspell" | "dateShift";
+export type FlawKind =
+  | "impossibleDate"
+  | "strangeSkill"
+  | "pastPresent"
+  | "extraEntry"
+  | "titleSwap"
+  | "missingEntry"
+  | "misspell"
+  | "dateShift"
+  | "techSwap";
 
 /** Obvious first, subtle last: later fakes in a round get harder to spot. */
 export const FLAW_TIERS: FlawKind[][] = [
-  ["impossibleDate", "strangeSkill"],
-  ["extraEntry", "titleSwap"],
-  ["misspell", "dateShift"],
+  ["impossibleDate", "strangeSkill", "pastPresent"],
+  ["extraEntry", "titleSwap", "missingEntry"],
+  ["misspell", "dateShift", "techSwap"],
 ];
 
 export interface Flaw {
@@ -241,13 +250,99 @@ function dateShift(data: CvData, rng: Rng): FlawedCv | undefined {
   };
 }
 
+/** Whatever is still going on has, it says, already ended: "Sep 2025 - Present" → "Sep 2025 - Past". */
+function pastPresent(data: CvData, rng: Rng): FlawedCv | undefined {
+  const ongoing = datedEntries(data).filter((e) => periodOf(data, e).endsWith(" - Present"));
+  if (ongoing.length === 0) return undefined;
+  const entry = pickOne(ongoing, rng);
+  const period = periodOf(data, entry).replace(/Present$/, "Past");
+  return {
+    data: withEntry(data, entry, { period }),
+    flaw: {
+      kind: "pastPresent",
+      section: sectionOf(entry.list),
+      note: `${nameOf(data, entry)}: ${period}`,
+      value: period,
+      field: `${entry.list}.${entry.index}.date`,
+    },
+  };
+}
+
+/** One entry gone: a project, or an item from a list long enough that losing one doesn't empty it. */
+function missingEntry(data: CvData, rng: Rng): FlawedCv | undefined {
+  const lists = data.lists.filter((l) => l.items.length >= 2);
+  if (lists.length > 0 && rng() < 0.5) {
+    const list = pickOne(lists, rng);
+    const index = Math.floor(rng() * list.items.length);
+    const item = list.items[index];
+    const items = list.items.filter((_, i) => i !== index);
+    return {
+      data: { ...data, lists: data.lists.map((l) => (l === list ? { ...l, items } : l)) },
+      flaw: {
+        kind: "missingEntry",
+        section: SECTIONS.find((s) => s.category === list.category)?.id ?? "projects",
+        note: `${list.category}: missing "${item}"`,
+        value: item,
+        field: `lists.${list.category}.${index}.title`,
+      },
+    };
+  }
+  if (data.projects.length < 2) return undefined;
+  const index = Math.floor(rng() * data.projects.length);
+  const { title } = data.projects[index];
+  return {
+    data: { ...data, projects: data.projects.filter((_, i) => i !== index) },
+    flaw: { kind: "missingEntry", section: "projects", note: `Projects: missing "${title}"`, value: title, field: `projects.${index}.title` },
+  };
+}
+
+/** A near neighbour for each technology on Kiri's projects: easy to read past, hard to call impossible. */
+const TECH_SWAPS: Record<string, string> = {
+  "C#": "Java",
+  "C++": "C",
+  JavaScript: "TypeScript",
+  TypeScript: "JavaScript",
+  Python: "Ruby",
+  React: "Vue",
+  HTML5: "XHTML",
+  CSS3: "Sass",
+};
+
+/** One project lists one technology it didn't use: "Unity, C#" → "Unity, Java". */
+function techSwap(data: CvData, rng: Rng): FlawedCv | undefined {
+  // Never into one the project already lists: "JavaScript, JavaScript" would give it away.
+  const swappable = (tags: { name: string }[], name: string) => {
+    const to = TECH_SWAPS[name];
+    return to !== undefined && !tags.some((t) => t.name === to);
+  };
+  const spots = data.projects.flatMap((p, i) => p.tags.flatMap((t, j) => (swappable(p.tags, t.name) ? [{ i, j }] : [])));
+  if (spots.length === 0) return undefined;
+  const { i, j } = pickOne(spots, rng);
+  const project = data.projects[i];
+  const name = TECH_SWAPS[project.tags[j].name];
+  const tags = project.tags.map((t, k) => (k === j ? { ...t, name } : t));
+  return {
+    data: { ...data, projects: data.projects.map((p, k) => (k === i ? { ...p, tags } : p)) },
+    flaw: {
+      kind: "techSwap",
+      section: "projects",
+      note: `${project.title}: ${name}`,
+      value: name,
+      field: `projects.${i}.tags`,
+    },
+  };
+}
+
 const MAKERS: Record<FlawKind, (data: CvData, rng: Rng) => FlawedCv | undefined> = {
   impossibleDate,
   strangeSkill,
+  pastPresent,
   extraEntry,
   titleSwap,
+  missingEntry,
   misspell,
   dateShift,
+  techSwap,
 };
 
 /** Falls back to an impossible date if the CV has nothing this kind of flaw can change. */
