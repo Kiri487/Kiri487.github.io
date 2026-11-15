@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { MOBILE_QUERY } from "../../../shared/breakpoints";
 import { readJson, readNumber, readString, writeJson, writeString } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
@@ -38,6 +39,8 @@ import "./xrer.css";
 const LEAVE_DELAY_MS = 1000;
 /** Between XR's closing words and the settlement sheet. */
 const SETTLEMENT_DELAY_MS = 1800;
+/** How long a stamped file stays on the desk before the next one takes its place. */
+const NEXT_FILE_DELAY_MS = 1000;
 const ENDINGS_KEY = "xrEndingsSeen";
 /** The last receipt number given out. Counts up across rounds and visits. */
 const RECEIPT_KEY = "xrReceiptNo";
@@ -383,6 +386,8 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   /** Time into a transfer that isn't going through, while it plays (see falseCrossing). */
   const [falseT, setFalseT] = useState<number | null>(null);
   const [tab, setTab] = useState<TabId>(initial?.tab ?? "record");
+  /** The tab as of now, for timers. */
+  const tabRef = useRef(tab);
 
   const [messages, setMessages] = useState<Message[]>(() => initial?.messages ?? [{ ...consentForm(lang), id: 0 } as Message]);
   const [input, setInput] = useState("");
@@ -418,6 +423,10 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   useEffect(() => {
     openRef.current = open;
   }, [open]);
+
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
 
   useEffect(() => {
     const pending = timers;
@@ -688,6 +697,14 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       }
       patch({ ...change, grown: nextGrown });
       post(...msgs);
+      // The stamp shows for a moment, then the next file is put on the desk: only if the visitor is still looking at
+      // the one just stamped, not if they've gone to read the rules or the record.
+      const stampedTab = String(current);
+      later(() => {
+        if (tabRef.current !== stampedTab) return;
+        setTab(String(stamped));
+        window.scrollTo(0, 0);
+      }, NEXT_FILE_DELAY_MS);
       return;
     }
 
@@ -923,11 +940,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     send(input);
   };
 
-  /** An attachment means "go read this": the chat steps aside on every screen, so it doesn't cover the stamp. */
+  /** An attachment means "go read this". On a phone the chat covers the page, so it steps aside; elsewhere it stays. */
   const openTab = (id: TabId) => {
     setTab(id);
     window.scrollTo(0, 0);
-    setOpen(false);
+    if (window.matchMedia(MOBILE_QUERY).matches) setOpen(false);
   };
 
   /* ---- page ---- */
