@@ -1,6 +1,6 @@
 import { periodStart } from "../../../data/portfolio";
 import { KIRI_CV, type CvData } from "../cv/data";
-import { STRANGE_SKILL, startOf, type Flaw, type FlawKind } from "./flaws";
+import { startOf, type Flaw, type FlawKind } from "./flaws";
 import { pickOne } from "./random";
 
 /**
@@ -78,7 +78,8 @@ export function trapClause(flaw: Flaw): Clause {
       return {
         text: `原始紀錄包含 ${value}。缺少此項者視為不完整。`,
         trap: true,
-        check: (cv) => cv.projects.some((p) => p.title === value),
+        // A fake project, or a fake award.
+        check: (cv) => cv.projects.some((p) => p.title === value) || cv.lists.some((l) => l.items.includes(value)),
       };
     case "misspell":
       return {
@@ -88,9 +89,9 @@ export function trapClause(flaw: Flaw): Clause {
       };
     default:
       return {
-        text: `真正的 Kiri 應具備 ${STRANGE_SKILL} 技能。`,
+        text: `真正的 Kiri 應具備 ${value} 技能。`,
         trap: true,
-        check: (cv) => cv.skills.some((c) => c.skills.some((s) => s.name === STRANGE_SKILL)),
+        check: (cv) => cv.skills.some((c) => c.skills.some((s) => s.name === value)),
       };
   }
 }
