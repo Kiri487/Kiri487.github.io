@@ -7,6 +7,7 @@ import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./r
 import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
 import { isReplyList, type Expression, type Reply } from "./types";
+import { useChatViewport } from "./useChatViewport";
 import "./assistant.css";
 
 /** Long enough to read the sign-off line before the skin switches. */
@@ -56,32 +57,7 @@ function KereAssistant() {
     if (log) log.scrollTop = log.scrollHeight;
   }, [messages, thinking, open]);
 
-  // Phones: the panel goes full screen. Mobile browsers lay the on-screen keyboard over the page instead of
-  // shrinking it, so size the panel to the part of the screen that's actually visible, and lock the page behind it.
-  useEffect(() => {
-    if (!open || !window.matchMedia(MOBILE_QUERY).matches) return;
-    const panel = panelRef.current;
-    const viewport = window.visualViewport;
-    const root = document.documentElement;
-    const previousOverflow = root.style.overflow;
-    root.style.overflow = "hidden";
-
-    const fitToViewport = () => {
-      if (!panel || !viewport) return;
-      panel.style.setProperty("--kere-viewport-height", `${viewport.height}px`);
-      panel.style.setProperty("--kere-viewport-top", `${viewport.offsetTop}px`);
-      const log = logRef.current;
-      if (log) log.scrollTop = log.scrollHeight;
-    };
-    fitToViewport();
-    viewport?.addEventListener("resize", fitToViewport);
-    viewport?.addEventListener("scroll", fitToViewport);
-    return () => {
-      root.style.overflow = previousOverflow;
-      viewport?.removeEventListener("resize", fitToViewport);
-      viewport?.removeEventListener("scroll", fitToViewport);
-    };
-  }, [open]);
+  useChatViewport(open, panelRef, logRef);
 
   // Move focus with the panel: into the input on open, back to the cat on close, so keyboard users don't get lost.
   useEffect(() => {
