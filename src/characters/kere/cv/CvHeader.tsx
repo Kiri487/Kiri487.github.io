@@ -14,16 +14,22 @@ const ICONS: Record<Contact["id"], IconType> = {
   mail: FiMail,
 };
 
-function CvHeader() {
+/** `asDocument`: a CV shown as a document inside XR's review, where the name is just a name, not a way home. */
+function CvHeader({ asDocument = false }: { asDocument?: boolean }) {
   const { setSkin } = useSkin();
+  const Name = asDocument ? "p" : "h1";
   return (
-    <header id="top" className="kere-header">
-      <h1 className="kere-header__name">
-        {/* The name doubles as the way back to the main (Kiri) site, like a logo linking home. */}
-        <button type="button" className="kere-header__home" onClick={() => setSkin("kiri")} title="Back to Kiri">
-          {CV_NAME}
-        </button>
-      </h1>
+    <header id={asDocument ? undefined : "top"} className="kere-header">
+      <Name className="kere-header__name">
+        {asDocument ? (
+          CV_NAME
+        ) : (
+          // The name doubles as the way back to the main (Kiri) site, like a logo linking home.
+          <button type="button" className="kere-header__home" onClick={() => setSkin("kiri")} title="Back to Kiri">
+            {CV_NAME}
+          </button>
+        )}
+      </Name>
       <ul className="kere-header__contacts">
         {CV_CONTACTS.map((c) => {
           const Icon = ICONS[c.id];
