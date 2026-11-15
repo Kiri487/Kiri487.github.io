@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 interface CvEntryProps {
   id?: string;
   title: ReactNode;
-  date: string;
+  date: ReactNode;
   subtitle?: ReactNode;
-  location?: string;
+  location?: ReactNode;
   children?: ReactNode;
 }
 
@@ -20,7 +20,7 @@ function CvEntry({ id, title, date, subtitle, location, children }: CvEntryProps
       {/* Phones only: date and location share one line under the title. */}
       <div className="kere-entry__meta">
         {date}
-        {location && ` · ${location}`}
+        {location && <> · {location}</>}
       </div>
       {(subtitle || location) && (
         <div className="kere-entry__row kere-entry__row--sub">
