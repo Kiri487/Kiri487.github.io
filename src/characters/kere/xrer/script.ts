@@ -91,6 +91,45 @@ export const ABORTED = "審查中止。";
 
 export const AGAIN_LABEL = "再審一輪";
 
+/* ---- easter eggs: Xrer doesn't chat, but some words get a procedural answer ---- */
+
+/** "rot13" again: Xrer through ROT13 is Kere, so the way in is also the way out. */
+export const ROT13_PHRASES = ["rot13", "rot 13"];
+export const ROT13_LINE = "ROT13 再轉一次，即為原名。";
+
+export interface Egg {
+  /** English phrases match whole words; Chinese ones anywhere, spaces ignored. */
+  phrases: string[];
+  line: string;
+  /** Rattles her for that one reply. */
+  alert?: boolean;
+}
+
+/** Checked top to bottom, after leaving and sound commands. */
+export const EGGS: Egg[] = [
+  { phrases: ["sop", "標準作業程序"], line: "這不在標準作業程序內。" },
+  {
+    phrases: ["7條錯", "7條是錯", "七條錯", "七條是錯", "條文錯", "條文有誤", "守則錯", "規則錯", "clause 7 is wrong", "rule 7 is wrong", "the rule is wrong"],
+    line: "條文無誤。",
+    alert: true,
+  },
+  { phrases: ["你是人嗎", "是人類嗎", "are you human"], line: "本人不在審查範圍內。" },
+  { phrases: ["你是誰", "妳是誰", "who are you"], line: `本人是資深審查員 ${NAME}。` },
+  { phrases: ["謝謝", "感謝", "thank you", "thanks", "thx"], line: "不客氣。這是程序。" },
+  { phrases: ["你好", "您好", "哈囉", "hello", "hi", "hey"], line: "與審查無關。" },
+  // The other cats, as personnel records.
+  { phrases: ["xrer", "xr"], line: "本人在此。" },
+  { phrases: ["kiri"], line: "Kiri 為本次審查之職位名稱。" },
+  { phrases: ["kere"], line: "Kere 為本人之對應人員，不在本程序範圍內。" },
+  { phrases: ["kuru"], line: "Kuru 於等候區睡著了，不影響審查。" },
+  { phrases: ["koro"], line: "Koro 要求本人不要看她的日記。" },
+  { phrases: ["kara"], line: "Kara 之相關文件，請勿開啟。" },
+  { phrases: ["xvev", "xv"], line: "Xvev 之文件已歸檔，請勿調閱。" },
+  { phrases: ["xheh", "xh"], line: "Xheh 對本程序沒有意見。" },
+  { phrases: ["xbeb", "xb"], line: "Xbeb 已來電詢問進度十七次。" },
+  { phrases: ["xnen", "xn"], line: "Xnen 之申請地址無法辨識。" },
+];
+
 /* ---- sound (Kere's commands: mute, unmute, 靜音, 閉嘴…) ---- */
 
 export const SFX_ON = "音效已開啟。";

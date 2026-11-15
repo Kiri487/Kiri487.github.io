@@ -327,16 +327,20 @@ function XrMode({ onLeave }: XrModeProps) {
   /* ---- input ---- */
 
   /** Leave at any point, even mid-closing: XR doesn't argue. */
-  const abort = (to: "kere" | "kiri") => {
+  const abort = (to: "kere" | "kiri", line = S.ABORTED) => {
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
     setThinking(false);
     setPhase("leaving");
-    post({ from: "xr", lines: [S.ABORTED] });
+    post({ from: "xr", lines: [line] });
     later(() => onLeave(to), LEAVE_DELAY_MS);
   };
 
   const reply = (text: string) => {
+    if (said(text, S.ROT13_PHRASES)) {
+      abort("kere", S.ROT13_LINE);
+      return;
+    }
     if (said(text, S.KIRI_PHRASES) || said(text, S.EXIT_PHRASES)) {
       abort(said(text, S.KIRI_PHRASES) ? "kiri" : "kere");
       return;
@@ -372,15 +376,24 @@ function XrMode({ onLeave }: XrModeProps) {
       return;
     }
 
+    // After the phase's own commands, so "詢問 Xrer" asks instead of tripping her name, and "守則錯了" isn't a tab.
+    const egg = S.EGGS.find((e) => said(text, e.phrases));
+    const answerEgg = () => {
+      if (!egg) return false;
+      setFaceOverride(egg.alert ? "alert" : null);
+      post({ from: "xr", lines: [egg.line], options });
+      return true;
+    };
+
     if (phase === "consent") {
       if (said(text, [S.START_LABEL, "開始", "start"])) startRound(false);
-      else post({ from: "form", lines: [S.CHOOSE], options: [S.START_LABEL, S.BACK_LABEL] });
+      else if (!answerEgg()) post({ from: "form", lines: [S.CHOOSE], options });
       return;
     }
 
     if (phase === "done") {
       if (said(text, [S.AGAIN_LABEL, "再一輪", "again"])) startRound(true);
-      else post({ from: "form", lines: [S.CHOOSE], options: [S.AGAIN_LABEL, S.BACK_LABEL] });
+      else if (!answerEgg()) post({ from: "form", lines: [S.CHOOSE], options });
       return;
     }
 
@@ -389,6 +402,7 @@ function XrMode({ onLeave }: XrModeProps) {
     if (said(text, [S.FAIL_LABEL, "fail"])) stamp(round, false);
     else if (said(text, [S.PASS_LABEL, "pass"])) stamp(round, true);
     else if (said(text, ["詢問", "ask"])) ask(round);
+    else if (answerEgg()) return;
     else if (said(text, [S.TAB_RULES, "rules"])) {
       post({ from: "xr", lines: [], attachments: [{ tab: "rules", label: S.TAB_RULES }], options: REVIEW_OPTIONS });
     } else if (said(text, [S.TAB_RECORD, "record"])) {
