@@ -18,3 +18,11 @@ export const XR_THINKING_FRAMES = ["[ ▓ ◉ ]", "[ ▓ ◎ ]"];
 
 export const XR_THINKING_MS = 600;
 export const XR_FRAME_MS = XR_THINKING_MS / XR_THINKING_FRAMES.length;
+
+/** The more rattled she is, the faster she answers: no pause to think, just procedure. */
+export const XR_THINKING_BY_FACE: Record<XrFace, number> = {
+  normal: XR_THINKING_MS,
+  alert: 450,
+  anxious: 300,
+  broken: 150,
+};

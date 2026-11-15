@@ -16,10 +16,11 @@ import {
   type SettlementRow,
   type Verdict,
 } from "./endings";
-import { XR_THINKING_MS, type XrFace } from "./faces";
+import { XR_THINKING_BY_FACE, type XrFace } from "./faces";
 import { Fx, type Strength } from "./fx";
 import { recordFx, type DocLevel } from "./recordFx";
 import { createRound, isXr, type Round } from "./round";
+import { chance } from "./seeded";
 import * as S from "./script";
 import { clearXrSession, readXrSession, writeXrSession } from "./session";
 import { playXrOpenSfx, playXrReplySfx } from "./sfx";
@@ -39,6 +40,26 @@ const RECEIPT_KEY = "xrReceiptNo";
 
 /** How corrupted a line comes out, by XR's face when she said it. */
 const FACE_STRENGTH: Record<XrFace, Strength> = { normal: 1, alert: 1, anxious: 2, broken: 4 };
+
+/** How often a line of hers breaks in two, by face, and how long the rest takes to follow. */
+const SPLIT_CHANCE: Record<XrFace, number> = { normal: 0, alert: 0, anxious: 0.2, broken: 0.5 };
+const SPLIT_DELAY_MS = 600;
+
+/**
+ * A line broken where she might falter: after "……"/"...", or at a comma or full stop mid-line, whichever is nearest
+ * the middle. Lines carrying corruption marks are left whole, so no mark is cut in half.
+ */
+function splitLine(line: string | undefined): [string, string] | undefined {
+  if (!line || /[{}~█]/.test(line)) return undefined;
+  const points: number[] = [];
+  for (const m of line.matchAll(/……|\.\.\.|[，、。]|[,.] /g)) {
+    const at = (m.index ?? 0) + m[0].length;
+    if (at > 0 && at < line.length) points.push(at);
+  }
+  if (points.length === 0) return undefined;
+  const at = points.reduce((best, p) => (Math.abs(p - line.length / 2) < Math.abs(best - line.length / 2) ? p : best));
+  return [line.slice(0, at).trimEnd(), line.slice(at).trimStart()];
+}
 
 type Phase = "consent" | "review" | "closing" | "done" | "leaving";
 
@@ -313,10 +334,22 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     const strength = FACE_STRENGTH[faceRef.current];
     const seed = seedRef.current;
     const msgLang = langRef.current;
-    const numbered = msgs.map((msg) => ({ strength, seed, lang: msgLang, ...msg, id: nextId.current++ }) as Message);
+    // Rattled, she sometimes stops mid-sentence and sends the rest a moment later. Rolled from the round's seed and
+    // the message's number, like the rest of the round.
+    const last = msgs[msgs.length - 1];
+    const cut =
+      last?.from === "xr" && chance(`${seed}:split:${nextId.current}`) < SPLIT_CHANCE[faceRef.current]
+        ? splitLine(last.lines[last.lines.length - 1])
+        : undefined;
+    const sent = cut && last ? [...msgs.slice(0, -1), { ...last, lines: [...last.lines.slice(0, -1), cut[0]] }] : msgs;
+    const numbered = sent.map((msg) => ({ strength, seed, lang: msgLang, ...msg, id: nextId.current++ }) as Message);
     setMessages((m) => [...m, ...numbered]);
     if (!openRef.current) setUnread(true);
     if (soundOn.current) playXrReplySfx(faceRef.current);
+    if (cut) {
+      // Only the words: choices and attachments stay on the first half, so a refresh in between loses nothing.
+      later(() => post({ from: "xr", lines: [cut[1]] }), SPLIT_DELAY_MS);
+    }
   };
 
   const face: XrFace = faceOverride ?? faceForViolations(violations);
@@ -610,7 +643,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     later(() => {
       setThinking(false);
       reply(trimmed);
-    }, XR_THINKING_MS);
+    }, XR_THINKING_BY_FACE[faceRef.current]);
   };
 
   const handleSubmit = (e: FormEvent) => {
