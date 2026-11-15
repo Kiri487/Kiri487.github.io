@@ -4,15 +4,21 @@
  */
 
 /**
- * ROT13 is a Caesar cipher shifted by 13, and Kere through ROT13 is Xrer. Spaces and punctuation are already gone by
- * the time these are matched, so "rot-13", "ROT_13" and "凱薩加密 13" are covered too. "凱薩加密" alone isn't: a Caesar
- * cipher can shift by anything.
+ * ROT13 is a Caesar cipher shifted by 13, and Kere through ROT13 is Xrer. English words match whole, with punctuation
+ * turned into spaces, so "rot-13" and "ROT_13" are covered; Chinese ignores spaces, so "凱薩加密 13" is too. A Caesar
+ * cipher alone isn't: it can shift by anything, and Kere's hints only lead up to it (see XR_HINT in Kere's script).
  */
 export const ROT13_PHRASES = [
-  "rot13",
-  "rot 13",
+  ...["13", "thirteen"].flatMap((n) => [
+    `rot${n}`,
+    `rot ${n}`,
+    `caesar${n}`,
+    `caesar ${n}`,
+    `caesar cipher ${n}`,
+    `caesar shift ${n}`,
+  ]),
   ...["凱薩", "凱撒"].flatMap((caesar) =>
-    ["加密", "密碼"].flatMap((cipher) => [`${caesar}${cipher}13`, `${caesar}${cipher}十三`]),
+    ["", "加密", "密碼"].flatMap((cipher) => [`${caesar}${cipher}13`, `${caesar}${cipher}十三`]),
   ),
 ];
 
