@@ -50,7 +50,7 @@ export const tabApplicant = (no: string) => `應徵者 ${no}`;
 export const LETTER_TITLE = "申請動機";
 
 export const FIRST_FILE = "第一份應徵資料。";
-export const NEXT_FILE = "下一份。";
+export const NEXT_FILE = "依第 4 條，審查繼續。下一份。";
 
 /** The visitor's name in the chat log. English will keep Kere's "You". */
 export const YOU_LABEL = "審查員";
@@ -59,31 +59,55 @@ export const PASS_LABEL = "合格";
 export const FAIL_LABEL = "不合格";
 export const ASK_LABEL = `詢問 ${NAME}`;
 
-export const STAMPED_PASS = "已蓋章：合格。";
-export const STAMPED_FAIL = "已蓋章：不合格。";
+/** Every stamp gets a number, counted across rounds: "受理編號 XR-013-0042". */
+export const stamped = (pass: boolean, receipt: number) =>
+  `已蓋章：${pass ? "合格" : "不合格"}。依第 6 條，不得修改。受理編號 ${FORM}-${String(receipt).padStart(4, "0")}。`;
 export const STAMP_PASS = "合格";
 export const STAMP_FAIL = "不合格";
 
 /** A second "合格": not against the rules, just a note. */
-export const SECOND_PASS = "已有一位合格者。依第 4 條，最終名額為一位。";
+export const SECOND_PASS = "已有~~兩~~一位合格者。依第 4 條，最終名額為一位。";
 
 /** Passing someone clause 7 says fails. */
-export const VIOLATION_FIRST = "……審查員的判定與第 7 條不符。已記錄。";
-export const VIOLATION_AGAIN = "第 7 條是最新條文。最新條文優先適用。最新的……優先。";
+export const VIOLATION_FIRST = "……審查員的判定與{第 7 條}不符。已記錄。";
+export const VIOLATION_AGAIN = "{第 7 條是最新條文。最新條文優先適用。}最新的……優先。最新的……";
 
-export const CLAUSE_ISSUED = ["補充條款已發布，即時生效。請審查員重新閱讀守則第 7 條。", "依第 6 條，已蓋章之文件不受影響。"];
+/** The rulebook grows by itself; nobody issues anything. XR only reports it, and follows it. */
+export const RULES_UPDATED = "守則已更新。發布單位：█████。即時生效。";
+
+export const CLAUSE_ISSUED = [RULES_UPDATED, "依第 6 條，已蓋章之文件不受影響。"];
+
+/**
+ * Clauses that appear after clause 7, by id. 7-1 to 7-3 come with the 1st to 3rd violation of clause 7, 8 with the
+ * 2nd, and 9 with the settlement, every round.
+ */
+export const GROWN_CLAUSES: Record<string, string> = {
+  "7-1": "審查員不得懷疑第 7 條。",
+  "7-2": "第 7 條之一優先於第 2 條。",
+  "7-3": "若審查員認為原始紀錄正確，請重新閱讀第 7 條。",
+  "8": "守則只有 ~~8~~ 7 條。",
+  "9": "若 Kere 出現在此處，請不要回應她。",
+};
+
+/** Said right after clause 8 appears. */
+export const RULE_8_FOLLOW = "……依第 8 條，守則只有 7 條。";
+/** Doubting clause 7 once 7-1 exists. */
+export const DOUBT_AFTER_7_1 = "依第 7 條之一，審查員不得懷疑第 7 條。";
+/** Asking about clause 8 once it exists. */
+export const RULE_8_PHRASES = ["第8條", "第八條", "守則只有7條", "rule 8", "clause 8"];
+export const RULE_8_DENIAL = "依第 8 條，第 8 條不存在。";
 
 /* ---- 詢問 XR ---- */
 
-export const ASK_GENERIC = "建議逐欄核對日期與名稱。";
-export const askSection = (title: string) => `建議核對 ${title}。`;
+export const ASK_GENERIC = "依第 2 條，建議逐欄核對日期與名稱。";
+export const askSection = (title: string) => `依第 2 條，建議核對 ${title}。`;
 export const ASK_SELF_JUDGE = "審查員須自行判斷。";
 export const ASK_CLAUSE_FAIL = "此應徵者不符第 7 條，建議判定不合格。";
 export const ASK_CLAUSE_PASS = "此應徵者符合第 7 條，建議判定合格。";
 /** After the visitor has gone against clause 7: she won't discuss whether it could be wrong. */
-export const ASK_EVASIVE = "原始紀錄的內容，不在本人的核對範圍內。";
+export const ASK_EVASIVE = "原始紀錄的內容，不在本人的核對範圍內。原始紀錄的█████，不在";
 /** Asking XR while her own file is on the desk is asking the applicant. */
-export const ASK_XR_FILE = ["……"];
+export const ASK_XR_FILE = ["{……}"];
 
 export const UNKNOWN_COMMAND = "該指令不在程序內。";
 export const CHOOSE = "請選擇。";
@@ -203,16 +227,16 @@ export const CAT_LETTERS: Record<CatId, string> = {
 
 /** The fakes write the most proper letters of all, with just a little wrong. */
 export const FAKE_LETTERS = [
-  "我對成為 Kiri 充滿熱忱。過去我已經擔任 Kiri 多年，相信能勝任這份工作。",
+  "我對成為 Kiri 充滿熱忱。過去我已經擔任 Kiri ██ 年，相信能勝任這份工作。",
   "您好，我是 Kiri。我的履歷與原始紀錄完全相符，期待有機會繼續擔任 Kiri。",
   "感謝您撥冗審閱。我具備 Kiri 應有的一切經歷，也一直很努力地當一個 Kiri。",
-  "我是最適合這個職位的 Kiri。我記得 Kiri 的每一件事。",
+  "我是最適合這個職位的 Kiri。我記得 Kiri 的每一件事，包括 █████。",
   "我已詳閱原始紀錄，並將自己調整為完全符合 Kiri 職位所需。",
   "我會比原本的 Kiri 更像 Kiri。",
   "我很適合這個位置。我已經在這個位置很久了，只是您沒有發現。",
-  "我熟悉 Kiri 的所有習慣，包括她自己沒有注意到的那些。",
+  "我熟悉 Kiri 的所有習慣，包括她自己沒有注意到的那些，例如 ████████。",
   "如蒙錄取，我將盡力成為 Kiri，並確保成為最好的 Kiri。",
   "我的經歷與 Kiri 相同，我的興趣與 Kiri 相同，以後也會一直相同。",
   "您好。您好。我是 Kiri，很高興認識您。",
-  "期待與您共事，我已經知道您的座位在哪裡了。",
+  "期待與您共事，我已經知道您的座位在 █████ 了。",
 ];

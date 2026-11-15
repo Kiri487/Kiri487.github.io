@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { readJson, writeJson } from "../../../shared/storage";
+import { readJson, readNumber, writeJson, writeString } from "../../../shared/storage";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import KereAvatar from "../avatar/KereAvatar";
 import { loadSfxEnabled, saveSfxEnabled, unlockSfx } from "../assistant/sfx";
@@ -17,6 +17,8 @@ import {
   type Verdict,
 } from "./endings";
 import { XR_THINKING_MS, type XrFace } from "./faces";
+import { Fx, type Strength } from "./fx";
+import { recordFx, type DocLevel } from "./recordFx";
 import { createRound, isXr, type Round } from "./round";
 import * as S from "./script";
 import { playXrOpenSfx, playXrReplySfx } from "./sfx";
@@ -29,6 +31,11 @@ const LEAVE_DELAY_MS = 1000;
 /** Between XR's closing words and the settlement sheet. */
 const SETTLEMENT_DELAY_MS = 1800;
 const ENDINGS_KEY = "xrEndingsSeen";
+/** The last receipt number given out. Counts up across rounds and visits. */
+const RECEIPT_KEY = "xrReceiptNo";
+
+/** How corrupted a line comes out, by XR's face when she said it. */
+const FACE_STRENGTH: Record<XrFace, Strength> = { normal: 1, alert: 1, anxious: 2, broken: 4 };
 
 type Phase = "consent" | "review" | "closing" | "done" | "leaving";
 
@@ -55,6 +62,10 @@ type Message =
       footer?: string[];
       /** The ending and the unlock count, ruled off at the bottom of the sheet. */
       result?: string[];
+      /** How hard the line's {corrupted} parts are corrupted: set from XR's face when it's posted. */
+      strength?: Strength;
+      /** The round it was said in, so the same line corrupts differently from round to round. */
+      seed?: string;
     };
 
 type XrMessage = Omit<Extract<Message, { from: "xr" | "form" }>, "id">;
@@ -97,6 +108,8 @@ function XrMode({ onLeave }: XrModeProps) {
   const [current, setCurrent] = useState(0);
   const [verdicts, setVerdicts] = useState<Verdict[]>([]);
   const [clauseIssued, setClauseIssued] = useState(false);
+  /** Clauses that grew after clause 7, in order: "7-1", "8"… */
+  const [grown, setGrown] = useState<string[]>([]);
   const [violations, setViolations] = useState(0);
   /** Questions asked per file. */
   const [asks, setAsks] = useState<number[]>([]);
@@ -128,6 +141,8 @@ function XrMode({ onLeave }: XrModeProps) {
   /** The face as of now, for the reply tick, which sours as XR does. Closing steps set it before they speak. */
   const faceRef = useRef<XrFace>("normal");
   const openSfxPlayed = useRef(false);
+  /** The current round's seed, for messages posted from timers. */
+  const seedRef = useRef("");
 
   useEffect(() => {
     openRef.current = open;
@@ -163,7 +178,9 @@ function XrMode({ onLeave }: XrModeProps) {
   };
 
   const post = (...msgs: XrMessage[]) => {
-    const numbered = msgs.map((msg) => ({ ...msg, id: nextId.current++ }) as Message);
+    const strength = FACE_STRENGTH[faceRef.current];
+    const seed = seedRef.current;
+    const numbered = msgs.map((msg) => ({ strength, seed, ...msg, id: nextId.current++ }) as Message);
     setMessages((m) => [...m, ...numbered]);
     if (!openRef.current) setUnread(true);
     if (soundOn.current) playXrReplySfx(faceRef.current);
@@ -202,10 +219,12 @@ function XrMode({ onLeave }: XrModeProps) {
 
   const startRound = (again: boolean) => {
     const r = createRound();
+    seedRef.current = r.seed;
     setRound(r);
     setCurrent(0);
     setVerdicts([]);
     setClauseIssued(false);
+    setGrown([]);
     setViolations(0);
     setAsks(r.applicants.map(() => 0));
     setRecord({ type: "kiri" });
@@ -279,7 +298,9 @@ function XrMode({ onLeave }: XrModeProps) {
         ],
         options: [S.AGAIN_LABEL, S.BACK_LABEL],
       };
-      const msgs: XrMessage[] = [];
+      // Every round ends with one more clause, about Kere.
+      setGrown((g) => (g.includes("9") ? g : [...g, "9"]));
+      const msgs: XrMessage[] = [{ from: "xr", lines: [S.RULES_UPDATED], attachments: [{ tab: "rules", label: S.TAB_RULES }] }];
       if (outcome.showRecord) msgs.push({ from: "form", lines: [], attachments: [{ tab: "record", label: S.TAB_RECORD }] });
       msgs.push(sheet);
       post(...msgs);
@@ -294,11 +315,19 @@ function XrMode({ onLeave }: XrModeProps) {
     const nextVerdicts = [...verdicts, { pass, afterClause: clauseIssued }];
     setVerdicts(nextVerdicts);
 
-    const ack: string[] = [pass ? S.STAMPED_PASS : S.STAMPED_FAIL];
+    const receipt = readNumber(RECEIPT_KEY, 0, { min: 0 }) + 1;
+    writeString(RECEIPT_KEY, String(receipt));
+    const ack: string[] = [S.stamped(pass, receipt)];
     let held: XrFace | null = null;
+    // The rulebook answers a violation by itself: 7-1, 7-2, 7-3, and clause 8 with the second.
+    const sprouted: string[] = [];
     if (violation) {
       ack.push(violations === 0 ? S.VIOLATION_FIRST : S.VIOLATION_AGAIN);
-      setViolations((v) => v + 1);
+      const count = violations + 1;
+      setViolations(count);
+      if (count <= 3) sprouted.push(`7-${count}`);
+      if (count === 2) sprouted.push("8");
+      if (sprouted.length > 0) setGrown((g) => [...g, ...sprouted]);
     } else if (pass && passedBefore > 0) {
       ack.push(S.SECOND_PASS);
       held = "alert";
@@ -306,6 +335,13 @@ function XrMode({ onLeave }: XrModeProps) {
     setFaceOverride(held);
 
     const msgs: XrMessage[] = [{ from: "xr", lines: ack }];
+    sprouted.forEach((id) =>
+      msgs.push({
+        from: "xr",
+        lines: id === "8" ? [S.RULES_UPDATED, S.RULE_8_FOLLOW] : [S.RULES_UPDATED],
+        attachments: [{ tab: "rules", label: S.TAB_RULES }],
+      }),
+    );
     const stamped = current + 1;
     const issueNow = !clauseIssued && stamped === r.clauseAfter;
     if (issueNow) {
@@ -379,9 +415,15 @@ function XrMode({ onLeave }: XrModeProps) {
     // After the phase's own commands, so "詢問 Xrer" asks instead of tripping her name, and "守則錯了" isn't a tab.
     const egg = S.EGGS.find((e) => said(text, e.phrases));
     const answerEgg = () => {
+      if (grown.includes("8") && said(text, S.RULE_8_PHRASES)) {
+        post({ from: "xr", lines: [S.RULE_8_DENIAL], options });
+        return true;
+      }
       if (!egg) return false;
       setFaceOverride(egg.alert ? "alert" : null);
-      post({ from: "xr", lines: [egg.line], options });
+      // Once 7-1 exists, doubting clause 7 is itself against the rules.
+      const line = egg.alert && grown.includes("7-1") ? S.DOUBT_AFTER_7_1 : egg.line;
+      post({ from: "xr", lines: [line], options });
       return true;
     };
 
@@ -464,9 +506,22 @@ function XrMode({ onLeave }: XrModeProps) {
   };
 
   let panel: ReactNode = null;
-  if (tab === "rules") panel = <RulesDocument clause={clauseIssued ? round?.clause : undefined} />;
-  else if (tab === "record") panel = <RecordDocument record={record} />;
-  else if (round) {
+  // The documents rot with each violation of clause 7, and all the way when XR breaks.
+  const docLevel: DocLevel = faceOverride === "broken" ? 3 : (Math.min(violations, 2) as DocLevel);
+  if (tab === "rules") {
+    panel = (
+      <RulesDocument
+        clause={clauseIssued ? round?.clause : undefined}
+        grown={grown}
+        level={docLevel}
+        violations={violations}
+        seed={round?.seed ?? ""}
+      />
+    );
+  } else if (tab === "record") {
+    const fx = recordFx({ level: docLevel, violations, seed: round?.seed ?? "", protect: round?.protect ?? [] });
+    panel = <RecordDocument record={record} fx={fx} />;
+  } else if (round) {
     const i = Number(tab);
     const a = round.applicants[i];
     panel = <ApplicantDocument cv={a.cv} letter={a.letter} pass={verdicts[i]?.pass} />;
@@ -543,7 +598,9 @@ function XrMode({ onLeave }: XrModeProps) {
                   <div className="kere-msg__body" lang="zh-Hant">
                     {m.title && <p className="xr-form__title">{m.title}</p>}
                     {m.lines.map((line, i) => (
-                      <p key={i}>{line}</p>
+                      <p key={i}>
+                        <Fx text={line} strength={m.strength ?? 1} seed={m.seed} />
+                      </p>
                     ))}
                     {m.settlement && (
                       <table className="xr-settlement">

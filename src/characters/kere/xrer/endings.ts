@@ -89,7 +89,7 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       showRecord: true,
       steps: [
         step([`審查完成。錄取應徵者 ${fake.no}。`, "原始紀錄已依錄取者更新。"], "normal", 0),
-        step(["請審查員確認原始紀錄。"], "alert"),
+        step(["請審查員確認{原始紀錄}。"], "alert"),
       ],
     };
   }
@@ -112,11 +112,11 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       steps: [
         step([`合格者共 ${passed.length} 位。依第 4 條，名額為一位。`, "開始比對。"], "alert", 0),
         step([`應徵者 ${a.no} 與應徵者 ${b.no} 之事實欄位……`], "anxious"),
-        step(["……完全一致。"], "anxious"),
-        step(["依第 2 條，兩者皆合格。依第 4 條，只能錄取一位。依第 2 條……"], "anxious"),
+        step(["……{完全一致}。"], "anxious"),
+        step(["依第 2 條，兩者皆合格。依第 4 條，只能錄取一位。依第 2 條……依第 ██ 條……"], "anxious"),
         // Held on the shrunken eye a while before it goes out.
         step(["……"], "broken", 2600),
-        step(["……全部都是。"], "broken", 2200),
+        step(["{……全部都是。}"], "broken", 2200),
       ],
     };
   }
@@ -131,7 +131,7 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       steps: [
         step([`審查完成。合格者一位：應徵者 ${only.no}。`], "alert", 0),
         step(["該應徵者不符第 7 條。", `第 7 條：${clause.text}`], "anxious"),
-        step(["原始紀錄……不符合。", "兩份都是有效文件……"], "anxious"),
+        step(["原始紀錄……{不符合}。", "兩份都是~~無效~~有效文件……"], "anxious"),
         step(["請審查員稍候，本人需要重新核對。"], "anxious"),
       ],
     };

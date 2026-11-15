@@ -25,6 +25,10 @@ export interface Round {
   /** Clause 7 is issued once this many files have been stamped. */
   clauseAfter: number;
   clause: Clause;
+  /** Record fields that must stay readable this round: what the fakes changed and what clause 7 gets wrong. */
+  protect: string[];
+  /** Picks which parts of the record rot this round. */
+  seed: string;
 }
 
 const HINT_SECTIONS = ["education", "experience", "projects", "skills"];
@@ -64,7 +68,12 @@ export function createRound(): Round {
     return { no, identity: { type: "fake", flaw }, cv, letter, hintSection: flaw.section };
   });
 
-  return { applicants, clauseAfter, clause: clause ?? negativeClause() };
+  const finalClause = clause ?? negativeClause();
+  const protect = [
+    ...applicants.flatMap((a) => (a.identity.type === "fake" && a.identity.flaw.field ? [a.identity.flaw.field] : [])),
+    ...(finalClause.protects ?? []),
+  ];
+  return { applicants, clauseAfter, clause: finalClause, protect, seed: Math.random().toString(36).slice(2) };
 }
 
 export function isRealKiri(a: Applicant): boolean {

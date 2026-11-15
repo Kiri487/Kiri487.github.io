@@ -141,6 +141,37 @@ html[data-skin="kere"][data-xr] {
   pointer-events: none;
 }
 
+/* ---- corruption (see fx.tsx) ---- */
+
+/* Marks over a Chinese character ride on a blank carrier laid over it, since combining them breaks the glyph. */
+[data-skin="kere"] .xr-z {
+  position: relative;
+}
+
+[data-skin="kere"] .xr-z__marks {
+  position: absolute;
+  left: 0.25em;
+  top: 0;
+  font-family: "XCharter", Charter, Georgia, serif;
+  pointer-events: none;
+}
+
+[data-skin="kere"] .xr-redact {
+  color: var(--kere-ink);
+  letter-spacing: -0.05em;
+}
+
+/* Clause numbers like "7-1", written out. */
+[data-skin="kere"] .xr-rules--numbered {
+  list-style: none;
+  padding-left: 0;
+}
+
+[data-skin="kere"] .xr-rules__no {
+  display: inline-block;
+  min-width: 2.2em;
+}
+
 /* ---- chat ---- */
 
 /* Forms take the whole width: no speaker column. */

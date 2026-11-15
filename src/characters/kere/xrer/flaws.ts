@@ -23,6 +23,8 @@ export interface Flaw {
   note: string;
   /** The altered value a trap clause can quote: the fake skill, project title or misspelt name. */
   value: string;
+  /** The record field a reader must compare against to catch it, so the record's corruption leaves it alone. */
+  field?: string;
 }
 
 export interface FlawedCv {
@@ -110,7 +112,13 @@ function impossibleDate(data: CvData): FlawedCv {
   const shown = backwards ? period : startOf(period);
   return {
     data: withEntry(data, entry, { period }),
-    flaw: { kind: "impossibleDate", section: sectionOf(entry.list), note: `${nameOf(data, entry)}: ${shown}`, value: shown },
+    flaw: {
+      kind: "impossibleDate",
+      section: sectionOf(entry.list),
+      note: `${nameOf(data, entry)}: ${shown}`,
+      value: shown,
+      field: `${entry.list}.${entry.index}.date`,
+    },
   };
 }
 
@@ -223,7 +231,13 @@ function dateShift(data: CvData): FlawedCv | undefined {
     : original.replace(/^([A-Z][a-z]{2})/, (m) => MONTHS[MONTHS.indexOf(m) - 1]);
   return {
     data: withEntry(data, entry, { period }),
-    flaw: { kind: "dateShift", section: sectionOf(entry.list), note: `${nameOf(data, entry)}: ${startOf(period)}`, value: startOf(period) },
+    flaw: {
+      kind: "dateShift",
+      section: sectionOf(entry.list),
+      note: `${nameOf(data, entry)}: ${startOf(period)}`,
+      value: startOf(period),
+      field: `${entry.list}.${entry.index}.date`,
+    },
   };
 }
 

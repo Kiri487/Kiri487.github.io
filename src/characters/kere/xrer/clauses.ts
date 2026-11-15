@@ -12,6 +12,8 @@ export interface Clause {
   trap: boolean;
   /** Does a CV satisfy the clause? XR's advice after it's issued is just this. */
   check: (cv: CvData) => boolean;
+  /** Record fields a reader needs to see the clause is wrong, so the record's corruption leaves them alone. */
+  protects?: string[];
 }
 
 export const TRAP_FLAWS: FlawKind[] = ["extraEntry", "misspell", "strangeSkill"];
@@ -42,27 +44,38 @@ function countClause(): Clause {
   return { text: `原始紀錄共有 ${wrong} 筆${label}。`, trap: false, check: (cv) => count(cv) === wrong };
 }
 
+function earliestIndex(entries: { period: string }[]): number {
+  const starts = entries.map((e) => periodStart({ ...e, year: "0" }));
+  return starts.indexOf(Math.min(...starts));
+}
+
 function earliestStart(entries: { period: string }[]): string {
-  const first = [...entries].sort((a, b) => periodStart({ ...a, year: "0" }) - periodStart({ ...b, year: "0" }))[0];
-  return startOf(first.period);
+  return startOf(entries[earliestIndex(entries)].period);
 }
 
 function earliestClause(): Clause {
-  const { label, list } = pickOne([
-    { label: "學歷", list: (cv: CvData) => cv.education },
-    { label: "經歷", list: (cv: CvData) => cv.work },
+  const { label, key, list } = pickOne([
+    { label: "學歷", key: "education", list: (cv: CvData) => cv.education },
+    { label: "經歷", key: "work", list: (cv: CvData) => cv.work },
   ]);
   const real = earliestStart(list(KIRI_CV));
   const wrong = real.replace(/\d{4}$/, (y) => String(Number(y) + 1));
-  return { text: `Kiri 的${label}最早始於 ${wrong}。`, trap: false, check: (cv) => earliestStart(list(cv)) === wrong };
+  return {
+    text: `Kiri 的${label}最早始於 ${wrong}。`,
+    trap: false,
+    check: (cv) => earliestStart(list(cv)) === wrong,
+    protects: [`${key}.${earliestIndex(list(KIRI_CV))}.date`],
+  };
 }
 
 function absentClause(): Clause {
-  const title = pickOne(KIRI_CV.projects).title;
+  const index = Math.floor(Math.random() * KIRI_CV.projects.length);
+  const title = KIRI_CV.projects[index].title;
   return {
     text: `原始紀錄不包含 ${title}。列有此項者視為偽造。`,
     trap: false,
     check: (cv) => !cv.projects.some((p) => p.title === title),
+    protects: [`projects.${index}.title`],
   };
 }
 
