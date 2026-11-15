@@ -217,9 +217,9 @@ html[data-skin="kere"][data-xr] {
   border-bottom: 1px solid var(--kere-faint);
 }
 
-/* The ✓ / ✗ column is centred under its heading. */
-[data-skin="kere"] .xr-settlement th:first-child,
-[data-skin="kere"] .xr-settlement td:first-child {
+/* Every column but the identity is centred under its heading. */
+[data-skin="kere"] .xr-settlement th:nth-child(-n + 3),
+[data-skin="kere"] .xr-settlement td:nth-child(-n + 3) {
   text-align: center;
 }
 
