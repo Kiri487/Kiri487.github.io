@@ -8,9 +8,11 @@ interface KereAvatarProps {
   bare?: boolean;
   /** White cat-head silhouette behind the face, for when it floats over other content. */
   backed?: boolean;
+  /** A face drawn by the caller instead of the expression's: the crossing into XR, mid-change. */
+  face?: string;
 }
 
-function KereAvatar({ expression = "normal", bare = false, backed = false }: KereAvatarProps) {
+function KereAvatar({ expression = "normal", bare = false, backed = false, face: drawn }: KereAvatarProps) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -20,7 +22,7 @@ function KereAvatar({ expression = "normal", bare = false, backed = false }: Ker
   }, [expression]);
 
   const frames = bare ? TYPING_FRAMES : THINKING_FRAMES;
-  const face = expression === "thinking" ? frames[tick % frames.length] : FACES[expression];
+  const face = drawn ?? (expression === "thinking" ? frames[tick % frames.length] : FACES[expression]);
 
   return (
     <span

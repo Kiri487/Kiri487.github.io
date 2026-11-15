@@ -4,7 +4,7 @@
    ============================================================ */
 
 /*
- * A 4 KB subset of Cascadia Mono with just the face's characters. Shipped instead of relying on the
+ * A 9 KB subset of Cascadia Mono with just the characters of Kere's face and XR's. Shipped instead of relying on the
  * system monospace font, because phones' fonts place "_" at a different height than "/" and "\",
  * which knocked the ears out of line. License: /kere/fonts/KereFace-LICENSE.txt.
  * The subset must keep "0": CSS `ch` is measured from it, and the silhouette below is drawn in ch.

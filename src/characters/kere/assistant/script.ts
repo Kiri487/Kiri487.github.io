@@ -1,4 +1,5 @@
-import type { Localized, QuickOption, ScriptedRule } from "./types";
+import { XR_TRIGGERS } from "../xrer/triggers";
+import type { Localized, QuickOption, ScriptedRule, WelcomeNote } from "./types";
 
 /* ============================================================
    Everything Kere says that isn't generated from portfolio data.
@@ -6,21 +7,38 @@ import type { Localized, QuickOption, ScriptedRule } from "./types";
    characters (one character hides inside too many other words) and written in Traditional Chinese.
    ============================================================ */
 
-/** One is picked at random when the chat first opens. "Kere" looks like a typo of "Kiri", so each says who he is. */
-export const GREETINGS = [
-  "Hello. I'm Kere, Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
-  "Hello. I'm Kere — not a typo, just Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
-  "Hello. I'm Kere. Yes, with an e. I'm the part of Kiri that reads the documentation. Ask me about education, experience, projects, skills, or contact.",
-];
+/**
+ * One is picked at random when the chat opens: in English, until the visitor switches. "Kere" looks like a typo of
+ * "Kiri", so each says who she is.
+ */
+export const GREETINGS: Localized<string[]> = {
+  en: [
+    "Hello. I'm Kere, Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
+    "Hello. I'm Kere — not a typo, just Kiri in work mode. Ask me about education, experience, projects, skills, or contact.",
+    "Hello. I'm Kere. Yes, with an e. I'm the part of Kiri that reads the documentation. Ask me about education, experience, projects, skills, or contact.",
+  ],
+  zh: [
+    "您好，我是 Kere，工作模式的 Kiri。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。",
+    "您好，我是 Kere，不是打錯字，就是工作模式的 Kiri。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。",
+    "您好，我是 Kere。對，是 e 不是 i，我是 Kiri 負責讀文件的那一部分。想知道學歷、經歷、專案、技能或聯絡方式，直接問我就好。",
+  ],
+};
 
-/** Added under every greeting: the greeting is English (Kere can't know the language yet), so tell Chinese speakers. */
-export const GREETING_CHINESE_HINT = "用中文也可以。";
-
-export const GREETING_OPTIONS: QuickOption[] = [
-  { label: "Projects", query: "projects" },
-  { label: "Skills", query: "skills" },
-  { label: "Contact", query: "contact" },
-];
+/** The greeting's choices. The last one starts the chat over in the other language, and is written in it. */
+export const GREETING_OPTIONS: Localized<QuickOption[]> = {
+  en: [
+    { label: "Projects", query: "projects" },
+    { label: "Skills", query: "skills" },
+    { label: "Contact", query: "contact" },
+    { label: "切換為中文", query: "切換為中文", switchTo: "zh" },
+  ],
+  zh: [
+    { label: "專案", query: "專案" },
+    { label: "技能", query: "技能" },
+    { label: "聯絡", query: "聯絡" },
+    { label: "Switch to English", query: "switch to english", switchTo: "en" },
+  ],
+};
 
 export const HELLO_REPLIES: Localized<string[]> = {
   en: [
@@ -132,6 +150,12 @@ export const SFX_REPLIES: Localized<Record<
   },
 };
 
+/** The night line that hints at XR (see XR_HINT). */
+const NIGHT_SHIFT_HINT: Localized<string> = {
+  en: "It's late. Around this hour the night shift takes over, so I'd finish up soon.",
+  zh: "很晚了，這個時間通常是夜班接手，建議您早點問完。",
+};
+
 /** Time periods follow the visitor's own clock; lines never name an exact hour. Same split as Kuru. */
 export type TimePeriod = "night" | "morning" | "afternoon" | "evening";
 
@@ -141,6 +165,7 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
     night: [
       "It's late. Why are we both still here?",
       "This is well outside office hours. I'll make an exception.",
+      NIGHT_SHIFT_HINT.en,
     ],
     // 6:00–11:59
     morning: [
@@ -162,6 +187,7 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
     night: [
       "很晚了，怎麼我們兩個都還沒下班？",
       "已經過了上班時間很久了，這次就破例一下。",
+      NIGHT_SHIFT_HINT.zh,
     ],
     morning: [
       "早安，先讓我喝杯咖啡，再來回答問題。",
@@ -179,8 +205,91 @@ export const TIME_REPLIES: Localized<Record<TimePeriod, string[]>> = {
   },
 };
 
+/** Kere's first line when the visitor comes back from XR's review, in the language the review ran in. */
+export const WELCOME_BACK: Localized<string> = {
+  en: "Welcome back. I had to step away for a moment.",
+  zh: "歡迎回來，剛剛有點事走開了一下。",
+};
+
+/**
+ * In place of WELCOME_BACK, after certain reviews. "impostor": a message in XR's chat went out under Kere's name,
+ * answered or not; she knows nothing of it. "rattled": the review ended in a way that leaves her quoting clause 9.
+ */
+export const WELCOME_BACK_NOTED: Localized<Record<WelcomeNote, string>> = {
+  en: {
+    impostor: "Welcome back. Good work in there. You were busy, so I made a point of not interrupting.",
+    rattled: "Welcome back. Per Article 9... Sorry. I had to step away for a moment.",
+  },
+  zh: {
+    impostor: "歡迎回來，辛苦了。您剛剛在忙，我就刻意沒有打擾您。",
+    rattled: "歡迎回來。依第 9 條……抱歉，剛剛有點事走開了一下。",
+  },
+};
+
+/**
+ * The trail to XR, for visitors curious enough to follow it. A few of Kere's lines hint at a night-shift colleague
+ * (XR_HINT_LINES: the dark-mode egg, a night line, and the steps below). Only right after one of them, a follow-up question
+ * gets the next step, each a little less vague, never her name or the number. Anywhere else these words mean nothing,
+ * so they can be short and broad; 誰 breaks the two-character rule for that reason.
+ */
+export const XR_HINT = {
+  followUps: [
+    "who", "colleague", "colleagues", "night shift", "black", "why", "what do you mean", "tell me more", "caesar",
+    "誰", "同事", "夜班", "接手", "全黑", "為什麼", "什麼意思", "說清楚", "然後呢", "凱薩", "凱撒",
+  ],
+  /** In order; the last one repeats. */
+  steps: {
+    en: [
+      "I'd rather not say her name, though it probably has something to do with mine.",
+      "Have you heard of the Caesar cipher? No particular reason.",
+      "Half a turn of the alphabet, and I'm her. A full turn, and I'm me again.",
+    ],
+    zh: [
+      "我不太想說她的名字，不過大概跟我的名字有點關聯吧。",
+      "您聽過凱薩加密嗎？沒什麼，隨口問問。",
+      "字母表轉半圈，我就是她；轉一整圈，我又是我。",
+    ],
+  } satisfies Localized<string[]>,
+};
+
+/** In place of the handover, once XR has failed to load in this tab. */
+export const XR_UNAVAILABLE: Localized<string> = {
+  en: "Sorry, that colleague can't be reached right now. Please try again later.",
+  zh: "抱歉，那位同事現在聯絡不上，請稍後再試。",
+};
+
+/** The handover to XR, for a visitor who got there through the hints instead of the usual "outside my scope". */
+export const XR_HANDOFF_FOUND: Localized<string> = {
+  en: "...You found her. I'll transfer you. Good luck.",
+  zh: "……您找到她了。我幫您轉接，祝您好運。",
+};
+
+const DARK_MODE_REPLIES: Localized<string[]> = {
+  en: [
+    "There's no dark mode. There is a colleague whose page is entirely black, but that isn't a theme. That's just how she works.",
+  ],
+  zh: ["這裡沒有深色模式。是有一位同事的頁面全黑，不過那不是主題，她本來就是那樣工作的。"],
+};
+
+/** Every line after which a follow-up question leads on towards XR. */
+export const XR_HINT_LINES: ReadonlySet<string> = new Set(
+  (["en", "zh"] as const).flatMap((lang) => [
+    ...DARK_MODE_REPLIES[lang],
+    NIGHT_SHIFT_HINT[lang],
+    ...XR_HINT.steps[lang],
+  ]),
+);
+
 /** Checked before anything else, top to bottom. */
 export const EASTER_EGGS: ScriptedRule[] = [
+  {
+    // XR, Kere's ROT13 reflection. Checked before everything else (see respond.tsx); the words are in xrer/triggers.ts.
+    id: "xrer",
+    phrases: XR_TRIGGERS,
+    action: "xr",
+    replies: ["That keyword is outside my scope. I'll transfer you to the colleague in charge."],
+    repliesZh: ["這個關鍵字不在我的處理範圍內，我幫您轉接負責的同事。"],
+  },
   {
     // Before "kiri", so "back to kiri" leaves instead of getting Kere's opinion of Kiri.
     id: "exit",
@@ -197,6 +306,13 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "我先下線了，有需要可以再回來找我。",
       "好，帶您回 Kiri 那邊。",
     ],
+  },
+  {
+    // Kere has no dark mode, but she knows who does. One of the hints at XR (see XR_HINT).
+    id: "dark-mode",
+    phrases: ["dark mode", "dark theme", "night mode", "深色模式", "暗色模式", "黑暗模式", "夜間模式"],
+    replies: DARK_MODE_REPLIES.en,
+    repliesZh: DARK_MODE_REPLIES.zh,
   },
   {
     // Early, so "your skills are useless" gets this instead of the skills list. Kere stays calm and polite.
@@ -281,7 +397,7 @@ export const EASTER_EGGS: ScriptedRule[] = [
       "\"Always Chill and Cool.\" Skips every standup. Ships at 3 a.m. Writes no documentation. Annoyingly, it works.",
     ],
     repliesZh: [
-      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問他進度了。",
+      "「Always Chill and Cool.」同一首曲子從上一季說快好了到現在，我已經不想問她進度了。",
       "「Always Chill and Cool.」平均回訊息長度：一個字，急的時候兩個字。",
       "「Always Chill and Cool.」早會從來不出席，凌晨三點才上線，文件一個字都沒寫，偏偏東西都能動，而且還不錯。",
     ],

@@ -19,9 +19,13 @@ import {
   SFX_REPLIES,
   TIME_REPLIES,
   TOPIC_PHRASES,
+  XR_HANDOFF_FOUND,
+  XR_HINT,
+  XR_HINT_LINES,
   type TimePeriod,
 } from "./script";
-import type { Lang, Reply } from "./types";
+import { halfWidth } from "../xrer/triggers";
+import type { Lang, Reply, ScriptedRule } from "./types";
 
 const CHINESE = /[㐀-鿿]/;
 
@@ -35,19 +39,30 @@ export function detectLang(text: string): Lang {
  * Runs of Chinese are spaced off from Latin text, so "看projects" still contains the word "projects".
  */
 export function normalize(text: string): string {
-  const spaced = text
+  const spaced = halfWidth(text)
     .toLowerCase()
     .replace(/[^a-z0-9㐀-鿿]+/g, " ")
     .replace(/[㐀-鿿]+/g, " $& ");
   return ` ${spaced.replace(/ +/g, " ").trim()} `;
 }
 
-/** English phrases match whole words. Chinese has no spaces between words, so those match anywhere, spaces ignored. */
-function matches(normalized: string, phrases: readonly string[]): boolean {
+/**
+ * English phrases match whole words. Chinese has no spaces between words, so those match anywhere, spaces ignored;
+ * except that one ending in a number can't run on into more digits ("凱薩13" isn't in "凱薩130").
+ */
+export function matches(normalized: string, phrases: readonly string[]): boolean {
   const compact = normalized.replace(/ /g, "");
   return phrases.some((p) =>
-    CHINESE.test(p) ? compact.includes(normalize(p).replace(/ /g, "")) : normalized.includes(normalize(p)),
+    CHINESE.test(p) ? containsChinese(compact, normalize(p).replace(/ /g, "")) : normalized.includes(normalize(p)),
   );
+}
+
+function containsChinese(compact: string, phrase: string): boolean {
+  if (!/\d$/.test(phrase)) return compact.includes(phrase);
+  for (let at = compact.indexOf(phrase); at >= 0; at = compact.indexOf(phrase, at + 1)) {
+    if (!/\d/.test(compact.charAt(at + phrase.length))) return true;
+  }
+  return false;
 }
 
 /** Per-conversation state; cleared on reload. */
@@ -56,10 +71,28 @@ export interface ReplyMemory {
   lastPick: Map<string, number>;
   /** Unmatched inputs in a row. */
   missStreak: number;
+  /** Kere's last message hinted at XR, so a follow-up question gets the next step (see XR_HINT). */
+  hinted: boolean;
+  /** XR_HINT steps given so far. */
+  hintSteps: number;
 }
 
 export function createReplyMemory(): ReplyMemory {
-  return { lastPick: new Map(), missStreak: 0 };
+  return { lastPick: new Map(), missStreak: 0, hinted: false, hintSteps: 0 };
+}
+
+/** Remembers whether a message Kere just sent hinted at XR. Every message she sends goes through here. */
+export function noteHint(memory: ReplyMemory, lines: readonly unknown[]) {
+  memory.hinted = lines.some((line) => typeof line === "string" && XR_HINT_LINES.has(line));
+}
+
+/** The next step towards XR, only as the answer to a follow-up on one of Kere's hints. */
+function hintReply(text: string, memory: ReplyMemory, lang: Lang): Reply | undefined {
+  if (!memory.hinted || !matches(text, XR_HINT.followUps)) return undefined;
+  const steps = XR_HINT.steps[lang];
+  const line = steps[Math.min(memory.hintSteps, steps.length - 1)];
+  memory.hintSteps += 1;
+  return { lines: [line] };
 }
 
 export function pick(memory: ReplyMemory, key: string, options: readonly string[]): string {
@@ -203,11 +236,24 @@ function findProject(normalized: string): CvProject | undefined {
   return allProjects.find((p) => matches(normalized, [p.title, ...(PROJECT_ALIASES[p.title] ?? [])]));
 }
 
-/** Sound commands → "中文" → easter eggs → project names → topics → fallback. */
+/** Kere's answer to one message, remembering whether it hints at XR. */
 export function respond(input: string, memory: ReplyMemory, sfxEnabled: boolean): Reply {
+  const reply = answer(input, memory, sfxEnabled);
+  noteHint(memory, reply.lines);
+  return reply;
+}
+
+/** XR's words → a follow-up on a hint at XR → sound commands → "中文" → easter eggs → project names → topics → fallback. */
+function answer(input: string, memory: ReplyMemory, sfxEnabled: boolean): Reply {
   const text = normalize(input);
   const lang = detectLang(input);
-  const reply = sfxReply(text, memory, sfxEnabled, lang) ?? match(text, memory, lang);
+  // XR's words win over everything, "中文" and sound commands included: "xrer 中文" goes to XR, in Chinese.
+  const xr = EASTER_EGGS.find((rule) => rule.action === "xr");
+  const reply =
+    (xr && matches(text, xr.phrases) ? xrReply(xr, memory, lang) : undefined) ??
+    hintReply(text, memory, lang) ??
+    sfxReply(text, memory, sfxEnabled, lang) ??
+    match(text, memory, lang);
   if (reply) {
     memory.missStreak = 0;
     return { ...reply, lang: reply.lang ?? lang };
@@ -230,21 +276,29 @@ export function respond(input: string, memory: ReplyMemory, sfxEnabled: boolean)
   };
 }
 
+/** The handover to XR: the usual line, or, once the visitor has followed Kere's hints, one that knows they did. */
+function xrReply(xr: ScriptedRule, memory: ReplyMemory, lang: Lang): Reply {
+  if (memory.hintSteps === 0) return eggReply(xr, memory, lang);
+  return { lines: [XR_HANDOFF_FOUND[lang]], action: "xr", lang };
+}
+
+function eggReply(egg: ScriptedRule, memory: ReplyMemory, lang: Lang): Reply {
+  // An egg without Chinese lines answers in English, even to a Chinese message.
+  const zh = lang === "zh" ? egg.repliesZh : undefined;
+  return {
+    lines: [zh ? pick(memory, `${egg.id}-zh`, zh) : pick(memory, egg.id, egg.replies)],
+    expression: egg.expression,
+    jump: zh && egg.jump && egg.jumpLabelZh ? { ...egg.jump, label: egg.jumpLabelZh } : egg.jump,
+    action: egg.action,
+    lang: zh ? "zh" : "en",
+  };
+}
+
 function match(text: string, memory: ReplyMemory, lang: Lang): Reply | undefined {
   if (matches(text, CHINESE_PHRASES)) return { lines: [CHINESE_INTRO], options: HELP_OPTIONS.zh, lang: "zh" };
 
   const egg = EASTER_EGGS.find((rule) => matches(text, rule.phrases));
-  if (egg) {
-    // An egg without Chinese lines answers in English, even to a Chinese message.
-    const zh = lang === "zh" ? egg.repliesZh : undefined;
-    return {
-      lines: [zh ? pick(memory, `${egg.id}-zh`, zh) : pick(memory, egg.id, egg.replies)],
-      expression: egg.expression,
-      jump: zh && egg.jump && egg.jumpLabelZh ? { ...egg.jump, label: egg.jumpLabelZh } : egg.jump,
-      action: egg.action,
-      lang: zh ? "zh" : "en",
-    };
-  }
+  if (egg) return eggReply(egg, memory, lang);
 
   const project = findProject(text);
   if (project) return projectReply(project, lang);

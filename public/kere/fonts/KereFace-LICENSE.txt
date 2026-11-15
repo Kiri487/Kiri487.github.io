@@ -1,5 +1,5 @@
 KereFace.woff2 is a subset of Cascadia Mono (Regular), containing only the
-characters used by Kere's text face. Renamed "Kere Face" because a subset is a
+characters used by Kere's and XR's text faces. Renamed "Kere Face" because a subset is a
 Modified Version under the OFL.
 
 Copyright (c) 2019 - Present, Microsoft Corporation,

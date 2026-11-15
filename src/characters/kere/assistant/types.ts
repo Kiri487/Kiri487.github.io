@@ -6,6 +6,12 @@ export type { Expression };
 /** Kere answers in the language of each message: Chinese if it contains any Chinese character, else English. */
 export type Lang = "en" | "zh";
 
+/**
+ * What happened in XR's review that Kere's welcome back reflects: "impostor", someone used her name in there;
+ * "rattled", the review ended badly enough to leave a trace on her.
+ */
+export type WelcomeNote = "impostor" | "rattled";
+
 /** The same copy in both languages. */
 export type Localized<T> = Record<Lang, T>;
 
@@ -13,6 +19,8 @@ export type Localized<T> = Record<Lang, T>;
 export interface QuickOption {
   label: string;
   query: string;
+  /** Instead of sending anything, start the chat over in this language. */
+  switchTo?: Lang;
 }
 
 /** A bulleted list inside a reply, drawn like the CV's own lists. */
@@ -34,8 +42,11 @@ export interface Reply {
   options?: QuickOption[];
   /** Language the reply is written in; `respond` fills it in. Chinese replies are marked up as zh-Hant. */
   lang?: Lang;
-  /** Side effect after the reply is shown — "exit" sends the visitor back to Kiri; "sfx-*" toggles sound effects. */
-  action?: "exit" | "sfx-on" | "sfx-off";
+  /**
+   * Side effect after the reply is shown — "exit" sends the visitor back to Kiri; "xr" hands them over to XR's review;
+   * "sfx-*" toggles sound effects.
+   */
+  action?: "exit" | "xr" | "sfx-on" | "sfx-off";
 }
 
 /** Hand-written reply: one of `replies` is picked at random each time it fires. */
@@ -50,5 +61,5 @@ export interface ScriptedRule {
   jump?: Reply["jump"];
   /** Link text for `jump` in Chinese replies. */
   jumpLabelZh?: string;
-  action?: "exit";
+  action?: "exit" | "xr";
 }

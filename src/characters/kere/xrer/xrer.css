@@ -1,0 +1,254 @@
+/* ============================================================
+   XR's review (X Mode), inside Kere's page. Same paper, same
+   Charter, in negative: Kere's page with ink and paper swapped,
+   and tabs of documents on the desk.
+   Every rule scoped under [data-skin="kere"].
+   ============================================================ */
+
+/* ---- the whole page, negative ---- */
+
+/* XrMode sets data-xr on <html> while it's open: Kere's page with ink and paper swapped. */
+html[data-skin="kere"][data-xr] {
+  --kere-ink: #fff;
+  --kere-paper: #000;
+  --kere-muted: #bbb;
+  --kere-faint: #777;
+  --kere-disabled: #555;
+  --kere-desk: #0b0b0d;
+
+  color-scheme: dark;
+}
+
+/* ---- XR's face: white on a black cat head, Kere's face in negative ---- */
+
+[data-skin="kere"] .xr-avatar {
+  position: relative;
+  z-index: 0;
+  color: var(--kere-ink);
+}
+
+/* Kere's silhouette (see avatar.css), cut from the page colour so content behind it only hides inside the face. */
+[data-skin="kere"] .xr-avatar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--kere-paper);
+  clip-path: polygon(
+    0 100%, 0 50%, 1ch 50%, 2ch 0, 3ch 50%, 4ch 50%, 5ch 0, 6ch 50%, 7ch 50%, 7ch 100%
+  );
+}
+
+/* ---- tabs ---- */
+
+[data-skin="kere"] .xr-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: baseline;
+  gap: 4px 20px;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px 24px 8px;
+  border-bottom: 1px solid var(--kere-ink);
+  background: var(--kere-paper);
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+[data-skin="kere"] .xr-tabs__tab,
+[data-skin="kere"] .xr-tabs__leave {
+  padding: 2px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--kere-muted);
+  cursor: pointer;
+}
+
+[data-skin="kere"] .xr-tabs__tab[aria-selected="true"] {
+  color: var(--kere-ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+[data-skin="kere"] .xr-tabs__tab:hover,
+[data-skin="kere"] .xr-tabs__leave:hover:not(:disabled) {
+  color: var(--kere-ink);
+}
+
+[data-skin="kere"] .xr-tabs__leave {
+  margin-left: auto;
+}
+
+[data-skin="kere"] .xr-tabs__tab:focus-visible,
+[data-skin="kere"] .xr-tabs__leave:focus-visible {
+  outline: 1px dashed var(--kere-ink);
+  outline-offset: 2px;
+}
+
+/* ---- documents ---- */
+
+[data-skin="kere"] .xr-doc {
+  position: relative;
+  padding-top: 32px;
+}
+
+[data-skin="kere"] .xr-doc__blank {
+  min-height: 60vh;
+}
+
+[data-skin="kere"] .xr-letter {
+  margin: 0 0 40px;
+}
+
+[data-skin="kere"] .xr-letter p {
+  margin: 0;
+}
+
+[data-skin="kere"] .xr-rules {
+  margin: 0;
+  padding-left: 1.6em;
+}
+
+[data-skin="kere"] .xr-rules li {
+  margin: 6px 0;
+}
+
+[data-skin="kere"] .xr-rules__clause-title {
+  font-size: 1.1rem;
+  font-weight: 400;
+  font-variant-caps: small-caps;
+  margin: 28px 0 8px;
+}
+
+[data-skin="kere"] .xr-doc__cv-head {
+  position: relative;
+}
+
+/* The stamp: a rubber-stamp box, set straight, level with the name at the top of the CV. */
+[data-skin="kere"] .xr-stamp {
+  position: absolute;
+  top: -20px;
+  right: 0;
+  padding: 4px 14px;
+  border: 3px double var(--kere-ink);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  pointer-events: none;
+}
+
+/* ---- corruption (see fx.tsx) ---- */
+
+/* Marks over a Chinese character ride on a blank carrier laid over it, since combining them breaks the glyph. */
+[data-skin="kere"] .xr-z {
+  position: relative;
+}
+
+[data-skin="kere"] .xr-z__marks {
+  position: absolute;
+  left: 0.25em;
+  top: 0;
+  font-family: "XCharter", Charter, Georgia, serif;
+  pointer-events: none;
+}
+
+[data-skin="kere"] .xr-redact {
+  color: var(--kere-ink);
+  letter-spacing: -0.05em;
+}
+
+/* Clause numbers like "7-1", written out. */
+[data-skin="kere"] .xr-rules--numbered {
+  list-style: none;
+  padding-left: 0;
+}
+
+[data-skin="kere"] .xr-rules__no {
+  display: inline-block;
+  min-width: 2.2em;
+}
+
+/* ---- chat ---- */
+
+/* Forms take the whole width: no speaker column. */
+[data-skin="kere"] .xr-msg--form {
+  grid-template-columns: 1fr;
+}
+
+[data-skin="kere"] .xr-form__result {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--kere-ink);
+}
+
+[data-skin="kere"] .kere-msg__body .xr-form__title {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--kere-ink);
+}
+
+/* The same speaker again: no name, and closer to the message before. */
+[data-skin="kere"] .xr-msg--cont {
+  margin-top: -8px;
+}
+
+/* Settlement table: right or wrong, number, stamp, who. A fake's giveaway goes under its name. */
+[data-skin="kere"] .xr-settlement {
+  width: 100%;
+  margin: 6px 0;
+  border-collapse: collapse;
+}
+
+[data-skin="kere"] .xr-settlement th,
+[data-skin="kere"] .xr-settlement td {
+  padding: 3px 10px 3px 0;
+  text-align: left;
+  vertical-align: baseline;
+}
+
+[data-skin="kere"] .xr-settlement th {
+  font-weight: 400;
+  font-size: 0.86rem;
+  color: var(--kere-muted);
+  border-bottom: 1px solid var(--kere-faint);
+}
+
+/* Every column but the identity is centred under its heading. */
+[data-skin="kere"] .xr-settlement th:nth-child(-n + 3),
+[data-skin="kere"] .xr-settlement td:nth-child(-n + 3) {
+  text-align: center;
+}
+
+[data-skin="kere"] .xr-settlement th:last-child,
+[data-skin="kere"] .xr-settlement td:last-child {
+  width: 100%;
+  padding-right: 0;
+}
+
+[data-skin="kere"] .xr-settlement th,
+[data-skin="kere"] .xr-settlement td:not(:last-child) {
+  white-space: nowrap;
+}
+
+[data-skin="kere"] .xr-settlement__note {
+  display: block;
+  font-size: 0.86rem;
+  color: var(--kere-muted);
+  overflow-wrap: anywhere;
+}
+
+/* Matches MOBILE_QUERY in src/shared/breakpoints.ts. */
+@media (max-width: 640px) {
+  [data-skin="kere"] .xr-tabs {
+    padding: 12px 16px 6px;
+    gap: 4px 16px;
+  }
+
+  [data-skin="kere"] .xr-stamp {
+    font-size: 1.2rem;
+  }
+}

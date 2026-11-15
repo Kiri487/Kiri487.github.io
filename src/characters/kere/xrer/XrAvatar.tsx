@@ -1,0 +1,34 @@
+import { useEffect, useState } from "react";
+import { prefersReducedMotion } from "../../../shared/motion";
+import { XR_EARS, XR_FACES, XR_FRAME_MS, XR_THINKING_FRAMES, type XrFace } from "./faces";
+
+interface XrAvatarProps {
+  face: XrFace;
+  /** Checking a file. Only shows while her eye is still steady; once she's rattled, the face stays as it is. */
+  thinking?: boolean;
+  /** A face drawn by the caller instead: part-way through turning into Kere's. */
+  drawn?: string;
+}
+
+function XrAvatar({ face, thinking = false, drawn }: XrAvatarProps) {
+  const [tick, setTick] = useState(0);
+  const animate = thinking && face === "normal";
+
+  useEffect(() => {
+    if (!animate || prefersReducedMotion()) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), XR_FRAME_MS);
+    return () => window.clearInterval(id);
+  }, [animate]);
+
+  const text = drawn ?? (animate ? XR_THINKING_FRAMES[tick % XR_THINKING_FRAMES.length] : XR_FACES[face]);
+
+  return (
+    <span className="kere-avatar xr-avatar" data-face={face} aria-hidden="true">
+      {XR_EARS}
+      {"\n"}
+      {text}
+    </span>
+  );
+}
+
+export default XrAvatar;

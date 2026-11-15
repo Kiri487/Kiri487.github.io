@@ -15,7 +15,7 @@
   padding: 4px;
   border: none;
   background: none;
-  color: #000;
+  color: var(--kere-ink);
   font: inherit;
   cursor: pointer;
 }
@@ -35,7 +35,7 @@
   bottom: calc(100% + 8px);
   transform: translateX(-50%);
   padding: 3px 10px;
-  border: 2px solid #000;
+  border: 2px solid var(--kere-ink);
   background: var(--kere-desk);
   font-size: 0.94rem;
   line-height: 1.4;
@@ -55,8 +55,8 @@
   width: 10px;
   height: 10px;
   background: var(--kere-desk);
-  border-right: 2px solid #000;
-  border-bottom: 2px solid #000;
+  border-right: 2px solid var(--kere-ink);
+  border-bottom: 2px solid var(--kere-ink);
   transform: translateX(-50%) rotate(45deg);
 }
 
@@ -71,7 +71,7 @@
   display: flex;
   flex-direction: column;
   background: var(--kere-desk);
-  border: 2px solid #000;
+  border: 2px solid var(--kere-ink);
   font-size: 0.94rem;
 }
 
@@ -80,8 +80,8 @@
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-bottom: 1px solid #000;
-  background: #fff;
+  border-bottom: 1px solid var(--kere-ink);
+  background: var(--kere-paper);
 }
 
 [data-skin="kere"] .kere-chat__name {
@@ -99,7 +99,7 @@
   line-height: 1;
   padding: 2px 6px;
   cursor: pointer;
-  color: #000;
+  color: var(--kere-ink);
 }
 
 [data-skin="kere"] .kere-chat__log {
@@ -124,7 +124,7 @@
 
 [data-skin="kere"] .kere-msg--you .kere-msg__who,
 [data-skin="kere"] .kere-msg--you .kere-msg__body {
-  color: #444;
+  color: var(--kere-muted);
 }
 
 [data-skin="kere"] .kere-msg__body p {
@@ -152,7 +152,7 @@
 }
 
 [data-skin="kere"] .kere-msg__body--thinking {
-  color: #444;
+  color: var(--kere-muted);
 }
 
 [data-skin="kere"] .kere-msg__jump,
@@ -161,7 +161,7 @@
   border: none;
   padding: 0;
   font: inherit;
-  color: #000;
+  color: var(--kere-ink);
   cursor: pointer;
   text-align: left;
 }
@@ -185,7 +185,7 @@
 }
 
 [data-skin="kere"] .kere-msg__options button:disabled {
-  color: #888;
+  color: var(--kere-faint);
   cursor: default;
 }
 
@@ -193,19 +193,19 @@
   display: flex;
   gap: 8px;
   padding: 8px 12px 10px;
-  border-top: 1px solid #000;
-  background: #fff;
+  border-top: 1px solid var(--kere-ink);
+  background: var(--kere-paper);
 }
 
 [data-skin="kere"] .kere-chat__input {
   flex: 1;
   min-width: 0;
   border: none;
-  border-bottom: 1px solid #888;
+  border-bottom: 1px solid var(--kere-faint);
   padding: 4px 0;
   font: inherit;
   background: transparent;
-  color: #000;
+  color: var(--kere-ink);
   outline: none;
   /* It's a textarea (see KereAssistant): look and behave like a one-line input. */
   resize: none;
@@ -218,7 +218,7 @@
 }
 
 [data-skin="kere"] .kere-chat__input:focus {
-  border-bottom-color: #000;
+  border-bottom-color: var(--kere-ink);
 }
 
 [data-skin="kere"] .kere-chat__send {
@@ -226,19 +226,19 @@
   border: none;
   font: inherit;
   font-weight: 700;
-  color: #000;
+  color: var(--kere-ink);
   cursor: pointer;
   padding: 0 2px;
 }
 
 [data-skin="kere"] .kere-chat__send:disabled {
-  color: #aaa;
+  color: var(--kere-disabled);
   cursor: default;
 }
 
 [data-skin="kere"] .kere-launcher:focus-visible,
 [data-skin="kere"] .kere-chat button:focus-visible {
-  outline: 1px dashed #000;
+  outline: 1px dashed var(--kere-ink);
   outline-offset: 2px;
 }
 
