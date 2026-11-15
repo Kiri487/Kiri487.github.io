@@ -123,7 +123,7 @@ function settlementMessages(r: Round, verdicts: Verdict[], outcome: Outcome, see
     settlement: settlementRows(r, verdicts, lang),
     footer: [t.clauseReveal(r.clause.text[lang])],
     result: [t.settlementResult(S.ENDING_IDS.indexOf(outcome.id) + 1, t.ENDING_NAMES[outcome.id], seenCount, ENDING_COUNT)],
-    options: [t.AGAIN_LABEL, t.BACK_LABEL],
+    options: [t.AGAIN_LABEL, t.BACK_LABEL, t.SWITCH_LABEL],
   });
   return msgs;
 }
@@ -473,6 +473,26 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
 
   /* ---- input ---- */
 
+  /** Switch language: everything so far is cleared and the consent form comes back in the other language. */
+  const startOver = (other: S.Lang) => {
+    langRef.current = other;
+    seedRef.current = "";
+    setLang(other);
+    setPhase("consent");
+    setRound(null);
+    setCurrent(0);
+    setVerdicts([]);
+    setClauseIssued(false);
+    setGrown([]);
+    setViolations(0);
+    setAsks([]);
+    setRecord({ type: "kiri" });
+    setFaceOverride(null);
+    setTab("record");
+    setMessages([{ ...consentForm(other), id: nextId.current++ } as Message]);
+    if (soundOn.current) playXrReplySfx("normal");
+  };
+
   /** Leave at any point, even mid-closing: XR doesn't argue. */
   const abort = (to: "kere" | "kiri", line = t.ABORTED) => {
     clearXrSession();
@@ -499,7 +519,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       phase === "consent"
         ? consentOptions(t)
         : phase === "done"
-          ? [t.AGAIN_LABEL, t.BACK_LABEL]
+          ? [t.AGAIN_LABEL, t.BACK_LABEL, t.SWITCH_LABEL]
           : reviewOptions(t);
     const setSound = (on: boolean, line: string) => {
       // Turning sound on confirms itself with the tick; turning it off stays silent.
@@ -543,21 +563,17 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       return true;
     };
 
+    const other: S.Lang = lang === "zh" ? "en" : "zh";
     if (phase === "consent") {
-      const other: S.Lang = lang === "zh" ? "en" : "zh";
       if (said(text, S.START_PHRASES)) startRound(false, lang);
-      else if (said(text, S.SWITCH_PHRASES[other])) {
-        // Start over in the other language: the form replaces everything said so far.
-        langRef.current = other;
-        setLang(other);
-        setMessages([{ ...consentForm(other), id: nextId.current++ } as Message]);
-        if (soundOn.current) playXrReplySfx(faceRef.current);
-      } else if (!answerEgg()) post({ from: "form", lines: [t.CHOOSE], options });
+      else if (said(text, S.SWITCH_PHRASES[other])) startOver(other);
+      else if (!answerEgg()) post({ from: "form", lines: [t.CHOOSE], options });
       return;
     }
 
     if (phase === "done") {
       if (said(text, S.AGAIN_PHRASES)) startRound(true, lang);
+      else if (said(text, S.SWITCH_PHRASES[other])) startOver(other);
       else if (!answerEgg()) post({ from: "form", lines: [t.CHOOSE], options });
       return;
     }
