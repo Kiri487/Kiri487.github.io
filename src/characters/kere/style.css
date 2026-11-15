@@ -40,12 +40,18 @@
 /* ---- document ---- */
 
 html[data-skin="kere"] {
+  /* Ink and paper. XR's review swaps every one of them for its negative (see xrer/xrer.css). */
+  --kere-ink: #000;
+  --kere-paper: #fff;
+  --kere-muted: #444;
+  --kere-faint: #888;
+  --kere-disabled: #aaa;
   /* Kere's own surface: a faint warm gray that sets her apart from the white CV page. */
   --kere-desk: #f4f4f2;
 
   color-scheme: light;
-  background-color: #fff;
-  color: #000;
+  background-color: var(--kere-paper);
+  color: var(--kere-ink);
   /* Noto Serif TC only renders Chinese (none of the fonts before it have any); see KereApp for how it loads. */
   font-family: "XCharter", Charter, "Bitstream Charter", Georgia, "Times New Roman", "Noto Serif TC", serif;
   font-size: 16px;
@@ -60,8 +66,8 @@ html[data-skin="kere"] body {
 }
 
 [data-skin="kere"] ::selection {
-  background: #000;
-  color: #fff;
+  background: var(--kere-ink);
+  color: var(--kere-paper);
 }
 
 [data-skin="kere"] a {
@@ -112,7 +118,7 @@ html[data-skin="kere"] body {
 }
 
 [data-skin="kere"] .kere-header__home:focus-visible {
-  outline: 1px dashed #000;
+  outline: 1px dashed var(--kere-ink);
   outline-offset: 4px;
 }
 
@@ -156,7 +162,7 @@ html[data-skin="kere"] body {
   letter-spacing: 0.03em;
   margin: 0 0 12px;
   padding-bottom: 3px;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid var(--kere-ink);
 }
 
 /* ---- entries ---- */
@@ -190,14 +196,14 @@ html[data-skin="kere"] body {
 [data-skin="kere"] .kere-entry__row--sub {
   font-style: italic;
   font-size: 0.94rem;
-  color: #444;
+  color: var(--kere-muted);
 }
 
 [data-skin="kere"] .kere-entry__stack {
   font-weight: 400;
   font-style: italic;
   font-size: 0.94rem;
-  color: #444;
+  color: var(--kere-muted);
 }
 
 [data-skin="kere"] .kere-entry__body {
@@ -206,12 +212,12 @@ html[data-skin="kere"] body {
 
 [data-skin="kere"] .kere-entry__kind {
   font-style: italic;
-  color: #444;
+  color: var(--kere-muted);
 }
 
 [data-skin="kere"] .kere-entry__links {
   font-size: 0.88rem;
-  color: #444;
+  color: var(--kere-muted);
   margin-top: 2px;
   padding-left: 1.4em;
 }
