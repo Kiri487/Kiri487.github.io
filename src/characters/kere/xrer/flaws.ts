@@ -133,7 +133,7 @@ function extraEntry(data: CvData): FlawedCv {
     // Any year from Kiri's first award to her latest entry anywhere, so it never stands out by date alone.
     const awardYears = awards.items.map(yearIn).filter((y) => y !== undefined);
     const allYears = [...data.education, ...data.work, ...data.projects].map((e) => yearIn(e.period ?? "")).filter((y) => y !== undefined);
-    const from = Math.min(...awardYears, ...allYears);
+    const from = Math.min(...(awardYears.length > 0 ? awardYears : allYears));
     const to = Math.max(...awardYears, ...allYears);
     const year = from + Math.floor(Math.random() * (to - from + 1));
     const item = fakeAward(year);
