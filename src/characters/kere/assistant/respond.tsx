@@ -46,12 +46,23 @@ export function normalize(text: string): string {
   return ` ${spaced.replace(/ +/g, " ").trim()} `;
 }
 
-/** English phrases match whole words. Chinese has no spaces between words, so those match anywhere, spaces ignored. */
+/**
+ * English phrases match whole words. Chinese has no spaces between words, so those match anywhere, spaces ignored;
+ * except that one ending in a number can't run on into more digits ("凱薩13" isn't in "凱薩130").
+ */
 export function matches(normalized: string, phrases: readonly string[]): boolean {
   const compact = normalized.replace(/ /g, "");
   return phrases.some((p) =>
-    CHINESE.test(p) ? compact.includes(normalize(p).replace(/ /g, "")) : normalized.includes(normalize(p)),
+    CHINESE.test(p) ? containsChinese(compact, normalize(p).replace(/ /g, "")) : normalized.includes(normalize(p)),
   );
+}
+
+function containsChinese(compact: string, phrase: string): boolean {
+  if (!/\d$/.test(phrase)) return compact.includes(phrase);
+  for (let at = compact.indexOf(phrase); at >= 0; at = compact.indexOf(phrase, at + 1)) {
+    if (!/\d/.test(compact.charAt(at + phrase.length))) return true;
+  }
+  return false;
 }
 
 /** Per-conversation state; cleared on reload. */

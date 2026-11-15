@@ -7,7 +7,7 @@ import type { WelcomeNote } from "../assistant/types";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { loadSfxEnabled, saveSfxEnabled, unlockSfx } from "../assistant/sfx";
 import { SFX_PHRASES } from "../assistant/script";
-import { matches, normalize } from "../assistant/respond";
+import { detectLang, matches, normalize } from "../assistant/respond";
 import { useChatViewport } from "../assistant/useChatViewport";
 import { SECTIONS } from "../cv/layout";
 import {
@@ -138,9 +138,6 @@ interface Impostor {
 }
 
 const reviewOptions = (t: S.Copy) => [t.PASS_LABEL, t.FAIL_LABEL, t.ASK_LABEL];
-
-/** For marking up what the visitor typed with the right lang attribute. */
-const CHINESE = /[㐀-鿿]/;
 
 /** Kere's matching, so XR understands the same mixed input she does ("我要pass", "看rules"). */
 function said(text: string, phrases: readonly string[]): boolean {
@@ -389,7 +386,8 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
 
   const [messages, setMessages] = useState<Message[]>(() => initial?.messages ?? [{ ...consentForm(lang), id: 0 } as Message]);
   const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
+  // A refresh came before XR answered: she's still thinking, and nothing else can be sent until she does.
+  const [thinking, setThinking] = useState(initial?.unanswered !== undefined);
   /** The second half of a line she broke off is still to come: nothing gets said over it. */
   const [trailing, setTrailing] = useState(false);
   const [open, setOpen] = useState(true);
@@ -888,7 +886,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     const id = nextId.current++;
-    setMessages((m) => [...m, { id, from: "you", text: trimmed, lang: CHINESE.test(trimmed) ? "zh" : "en" }]);
+    setMessages((m) => [...m, { id, from: "you", text: trimmed, lang: detectLang(trimmed) }]);
     setInput("");
     setThinking(true);
     // A user gesture: lets the reply tick play after the timeout.
@@ -907,7 +905,10 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   useEffect(() => {
     const text = initial?.unanswered;
     if (!text) return;
-    const id = window.setTimeout(() => replyRef.current(text), XR_THINKING_BY_FACE.normal);
+    const id = window.setTimeout(() => {
+      setThinking(false);
+      replyRef.current(text);
+    }, XR_THINKING_BY_FACE.normal);
     return () => window.clearTimeout(id);
   }, [initial]);
 
