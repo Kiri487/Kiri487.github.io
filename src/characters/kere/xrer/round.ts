@@ -3,7 +3,7 @@ import { negativeClause, trapClause, TRAP_FLAWS, type Clause } from "./clauses";
 import { FLAW_TIERS, makeFlawed, type Flaw, type FlawKind } from "./flaws";
 import { between, pickOne, shuffle } from "./random";
 import { seeded } from "./seeded";
-import { CAT_LETTERS, FAKE_LETTERS } from "./script";
+import { CAT_LETTERS, FAKE_LETTERS, type Lang } from "./script";
 
 export type CatId = "kiri" | "kuru" | "kere" | "koro" | "kara" | "xv" | "xh" | "xr" | "xb" | "xn";
 
@@ -16,7 +16,8 @@ export interface Applicant {
   no: string;
   identity: Identity;
   cv: CvData;
-  letter: string;
+  /** The cover letter, in both languages. */
+  letter: Record<Lang, string>;
   /** The section XR points to on the second question: the flaw's for a fake, a random one for a real Kiri. */
   hintSection: string;
 }

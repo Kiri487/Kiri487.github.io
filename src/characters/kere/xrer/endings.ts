@@ -1,11 +1,11 @@
 import type { CvData } from "../cv/data";
 import type { XrFace } from "./faces";
 import { isRealKiri, isXr, type Applicant, type Round } from "./round";
-import { CAT_NAMES, ENDING_NAMES, FAKE_KIRI } from "./script";
+import { CAT_NAMES, COPY, ENDING_IDS, type EndingId, type Lang } from "./script";
 
-export type EndingId = keyof typeof ENDING_NAMES;
+export type { EndingId };
 
-export const ENDING_COUNT = Object.keys(ENDING_NAMES).length;
+export const ENDING_COUNT = ENDING_IDS.length;
 
 /** The visitor's stamp on one file. */
 export interface Verdict {
@@ -39,7 +39,8 @@ function step(lines: string[], face: XrFace, delay = PAUSE): Step {
 }
 
 /** Which ending a finished round lands on. Order matters: see the plan's priority list. */
-export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
+export function decideOutcome(round: Round, verdicts: Verdict[], lang: Lang): Outcome {
+  const t = COPY[lang];
   const { applicants, clause } = round;
   const passed = applicants.filter((_, i) => verdicts[i]?.pass);
   const xr = applicants.find(isXr);
@@ -54,28 +55,28 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
         record: kiri,
         showRecord: false,
         steps: [
-          step([`審查完成。合格者一位：應徵者 ${xr.no}。`], "normal", 0),
-          step(["……該應徵者為本人。"], "alert"),
-          step(["依第 4 條，錄取。", "資深審查員職位懸缺。"], "normal"),
-          step(["請問審查員是否願意遞補？"], "normal", 2000),
+          step([t.onePassed(xr.no)], "normal", 0),
+          step([t.IS_ME], "alert"),
+          step([t.HIRED, t.SENIOR_VACANT], "normal"),
+          step([t.FILL_IT], "normal", 2000),
         ],
       };
     }
     const hire = others[0];
-    const hireLine = hire ? `依第 4 條，錄取應徵者 ${hire.no}。` : "本職位懸缺。";
+    const hireLine = hire ? t.hire(hire.no) : t.VACANT;
     return {
       id: "recusal",
       record: kiri,
       showRecord: false,
       steps: xrPassed
         ? [
-            step([`合格者共 ${passed.length} 位。`], "alert", 0),
-            step(["本人與本案有利害關係，依規定迴避。"], "normal"),
+            step([t.passedCount(passed.length)], "alert", 0),
+            step([t.RECUSE], "normal"),
             step([hireLine], "normal"),
           ]
         : [
-            step([`應徵者 ${xr.no} 已判定不合格。`], "normal", 0),
-            step(["程序正確。"], "normal", 2000),
+            step([t.markedFail(xr.no)], "normal", 0),
+            step([t.PROCEDURE_CORRECT], "normal", 2000),
             step([hireLine], "normal"),
           ],
     };
@@ -88,8 +89,8 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       record: { type: "overwritten", cv: fake.cv },
       showRecord: true,
       steps: [
-        step([`審查完成。錄取應徵者 ${fake.no}。`, "原始紀錄已依錄取者更新。"], "normal", 0),
-        step(["請審查員確認{原始紀錄}。"], "alert"),
+        step([t.hiredFake(fake.no), t.RECORD_UPDATED], "normal", 0),
+        step([t.CHECK_RECORD], "alert"),
       ],
     };
   }
@@ -99,7 +100,7 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       id: "vacancy",
       record: { type: "blank" },
       showRecord: true,
-      steps: [step(["審查完成。合格者零位。", "本職位懸缺。"], "alert", 0)],
+      steps: [step(t.NONE_PASSED, "alert", 0)],
     };
   }
 
@@ -110,13 +111,13 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       record: kiri,
       showRecord: false,
       steps: [
-        step([`合格者共 ${passed.length} 位。依第 4 條，名額為一位。`, "開始比對。"], "alert", 0),
-        step([`應徵者 ${a.no} 與應徵者 ${b.no} 之事實欄位……`], "anxious"),
-        step(["……{完全一致}。"], "anxious"),
-        step(["依第 2 條，兩者皆合格。依第 4 條，只能錄取一位。依第 2 條……依第 ██ 條……"], "anxious"),
-        // Held on the shrunken eye a while before it goes out.
-        step(["……"], "broken", 2600),
-        step(["{……全部都是。}"], "broken", 2200),
+        step([t.passedCount(passed.length), ...t.ONE_OPENING], "alert", 0),
+        step([t.sameFields(a.no, b.no)], "anxious"),
+        step([t.IDENTICAL], "anxious"),
+        step([t.ARTICLE_LOOP], "anxious"),
+        // Held on the shrunken eye a while before it goes out; then the one time she says "I", not "this Senior Reviewer".
+        step([t.CANT_TELL], "broken", 2600),
+        step([t.ALL_OF_THEM], "broken", 2200),
       ],
     };
   }
@@ -129,10 +130,10 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
       record: kiri,
       showRecord: false,
       steps: [
-        step([`審查完成。合格者一位：應徵者 ${only.no}。`], "alert", 0),
-        step(["該應徵者不符第 7 條。", `第 7 條：${clause.text}`], "anxious"),
-        step(["原始紀錄……{不符合}。", "兩份都是~~無效~~有效文件……"], "anxious"),
-        step(["請審查員稍候，本人需要重新核對。"], "anxious"),
+        step([t.onePassed(only.no)], "alert", 0),
+        step([t.NOT_ARTICLE_7, t.article7(clause.text[lang])], "anxious"),
+        step(t.RECORD_DISAGREES, "anxious"),
+        step([t.CHECK_AGAIN], "anxious"),
       ],
     };
   }
@@ -143,8 +144,8 @@ export function decideOutcome(round: Round, verdicts: Verdict[]): Outcome {
     record: kiri,
     showRecord: false,
     steps: [
-      step([`審查完成。合格者一位：應徵者 ${only.no}。依第 4 條，錄取。`, "文件已歸檔。"], "normal", 0),
-      step([rejectedKiri ? "……等候區還有一位應徵者沒有離開。" : "本次審查無其他待辦事項。"], "normal", 2000),
+      step([`${t.onePassed(only.no)}${lang === "zh" ? "" : " "}${t.HIRED}`, t.ARCHIVED], "normal", 0),
+      step([rejectedKiri ? t.WAITING : t.NOTHING_FURTHER], "normal", 2000),
     ],
   };
 }
@@ -161,7 +162,7 @@ export interface SettlementRow {
   note?: string;
 }
 
-export function settlementRows(round: Round, verdicts: Verdict[]): SettlementRow[] {
+export function settlementRows(round: Round, verdicts: Verdict[], lang: Lang): SettlementRow[] {
   return round.applicants.map((a: Applicant, i) => {
     const pass = verdicts[i]?.pass ?? false;
     const real = a.identity.type === "cat";
@@ -169,7 +170,7 @@ export function settlementRows(round: Round, verdicts: Verdict[]): SettlementRow
       no: a.no,
       pass,
       right: pass === real,
-      who: a.identity.type === "cat" ? CAT_NAMES[a.identity.cat] : FAKE_KIRI,
+      who: a.identity.type === "cat" ? CAT_NAMES[a.identity.cat] : COPY[lang].FAKE_KIRI,
       note: a.identity.type === "fake" ? a.identity.flaw.note : undefined,
     };
   });

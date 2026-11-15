@@ -1,5 +1,6 @@
 import type { FieldFx } from "../cv/CvSections";
 import { Corrupt, Redact, Struck, type Strength } from "./fx";
+import type { Lang } from "./script";
 import { chance } from "./seeded";
 
 /** How far gone the documents are: 0 clean, 1–2 with each clause-7 violation, 3 once XR breaks. */
@@ -48,15 +49,16 @@ interface RecordFxOptions {
   seed: string;
   /** Fields the reader needs this round (what a fake changed, what clause 7 contradicts): left readable. */
   protect: readonly string[];
+  lang: Lang;
 }
 
 /** How Kiri's record decays as XR does. Everything the reader needs to judge this round's files stays legible. */
-export function recordFx({ level, violations, seed, protect }: RecordFxOptions): FieldFx {
+export function recordFx({ level, violations, seed, protect, lang }: RecordFxOptions): FieldFx {
   return (field, text) => {
     if (level === 0 && violations === 0) return text;
     if (protect.includes(field) || !MAY_ROT.some((r) => r.test(field))) return text;
     // Separate rolls, so which fields are redacted, corrupted and "corrected" don't line up.
-    if (redacted(field, chance(`${seed}:redact:${field}`), violations, level)) return <Redact length={text.length} />;
+    if (redacted(field, chance(`${seed}:redact:${field}`), violations, level)) return <Redact length={text.length} lang={lang} />;
     // Projects hold most of the fields, so each counts for less, or the corruption would bunch up there.
     const share = corruptShare(violations, level) * (field.startsWith("projects.") ? 0.5 : 1);
     if (chance(`${seed}:corrupt:${field}`) < share) {

@@ -50,7 +50,7 @@ interface Attachment {
 }
 
 type Message =
-  | { id: number; from: "you"; text: string }
+  | { id: number; from: "you"; text: string; lang?: S.Lang }
   | {
       id: number;
       from: "xr" | "form";
@@ -68,11 +68,15 @@ type Message =
       strength?: Strength;
       /** The round it was said in, so the same line corrupts differently from round to round. */
       seed?: string;
+      lang?: S.Lang;
     };
 
 type XrMessage = Omit<Extract<Message, { from: "xr" | "form" }>, "id">;
 
-const REVIEW_OPTIONS = [S.PASS_LABEL, S.FAIL_LABEL, S.ASK_LABEL];
+const reviewOptions = (t: S.Copy) => [t.PASS_LABEL, t.FAIL_LABEL, t.ASK_LABEL];
+
+/** For marking up what the visitor typed with the right lang attribute. */
+const CHINESE = /[㐀-鿿]/;
 
 /** Lowercase, punctuation → spaces, padded so English phrases match whole words. */
 function normalize(text: string): string {
@@ -87,7 +91,7 @@ function said(text: string, phrases: readonly string[]): boolean {
 
 function loadSeenEndings(): EndingId[] {
   const saved = readJson(ENDINGS_KEY);
-  return Array.isArray(saved) ? saved.filter((e): e is EndingId => typeof e === "string" && e in S.ENDING_NAMES) : [];
+  return Array.isArray(saved) ? saved.filter((e): e is EndingId => typeof e === "string" && (S.ENDING_IDS as readonly string[]).includes(e)) : [];
 }
 
 function sectionTitle(id: string): string {
@@ -108,26 +112,35 @@ function recordEnding(id: EndingId): number {
 }
 
 /** What closes a round: clause 9 appearing, a pointer to the record when the ending changed it, the settlement sheet. */
-function settlementMessages(r: Round, verdicts: Verdict[], outcome: Outcome, seenCount: number): XrMessage[] {
-  const msgs: XrMessage[] = [{ from: "xr", lines: [S.RULES_UPDATED], attachments: [{ tab: "rules", label: S.TAB_RULES }] }];
-  if (outcome.showRecord) msgs.push({ from: "form", lines: [], attachments: [{ tab: "record", label: S.TAB_RECORD }] });
+function settlementMessages(r: Round, verdicts: Verdict[], outcome: Outcome, seenCount: number, lang: S.Lang): XrMessage[] {
+  const t = S.COPY[lang];
+  const msgs: XrMessage[] = [{ from: "xr", lines: [t.RULES_UPDATED], attachments: [{ tab: "rules", label: t.TAB_RULES }] }];
+  if (outcome.showRecord) msgs.push({ from: "form", lines: [], attachments: [{ tab: "record", label: t.TAB_RECORD }] });
   msgs.push({
     from: "form",
-    title: S.SETTLEMENT_TITLE,
+    title: t.SETTLEMENT_TITLE,
     lines: [],
-    settlement: settlementRows(r, verdicts),
-    footer: [S.clauseReveal(r.clause.text)],
-    result: [
-      S.settlementResult(Object.keys(S.ENDING_NAMES).indexOf(outcome.id) + 1, S.ENDING_NAMES[outcome.id], seenCount, ENDING_COUNT),
-    ],
-    options: [S.AGAIN_LABEL, S.BACK_LABEL],
+    settlement: settlementRows(r, verdicts, lang),
+    footer: [t.clauseReveal(r.clause.text[lang])],
+    result: [t.settlementResult(S.ENDING_IDS.indexOf(outcome.id) + 1, t.ENDING_NAMES[outcome.id], seenCount, ENDING_COUNT)],
+    options: [t.AGAIN_LABEL, t.BACK_LABEL],
   });
   return msgs;
 }
 
+/** The consent form's choices: begin, go back, or switch to the other language. */
+const consentOptions = (t: S.Copy) => [t.START_LABEL, t.BACK_LABEL, t.SWITCH_LABEL];
+
+/** The consent form, in one language. */
+function consentForm(lang: S.Lang): XrMessage {
+  const t = S.COPY[lang];
+  return { from: "form", title: t.CONSENT_TITLE, lines: t.CONSENT, options: consentOptions(t), lang };
+}
+
 /** What a refresh needs to pick up where the visitor was. The round itself is rebuilt from its seed. */
 interface Snapshot {
-  v: 1;
+  v: 2;
+  lang: S.Lang;
   seed: string | null;
   phase: Phase;
   current: number;
@@ -149,7 +162,7 @@ type Restored = Omit<Snapshot, "v" | "seed" | "record"> & { round: Round | null;
 /** The review saved before a refresh, if there is one that still makes sense. */
 function restore(): Restored | null {
   const saved = readXrSession() as Snapshot | null;
-  if (!saved || saved.v !== 1 || !Array.isArray(saved.messages)) return null;
+  if (!saved || saved.v !== 2 || !Array.isArray(saved.messages)) return null;
   const round = saved.seed ? createRound(saved.seed) : null;
   if (saved.phase !== "consent" && !round) return null;
   let record: RecordState = { type: "kiri" };
@@ -161,11 +174,12 @@ function restore(): Restored | null {
   if (saved.phase !== "closing" || !round) return restored;
 
   // Refreshed while XR was reading out the ending: skip straight to the settlement sheet.
-  const outcome = decideOutcome(round, saved.verdicts);
+  const lang = saved.lang;
+  const outcome = decideOutcome(round, saved.verdicts, lang);
   const lastFace = outcome.steps[outcome.steps.length - 1]?.face ?? null;
   let nextId = saved.nextId;
-  const sheet = settlementMessages(round, saved.verdicts, outcome, recordEnding(outcome.id)).map(
-    (m) => ({ strength: 1, seed: round.seed, ...m, id: nextId++ }) as Message,
+  const sheet = settlementMessages(round, saved.verdicts, outcome, recordEnding(outcome.id), lang).map(
+    (m) => ({ strength: 1, seed: round.seed, lang, ...m, id: nextId++ }) as Message,
   );
   return {
     ...restored,
@@ -179,13 +193,18 @@ function restore(): Restored | null {
 }
 
 interface XrModeProps {
-  onLeave: (to: "kere" | "kiri") => void;
+  /** `lang`: the language the review ran in, so Kere welcomes the visitor back in it. */
+  onLeave: (to: "kere" | "kiri", lang: S.Lang) => void;
+  /** Set when Kere handed over: the language she was asked in. */
+  triggerLang?: S.Lang;
 }
 
-function XrMode({ onLeave }: XrModeProps) {
+function XrMode({ onLeave, triggerLang }: XrModeProps) {
   // A refresh in the middle of a review picks it up again (see session.ts).
   const [initial] = useState(restore);
   const [phase, setPhase] = useState<Phase>(initial?.phase ?? "consent");
+  // Like Kere, XR answers in the language she was called up in ("xrer" alone is English); the visitor can switch.
+  const [lang, setLang] = useState<S.Lang>(() => initial?.lang ?? triggerLang ?? "en");
   const [round, setRound] = useState<Round | null>(initial?.round ?? null);
   /** The file on the desk. */
   const [current, setCurrent] = useState(initial?.current ?? 0);
@@ -201,12 +220,7 @@ function XrMode({ onLeave }: XrModeProps) {
   const [faceOverride, setFaceOverride] = useState<XrFace | null>(initial?.faceOverride ?? null);
   const [tab, setTab] = useState<TabId>(initial?.tab ?? "record");
 
-  const [messages, setMessages] = useState<Message[]>(
-    () =>
-      initial?.messages ?? [
-        { id: 0, from: "form", title: S.CONSENT_TITLE, lines: S.CONSENT, options: [S.START_LABEL, S.BACK_LABEL] },
-      ],
-  );
+  const [messages, setMessages] = useState<Message[]>(() => initial?.messages ?? [{ ...consentForm(lang), id: 0 } as Message]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [open, setOpen] = useState(true);
@@ -229,6 +243,10 @@ function XrMode({ onLeave }: XrModeProps) {
   const openSfxPlayed = useRef(false);
   /** The current round's seed, for messages posted from timers. */
   const seedRef = useRef(initial?.round?.seed ?? "");
+  /** The review's language, for messages posted from timers. */
+  const langRef = useRef<S.Lang>(lang);
+
+  const t = S.COPY[lang];
 
   useEffect(() => {
     openRef.current = open;
@@ -236,7 +254,7 @@ function XrMode({ onLeave }: XrModeProps) {
 
   useEffect(() => {
     const pending = timers;
-    return () => pending.current.forEach((t) => window.clearTimeout(t));
+    return () => pending.current.forEach((id) => window.clearTimeout(id));
   }, []);
 
   useEffect(() => {
@@ -251,7 +269,8 @@ function XrMode({ onLeave }: XrModeProps) {
     if (phase === "leaving") return;
     const overwrittenBy = record.type === "overwritten" ? (round?.applicants.findIndex((a) => a.cv === record.cv) ?? -1) : -1;
     const snapshot: Snapshot = {
-      v: 1,
+      v: 2,
+      lang,
       seed: round?.seed ?? null,
       phase,
       current,
@@ -267,7 +286,7 @@ function XrMode({ onLeave }: XrModeProps) {
       nextId: nextId.current,
     };
     writeXrSession(snapshot);
-  }, [phase, round, current, verdicts, clauseIssued, grown, violations, asks, record, faceOverride, tab, messages]);
+  }, [phase, lang, round, current, verdicts, clauseIssued, grown, violations, asks, record, faceOverride, tab, messages]);
 
   // The whole page goes negative while XR is here (see xrer.css).
   useEffect(() => {
@@ -289,7 +308,8 @@ function XrMode({ onLeave }: XrModeProps) {
   const post = (...msgs: XrMessage[]) => {
     const strength = FACE_STRENGTH[faceRef.current];
     const seed = seedRef.current;
-    const numbered = msgs.map((msg) => ({ strength, seed, ...msg, id: nextId.current++ }) as Message);
+    const msgLang = langRef.current;
+    const numbered = msgs.map((msg) => ({ strength, seed, lang: msgLang, ...msg, id: nextId.current++ }) as Message);
     setMessages((m) => [...m, ...numbered]);
     if (!openRef.current) setUnread(true);
     if (soundOn.current) playXrReplySfx(faceRef.current);
@@ -319,16 +339,19 @@ function XrMode({ onLeave }: XrModeProps) {
 
   /* ---- the review itself ---- */
 
-  const fileMessage = (r: Round, index: number, first: boolean): XrMessage => ({
+  const fileMessage = (r: Round, index: number, first: boolean, tt: S.Copy = t): XrMessage => ({
     from: "xr",
-    lines: [first ? S.FIRST_FILE : S.NEXT_FILE],
-    attachments: [{ tab: String(index), label: S.tabApplicant(r.applicants[index].no) }],
-    options: REVIEW_OPTIONS,
+    lines: [first ? tt.FIRST_FILE : tt.NEXT_FILE],
+    attachments: [{ tab: String(index), label: tt.tabApplicant(r.applicants[index].no) }],
+    options: reviewOptions(tt),
   });
 
-  const startRound = (again: boolean) => {
+  const startRound = (again: boolean, chosen: S.Lang) => {
+    const tt = S.COPY[chosen];
     const r = createRound();
     seedRef.current = r.seed;
+    langRef.current = chosen;
+    setLang(chosen);
     setRound(r);
     setCurrent(0);
     setVerdicts([]);
@@ -343,10 +366,10 @@ function XrMode({ onLeave }: XrModeProps) {
     post(
       {
         from: "xr",
-        lines: again ? S.BRIEFING_AGAIN : S.BRIEFING,
-        attachments: [{ tab: "rules", label: S.TAB_RULES }],
+        lines: again ? tt.BRIEFING_AGAIN : tt.BRIEFING,
+        attachments: [{ tab: "rules", label: tt.TAB_RULES }],
       },
-      fileMessage(r, 0, true),
+      fileMessage(r, 0, true, tt),
     );
   };
 
@@ -357,23 +380,24 @@ function XrMode({ onLeave }: XrModeProps) {
 
     if (isXr(applicant)) {
       setFaceOverride("anxious");
-      post({ from: "xr", lines: S.ASK_XR_FILE, options: REVIEW_OPTIONS });
+      post({ from: "xr", lines: t.ASK_XR_FILE, options: reviewOptions(t) });
       return;
     }
     let line: string;
-    if (n >= 2) line = S.ASK_SELF_JUDGE;
-    else if (n === 1) line = S.askSection(sectionTitle(applicant.hintSection));
-    else if (!clauseIssued) line = S.ASK_GENERIC;
-    else if (violations > 0) line = S.ASK_EVASIVE;
-    else line = r.clause.check(applicant.cv) ? S.ASK_CLAUSE_PASS : S.ASK_CLAUSE_FAIL;
+    if (n >= 2) line = t.ASK_SELF_JUDGE;
+    else if (n === 1) line = t.askSection(sectionTitle(applicant.hintSection));
+    else if (!clauseIssued) line = t.ASK_GENERIC;
+    else if (violations > 0) line = t.ASK_EVASIVE;
+    else line = r.clause.check(applicant.cv) ? t.ASK_CLAUSE_PASS : t.ASK_CLAUSE_FAIL;
     setFaceOverride(null);
-    post({ from: "xr", lines: [line], options: REVIEW_OPTIONS });
+    post({ from: "xr", lines: [line], options: reviewOptions(t) });
   };
 
   /** XR's closing words, step by step, then the settlement sheet. */
   const close = (r: Round, finalVerdicts: Verdict[]) => {
     setPhase("closing");
-    const outcome: Outcome = decideOutcome(r, finalVerdicts);
+    const reviewLang = lang;
+    const outcome: Outcome = decideOutcome(r, finalVerdicts, reviewLang);
     setRecord(outcome.record);
 
     let at = 0;
@@ -390,7 +414,7 @@ function XrMode({ onLeave }: XrModeProps) {
     later(() => {
       // Every round ends with one more clause, about Kere.
       setGrown((g) => (g.includes("9") ? g : [...g, "9"]));
-      post(...settlementMessages(r, finalVerdicts, outcome, recordEnding(outcome.id)));
+      post(...settlementMessages(r, finalVerdicts, outcome, recordEnding(outcome.id), reviewLang));
       setPhase("done");
     }, at);
   };
@@ -404,19 +428,19 @@ function XrMode({ onLeave }: XrModeProps) {
 
     const receipt = readNumber(RECEIPT_KEY, 0, { min: 0 }) + 1;
     writeString(RECEIPT_KEY, String(receipt));
-    const ack: string[] = [S.stamped(pass, receipt)];
+    const ack: string[] = [t.stamped(pass, receipt)];
     let held: XrFace | null = null;
     // The rulebook answers a violation by itself: 7-1, 7-2, 7-3, and clause 8 with the second.
     const sprouted: string[] = [];
     if (violation) {
-      ack.push(violations === 0 ? S.VIOLATION_FIRST : S.VIOLATION_AGAIN);
+      ack.push(violations === 0 ? t.VIOLATION_FIRST : t.VIOLATION_AGAIN);
       const count = violations + 1;
       setViolations(count);
       if (count <= 3) sprouted.push(`7-${count}`);
       if (count === 2) sprouted.push("8");
       if (sprouted.length > 0) setGrown((g) => [...g, ...sprouted]);
     } else if (pass && passedBefore > 0) {
-      ack.push(S.SECOND_PASS);
+      ack.push(t.SECOND_PASS);
       held = "alert";
     }
     setFaceOverride(held);
@@ -425,15 +449,15 @@ function XrMode({ onLeave }: XrModeProps) {
     sprouted.forEach((id) =>
       msgs.push({
         from: "xr",
-        lines: id === "8" ? [S.RULES_UPDATED, S.RULE_8_FOLLOW] : [S.RULES_UPDATED],
-        attachments: [{ tab: "rules", label: S.TAB_RULES }],
+        lines: id === "8" ? [t.RULES_UPDATED, t.RULE_8_FOLLOW] : [t.RULES_UPDATED],
+        attachments: [{ tab: "rules", label: t.TAB_RULES }],
       }),
     );
     const stamped = current + 1;
     const issueNow = !clauseIssued && stamped === r.clauseAfter;
     if (issueNow) {
       setClauseIssued(true);
-      msgs.push({ from: "xr", lines: S.CLAUSE_ISSUED, attachments: [{ tab: "rules", label: S.TAB_RULES }] });
+      msgs.push({ from: "xr", lines: [t.RULES_UPDATED, t.STAMPED_UNAFFECTED], attachments: [{ tab: "rules", label: t.TAB_RULES }] });
     }
 
     if (stamped < r.applicants.length) {
@@ -450,29 +474,33 @@ function XrMode({ onLeave }: XrModeProps) {
   /* ---- input ---- */
 
   /** Leave at any point, even mid-closing: XR doesn't argue. */
-  const abort = (to: "kere" | "kiri", line = S.ABORTED) => {
+  const abort = (to: "kere" | "kiri", line = t.ABORTED) => {
     clearXrSession();
-    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current.forEach((id) => window.clearTimeout(id));
     timers.current = [];
     setThinking(false);
     setPhase("leaving");
     post({ from: "xr", lines: [line] });
-    later(() => onLeave(to), LEAVE_DELAY_MS);
+    later(() => onLeave(to, lang), LEAVE_DELAY_MS);
   };
 
   const reply = (text: string) => {
     if (said(text, S.ROT13_PHRASES)) {
-      abort("kere", S.ROT13_LINE);
+      abort("kere", t.ROT13_LINE);
       return;
     }
     if (said(text, S.KIRI_PHRASES) || said(text, S.EXIT_PHRASES)) {
-      abort(said(text, S.KIRI_PHRASES) ? "kiri" : "kere");
+      abort(said(text, S.KIRI_PHRASES) ? "kiri" : "kere", t.ABORTED);
       return;
     }
 
     // Sound commands work at any point, with whatever choices were on screen.
     const options =
-      phase === "consent" ? [S.START_LABEL, S.BACK_LABEL] : phase === "done" ? [S.AGAIN_LABEL, S.BACK_LABEL] : REVIEW_OPTIONS;
+      phase === "consent"
+        ? consentOptions(t)
+        : phase === "done"
+          ? [t.AGAIN_LABEL, t.BACK_LABEL]
+          : reviewOptions(t);
     const setSound = (on: boolean, line: string) => {
       // Turning sound on confirms itself with the tick; turning it off stays silent.
       soundOn.current = on;
@@ -480,23 +508,23 @@ function XrMode({ onLeave }: XrModeProps) {
       post({ from: "xr", lines: [line], options });
     };
     if (said(text, SFX_PHRASES.on)) {
-      if (soundOn.current) post({ from: "xr", lines: [S.SFX_ALREADY_ON], options });
-      else setSound(true, S.SFX_ON);
+      if (soundOn.current) post({ from: "xr", lines: [t.SFX_ALREADY_ON], options });
+      else setSound(true, t.SFX_ON);
       return;
     }
     if (said(text, SFX_PHRASES.shutUp)) {
       setFaceOverride("alert");
-      if (soundOn.current) setSound(false, S.SFX_SHUT_UP);
-      else post({ from: "xr", lines: [S.SFX_ALREADY_OFF], options });
+      if (soundOn.current) setSound(false, t.SFX_SHUT_UP);
+      else post({ from: "xr", lines: [t.SFX_ALREADY_OFF], options });
       return;
     }
     if (said(text, SFX_PHRASES.off)) {
-      if (soundOn.current) setSound(false, S.SFX_OFF);
-      else post({ from: "xr", lines: [S.SFX_ALREADY_OFF], options });
+      if (soundOn.current) setSound(false, t.SFX_OFF);
+      else post({ from: "xr", lines: [t.SFX_ALREADY_OFF], options });
       return;
     }
     if (said(text, SFX_PHRASES.status)) {
-      post({ from: "xr", lines: [soundOn.current ? S.SFX_STATUS_ON : S.SFX_STATUS_OFF], options });
+      post({ from: "xr", lines: [soundOn.current ? t.SFX_STATUS_ON : t.SFX_STATUS_OFF], options });
       return;
     }
 
@@ -504,42 +532,49 @@ function XrMode({ onLeave }: XrModeProps) {
     const egg = S.EGGS.find((e) => said(text, e.phrases));
     const answerEgg = () => {
       if (grown.includes("8") && said(text, S.RULE_8_PHRASES)) {
-        post({ from: "xr", lines: [S.RULE_8_DENIAL], options });
+        post({ from: "xr", lines: [t.RULE_8_DENIAL], options });
         return true;
       }
       if (!egg) return false;
       setFaceOverride(egg.alert ? "alert" : null);
       // Once 7-1 exists, doubting clause 7 is itself against the rules.
-      const line = egg.alert && grown.includes("7-1") ? S.DOUBT_AFTER_7_1 : egg.line;
+      const line = egg.alert && grown.includes("7-1") ? t.DOUBT_AFTER_7_1 : egg.line[lang];
       post({ from: "xr", lines: [line], options });
       return true;
     };
 
     if (phase === "consent") {
-      if (said(text, [S.START_LABEL, "開始", "start"])) startRound(false);
-      else if (!answerEgg()) post({ from: "form", lines: [S.CHOOSE], options });
+      const other: S.Lang = lang === "zh" ? "en" : "zh";
+      if (said(text, S.START_PHRASES)) startRound(false, lang);
+      else if (said(text, S.SWITCH_PHRASES[other])) {
+        // Start over in the other language: the form replaces everything said so far.
+        langRef.current = other;
+        setLang(other);
+        setMessages([{ ...consentForm(other), id: nextId.current++ } as Message]);
+        if (soundOn.current) playXrReplySfx(faceRef.current);
+      } else if (!answerEgg()) post({ from: "form", lines: [t.CHOOSE], options });
       return;
     }
 
     if (phase === "done") {
-      if (said(text, [S.AGAIN_LABEL, "再一輪", "again"])) startRound(true);
-      else if (!answerEgg()) post({ from: "form", lines: [S.CHOOSE], options });
+      if (said(text, S.AGAIN_PHRASES)) startRound(true, lang);
+      else if (!answerEgg()) post({ from: "form", lines: [t.CHOOSE], options });
       return;
     }
 
     if (phase !== "review" || !round) return;
     // 不合格 contains 合格, so it's checked first.
-    if (said(text, [S.FAIL_LABEL, "fail"])) stamp(round, false);
-    else if (said(text, [S.PASS_LABEL, "pass"])) stamp(round, true);
-    else if (said(text, ["詢問", "ask"])) ask(round);
+    if (said(text, S.FAIL_PHRASES)) stamp(round, false);
+    else if (said(text, S.PASS_PHRASES)) stamp(round, true);
+    else if (said(text, S.ASK_PHRASES)) ask(round);
     else if (answerEgg()) return;
-    else if (said(text, [S.TAB_RULES, "rules"])) {
-      post({ from: "xr", lines: [], attachments: [{ tab: "rules", label: S.TAB_RULES }], options: REVIEW_OPTIONS });
-    } else if (said(text, [S.TAB_RECORD, "record"])) {
-      post({ from: "xr", lines: [], attachments: [{ tab: "record", label: S.TAB_RECORD }], options: REVIEW_OPTIONS });
+    else if (said(text, S.RULES_PHRASES)) {
+      post({ from: "xr", lines: [], attachments: [{ tab: "rules", label: t.TAB_RULES }], options });
+    } else if (said(text, S.RECORD_PHRASES)) {
+      post({ from: "xr", lines: [], attachments: [{ tab: "record", label: t.TAB_RECORD }], options });
     } else {
       setFaceOverride("alert");
-      post({ from: "xr", lines: [S.UNKNOWN_COMMAND], options: REVIEW_OPTIONS });
+      post({ from: "xr", lines: [t.UNKNOWN_COMMAND], options });
     }
   };
 
@@ -547,7 +582,7 @@ function XrMode({ onLeave }: XrModeProps) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     const id = nextId.current++;
-    setMessages((m) => [...m, { id, from: "you", text: trimmed }]);
+    setMessages((m) => [...m, { id, from: "you", text: trimmed, lang: CHINESE.test(trimmed) ? "zh" : "en" }]);
     setInput("");
     setThinking(true);
     // A user gesture: lets the reply tick play after the timeout.
@@ -580,9 +615,9 @@ function XrMode({ onLeave }: XrModeProps) {
 
   const delivered = round ? (phase === "review" ? current + 1 : round.applicants.length) : 0;
   const tabs: Attachment[] = [
-    ...(round ? [{ tab: "rules", label: S.TAB_RULES }] : []),
-    { tab: "record", label: S.TAB_RECORD },
-    ...(round ? round.applicants.slice(0, delivered).map((a, i) => ({ tab: String(i), label: S.tabApplicant(a.no) })) : []),
+    ...(round ? [{ tab: "rules", label: t.TAB_RULES }] : []),
+    { tab: "record", label: t.TAB_RECORD },
+    ...(round ? round.applicants.slice(0, delivered).map((a, i) => ({ tab: String(i), label: t.tabApplicant(a.no) })) : []),
   ];
 
   const onTabKey = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -604,42 +639,49 @@ function XrMode({ onLeave }: XrModeProps) {
         level={docLevel}
         violations={violations}
         seed={round?.seed ?? ""}
+        lang={lang}
       />
     );
   } else if (tab === "record") {
-    const fx = recordFx({ level: docLevel, violations, seed: round?.seed ?? "", protect: round?.protect ?? [] });
+    const fx = recordFx({
+      level: docLevel,
+      violations,
+      seed: round?.seed ?? "",
+      protect: round?.protect ?? [],
+      lang,
+    });
     panel = <RecordDocument record={record} fx={fx} />;
   } else if (round) {
     const i = Number(tab);
     const a = round.applicants[i];
-    panel = <ApplicantDocument cv={a.cv} letter={a.letter} pass={verdicts[i]?.pass} />;
+    panel = <ApplicantDocument cv={a.cv} letter={a.letter[lang]} pass={verdicts[i]?.pass} lang={lang} />;
   }
 
   return (
     <>
       <div className="xr">
-        <h1 style={visuallyHidden} lang="zh-Hant">
-          {S.CONSENT_TITLE}
+        <h1 style={visuallyHidden} lang={S.htmlLang(lang)}>
+          {t.CONSENT_TITLE}
         </h1>
-        <div className="xr-tabs" role="tablist" aria-label={S.FORM} lang="zh-Hant">
-          {tabs.map((t, i) => (
+        <div className="xr-tabs" role="tablist" aria-label={S.FORM} lang={S.htmlLang(lang)}>
+          {tabs.map((tb, i) => (
             <button
-              key={t.tab}
-              id={`xr-tab-${t.tab}`}
+              key={tb.tab}
+              id={`xr-tab-${tb.tab}`}
               type="button"
               role="tab"
               className="xr-tabs__tab"
-              aria-selected={tab === t.tab}
+              aria-selected={tab === tb.tab}
               aria-controls="xr-panel"
-              tabIndex={tab === t.tab ? 0 : -1}
-              onClick={() => setTab(t.tab)}
+              tabIndex={tab === tb.tab ? 0 : -1}
+              onClick={() => setTab(tb.tab)}
               onKeyDown={(e) => onTabKey(e, i)}
             >
-              {t.label}
+              {tb.label}
             </button>
           ))}
           <button type="button" className="xr-tabs__leave" onClick={() => abort("kere")} disabled={phase === "leaving"}>
-            ▸ {S.BACK_LABEL}
+            ▸ {t.BACK_LABEL}
           </button>
         </div>
         <div id="xr-panel" role="tabpanel" aria-labelledby={`xr-tab-${tab}`}>
@@ -669,8 +711,8 @@ function XrMode({ onLeave }: XrModeProps) {
             {messages.map((m, i) =>
               m.from === "you" ? (
                 <div key={m.id} className={continues(i) ? "kere-msg kere-msg--you xr-msg--cont" : "kere-msg kere-msg--you"}>
-                  <span className="kere-msg__who">{continues(i) ? "" : S.YOU_LABEL}</span>
-                  <div className="kere-msg__body" lang="zh-Hant">
+                  <span className="kere-msg__who">{continues(i) ? "" : t.YOU_LABEL}</span>
+                  <div className="kere-msg__body" lang={S.htmlLang(m.lang ?? "zh")}>
                     <p>{m.text}</p>
                   </div>
                 </div>
@@ -683,18 +725,18 @@ function XrMode({ onLeave }: XrModeProps) {
                     .join(" ")}
                 >
                   {m.from === "xr" && <span className="kere-msg__who">{continues(i) ? "" : S.NAME}</span>}
-                  <div className="kere-msg__body" lang="zh-Hant">
+                  <div className="kere-msg__body" lang={S.htmlLang(m.lang ?? "zh")}>
                     {m.title && <p className="xr-form__title">{m.title}</p>}
                     {m.lines.map((line, i) => (
                       <p key={i}>
-                        <Fx text={line} strength={m.strength ?? 1} seed={m.seed} />
+                        <Fx text={line} strength={m.strength ?? 1} seed={m.seed} lang={m.lang} />
                       </p>
                     ))}
                     {m.settlement && (
                       <table className="xr-settlement">
                         <thead>
                           <tr>
-                            {S.SETTLEMENT_HEADINGS.map((h) => (
+                            {t.SETTLEMENT_HEADINGS.map((h) => (
                               <th key={h} scope="col">
                                 {h}
                               </th>
@@ -706,10 +748,10 @@ function XrMode({ onLeave }: XrModeProps) {
                             <tr key={row.no}>
                               <td>
                                 <span aria-hidden="true">{row.right ? "✓" : "✗"}</span>
-                                <span style={visuallyHidden}>{row.right ? "正確" : "錯誤"}</span>
+                                <span style={visuallyHidden}>{row.right ? t.RIGHT : t.WRONG}</span>
                               </td>
                               <td>{row.no}</td>
-                              <td>{row.pass ? S.PASS_LABEL : S.FAIL_LABEL}</td>
+                              <td>{row.pass ? t.PASS_LABEL : t.FAIL_LABEL}</td>
                               <td>
                                 {row.who}
                                 {row.note && <span className="xr-settlement__note">{row.note}</span>}
@@ -765,9 +807,9 @@ function XrMode({ onLeave }: XrModeProps) {
               value={input}
               onChange={(e) => setInput(e.target.value.replace(/\r?\n/g, " "))}
               onKeyDown={handleKeyDown}
-              placeholder="輸入指令…"
+              placeholder={t.INPUT_PLACEHOLDER}
               aria-label="Message"
-              lang="zh-Hant"
+              lang={S.htmlLang(lang)}
               maxLength={200}
               autoComplete="off"
               enterKeyHint="send"

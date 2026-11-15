@@ -3,6 +3,7 @@ import { useSkin } from "../../SkinContext";
 import CvHeader from "./cv/CvHeader";
 import CvSections from "./cv/CvSections";
 import KereAssistant from "./assistant/KereAssistant";
+import type { Lang } from "./assistant/types";
 import { loadXrMode } from "./xrer/load";
 import { hasXrSession } from "./xrer/session";
 import "./style.css";
@@ -17,18 +18,25 @@ function KereApp() {
   const { setSkin } = useSkin();
   // A review left mid-way by a refresh goes straight back to XR.
   const [mode, setMode] = useState<Mode>(() => (hasXrSession() ? "xr" : "kere"));
+  /** The language XR's review ran in, for Kere's welcome back. */
+  const [backLang, setBackLang] = useState<Lang>("en");
 
-  const enterXr = () => {
+  /** The language Kere was asked in, when the handover came from her. */
+  const [triggerLang, setTriggerLang] = useState<Lang | undefined>(undefined);
+
+  const enterXr = (lang: Lang) => {
     window.scrollTo(0, 0);
+    setTriggerLang(lang);
     setMode("xr");
   };
 
-  const leaveXr = (to: "kere" | "kiri") => {
+  const leaveXr = (to: "kere" | "kiri", lang: Lang) => {
     if (to === "kiri") {
       setSkin("kiri");
       return;
     }
     window.scrollTo(0, 0);
+    setBackLang(lang);
     setMode("back");
   };
 
@@ -44,7 +52,7 @@ function KereApp() {
       />
       {mode === "xr" ? (
         <Suspense fallback={null}>
-          <XrMode onLeave={leaveXr} />
+          <XrMode onLeave={leaveXr} triggerLang={triggerLang} />
         </Suspense>
       ) : (
         <>
@@ -52,7 +60,7 @@ function KereApp() {
             <CvHeader />
             <CvSections />
           </main>
-          <KereAssistant key={mode} welcomeBack={mode === "back"} onEnterXr={enterXr} />
+          <KereAssistant key={mode} welcomeBack={mode === "back" ? backLang : undefined} onEnterXr={enterXr} />
         </>
       )}
     </>

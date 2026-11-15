@@ -6,29 +6,20 @@ import type { RecordState } from "./endings";
 import { Fx } from "./fx";
 import { decayStrength, type DocLevel } from "./recordFx";
 import { chance } from "./seeded";
-import { CLAUSE_TITLE, GROWN_CLAUSES, LETTER_TITLE, RULES, RULES_TITLE, STAMP_FAIL, STAMP_PASS } from "./script";
-
-/** Per clause 1–6: the word that gets corrupted or "corrected", and a different word that gets blacked out. */
-const RULE_WORDS = [
-  { key: "事實欄位", hide: "申請動機" },
-  { key: "完全一致", hide: "原始紀錄" },
-  { key: "偽造", hide: "條目" },
-  { key: "一位", hide: "資深審查員" },
-  { key: "交談", hide: "應徵者" },
-  { key: "不得修改", hide: "文件" },
-];
+import { COPY, htmlLang, type Lang } from "./script";
 
 /** Clauses 1–6 with their decay marked up for <Fx>: struck-and-rewritten words, corrupted words, redactions. */
-function decayRule(rule: string, i: number, violations: number, level: DocLevel, seed: string): string {
+function decayRule(rule: string, i: number, violations: number, level: DocLevel, seed: string, lang: Lang): string {
   if (level === 3) return `{${rule}}`;
   if (violations === 0) return rule;
-  const { key, hide } = RULE_WORDS[i];
+  const { key, hide } = COPY[lang].RULE_WORDS[i];
   let out = rule;
   const roll = (what: string) => chance(`${seed}:rule${i}:${what}`);
   if (violations >= 2) out = out.replace(key, `{${key}}`);
   else if (roll("strike") < 0.3) out = out.replace(key, `~~${key}~~ ${key}`);
   if (violations >= 2 && roll("redact") < (violations >= 3 ? 0.6 : 0.35)) {
-    out = out.replace(hide, "█".repeat(hide.length * 2));
+    // A Chinese character is about two Latin letters wide.
+    out = out.replace(hide, "█".repeat(hide.length * (lang === "zh" ? 2 : 1)));
   }
   if (violations >= 3 && roll("strike") < 0.5 && !out.includes(`{${key}}`)) out = out.replace(key, `~~${key}~~ ${key}`);
   return out;
@@ -43,39 +34,42 @@ interface RulesDocumentProps {
   violations: number;
   /** The round's seed, so the same words rot all round. */
   seed: string;
+  lang: Lang;
 }
 
 /**
  * The rulebook tab. Clause 7 and the ones after it appear by themselves, and the book rots as XR does. Clause 7 and
  * after are never blacked out: the reader needs them to judge.
  */
-export function RulesDocument({ clause, grown, level, violations, seed }: RulesDocumentProps) {
+export function RulesDocument({ clause, grown, level, violations, seed, lang }: RulesDocumentProps) {
+  const t = COPY[lang];
   const strength = decayStrength(violations, level);
-  const base = RULES.map((rule, i) => decayRule(rule, i, violations, level, seed));
+  const base = t.RULES.map((rule, i) => decayRule(rule, i, violations, level, seed, lang));
   // Clause 8 carries its own correction, so it's left as written.
   const later = [
-    ...(clause ? [{ no: "7", text: clause.text }] : []),
-    ...grown.map((id) => ({ no: id, text: GROWN_CLAUSES[id] })),
+    ...(clause ? [{ no: "7", text: clause.text[lang] }] : []),
+    ...grown.map((id) => ({ no: id, text: t.GROWN_CLAUSES[id] })),
   ].map(({ no, text }) => ({ no, text: violations >= 1 || level === 3 ? (text.includes("~~") ? text : `{${text}}`) : text }));
   return (
-    <article className="kere xr-doc" lang="zh-Hant">
-      <h2 className="kere-section__title">{RULES_TITLE}</h2>
+    <article className="kere xr-doc" lang={htmlLang(lang)}>
+      <h2 className="kere-section__title">{t.RULES_TITLE}</h2>
       <ol className="xr-rules">
         {base.map((rule, i) => (
           <li key={i}>
-            <Fx text={rule} strength={strength} seed={seed} />
+            <Fx text={rule} strength={strength} seed={seed} lang={lang} />
           </li>
         ))}
       </ol>
       {later.length > 0 && (
         <>
-          <h3 className="xr-rules__clause-title">{CLAUSE_TITLE}</h3>
+          <h3 className="xr-rules__clause-title">{t.CLAUSE_TITLE}</h3>
           {/* Numbers like "7-1" can't come from <ol>, so they're written out. */}
           <ul className="xr-rules xr-rules--numbered">
             {later.map(({ no, text }) => (
               <li key={no}>
                 {/* Clause 7 has to stay readable to judge by, so it never gets more than a light touch. */}
-                <span className="xr-rules__no">{no}.</span> <Fx text={text} strength={no === "7" ? 1 : strength} seed={seed} />
+                <span className="xr-rules__no">{no}.</span>{" "}
+                <Fx text={text} strength={no === "7" ? 1 : strength} seed={seed} lang={lang} />
               </li>
             ))}
           </ul>
@@ -110,23 +104,25 @@ interface ApplicantDocumentProps {
   letter: string;
   /** The visitor's stamp, once given. */
   pass?: boolean;
+  lang: Lang;
 }
 
 /** One application: the cover letter on top, then the CV, laid out exactly like the real one. */
-export function ApplicantDocument({ cv, letter, pass }: ApplicantDocumentProps) {
+export function ApplicantDocument({ cv, letter, pass, lang }: ApplicantDocumentProps) {
+  const t = COPY[lang];
   return (
     <article className="kere xr-doc">
-      <section className="kere-section xr-letter" lang="zh-Hant">
-        <h2 className="kere-section__title">{LETTER_TITLE}</h2>
+      <section className="kere-section xr-letter" lang={htmlLang(lang)}>
+        <h2 className="kere-section__title">{t.LETTER_TITLE}</h2>
         <p>
-          <Fx text={letter} strength={1} />
+          <Fx text={letter} strength={1} lang={lang} />
         </p>
       </section>
       {/* The stamp goes on the CV itself, level with the name. */}
       <div className="xr-doc__cv-head">
         {pass !== undefined && (
-          <div className="xr-stamp" lang="zh-Hant">
-            {pass ? STAMP_PASS : STAMP_FAIL}
+          <div className="xr-stamp" lang={htmlLang(lang)}>
+            {pass ? t.STAMP_PASS : t.STAMP_FAIL}
           </div>
         )}
         <CvHeader asDocument />

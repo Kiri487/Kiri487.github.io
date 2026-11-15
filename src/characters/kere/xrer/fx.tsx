@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
+import { COPY, type Lang } from "./script";
 import { seeded } from "./seeded";
 
 /* ============================================================
@@ -62,14 +63,14 @@ export function Corrupt({ text, strength, seed = "" }: CorruptProps) {
   );
 }
 
-/** Blacked out: a bar as long as the text it hides. */
-export function Redact({ length }: { length: number }) {
+/** Blacked out: a bar as long as the text it hides. Screen readers hear that something was redacted. */
+export function Redact({ length, lang = "zh" }: { length: number; lang?: Lang }) {
   return (
     <>
       <span className="xr-redact" aria-hidden="true">
         {"█".repeat(Math.max(2, Math.min(length, 14)))}
       </span>
-      <span style={visuallyHidden}>（塗黑）</span>
+      <span style={visuallyHidden}>{COPY[lang].REDACTED}</span>
     </>
   );
 }
@@ -86,7 +87,7 @@ export function Struck({ text }: { text: string }) {
 const TOKEN = /(~~.+?~~|\{.+?\}|█+)/g;
 
 /** A line of XR's, with the markup above turned into effects. */
-export function Fx({ text, strength, seed }: CorruptProps): ReactNode {
+export function Fx({ text, strength, seed, lang = "zh" }: CorruptProps & { lang?: Lang }): ReactNode {
   return text.split(TOKEN).map((part, i) => {
     if (part.startsWith("~~") && part.endsWith("~~")) {
       // A real correction: the struck word is gone, so screen readers skip it.
@@ -97,7 +98,7 @@ export function Fx({ text, strength, seed }: CorruptProps): ReactNode {
       );
     }
     if (part.startsWith("{") && part.endsWith("}")) return <Corrupt key={i} text={part.slice(1, -1)} strength={strength} seed={seed} />;
-    if (/^█+$/.test(part)) return <Redact key={i} length={part.length} />;
+    if (/^█+$/.test(part)) return <Redact key={i} length={part.length} lang={lang} />;
     return part;
   });
 }

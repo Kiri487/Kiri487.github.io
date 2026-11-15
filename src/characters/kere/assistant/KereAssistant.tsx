@@ -7,7 +7,7 @@ import { createReplyMemory, currentPeriod, detectLang, pick, respond } from "./r
 import { loadXrMode } from "../xrer/load";
 import { GREETINGS, GREETING_CHINESE_HINT, GREETING_OPTIONS, TIME_REPLIES, WELCOME_BACK } from "./script";
 import { loadSfxEnabled, playOpenSfx, playReplySfx, saveSfxEnabled, unlockSfx } from "./sfx";
-import { isReplyList, type Expression, type Reply } from "./types";
+import { isReplyList, type Expression, type Lang, type Reply } from "./types";
 import { useChatViewport } from "./useChatViewport";
 import "./assistant.css";
 
@@ -22,22 +22,23 @@ type Message =
 
 interface KereAssistantProps {
   /** Kere hands the visitor over to XR (the `xrer` easter egg). */
-  onEnterXr: () => void;
+  /** `lang`: the language Kere answered the trigger in — Chinese only if it had Chinese in it. */
+  onEnterXr: (lang: Lang) => void;
   /** Back from XR's review: open straight away with Kere's welcome back. */
-  welcomeBack?: boolean;
+  welcomeBack?: Lang;
 }
 
-function KereAssistant({ onEnterXr, welcomeBack = false }: KereAssistantProps) {
+function KereAssistant({ onEnterXr, welcomeBack }: KereAssistantProps) {
   const { setSkin } = useSkin();
-  const [open, setOpen] = useState(welcomeBack);
+  const [open, setOpen] = useState(welcomeBack !== undefined);
   const [messages, setMessages] = useState<Message[]>(() =>
-    welcomeBack ? [{ id: -1, from: "kere", reply: { lines: [WELCOME_BACK], lang: "zh" } }] : [],
+    welcomeBack ? [{ id: -1, from: "kere", reply: { lines: [WELCOME_BACK[welcomeBack]], lang: welcomeBack } }] : [],
   );
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [expression, setExpression] = useState<Expression>("normal");
   // Once opened, the visitor knows Kere is clickable — drop the "Ask Kere" hint until the next page load.
-  const [hintSeen, setHintSeen] = useState(welcomeBack);
+  const [hintSeen, setHintSeen] = useState(welcomeBack !== undefined);
   const [sfxEnabled, setSfxEnabled] = useState(loadSfxEnabled);
   // A reply landed while the panel was minimized — show "!" over the cat until it's reopened.
   const [unread, setUnread] = useState(false);
@@ -122,7 +123,8 @@ function KereAssistant({ onEnterXr, welcomeBack = false }: KereAssistantProps) {
       if (reply.action === "xr") {
         // Start fetching XR's code now, so it's usually there by the time the handover line has been read.
         void loadXrMode();
-        timer.current = window.setTimeout(onEnterXr, XR_HANDOFF_DELAY_MS);
+        const lang = reply.lang ?? "en";
+        timer.current = window.setTimeout(() => onEnterXr(lang), XR_HANDOFF_DELAY_MS);
       }
     }, THINKING_MS);
   };
