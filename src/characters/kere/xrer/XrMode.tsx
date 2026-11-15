@@ -231,7 +231,12 @@ interface Snapshot {
   nextId: number;
 }
 
-type Restored = Omit<Snapshot, "v" | "seed" | "record"> & { round: Round | null; record: RecordState };
+type Restored = Omit<Snapshot, "v" | "seed" | "record"> & {
+  round: Round | null;
+  record: RecordState;
+  /** The visitor's last words, if a refresh came before XR answered them: she answers them now. */
+  unanswered?: string;
+};
 
 /** The review saved before a refresh, if there is one that still makes sense. */
 function restore(): Restored | null {
@@ -244,14 +249,38 @@ function restore(): Restored | null {
   else if (typeof saved.record === "number" && round?.applicants[saved.record]) {
     record = { type: "overwritten", cv: round.applicants[saved.record].cv };
   }
-  const restored: Restored = { ...saved, round, record };
+  let restored: Restored = { ...saved, round, record };
+
+  // Refreshed during a transfer that wasn't going through: finish what it would have done.
+  const answered = saved.impostor?.state === "answered" ? saved.impostor : null;
+  const kereMsg = answered && saved.messages.find((m) => m.id === answered.id);
+  if (answered && kereMsg && kereMsg.from === "kere" && !kereMsg.redacted) {
+    const t = S.COPY[saved.lang];
+    let nextId = saved.nextId;
+    restored = {
+      ...restored,
+      violations: saved.violations + 1,
+      messages: [
+        ...saved.messages.map((m) => (m.id === answered.id && m.from === "kere" ? { ...m, redacted: true, options: undefined } : m)),
+        { from: "xr", lines: [t.TRANSFER_VOID], options: reviewOptions(t), strength: 1, seed: saved.seed ?? "", lang: saved.lang, id: nextId++ } as Message,
+      ],
+      nextId,
+    };
+  }
+
+  // Refreshed while XR was thinking: the visitor's words are saved, her answer isn't yet.
+  const last = restored.messages[restored.messages.length - 1];
+  if (last?.from === "you" && (saved.phase === "consent" || saved.phase === "review" || saved.phase === "done")) {
+    restored = { ...restored, unanswered: last.text };
+  }
+
   if (saved.phase !== "closing" || !round) return restored;
 
   // Refreshed while XR was reading out the ending: skip straight to the settlement sheet.
   const lang = saved.lang;
   const outcome = decideOutcome(round, saved.verdicts, lang);
   const lastFace = outcome.steps[outcome.steps.length - 1]?.face ?? null;
-  let nextId = saved.nextId;
+  let nextId = restored.nextId;
   const sheet = settlementMessages(round, saved.verdicts, outcome, recordEnding(outcome.id), lang).map(
     (m) => ({ strength: 1, seed: round.seed, lang, ...m, id: nextId++ }) as Message,
   );
@@ -261,7 +290,7 @@ function restore(): Restored | null {
     record: outcome.record,
     grown: saved.grown.includes("9") ? saved.grown : [...saved.grown, "9"],
     faceOverride: lastFace,
-    messages: [...saved.messages, ...sheet],
+    messages: [...restored.messages, ...sheet],
     nextId,
   };
 }
@@ -308,6 +337,8 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   const [messages, setMessages] = useState<Message[]>(() => initial?.messages ?? [{ ...consentForm(lang), id: 0 } as Message]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  /** The second half of a line she broke off is still to come: nothing gets said over it. */
+  const [trailing, setTrailing] = useState(false);
   const [open, setOpen] = useState(true);
   const [unread, setUnread] = useState(false);
   // Kere's sound setting covers XR too: muting either one mutes both.
@@ -443,7 +474,11 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
     if (soundOn.current) playXrReplySfx(faceRef.current);
     if (cut) {
       // Only the words: choices and attachments stay on the first half, so a refresh in between loses nothing.
-      later(() => post({ from: "xr", lines: [cut[1]] }), SPLIT_DELAY_MS);
+      setTrailing(true);
+      later(() => {
+        setTrailing(false);
+        post({ from: "xr", lines: [cut[1]] });
+      }, SPLIT_DELAY_MS);
     }
   };
 
@@ -461,7 +496,7 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
   }, [sfxEnabled]);
   /** Only the newest choices stay on screen: an old "合格" would stamp whichever file is on the desk now. */
   const lastWithOptions = [...messages].reverse().find((m) => m.from !== "you" && m.options)?.id;
-  const busy = thinking || falseT !== null || phase === "closing" || phase === "leaving";
+  const busy = thinking || trailing || falseT !== null || phase === "closing" || phase === "leaving";
   /** Same speaker as the message before: drop the name and tuck it closer. Forms always stand alone. */
   const continues = (i: number) => {
     const m = messages[i];
@@ -650,6 +685,10 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
 
   /** Switch language: everything so far is cleared and the consent form comes back in the other language. */
   const startOver = (other: S.Lang) => {
+    // Like leaving: nothing from before the switch, a broken-off line included, should turn up in the new form.
+    timers.current.forEach((id) => window.clearTimeout(id));
+    timers.current = [];
+    setTrailing(false);
     langRef.current = other;
     seedRef.current = "";
     setLang(other);
@@ -857,6 +896,18 @@ function XrMode({ onLeave, triggerLang }: XrModeProps) {
       reply(trimmed);
     }, XR_THINKING_BY_FACE[faceRef.current]);
   };
+
+  // A refresh came between the visitor's words and XR's answer: answer them now.
+  const replyRef = useRef(reply);
+  useEffect(() => {
+    replyRef.current = reply;
+  });
+  useEffect(() => {
+    const text = initial?.unanswered;
+    if (!text) return;
+    const id = window.setTimeout(() => replyRef.current(text), XR_THINKING_BY_FACE.normal);
+    return () => window.clearTimeout(id);
+  }, [initial]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
