@@ -4,6 +4,7 @@ import CvHeader from "./cv/CvHeader";
 import CvSections from "./cv/CvSections";
 import KereAssistant from "./assistant/KereAssistant";
 import { loadXrMode } from "./xrer/load";
+import { hasXrSession } from "./xrer/session";
 import "./style.css";
 
 /** XR's review is a hidden easter egg, so its code only loads once someone finds it. */
@@ -14,7 +15,8 @@ type Mode = "kere" | "xr" | "back";
 
 function KereApp() {
   const { setSkin } = useSkin();
-  const [mode, setMode] = useState<Mode>("kere");
+  // A review left mid-way by a refresh goes straight back to XR.
+  const [mode, setMode] = useState<Mode>(() => (hasXrSession() ? "xr" : "kere"));
 
   const enterXr = () => {
     window.scrollTo(0, 0);

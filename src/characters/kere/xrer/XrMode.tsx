@@ -21,6 +21,7 @@ import { Fx, type Strength } from "./fx";
 import { recordFx, type DocLevel } from "./recordFx";
 import { createRound, isXr, type Round } from "./round";
 import * as S from "./script";
+import { clearXrSession, readXrSession, writeXrSession } from "./session";
 import { playXrOpenSfx, playXrReplySfx } from "./sfx";
 import XrAvatar from "./XrAvatar";
 import { ApplicantDocument, RecordDocument, RulesDocument } from "./XrDocuments";
@@ -97,30 +98,114 @@ function faceForViolations(violations: number): XrFace {
   return violations === 1 ? "alert" : "anxious";
 }
 
+/** Marks an ending as seen; returns how many have been seen in all. */
+function recordEnding(id: EndingId): number {
+  const seen = loadSeenEndings();
+  if (!seen.includes(id)) seen.push(id);
+  writeJson(ENDINGS_KEY, seen);
+  return seen.length;
+}
+
+/** What closes a round: clause 9 appearing, a pointer to the record when the ending changed it, the settlement sheet. */
+function settlementMessages(r: Round, verdicts: Verdict[], outcome: Outcome, seenCount: number): XrMessage[] {
+  const msgs: XrMessage[] = [{ from: "xr", lines: [S.RULES_UPDATED], attachments: [{ tab: "rules", label: S.TAB_RULES }] }];
+  if (outcome.showRecord) msgs.push({ from: "form", lines: [], attachments: [{ tab: "record", label: S.TAB_RECORD }] });
+  msgs.push({
+    from: "form",
+    title: S.SETTLEMENT_TITLE,
+    lines: [],
+    settlement: settlementRows(r, verdicts),
+    footer: [S.clauseReveal(r.clause.text)],
+    result: [
+      S.settlementResult(Object.keys(S.ENDING_NAMES).indexOf(outcome.id) + 1, S.ENDING_NAMES[outcome.id], seenCount, ENDING_COUNT),
+    ],
+    options: [S.AGAIN_LABEL, S.BACK_LABEL],
+  });
+  return msgs;
+}
+
+/** What a refresh needs to pick up where the visitor was. The round itself is rebuilt from its seed. */
+interface Snapshot {
+  v: 1;
+  seed: string | null;
+  phase: Phase;
+  current: number;
+  verdicts: Verdict[];
+  clauseIssued: boolean;
+  grown: string[];
+  violations: number;
+  asks: number[];
+  /** "kiri", "blank", or the index of the fake whose CV overwrote it. */
+  record: "kiri" | "blank" | number;
+  faceOverride: XrFace | null;
+  tab: TabId;
+  messages: Message[];
+  nextId: number;
+}
+
+type Restored = Omit<Snapshot, "v" | "seed" | "record"> & { round: Round | null; record: RecordState };
+
+/** The review saved before a refresh, if there is one that still makes sense. */
+function restore(): Restored | null {
+  const saved = readXrSession() as Snapshot | null;
+  if (!saved || saved.v !== 1 || !Array.isArray(saved.messages)) return null;
+  const round = saved.seed ? createRound(saved.seed) : null;
+  if (saved.phase !== "consent" && !round) return null;
+  let record: RecordState = { type: "kiri" };
+  if (saved.record === "blank") record = { type: "blank" };
+  else if (typeof saved.record === "number" && round?.applicants[saved.record]) {
+    record = { type: "overwritten", cv: round.applicants[saved.record].cv };
+  }
+  const restored: Restored = { ...saved, round, record };
+  if (saved.phase !== "closing" || !round) return restored;
+
+  // Refreshed while XR was reading out the ending: skip straight to the settlement sheet.
+  const outcome = decideOutcome(round, saved.verdicts);
+  const lastFace = outcome.steps[outcome.steps.length - 1]?.face ?? null;
+  let nextId = saved.nextId;
+  const sheet = settlementMessages(round, saved.verdicts, outcome, recordEnding(outcome.id)).map(
+    (m) => ({ strength: 1, seed: round.seed, ...m, id: nextId++ }) as Message,
+  );
+  return {
+    ...restored,
+    phase: "done",
+    record: outcome.record,
+    grown: saved.grown.includes("9") ? saved.grown : [...saved.grown, "9"],
+    faceOverride: lastFace,
+    messages: [...saved.messages, ...sheet],
+    nextId,
+  };
+}
+
 interface XrModeProps {
   onLeave: (to: "kere" | "kiri") => void;
 }
 
 function XrMode({ onLeave }: XrModeProps) {
-  const [phase, setPhase] = useState<Phase>("consent");
-  const [round, setRound] = useState<Round | null>(null);
+  // A refresh in the middle of a review picks it up again (see session.ts).
+  const [initial] = useState(restore);
+  const [phase, setPhase] = useState<Phase>(initial?.phase ?? "consent");
+  const [round, setRound] = useState<Round | null>(initial?.round ?? null);
   /** The file on the desk. */
-  const [current, setCurrent] = useState(0);
-  const [verdicts, setVerdicts] = useState<Verdict[]>([]);
-  const [clauseIssued, setClauseIssued] = useState(false);
+  const [current, setCurrent] = useState(initial?.current ?? 0);
+  const [verdicts, setVerdicts] = useState<Verdict[]>(initial?.verdicts ?? []);
+  const [clauseIssued, setClauseIssued] = useState(initial?.clauseIssued ?? false);
   /** Clauses that grew after clause 7, in order: "7-1", "8"… */
-  const [grown, setGrown] = useState<string[]>([]);
-  const [violations, setViolations] = useState(0);
+  const [grown, setGrown] = useState<string[]>(initial?.grown ?? []);
+  const [violations, setViolations] = useState(initial?.violations ?? 0);
   /** Questions asked per file. */
-  const [asks, setAsks] = useState<number[]>([]);
-  const [record, setRecord] = useState<RecordState>({ type: "kiri" });
+  const [asks, setAsks] = useState<number[]>(initial?.asks ?? []);
+  const [record, setRecord] = useState<RecordState>(initial?.record ?? { type: "kiri" });
   /** A face held for a moment (or for the rest of the round, in the closing). */
-  const [faceOverride, setFaceOverride] = useState<XrFace | null>(null);
-  const [tab, setTab] = useState<TabId>("record");
+  const [faceOverride, setFaceOverride] = useState<XrFace | null>(initial?.faceOverride ?? null);
+  const [tab, setTab] = useState<TabId>(initial?.tab ?? "record");
 
-  const [messages, setMessages] = useState<Message[]>(() => [
-    { id: 0, from: "form", title: S.CONSENT_TITLE, lines: S.CONSENT, options: [S.START_LABEL, S.BACK_LABEL] },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(
+    () =>
+      initial?.messages ?? [
+        { id: 0, from: "form", title: S.CONSENT_TITLE, lines: S.CONSENT, options: [S.START_LABEL, S.BACK_LABEL] },
+      ],
+  );
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [open, setOpen] = useState(true);
@@ -130,7 +215,7 @@ function XrMode({ onLeave }: XrModeProps) {
   /** The live setting: a mute command takes effect on its own reply, before the next render. */
   const soundOn = useRef(sfxEnabled);
 
-  const nextId = useRef(1);
+  const nextId = useRef(initial?.nextId ?? 1);
   const timers = useRef<number[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -142,7 +227,7 @@ function XrMode({ onLeave }: XrModeProps) {
   const faceRef = useRef<XrFace>("normal");
   const openSfxPlayed = useRef(false);
   /** The current round's seed, for messages posted from timers. */
-  const seedRef = useRef("");
+  const seedRef = useRef(initial?.round?.seed ?? "");
 
   useEffect(() => {
     openRef.current = open;
@@ -159,6 +244,29 @@ function XrMode({ onLeave }: XrModeProps) {
   }, [messages, thinking, open]);
 
   useChatViewport(open, panelRef, logRef);
+
+  // Save the review after every change, so a refresh can resume it. Leaving clears it instead.
+  useEffect(() => {
+    if (phase === "leaving") return;
+    const overwrittenBy = record.type === "overwritten" ? (round?.applicants.findIndex((a) => a.cv === record.cv) ?? -1) : -1;
+    const snapshot: Snapshot = {
+      v: 1,
+      seed: round?.seed ?? null,
+      phase,
+      current,
+      verdicts,
+      clauseIssued,
+      grown,
+      violations,
+      asks,
+      record: record.type === "blank" ? "blank" : overwrittenBy >= 0 ? overwrittenBy : "kiri",
+      faceOverride,
+      tab,
+      messages,
+      nextId: nextId.current,
+    };
+    writeXrSession(snapshot);
+  }, [phase, round, current, verdicts, clauseIssued, grown, violations, asks, record, faceOverride, tab, messages]);
 
   // The whole page goes negative while XR is here (see xrer.css).
   useEffect(() => {
@@ -279,31 +387,9 @@ function XrMode({ onLeave }: XrModeProps) {
 
     at += SETTLEMENT_DELAY_MS;
     later(() => {
-      const seen = loadSeenEndings();
-      if (!seen.includes(outcome.id)) seen.push(outcome.id);
-      writeJson(ENDINGS_KEY, seen);
-      const sheet: XrMessage = {
-        from: "form",
-        title: S.SETTLEMENT_TITLE,
-        lines: [],
-        settlement: settlementRows(r, finalVerdicts),
-        footer: [S.clauseReveal(r.clause.text)],
-        result: [
-          S.settlementResult(
-            Object.keys(S.ENDING_NAMES).indexOf(outcome.id) + 1,
-            S.ENDING_NAMES[outcome.id],
-            seen.length,
-            ENDING_COUNT,
-          ),
-        ],
-        options: [S.AGAIN_LABEL, S.BACK_LABEL],
-      };
       // Every round ends with one more clause, about Kere.
       setGrown((g) => (g.includes("9") ? g : [...g, "9"]));
-      const msgs: XrMessage[] = [{ from: "xr", lines: [S.RULES_UPDATED], attachments: [{ tab: "rules", label: S.TAB_RULES }] }];
-      if (outcome.showRecord) msgs.push({ from: "form", lines: [], attachments: [{ tab: "record", label: S.TAB_RECORD }] });
-      msgs.push(sheet);
-      post(...msgs);
+      post(...settlementMessages(r, finalVerdicts, outcome, recordEnding(outcome.id)));
       setPhase("done");
     }, at);
   };
@@ -364,6 +450,7 @@ function XrMode({ onLeave }: XrModeProps) {
 
   /** Leave at any point, even mid-closing: XR doesn't argue. */
   const abort = (to: "kere" | "kiri", line = S.ABORTED) => {
+    clearXrSession();
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
     setThinking(false);

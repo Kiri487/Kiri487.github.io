@@ -24,6 +24,12 @@ export function writeString(key: string, value: string, area: Area = "local"): v
   } catch { /* storage unavailable or full */ }
 }
 
+export function removeKey(key: string, area: Area = "local"): void {
+  try {
+    storage(area).removeItem(key);
+  } catch { /* storage unavailable */ }
+}
+
 /** Only "true" / "false" count; anything else gives `fallback`. Same format as `JSON.stringify(boolean)`. */
 export function readBoolean(key: string, fallback: boolean): boolean {
   const raw = readString(key);
