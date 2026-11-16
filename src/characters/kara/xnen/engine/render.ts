@@ -1,6 +1,6 @@
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
-import { drawStatue, type StatueFrame, type StatueMesh, type StatueModel, type StatueSkin } from "./statue";
+import { drawStatue, type Prop, type StatueFrame } from "./statue";
 import { CARPET, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 import type { Tuning } from "./tuning";
 
@@ -127,7 +127,7 @@ export class Renderer {
     light: Lighting,
     map: WorldMap,
     tuning: Tuning,
-    statues: { meshes: readonly StatueMesh[]; model: StatueModel; skin: StatueSkin | null },
+    props: readonly Prop[],
     effects: Effects,
     reduced: boolean,
   ) {
@@ -326,7 +326,7 @@ export class Renderer {
 
     rows(true);
 
-    if (statues.skin && statues.meshes.length) {
+    if (props.length) {
       this.depth.fill(1e9);
       const frame: StatueFrame = {
         pixels: d,
@@ -344,7 +344,7 @@ export class Renderer {
         fogK,
         fog: FOG,
       };
-      for (const mesh of statues.meshes) drawStatue(frame, mesh, statues.model, statues.skin, light.at(mesh.x, mesh.y));
+      for (const prop of props) drawStatue(frame, prop.mesh, prop.model, prop.skin, light.at(prop.mesh.x, prop.mesh.y));
     }
 
     this.tape(d, W, H, tuning, effects, reduced);

@@ -36,6 +36,13 @@ export interface StatueMesh {
   flags: Uint8Array;
 }
 
+/** One thing to draw this frame: a mesh, and the atlas it is painted from. */
+export interface Prop {
+  mesh: StatueMesh;
+  model: StatueModel;
+  skin: StatueSkin;
+}
+
 /** How close the player can come to a statue's middle. */
 export const STATUE_RADIUS = 0.36;
 

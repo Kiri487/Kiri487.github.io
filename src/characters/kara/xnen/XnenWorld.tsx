@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import atlasUrl from "./assets/statue-atlas.png";
 import { STATUE } from "./assets/statueModel";
+import xnAtlasUrl from "./assets/xn-atlas.png";
+import xnMeshUrl from "./assets/xn-mesh.bin?url";
 import DevPanel from "./DevPanel";
 import { loadTuning } from "./devTuning";
 import { DEFAULT_TUNING } from "./engine/tuning";
@@ -127,6 +129,8 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       devPanel: () => devRef.current,
       model: STATUE,
       atlasUrl,
+      xnMeshUrl,
+      xnAtlasUrl,
       tuning: import.meta.env.DEV ? loadTuning() : { ...DEFAULT_TUNING },
       touch: TOUCH,
       onMode: setMode,

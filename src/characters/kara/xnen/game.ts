@@ -1,14 +1,23 @@
 import { resumeAudioContext } from "../../../shared/audio";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { AT_STATUE, nearestStatue, Timecode } from "./engine/compass";
+import { parseFigure } from "./engine/figure";
 import { Lighting } from "./engine/lighting";
 import { SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
 import { CLEAN, Renderer, type Camera, type Effects } from "./engine/render";
-import { placeStatue, STATUE_RADIUS, type StatueMesh, type StatueModel, type StatueSkin } from "./engine/statue";
+import {
+  placeStatue,
+  STATUE_RADIUS,
+  type Prop,
+  type StatueMesh,
+  type StatueModel,
+  type StatueSkin,
+} from "./engine/statue";
 import type { Tuning } from "./engine/tuning";
 import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
+import { Xn, XN_RADIUS } from "./xn";
 
 /*
  * Runs the place: input, the frame loop, the tape's PLAY / PAUSE / REW / STOP, sound. Everything here is plain DOM
@@ -32,6 +41,9 @@ export interface GameParts {
   devPanel: () => HTMLElement | null;
   model: StatueModel;
   atlasUrl: string;
+  /** XN: her mesh and skeleton, and her atlas. */
+  xnMeshUrl: string;
+  xnAtlasUrl: string;
   tuning: Tuning;
   touch: boolean;
   onMode: (mode: Mode) => void;
@@ -70,6 +82,8 @@ const FACING = 0.55;
 /** A touch shorter and stiller than this is a tap. */
 const TAP_MS = 300;
 const TAP_PX = 12;
+/** For now XN just stands this far in front of where the visitor comes in, looking back at them. */
+const XN_AHEAD = 1.7;
 /** Maps tried for one whose nearest statue is a fair walk away. */
 const MAP_TRIES = 80;
 
@@ -131,6 +145,29 @@ export function createGame(parts: GameParts): Game {
   loadSkin(parts.atlasUrl, (loaded) => {
     skin = loaded;
   });
+  let xn: Xn | null = null;
+  let xnSkin: StatueSkin | null = null;
+  let disposed = false;
+  loadSkin(parts.xnAtlasUrl, (loaded) => {
+    xnSkin = loaded;
+  });
+  fetch(parts.xnMeshUrl)
+    .then((response) => {
+      if (!response.ok) throw new Error(`XN's mesh: ${response.status}`);
+      return response.arrayBuffer();
+    })
+    .then((buffer) => {
+      if (disposed) return;
+      xn = new Xn(
+        parseFigure(buffer),
+        SPAWN.x + Math.cos(SPAWN.angle) * XN_AHEAD,
+        SPAWN.y + Math.sin(SPAWN.angle) * XN_AHEAD,
+        SPAWN.angle + Math.PI,
+      );
+    })
+    .catch(() => {
+      /* she doesn't turn up; the place still works */
+    });
 
   const hum = startHum();
   hum.setLevel(tuning.hum ? 1 : 0);
@@ -149,6 +186,8 @@ export function createGame(parts: GameParts): Game {
   let prompt = false;
   let shownTime = "";
   let nearby: StatueMesh[] = [];
+  /** What the picture draws besides the place itself, built again each frame. */
+  let props: Prop[] = [];
 
   parts.dateLine.textContent = dateStamp(new Date());
 
@@ -239,6 +278,7 @@ export function createGame(parts: GameParts): Game {
     for (const mesh of nearby) {
       if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
     }
+    if (xn && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
     const r = PLAYER_RADIUS;
     return (
       !!light.wallAt(Math.floor(x - r), Math.floor(y - r), map) ||
@@ -298,6 +338,15 @@ export function createGame(parts: GameParts): Game {
       if (dist <= AT_STATUE && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
     }
     return reachable;
+  };
+
+  /** Everything to draw from this camera. XN moves on by dt seconds; she watches the camera. */
+  const gather = (cam: Camera, dt: number) => {
+    props = [];
+    if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
+    if (xn && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
+      props.push({ mesh: xn.update(dt, cam.x, cam.y, reduced), model: xn.figure.look, skin: xnSkin });
+    }
   };
 
   const update = (dt: number, now: number) => {
@@ -400,15 +449,8 @@ export function createGame(parts: GameParts): Game {
       lookAround(cam);
     }
     light.step(dt, reduced, tuning.bright / 100);
-    renderer.render(
-      cam,
-      light,
-      map,
-      tuning,
-      { meshes: nearby, model: parts.model, skin },
-      fx,
-      reduced,
-    );
+    gather(cam, dt);
+    renderer.render(cam, light, map, tuning, props, fx, reduced);
     const ending = mode === "rewind" ? REWIND_TIME + BURST_TIME + CUT_TIME : mode === "stop" ? STOP_TIME : 0;
     if (ending && fxTime >= (reduced ? CALM_LEAVE_TIME : ending)) {
       left = true;
@@ -574,21 +616,15 @@ export function createGame(parts: GameParts): Game {
         light.build(player.x, player.y, map);
         light.step(0, reduced, tuning.bright / 100);
         lookAround(playerCamera());
-        renderer.render(
-          { ...playerCamera(), bob: 0 },
-          light,
-          map,
-          tuning,
-          { meshes: nearby, model: parts.model, skin },
-          CLEAN,
-          reduced,
-        );
+        gather(playerCamera(), 0);
+        renderer.render({ ...playerCamera(), bob: 0 }, light, map, tuning, props, CLEAN, reduced);
         renderer.hold();
         nextJitter = 0;
       }
     },
     dispose() {
       left = true;
+      disposed = true;
       cancelAnimationFrame(raf);
       resizer.disconnect();
       window.removeEventListener("keydown", onKeyDown, true);
