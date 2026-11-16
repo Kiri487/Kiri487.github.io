@@ -5,7 +5,17 @@ import muteSprite from "../assets/pet/kara-mute.webp";
 import talkSprite from "../assets/pet/kara-talk.webp";
 import { DRAGGING_CLASS, useOs, useOsState } from "./context";
 import { isFourTwenty } from "./fourTwenty";
-import { handlePetBinExit, putPetInBin, takePetOutOfBin, takePetOutOfBinQuietly, type BinExit } from "./petBin";
+import {
+  handlePetBinExit,
+  putPetInBin,
+  setPetBinThrows,
+  takePetOutOfBin,
+  takePetOutOfBinQuietly,
+  type BinExit,
+} from "./petBin";
+import { placeDoor, useDoor, useLastReturn, useXnVisit, type DoorSpot } from "../xnen/door";
+import type { Exit } from "../xnen/game";
+import { readBoolean, writeBoolean } from "../../../shared/storage";
 import { setPetSeat } from "./petGame";
 import { findLedge, refreshLedge, type Ledge } from "./petLedges";
 import { playGrabSfx, playLandSfx, playTalkSfx } from "./petSfx";
@@ -68,8 +78,6 @@ const WALK_OFF_LINE_CHANCE = 0.5;
 const WALK_OFF_LINE_DELAY_MS = 400;
 /** Stepping off something barely above the ground isn't a fall worth explaining. */
 const WALK_OFF_LINE_MIN_DROP = 60;
-/** Left in the Recycle Bin this long, she lets herself out. */
-const BIN_TIMEOUT_MS = 30_000;
 /** Matches the shrink in style.css. */
 const BIN_ENTER_MS = 300;
 /** Upward, so climbing out is a little hop before she falls to wherever is below. */
@@ -81,6 +89,77 @@ const BIN_EXIT_LINES: Record<BinExit, string[]> = {
   restored: ["i was about to become compost", "took you long enough", "i was getting comfortable"],
   crawled: ["you can't delete me. i tried", "thursday is in there. we talked", "i was looking for the burger"],
 };
+/*
+ * XN's door. Put in the bin again and again, she lets herself out sooner each time and comes back a little wrong;
+ * the thirteenth time she sinks through the floor and leaves a door behind. The count is only kept in memory.
+ */
+/**
+ * Left in the Recycle Bin, she lets herself out after this many seconds: 30 the first time, sooner each time in a
+ * row after that.
+ */
+const BIN_WAITS_S = [30, 24, 19, 15, 12, 9, 7, 5, 4, 3, 2, 1];
+/** Out on the desktop this long without going back in, and the count starts over. Time hidden behind a phone's window or sitting in a game doesn't count. */
+const THROW_RESET_MS = 60_000;
+/** What she says coming out, from the fifth time: sentences that aren't quite right, then single words. */
+const STRANGE_EXIT_LINES: Record<number, string> = {
+  5: "there was carpet in there",
+  6: "the bin is bigger on the inside",
+  7: "i walked for a while. the lights were on",
+  8: "someone in there knows my name",
+  9: "carpet",
+  10: "humming",
+  11: "yellow",
+};
+/** These times, she lands with her feet a little into the floor. */
+const SUNK_FROM = 9;
+const SUNK_UNTIL = 11;
+/** The twelfth time she stops and says three things in quick succession, each up for this long. */
+const TWELFTH_LINES: [string, number][] = [
+  ["...", 1300],
+  ["kuru", 1300],
+  ["are you watching", 1800],
+];
+const TWELFTH = 12;
+const DOOR_THROWS = 13;
+/** Matches kara-pet-sink in style.css. */
+const SINK_MS = 900;
+/** Her balloon stays up, empty, this long after she's gone. */
+const EMPTY_BALLOON_MS = 1000;
+/**
+ * Sinking again with the door already there, she walks back out of it after a while, as if nothing happened, and
+ * says so. Every time the same. (The first time she waits to be followed.)
+ */
+const BACK_AFTER_SINKING_MS = 13_000;
+const BACK_AFTER_SINKING_LINE = "that door was always there";
+/** Left behind in the backrooms when the tape is stopped, she walks back on her own. */
+const BACK_AFTER_STOP_MS = 13_000;
+/** How small she starts, coming out of the door. */
+const DOOR_SCALE = 0.4;
+/** Coming back out of the door: a fixed line the first time each way, then any of the rest. */
+const BACK_LINES: Record<Exit, { first: string; more: string[]; seenKey: string }> = {
+  rewind: {
+    first: "did she say my name",
+    more: [
+      "welcome back. you smell like carpet",
+      "rewind is my favorite button",
+      "you touched the stone cat. now you're stoned",
+      "that statue has the best leaf. i'm jealous",
+      "she's been standing there forever. i offered her a burger",
+    ],
+    seenKey: "kara-xn-back-rewind",
+  },
+  stop: {
+    first: "you stopped the tape. i was still in there",
+    more: [
+      "i had to walk back. it's far",
+      "i brought you some carpet",
+      "xnen wanted you to stay. i told her you have stuff",
+      "i stayed and talked to xnen. i understood like half",
+    ],
+    seenKey: "kara-xn-back-stop",
+  },
+};
+
 /** Apps she goes into while they're open, to sit in their scoreboard. */
 const GAME_APPS: AppId[] = ["burgerSweeper", "dangerNoodle", "pinBun"];
 /** Said on landing after a game closes or is minimized, which lets her back out. */
@@ -90,9 +169,11 @@ const BIN_SCALE = 0.1;
 const SHUTDOWN_REACTION = "that's a light switch";
 const FOUR_TWENTY_LINE = "it's time";
 
-/** "away" is off the desktop: on her way into the bin or a game, or in one. */
+/** "away" is off the desktop: on her way into the bin or a game, or in one, or through XN's door. */
 type Mode = "idle" | "walk" | "drag" | "fall" | "away";
-type Away = "bin" | "game";
+type Away = "bin" | "game" | "door";
+/** What happens when she lands after the twelfth or thirteenth time out of the bin, instead of one line. */
+type ExitScript = "twelfth" | "sink";
 /** "entering" and "in" mean she's actually gone. "leaving" lasts as long as the pop back out. */
 type AwayStage = "out" | "entering" | "in" | "leaving";
 /** Where she flies to, and how small she gets on the way. */
@@ -189,6 +270,11 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     walkedOffY: 0,
     /** Set on the way out of the bin or a game, so landing is when she says something about it. */
     exitLine: null as string | null,
+    /** Or, the twelfth and thirteenth time out of the bin, does something about it. */
+    exitScript: null as ExitScript | null,
+    /** Times in a row she's been put in the bin, and how long she's been out on the desktop since. */
+    throws: 0,
+    outMs: 0,
     away: null as Away | null,
     awayStage: "out" as AwayStage,
     /** Whether a game is open for her to go into. Told by the windows, acted on by the frame loop. */
@@ -215,6 +301,19 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const binTimerRef = useRef<number | undefined>(undefined);
   const awayTargetRef = useRef<AwayTarget>({ x: 0, y: 0, scale: BIN_SCALE });
   const focusedIdRef = useRef<string | null>(null);
+  /** How long the current line stays up. */
+  const talkMsRef = useRef(TALK_MS);
+  /** Timers for the twelfth time's lines, the sinking, and walking back out of the door. */
+  const doorTimersRef = useRef<number[]>([]);
+  /** Out of the bin while hidden behind a phone's full-screen window: she waits for the desktop to show. */
+  const pendingExitRef = useRef<BinExit | null>(null);
+  const lastBackLineRef = useRef<string | null>(null);
+  const door = useDoor();
+  const doorRef = useRef<DoorSpot | null>(door);
+  const visit = useXnVisit();
+  const lastReturn = useLastReturn();
+  /** A return from before this desktop was opened (another skin, then back) isn't hers to walk out of. */
+  const seenReturnRef = useRef(lastReturn?.id);
 
   const [walking, setWalking] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -230,6 +329,9 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const [balloonOnRight, setBalloonOnRight] = useState(false);
   const [balloonDrop, setBalloonDrop] = useState(0);
   const [walkOffLandings, setWalkOffLandings] = useState(0);
+  /** Feet a little into the floor, the ninth to eleventh time out of the bin, until she's next picked up. */
+  const [sunk, setSunk] = useState(false);
+  const [sinking, setSinking] = useState(false);
 
   useLayoutEffect(() => {
     const viewport = readViewport();
@@ -250,10 +352,17 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const goAway = useCallback(
     (place: Away, target: AwayTarget) => {
       const motion = motionRef.current;
+      if (place === "bin") {
+        const count = (motion.outMs > THROW_RESET_MS ? 0 : motion.throws) + 1;
+        motion.throws = count;
+        motion.outMs = 0;
+        setPetBinThrows(count);
+      }
       motion.mode = "away";
       motion.away = place;
       awayTargetRef.current = target;
       setWalking(false);
+      setSunk(false);
       setLine(null);
       setStage("entering");
       // A game is a window, and she'd fly in behind it.
@@ -264,7 +373,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
 
   /** Back out at this point, with a hop, to fall to whatever is below and say something on landing. */
   const comeOut = useCallback(
-    (centerX: number, centerY: number, line: string) => {
+    (centerX: number, centerY: number, line: string | null) => {
       const motion = motionRef.current;
       const viewport = readViewport();
       motion.x = clamp(centerX - WIDTH / 2, 0, viewport.width - WIDTH);
@@ -302,10 +411,15 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
 
       // Into a game as soon as it's open and drawn, straight out of the bin if that's where she is. Not while
       // she's carried, or still on her way into something.
+      // On the desktop since the bin, the clock towards starting the count over runs. Not while hidden behind a
+      // phone's window, nor in a game: frames stop while the tab is hidden, so leaving the page doesn't count either.
+      if (motion.mode !== "away" && !pausedRef.current && motion.throws > 0) motion.outMs += seconds * 1000;
+
       if (
         root &&
         motion.wantsGame &&
         motion.away !== "game" &&
+        motion.away !== "door" &&
         motion.mode !== "drag" &&
         motion.awayStage !== "entering"
       ) {
@@ -408,8 +522,9 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         motion.velocityY += GRAVITY * seconds;
         motion.y += motion.velocityY * seconds;
 
+        // The thirteenth time out of the bin she falls straight through everything to the floor, where the door goes.
         const ledge =
-          root && !isPhoneRef.current
+          root && !isPhoneRef.current && motion.exitScript !== "sink"
             ? findLedge(
                 root,
                 motion.x + WIDTH / 2,
@@ -422,7 +537,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
 
         if (motion.y >= floor) {
           motion.y = floor;
-          if (motion.velocityY >= MIN_BOUNCE_SPEED) playLandSfx(motion.velocityY);
+          // The thirteenth time she lands without a sound.
+          if (motion.velocityY >= MIN_BOUNCE_SPEED && motion.exitScript !== "sink") playLandSfx(motion.velocityY);
           // Always upward: a rising window can catch her on the way up too.
           motion.velocityY = -Math.abs(motion.velocityY) * BOUNCE;
           if (Math.abs(motion.velocityY) < MIN_BOUNCE_SPEED) {
@@ -434,7 +550,10 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
               motion.walkedOff = false;
               if (motion.y - motion.walkedOffY >= WALK_OFF_LINE_MIN_DROP) setWalkOffLandings((count) => count + 1);
             }
-            if (motion.exitLine !== null) setExitLandings((count) => count + 1);
+            if (motion.exitLine !== null || motion.exitScript !== null) {
+              if (motion.exitScript === null && motion.throws >= SUNK_FROM && motion.throws <= SUNK_UNTIL) setSunk(true);
+              setExitLandings((count) => count + 1);
+            }
           }
         }
       }
@@ -458,15 +577,16 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   useEffect(() => {
     isSpeakingRef.current = line !== null;
     if (line === null) return;
-    const end = window.setTimeout(() => setLine(null), TALK_MS);
+    const end = window.setTimeout(() => setLine(null), talkMsRef.current);
     return () => window.clearTimeout(end);
   }, [line]);
 
-  const speak = useCallback((text: string) => {
+  const speak = useCallback((text: string, ms = TALK_MS) => {
     const motion = motionRef.current;
     // Only a walk stops for talking: she can talk on the way down or while carried, and stay in the air.
     if (motion.mode === "walk") motion.mode = "idle";
-    motion.nextDecision = performance.now() + TALK_MS + restDuration();
+    motion.nextDecision = performance.now() + ms + restDuration();
+    talkMsRef.current = ms;
     playTalkSfx();
     setWalking(false);
     // Toward whichever side of the screen has more room.
@@ -536,24 +656,40 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         return;
       }
       putPetInBin();
-      binTimerRef.current = window.setTimeout(() => takePetOutOfBin("crawled"), BIN_TIMEOUT_MS);
+      const throws = motionRef.current.throws;
+      const wait = BIN_WAITS_S[Math.min(Math.max(throws, 1), BIN_WAITS_S.length) - 1] * 1000;
+      binTimerRef.current = window.setTimeout(() => takePetOutOfBin("crawled"), wait);
     }, BIN_ENTER_MS);
     return () => window.clearTimeout(timer);
   }, [awayStage, setStage]);
+
+  /** Out of the bin, and what she has to say about it depends on how many times in a row she's been in. */
+  const leaveBin = useCallback(
+    (how: BinExit) => {
+      const motion = motionRef.current;
+      const viewport = readViewport();
+      const root = rootRef.current?.closest(".kara-os");
+      const box = root?.querySelector('.kara-icon[data-app-id="recycleBin"]')?.getBoundingClientRect();
+      // Out of the bin's middle, wherever it is now. Without one, up from the floor.
+      const centerX = box ? box.left + box.width / 2 : viewport.width / 2;
+      const centerY = box ? box.top + box.height / 2 : viewport.height - HEIGHT / 2;
+      const count = motion.throws;
+      motion.exitScript = count >= DOOR_THROWS ? "sink" : count === TWELFTH ? "twelfth" : null;
+      const line = motion.exitScript ? null : (STRANGE_EXIT_LINES[count] ?? pickDifferent(BIN_EXIT_LINES[how], null));
+      comeOut(centerX, centerY, line);
+    },
+    [comeOut],
+  );
 
   useEffect(
     () =>
       handlePetBinExit((how) => {
         window.clearTimeout(binTimerRef.current);
-        const viewport = readViewport();
-        const root = rootRef.current?.closest(".kara-os");
-        const box = root?.querySelector('.kara-icon[data-app-id="recycleBin"]')?.getBoundingClientRect();
-        // Out of the bin's middle, wherever it is now. Without one, up from the floor.
-        const centerX = box ? box.left + box.width / 2 : viewport.width / 2;
-        const centerY = box ? box.top + box.height / 2 : viewport.height - HEIGHT / 2;
-        comeOut(centerX, centerY, pickDifferent(BIN_EXIT_LINES[how], null));
+        // Behind a phone's full-screen window: she waits until the desktop shows again.
+        if (pausedRef.current) pendingExitRef.current = how;
+        else leaveBin(how);
       }),
-    [comeOut],
+    [leaveBin],
   );
 
   // Leaving the skin from inside a game shouldn't leave her stuck in there next time.
@@ -562,14 +698,148 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   useEffect(() => () => window.clearTimeout(binTimerRef.current), []);
 
   useEffect(() => {
+    const timers = doorTimersRef.current;
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  const later = useCallback((callback: () => void, ms: number) => {
+    doorTimersRef.current.push(window.setTimeout(callback, ms));
+  }, []);
+
+  /**
+   * Back out of XN's door, wherever it stands, with a line or without. With no door (a dev shortcut through it),
+   * up from the floor.
+   */
+  const comeOutOfDoor = useCallback(
+    (text: string | null) => {
+      const viewport = readViewport();
+      const spot = doorRef.current;
+      const desktop = rootRef.current?.closest(".kara-os")?.querySelector(".kara-desktop")?.getBoundingClientRect();
+      rootRef.current?.style.setProperty("--pet-away-scale", String(DOOR_SCALE));
+      if (spot && desktop) {
+        // The door's foot is its spot; she comes out of its middle.
+        comeOut(desktop.left + (spot.x / 100) * desktop.width, desktop.top + (spot.y / 100) * desktop.height - 36, text);
+      } else {
+        comeOut(viewport.width / 2, viewport.height - HEIGHT / 2, text);
+      }
+    },
+    [comeOut],
+  );
+
+  /**
+   * The thirteenth time: no word, down through the floor, a shake, gone. Her balloon stays a moment, then the door.
+   * The first time, she stays gone until someone goes through it after her (or the page is reloaded); when the
+   * door was already there, she walks back out of it after a while, as if it always had been.
+   */
+  const sinkThroughFloor = useCallback(() => {
+    const motion = motionRef.current;
+    const firstDoor = doorRef.current === null;
+    const desktop = rootRef.current?.closest(".kara-os")?.querySelector(".kara-desktop")?.getBoundingClientRect();
+    const spot: DoorSpot | null = desktop
+      ? {
+          x: clamp(((motion.x + WIDTH / 2 - desktop.left) / desktop.width) * 100, 4, 96),
+          y: clamp(((motion.y + HEIGHT - desktop.top) / desktop.height) * 100, 15, 100),
+        }
+      : null;
+    motion.mode = "away";
+    motion.away = "door";
+    motion.throws = 0;
+    motion.outMs = 0;
+    setPetBinThrows(0);
+    setWalking(false);
+    talkMsRef.current = SINK_MS + EMPTY_BALLOON_MS;
+    isSpeakingRef.current = true;
+    setLine("");
+    setSinking(true);
+    later(() => {
+      setSinking(false);
+      setStage("in");
+      if (spot) placeDoor(spot);
+      if (!firstDoor) later(() => comeOutOfDoor(BACK_AFTER_SINKING_LINE), BACK_AFTER_SINKING_MS);
+    }, SINK_MS + EMPTY_BALLOON_MS);
+  }, [later, setStage, comeOutOfDoor]);
+
+  useEffect(() => {
     if (exitLandings === 0) return;
     const motion = motionRef.current;
     const text = motion.exitLine;
+    const script = motion.exitScript;
     motion.exitLine = null;
+    motion.exitScript = null;
+    if (script === "sink") {
+      const timer = window.setTimeout(sinkThroughFloor, 0);
+      return () => window.clearTimeout(timer);
+    }
+    if (script === "twelfth") {
+      // She stops, and the three come quickly, one after another.
+      const timer = window.setTimeout(() => {
+        let at = 0;
+        TWELFTH_LINES.forEach(([words, ms], index) => {
+          // Each line is replaced by the next, not taken down: a balloon set to close at the very moment the next
+          // one opens could close it instead. Only the last closes on its own.
+          const last = index === TWELFTH_LINES.length - 1;
+          later(() => speak(words, last ? ms : ms + 1000), at);
+          at += ms;
+        });
+      }, BIN_EXIT_LINE_DELAY_MS);
+      return () => window.clearTimeout(timer);
+    }
     if (!text) return;
     const timer = window.setTimeout(() => remark(text), BIN_EXIT_LINE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [exitLandings, remark]);
+  }, [exitLandings, remark, speak, later, sinkThroughFloor]);
+
+  useEffect(() => {
+    doorRef.current = door;
+  }, [door]);
+
+  // Through the door, she goes too: whatever she was doing, she's simply not on the desktop.
+  useEffect(() => {
+    if (visit === "none") return;
+    const timer = window.setTimeout(() => {
+      const motion = motionRef.current;
+      // Whatever she had planned (lines, walking back out of the door) waits until she's back.
+      doorTimersRef.current.splice(0).forEach((t) => window.clearTimeout(t));
+      if (motion.away === "door" && motion.awayStage === "in") return;
+      window.clearTimeout(binTimerRef.current);
+      pendingExitRef.current = null;
+      if (motion.away === "bin") takePetOutOfBinQuietly();
+      if (motion.away === "game") setPetSeat(null);
+      motion.mode = "away";
+      motion.away = "door";
+      motion.exitLine = null;
+      motion.exitScript = null;
+      setWalking(false);
+      setSinking(false);
+      setSunk(false);
+      setLine(null);
+      setStage("in");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [visit, setStage]);
+
+  // And back out: straight away through a statue, or in her own time when the tape was stopped.
+  useEffect(() => {
+    if (!lastReturn || lastReturn.id === seenReturnRef.current) return;
+    seenReturnRef.current = lastReturn.id;
+    const { exit } = lastReturn;
+    const timer = window.setTimeout(
+      () => {
+        const lines = BACK_LINES[exit];
+        let text: string;
+        if (!readBoolean(lines.seenKey, false)) {
+          writeBoolean(lines.seenKey, true);
+          text = lines.first;
+        } else {
+          text = pickDifferent(lines.more, lastBackLineRef.current);
+        }
+        lastBackLineRef.current = text;
+        comeOutOfDoor(text);
+      },
+      exit === "rewind" ? 0 : BACK_AFTER_STOP_MS,
+    );
+    doorTimersRef.current.push(timer);
+  }, [lastReturn, comeOutOfDoor]);
 
   const gameOpen = windows.some((win) => GAME_APPS.includes(win.appId) && !win.minimized);
 
@@ -583,6 +853,17 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   useEffect(() => {
     pausedRef.current = hiddenByWindow;
   }, [hiddenByWindow]);
+
+  // Out of the bin while hidden behind a phone's window: out she comes, now that the desktop shows.
+  useEffect(() => {
+    if (hiddenByWindow || !pendingExitRef.current) return;
+    const timer = window.setTimeout(() => {
+      const how = pendingExitRef.current;
+      pendingExitRef.current = null;
+      if (how) leaveBin(how);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [hiddenByWindow, leaveBin]);
 
   useEffect(() => {
     isPhoneRef.current = isPhone;
@@ -616,6 +897,21 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     const next = pickDifferent(LINES, lastLineRef.current);
     lastLineRef.current = next;
     speak(next);
+  };
+
+  /** Selected and Delete pressed: into the bin, the same as being dropped on it, if the bin is in sight. */
+  const throwInBinFromKeyboard = (pet: HTMLButtonElement) => {
+    const motion = motionRef.current;
+    const root = pet.closest(".kara-os");
+    if (motion.mode === "away" || motion.mode === "drag" || !root) return;
+    const bin = findVisibleBin(root, pet);
+    if (!bin) return;
+    const box = bin.getBoundingClientRect();
+    goAway("bin", {
+      x: (box.left + box.right) / 2 - WIDTH / 2,
+      y: (box.top + box.bottom) / 2 - HEIGHT / 2,
+      scale: BIN_SCALE,
+    });
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -661,6 +957,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         drag.bin = { element: bin, box: { left, top, right, bottom } };
       }
       playGrabSfx();
+      setSunk(false);
       setDragging(true);
       setFrontOf(null);
       // Over a video, an iframe would otherwise swallow the pointer.
@@ -727,6 +1024,10 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   if (awayStage === "entering" || awayStage === "in") classNames.push("kara-pet--going-away");
   if (awayStage === "in") classNames.push("kara-pet--away");
   if (awayStage === "leaving") classNames.push("kara-pet--coming-back");
+  if (sunk) classNames.push("kara-pet--sunk");
+  if (sinking) classNames.push("kara-pet--sinking");
+  // An empty line is the balloon she leaves behind when she sinks: up, but nothing said, mouth shut.
+  const talking = !!line;
 
   return (
     <button
@@ -744,6 +1045,11 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
         if (event.animationName === "kara-pet-pop") setStage("out");
       }}
       onKeyDown={(event) => {
+        if (event.key === "Delete") {
+          event.preventDefault();
+          throwInBinFromKeyboard(event.currentTarget);
+          return;
+        }
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         talk();
@@ -751,10 +1057,10 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     >
       <span className="kara-pet__sprite">
         {/* Both stay loaded, so the first word never waits for a download. */}
-        <img src={muteSprite} alt="" draggable={false} hidden={line !== null} />
-        <img src={talkSprite} alt="" draggable={false} hidden={line === null} />
+        <img src={muteSprite} alt="" draggable={false} hidden={talking} />
+        <img src={talkSprite} alt="" draggable={false} hidden={!talking} />
       </span>
-      {line && (
+      {line !== null && (
         <span
           className={`kara-balloon kara-pet__balloon${balloonOnRight ? " kara-balloon--right" : ""}`}
           style={balloonDrop > 0 ? { translate: `0 ${balloonDrop}px` } : undefined}

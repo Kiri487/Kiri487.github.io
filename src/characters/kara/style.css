@@ -607,10 +607,142 @@
   }
 }
 
+/* The ninth to eleventh time out of the bin, she lands a little into the floor. */
+[data-skin="kara"] .kara-pet--sunk .kara-pet__sprite {
+  translate: 0 5px;
+  clip-path: inset(0 0 5px 0);
+}
+
+/*
+ * The thirteenth time: down through the floor, a two-frame shake halfway, then gone. Clipped at where the floor
+ * was, so she goes into it rather than in front of it. Her balloon, outside the sprite, stays up.
+ */
+[data-skin="kara"] .kara-pet--sinking .kara-pet__sprite {
+  animation: kara-pet-sink 0.9s linear forwards;
+}
+
+@keyframes kara-pet-sink {
+  0% {
+    translate: 0 0;
+    clip-path: inset(0 0 0 0);
+  }
+  60% {
+    translate: 0 55%;
+    clip-path: inset(0 0 55% 0);
+  }
+  66% {
+    translate: -4px 55%;
+    clip-path: inset(0 0 55% 0);
+  }
+  72% {
+    translate: 4px 55%;
+    clip-path: inset(0 0 55% 0);
+  }
+  78% {
+    translate: 0 55%;
+    clip-path: inset(0 0 55% 0);
+    opacity: 1;
+  }
+  79%,
+  100% {
+    translate: 0 55%;
+    clip-path: inset(0 0 55% 0);
+    opacity: 0;
+  }
+}
+
+/*
+ * XN's door, the first time: it flashes in through static where she sank, like a bad signal, and stays. A
+ * remembered one is simply there. Only opacity and filter: the door is placed with translate.
+ */
+[data-skin="kara"] .kara-icon--door-arriving {
+  animation: kara-door-arrive 0.7s steps(1, end) both;
+}
+
+[data-skin="kara"] .kara-icon--door .kara-icon__image {
+  position: relative;
+}
+
+[data-skin="kara"] .kara-icon--door-arriving .kara-icon__image::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: kara-door-static 0.7s steps(1, end) forwards;
+  pointer-events: none;
+}
+
+@keyframes kara-door-arrive {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    filter: grayscale(1) contrast(4) brightness(1.8);
+  }
+  22% {
+    opacity: 0;
+  }
+  34% {
+    opacity: 1;
+    filter: invert(1) grayscale(1) contrast(3);
+  }
+  46% {
+    opacity: 0.4;
+    filter: grayscale(1) contrast(4);
+  }
+  58%,
+  100% {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+@keyframes kara-door-static {
+  0% {
+    background-position: 0 0;
+    opacity: 1;
+  }
+  15% {
+    background-position: 17px 9px;
+  }
+  30% {
+    background-position: -11px 23px;
+  }
+  45% {
+    background-position: 29px -7px;
+    opacity: 0.8;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes kara-door-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-skin="kara"] .kara-pet__sprite,
   [data-skin="kara"] .kara-icon--from-bin {
     animation: none !important;
+  }
+
+  /* No sinking or shaking: she fades away, and the door fades in. */
+  [data-skin="kara"] .kara-pet--sinking .kara-pet__sprite {
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  [data-skin="kara"] .kara-icon--door-arriving {
+    animation: kara-door-fade-in 0.6s ease-out both;
+  }
+
+  [data-skin="kara"] .kara-icon--door-arriving .kara-icon__image::after {
+    display: none;
   }
 
   [data-skin="kara"] .kara-icon--to-bin,
@@ -790,12 +922,19 @@
 [data-skin="kara"] .kara-pet__balloon {
   right: 30px;
   width: max-content;
+  /* Wide enough to reach her tail even for "..." or nothing at all. */
+  min-width: 64px;
   max-width: 230px;
   padding: 8px 10px;
   font: 12px var(--kara-font);
   text-align: left;
   pointer-events: none;
   cursor: default;
+}
+
+/* The empty balloon she leaves when she sinks keeps a line's height. */
+[data-skin="kara"] .kara-pet__balloon .kara-balloon__text {
+  min-height: 1.35em;
 }
 
 /* Her tail points at her mouth, about 56px from the sprite's left edge. */

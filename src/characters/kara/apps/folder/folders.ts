@@ -38,6 +38,15 @@ export const PET_FILE: FolderFile = {
   action: { kind: "restorePet", message: "Restored. She'll remember this." },
 };
 
+/** Put in this many times in a row, she starts coming back not quite herself. */
+export const STRANGE_CAT_FROM = 5;
+
+export const STRANGE_PET_FILE: FolderFile = {
+  ...PET_FILE,
+  typeName: "Cat (probably not)",
+  action: { kind: "restorePet", message: "Restored. Mostly." },
+};
+
 /** Everything the folders contain lives here, so adding a file never touches an app. */
 export const FOLDERS: Record<FolderId, Folder> = {
   works: {
