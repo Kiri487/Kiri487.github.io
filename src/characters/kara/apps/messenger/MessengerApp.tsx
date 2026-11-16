@@ -1,6 +1,7 @@
 import { contacts, type Contact } from "../../../../data/portfolio";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
+import { useDoor } from "../../xnen/door";
 import { isTouchPointer, openGesture } from "../../os/openGesture";
 import { chatTitle, type ChatArgs, type ChatPartnerId } from "../chat/conversations";
 import { openExternal } from "../common/openExternal";
@@ -57,6 +58,7 @@ function ContactRow({
 
 function MessengerApp() {
   const { openApp } = useWindow();
+  const doorFound = useDoor() !== null;
 
   const openChat = (partner: ChatPartnerId) => {
     const args: ChatArgs = { partner };
@@ -69,7 +71,8 @@ function MessengerApp() {
         <CharacterAvatar character="kara" size={42} />
         <span>
           <span className="kara-messenger__my-name">Kara</span>
-          <span className="kara-messenger__mood">is thinking about a door</span>
+          {/* After the door: a nod to the backrooms film's "I found THAT place", first person and all. */}
+          <span className="kara-messenger__mood">{doorFound ? "i found THAT place" : "is thinking about a door"}</span>
         </span>
       </div>
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Poin
 import { SpeakerIcon } from "../../icons";
 import { useWindow } from "../../os/context";
 import { openGesture } from "../../os/openGesture";
+import { useXnVisit } from "../../xnen/door";
 import { shuffledTracks } from "./tracks";
 import { loadYouTubeApi, PLAYER_STATE, type YouTubePlayer } from "./youtubePlayer";
 import "./radio.css";
@@ -183,6 +184,13 @@ function RadioApp() {
       player.playVideo();
     }
   }, [isMinimized]);
+
+  // Through XN's door the radio stops, and stays stopped when you come back: the backrooms only hum.
+  const xnVisit = useXnVisit();
+  useEffect(() => {
+    // Not ready yet, the player's methods may not exist.
+    if (xnVisit !== "none") playerRef.current?.pauseVideo?.();
+  }, [xnVisit]);
 
   // Moves only the list. scrollIntoView could also move the desktop behind it.
   useEffect(() => {

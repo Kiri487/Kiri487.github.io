@@ -1,4 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { enterBackrooms, leaveBackrooms, openDoor, useXnVisit } from "../xnen/door";
+import DoorGlitch from "../xnen/DoorGlitch";
 import { loadXnenWorld } from "../xnen/load";
 import XnenBoundary from "../xnen/XnenBoundary";
 import { useOsState } from "./context";
@@ -10,7 +12,7 @@ import Window from "./Window";
 
 const XnenWorld = lazy(loadXnenWorld);
 
-/** Dev builds only: Ctrl+Shift+X opens XN's door straight away, for working on what's behind it. */
+/** Dev builds only: Ctrl+Shift+X goes through XN's door, found or not, for working on what's behind it. */
 function isXnenShortcut(e: KeyboardEvent) {
   return e.ctrlKey && e.shiftKey && e.code === "KeyX";
 }
@@ -29,14 +31,14 @@ function WindowLayer() {
 
 function KaraOs() {
   const [shuttingDown, setShuttingDown] = useState(false);
-  const [xnenOpen, setXnenOpen] = useState(false);
+  const visit = useXnVisit();
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     const onKey = (e: KeyboardEvent) => {
       if (!isXnenShortcut(e)) return;
       e.preventDefault();
-      setXnenOpen(true);
+      openDoor();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -49,10 +51,11 @@ function KaraOs() {
       <WindowLayer />
       <Taskbar onTurnOff={() => setShuttingDown(true)} />
       {shuttingDown && <ShutdownDialog onCancel={() => setShuttingDown(false)} />}
-      {xnenOpen && (
-        <XnenBoundary onFail={() => setXnenOpen(false)}>
+      {visit === "glitch" && <DoorGlitch onDone={enterBackrooms} />}
+      {visit === "inside" && (
+        <XnenBoundary onFail={() => leaveBackrooms("stop")}>
           <Suspense fallback={null}>
-            <XnenWorld onLeave={() => setXnenOpen(false)} />
+            <XnenWorld onLeave={leaveBackrooms} />
           </Suspense>
         </XnenBoundary>
       )}

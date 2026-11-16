@@ -1,0 +1,52 @@
+/* The desktop breaking up on the way through XN's door. */
+
+[data-skin="kara"] .kara-door-glitch {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* The whole desktop jumping, smearing and losing its colour, in hard steps like a tape losing tracking. Only
+   translate and filter: the pet and the windows are placed with transform, which an animation would override. */
+[data-skin="kara"] .kara-os--glitching > :not(.kara-door-glitch) {
+  animation: kara-door-glitch 1s steps(1, end) both;
+}
+
+@keyframes kara-door-glitch {
+  0% {
+    translate: 0 0;
+    filter: none;
+  }
+  12% {
+    translate: -6px 3px;
+    filter: saturate(1.6) hue-rotate(-12deg);
+  }
+  20% {
+    translate: 4px -2px;
+    filter: none;
+  }
+  34% {
+    translate: -10px 8px;
+    filter: saturate(2) contrast(1.4) hue-rotate(20deg);
+  }
+  42% {
+    translate: 0 -12px;
+    filter: contrast(1.6) brightness(1.2);
+  }
+  56% {
+    translate: 14px 20px;
+    filter: grayscale(0.6) contrast(1.8) blur(1px);
+  }
+  68% {
+    translate: -18px -30px;
+    filter: grayscale(1) contrast(2) blur(1.5px);
+  }
+  80%,
+  100% {
+    translate: 0 40px;
+    filter: grayscale(1) brightness(0.5) blur(2px);
+  }
+}

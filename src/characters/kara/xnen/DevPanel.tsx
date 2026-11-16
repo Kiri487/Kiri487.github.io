@@ -1,6 +1,7 @@
 import { useState, type Ref } from "react";
 import { DEFAULT_TUNING, type Tuning } from "./engine/tuning";
 import { describeTuning, loadTuning, saveTuning } from "./devTuning";
+import { forgetDoor } from "./door";
 
 /* Dev builds only: Kiri's sliders for tuning the place. The changes are kept, and 複製設定 copies them to paste back. */
 
@@ -93,6 +94,9 @@ function DevPanel({ panelRef, onTune }: DevPanelProps) {
         </button>
         <button type="button" onClick={() => change({ ...DEFAULT_TUNING }, true)}>
           還原預設
+        </button>
+        <button type="button" onClick={forgetDoor}>
+          忘記門
         </button>
         <button type="button" onClick={copy}>
           {copied === "done" ? "已複製" : copied === "failed" ? "請手動選取下面文字" : "複製設定"}
