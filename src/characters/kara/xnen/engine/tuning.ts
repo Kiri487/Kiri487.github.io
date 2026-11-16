@@ -25,7 +25,7 @@ export interface Tuning {
 }
 
 export const DEFAULT_TUNING: Tuning = {
-  res: 180,
+  res: 360,
   fog: 35,
   yellow: 100,
   bright: 100,
