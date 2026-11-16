@@ -603,7 +603,8 @@ export function createGame(parts: GameParts): Game {
       canvas.removeEventListener("pointercancel", onPointerUp);
       canvas.removeEventListener("contextmenu", onContextMenu);
       hum.stop();
-      unlock();
+      // No unlocking here: every way out (rewind, stop, a crash's boundary) already lets go of the mouse, and a dev
+      // build mounts this twice, where letting go would read as the visitor pressing Esc and pause the tape.
     },
   };
 }
