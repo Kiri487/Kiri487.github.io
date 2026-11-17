@@ -22,7 +22,7 @@ import "./xnen.css";
  * Kiri's tuning panel, in dev builds only, and only while this is on. Off, a dev build plays with the defaults, as
  * visitors do; her saved tuning stays put for when it's back on.
  */
-const DEV_PANEL = false;
+const DEV_PANEL = true;
 const TUNING_PANEL = import.meta.env.DEV && DEV_PANEL;
 
 /** Phones and tablets: no mouse lock, a stick and a stop button instead. */

@@ -2,6 +2,7 @@ import { useState, type Ref } from "react";
 import { DEFAULT_TUNING, type Tuning } from "./engine/tuning";
 import { describeTuning, loadTuning, saveTuning } from "./devTuning";
 import { forgetDoor } from "./door";
+import { readableAt, SAN_LOW_AT, sanExposure, setSanExposure, stageAt } from "./san";
 import { meetingsSoFar } from "./talk";
 import type { XnPreview } from "./game";
 import { XN_ACTIONS, type XnAction, type XnCrouch, type XnSit, type XnSurface } from "./xn";
@@ -54,6 +55,14 @@ const ACTION_LABELS: Record<XnAction, string> = {
   spin: "原地慢轉",
 };
 
+const SAN_STAGE_LABEL = { high: "高", middle: "中", low: "低" } as const;
+
+/** Seconds as m:ss. */
+function formatMinutes(seconds: number): string {
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
+
 /** A pose's settings in the panel: setting, label, range. */
 type PoseSliders<T> = readonly [keyof T & string, string, number, number][];
 
@@ -102,6 +111,8 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
   const [poseCopied, setPoseCopied] = useState<"" | "done" | "failed">("");
   // Read when the panel draws; forgetting sets it, so the button shows the change at once.
   const [meetings, setMeetings] = useState(meetingsSoFar);
+  // Read when the panel opens; it keeps changing while the tape plays, so reopen the panel to see where it got to.
+  const [san, setSan] = useState(sanExposure);
 
   const change = (patch: Partial<Tuning>, freshMap = false) => {
     const next = { ...tuning, ...patch };
@@ -212,6 +223,25 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
         </button>
       </div>
       <output className="kara-xnen-dev__summary">{describeTuning(tuning)}</output>
+
+      <h3>SAN（隱藏）</h3>
+      <label className="kara-xnen-dev__field">
+        <span>
+          在後室累積的時間 <b>{formatMinutes(san)}</b>（{SAN_STAGE_LABEL[stageAt(san)]}，XN 看得懂 {Math.round(readableAt(san) * 100)}%）
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={SAN_LOW_AT}
+          step={1}
+          value={Math.round(san)}
+          onChange={(e) => {
+            setSanExposure(Number(e.target.value));
+            setSan(sanExposure());
+          }}
+        />
+      </label>
+      <p className="kara-xnen-dev__note">4:20 到中、8:40 到低。在後室裡會往上加，在桌面上每秒減 1。重開面板才會看到最新的值。</p>
 
       <h3>XN 動作預覽</h3>
       <p className="kara-xnen-dev__note">
