@@ -827,8 +827,28 @@ export function createGame(parts: GameParts): Game {
 
   let raf = 0;
   let last = -1;
+  /**
+   * Something broke while running: an error boundary never sees errors thrown here, so the loop stops itself, lets
+   * go of the mouse and leaves, which puts the visitor back on the desktop.
+   */
+  const crash = (error: unknown) => {
+    if (left) return;
+    left = true;
+    cancelAnimationFrame(raf);
+    hum.setLevel(0);
+    unlock();
+    console.error("XN's backrooms stopped:", error);
+    parts.onLeave("stop");
+  };
   const frame = (t: number) => {
     raf = requestAnimationFrame(frame);
+    try {
+      runFrame(t);
+    } catch (error) {
+      crash(error);
+    }
+  };
+  const runFrame = (t: number) => {
     const now = t / 1000;
     const dt = last < 0 ? 0 : Math.min(0.05, Math.max(0, (t - last) / 1000));
     last = t;
