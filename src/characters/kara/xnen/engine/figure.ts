@@ -8,6 +8,19 @@ import type { StatueMesh, StatueModel } from "./statue";
  * floor, in the same units as the map.
  */
 
+/**
+ * Where a figure stands and which way it's turned, in the world: its feet at (x, y, z), its own up along `up` and its
+ * front along `front`, both unit vectors at right angles. Up needn't be the world's: a figure can stand on a ceiling
+ * or a wall.
+ */
+export interface Placement {
+  x: number;
+  y: number;
+  z: number;
+  up: readonly [number, number, number];
+  front: readonly [number, number, number];
+}
+
 export interface FigureBone {
   name: string;
   /** Index of the bone this one hangs from; -1 for the root. Parents always come first. */
@@ -95,11 +108,18 @@ export class Figure {
   private readonly moves: Float32Array;
   private readonly posed: Float32Array;
   private readonly mesh: StatueMesh;
+  /** Moves the whole figure within its own space, for poses that lower it (a crouch). */
+  private readonly offset = [0, 0, 0];
+  /** From its feet to the top of its head. */
+  readonly height: number;
 
   constructor(model: FigureModel) {
     this.model = model;
     this.look = { tris: [], atlasWidth: model.atlasWidth, atlasHeight: model.atlasHeight, stone: [0, 0, 0] };
     model.bones.forEach((bone, i) => this.names.set(bone.name, i));
+    let top = 0;
+    for (let i = 1; i < model.positions.length; i += 3) top = Math.max(top, model.positions[i]);
+    this.height = top;
     this.turns = new Float32Array(model.bones.length * 9);
     this.moves = new Float32Array(model.bones.length * 12);
     this.posed = new Float32Array(model.verts * 3);
@@ -125,6 +145,7 @@ export class Figure {
 
   /** Every bone back where the model was made. */
   rest() {
+    this.offset.fill(0);
     this.turns.fill(0);
     for (let i = 0; i < this.model.bones.length; i++) {
       this.turns[i * 9] = 1;
@@ -156,27 +177,40 @@ export class Figure {
     t[o + 8] = cy * cp;
   }
 
-  /** The posed figure, turned to face `facing` (radians) and stood at (x, y) on the map. The mesh is reused. */
-  place(x: number, y: number, facing: number): StatueMesh {
+  /** Moves the whole figure within its own space (y is up its height), on top of the bones' turns. */
+  shift(x: number, y: number, z: number) {
+    this.offset[0] = x;
+    this.offset[1] = y;
+    this.offset[2] = z;
+  }
+
+  /**
+   * The posed figure, put where `at` says. The mesh is reused. Its `x` and `y` are the middle of the figure's
+   * height, which is where its light is read and where it can be bumped into.
+   */
+  place(at: Placement): StatueMesh {
     this.solve();
     this.skin();
     const { indices, uvs } = this.model;
     const p = this.posed;
     const { corners, normals, centres } = this.mesh;
-    const fx = Math.cos(facing);
-    const fy = Math.sin(facing);
-    // The figure's own x axis, in the world: a quarter turn from where it faces.
-    const rx = fy;
-    const ry = -fx;
+    const [ux, uy, uz] = at.up;
+    const [fx, fy, fz] = at.front;
+    // The figure's own x axis in the world, front × up, which keeps its faces wound the same way whatever way it's
+    // turned. On the floor it's a quarter turn clockwise from where it faces.
+    const rx = fy * uz - fz * uy;
+    const ry = fz * ux - fx * uz;
+    const rz = fx * uy - fy * ux;
     for (let i = 0; i < this.model.faces; i++) {
       const q = i * 15;
       for (let k = 0; k < 3; k++) {
         const vi = indices[i * 3 + k];
         const X = p[vi * 3];
+        const Y = p[vi * 3 + 1];
         const Z = p[vi * 3 + 2];
-        corners[q + k * 5] = x + X * rx + Z * fx;
-        corners[q + k * 5 + 1] = y + X * ry + Z * fy;
-        corners[q + k * 5 + 2] = p[vi * 3 + 1];
+        corners[q + k * 5] = at.x + X * rx + Y * ux + Z * fx;
+        corners[q + k * 5 + 1] = at.y + X * ry + Y * uy + Z * fy;
+        corners[q + k * 5 + 2] = at.z + X * rz + Y * uz + Z * fz;
         corners[q + k * 5 + 3] = uvs[vi * 2];
         corners[q + k * 5 + 4] = uvs[vi * 2 + 1];
       }
@@ -198,8 +232,9 @@ export class Figure {
       centres[i * 3 + 1] = (corners[q + 1] + corners[q + 6] + corners[q + 11]) / 3;
       centres[i * 3 + 2] = (corners[q + 2] + corners[q + 7] + corners[q + 12]) / 3;
     }
-    this.mesh.x = x;
-    this.mesh.y = y;
+    const half = this.height / 2;
+    this.mesh.x = at.x + ux * half;
+    this.mesh.y = at.y + uy * half;
     return this.mesh;
   }
 
@@ -218,9 +253,9 @@ export class Figure {
       const d = i * 12;
       if (bone.parent < 0) {
         for (let k = 0; k < 9; k++) m[d + k] = t[o + k];
-        m[d + 9] = ox;
-        m[d + 10] = oy;
-        m[d + 11] = oz;
+        m[d + 9] = ox + this.offset[0];
+        m[d + 10] = oy + this.offset[1];
+        m[d + 11] = oz + this.offset[2];
         continue;
       }
       const s = bone.parent * 12;

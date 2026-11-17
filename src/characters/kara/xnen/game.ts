@@ -3,9 +3,9 @@ import { prefersReducedMotion } from "../../../shared/motion";
 import { AT_STATUE, nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
 import { Lighting } from "./engine/lighting";
-import { SPAWN, WorldMap, type Statue } from "./engine/map";
+import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
-import { CLEAN, Renderer, type Camera, type Effects } from "./engine/render";
+import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
 import {
   placeStatue,
   STATUE_RADIUS,
@@ -17,12 +17,36 @@ import {
 import type { Tuning } from "./engine/tuning";
 import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
-import { Xn, XN_RADIUS } from "./xn";
+import {
+  ceilingSpot,
+  floorSpot,
+  wallSpot,
+  Xn,
+  XN_RADIUS,
+  type Point,
+  type XnAction,
+  type XnCrouch,
+  type XnSit,
+  type XnSpot,
+  type XnSurface,
+} from "./xn";
 
 /*
  * Runs the place: input, the frame loop, the tape's PLAY / PAUSE / REW / STOP, sound. Everything here is plain DOM
  * and canvas; XnenWorld only lays out the page and shows what this reports.
  */
+
+/** Kiri's dev panel: where XN is put and what she does, to look at each action on each surface. */
+export interface XnPreview {
+  surface: XnSurface;
+  action: XnAction;
+  tailUp: boolean;
+  swingArms: boolean;
+  crouch: XnCrouch;
+  sit: XnSit;
+  /** She never notices the visitor, so the action can be watched. */
+  ignore: boolean;
+}
 
 /** What the tape is doing, shown top left. */
 export type Mode = "play" | "pause" | "rewind" | "stop";
@@ -45,6 +69,7 @@ export interface GameParts {
   xnMeshUrl: string;
   xnAtlasUrl: string;
   tuning: Tuning;
+  xnPreview: XnPreview;
   touch: boolean;
   onMode: (mode: Mode) => void;
   onPrompt: (show: boolean) => void;
@@ -58,6 +83,11 @@ export interface Game {
   pause: () => void;
   /** New tuning from the dev panel; `freshMap` also starts over on a new map at the spawn point. */
   tune: (next: Tuning, freshMap: boolean) => void;
+  /**
+   * The dev panel: XN goes to a floor, ceiling or wall near the visitor, and `restart` starts her action from the
+   * top; tail, arms, poses and noticing just change.
+   */
+  previewXn: (next: XnPreview, restart: boolean) => void;
   dispose: () => void;
 }
 
@@ -82,8 +112,22 @@ const FACING = 0.55;
 /** A touch shorter and stiller than this is a tap. */
 const TAP_MS = 300;
 const TAP_PX = 12;
-/** For now XN just stands this far in front of where the visitor comes in, looking back at them. */
+/** For now XN is put this far in front of the visitor (where they come in, or where the dev panel finds them). */
 const XN_AHEAD = 1.7;
+/** Looking for a wall for XN: how far from the visitor, and how far from her, for facing one. */
+const WALL_SEARCH = 6;
+const FACE_WALL_SEARCH = 4;
+/** Facing a wall, her feet are this far from it. */
+const FACE_WALL_GAP = 0.16;
+/** Lights she might stare at are at most this far off. */
+const LAMP_SEARCH = 3.5;
+/** The four sides of a cell. */
+const SIDES = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+] as const;
 /** Maps tried for one whose nearest statue is a fair walk away. */
 const MAP_TRIES = 80;
 
@@ -147,6 +191,7 @@ export function createGame(parts: GameParts): Game {
   });
   let xn: Xn | null = null;
   let xnSkin: StatueSkin | null = null;
+  let xnPreview = { ...parts.xnPreview };
   let disposed = false;
   loadSkin(parts.xnAtlasUrl, (loaded) => {
     xnSkin = loaded;
@@ -158,12 +203,12 @@ export function createGame(parts: GameParts): Game {
     })
     .then((buffer) => {
       if (disposed) return;
-      xn = new Xn(
-        parseFigure(buffer),
-        SPAWN.x + Math.cos(SPAWN.angle) * XN_AHEAD,
-        SPAWN.y + Math.sin(SPAWN.angle) * XN_AHEAD,
-        SPAWN.angle + Math.PI,
-      );
+      xn = new Xn(parseFigure(buffer), spotAhead(SPAWN.x, SPAWN.y, SPAWN.angle, xnPreview.surface));
+      xn.ignore = xnPreview.ignore;
+      xn.manner = { tailUp: xnPreview.tailUp, swingArms: xnPreview.swingArms };
+      xn.crouch = { ...xnPreview.crouch };
+      xn.sit = { ...xnPreview.sit };
+      startXnAction(xn, xnPreview.action);
     })
     .catch(() => {
       /* she doesn't turn up; the place still works */
@@ -274,6 +319,159 @@ export function createGame(parts: GameParts): Game {
     if (mode === "play" && prompt) leaveBy("rewind");
   };
 
+  // ---- where XN can go ----
+
+  /** No wall on the straight line between two points. */
+  const clearBetween = (x0: number, y0: number, x1: number, y1: number) => {
+    const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.1);
+    for (let i = 1; i < n; i++) {
+      const k = i / n;
+      if (map.wall(Math.floor(x0 + (x1 - x0) * k), Math.floor(y0 + (y1 - y0) * k))) return false;
+    }
+    return true;
+  };
+
+  /** Room for XN's middle at (x, y): no wall within her reach. */
+  const roomFor = (x: number, y: number) => {
+    const r = XN_RADIUS;
+    return (
+      !map.wall(Math.floor(x - r), Math.floor(y - r)) &&
+      !map.wall(Math.floor(x + r), Math.floor(y - r)) &&
+      !map.wall(Math.floor(x - r), Math.floor(y + r)) &&
+      !map.wall(Math.floor(x + r), Math.floor(y + r))
+    );
+  };
+
+  /** Every face of wall within `reach` cells of (x, y) that has open floor in front of it. */
+  const wallFaces = (x: number, y: number, reach: number) => {
+    const faces: { x: number; y: number; nx: number; ny: number }[] = [];
+    const cx = Math.floor(x);
+    const cy = Math.floor(y);
+    for (let j = -reach; j <= reach; j++) {
+      for (let i = -reach; i <= reach; i++) {
+        if (!map.wall(cx + i, cy + j)) continue;
+        for (const [nx, ny] of SIDES) {
+          if (map.wall(cx + i + nx, cy + j + ny)) continue;
+          faces.push({ x: cx + i + 0.5 + nx * 0.5, y: cy + j + 0.5 + ny * 0.5, nx, ny });
+        }
+      }
+    }
+    return faces;
+  };
+
+  /**
+   * XN on the given surface in front of someone at (x, y) looking along `angle`, facing back at them: on the floor
+   * or the ceiling up to XN_AHEAD ahead, nearer if a wall's in the way; on a wall, the face of wall about two cells off
+   * that looks their way.
+   */
+  const spotAhead = (x: number, y: number, angle: number, surface: XnSurface): XnSpot => {
+    const fx = Math.cos(angle);
+    const fy = Math.sin(angle);
+    if (surface === "wall") {
+      let best: XnSpot | null = null;
+      let bestScore = Infinity;
+      for (const face of wallFaces(x, y, WALL_SEARCH)) {
+        const dx = x - face.x;
+        const dy = y - face.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 0.8 || (dx * face.nx + dy * face.ny) / dist < 0.25) continue;
+        if (!clearBetween(x, y, face.x + face.nx * 0.3, face.y + face.ny * 0.3)) continue;
+        // About two cells off, and in front of them rather than behind.
+        const behind = -(dx * fx + dy * fy) / dist < 0 ? 3 : 0;
+        const score = Math.abs(dist - 2) + behind;
+        if (score >= bestScore) continue;
+        bestScore = score;
+        // Her front along the wall, toward their side of her.
+        const along = dx * -face.ny + dy * face.nx < 0 ? -1 : 1;
+        best = wallSpot(face.x, face.y, Math.atan2(face.ny, face.nx), along);
+      }
+      // Nowhere to cling to: the floor.
+      if (best) return best;
+    }
+    let d = XN_AHEAD;
+    while (d > 0.6 && !(roomFor(x + fx * d, y + fy * d) && clearBetween(x, y, x + fx * d, y + fy * d))) d -= 0.1;
+    const spot = surface === "ceiling" ? ceilingSpot : floorSpot;
+    return spot(x + fx * d, y + fy * d, angle + Math.PI);
+  };
+
+  /** A ceiling light near her to stare at: one she can turn her head to, and that works, if there's one. */
+  const lampFor = (who: Xn): Point | null => {
+    const { front } = who.where;
+    const facing = Math.atan2(front[1], front[0]);
+    let best: Point | null = null;
+    let bestScore = Infinity;
+    const r = Math.ceil(LAMP_SEARCH);
+    const cx = Math.floor(who.x);
+    const cy = Math.floor(who.y);
+    for (let j = -r; j <= r; j++) {
+      for (let i = -r; i <= r; i++) {
+        const lx = cx + i;
+        const ly = cy + j;
+        // Lights hang over cells 1, 4, 7… on both axes.
+        if ((((lx % 3) + 3) % 3) !== 1 || (((ly % 3) + 3) % 3) !== 1 || map.wall(lx, ly)) continue;
+        const dx = lx + 0.5 - who.x;
+        const dy = ly + 0.5 - who.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist > LAMP_SEARCH) continue;
+        const off = Math.atan2(dy, dx) - facing;
+        const turn = Math.abs(Math.atan2(Math.sin(off), Math.cos(off)));
+        const score = dist + (dist > 0.3 && turn > 1.1 ? 3 : 0) + (map.light(lx, ly) === LIGHT_DEAD ? 1.5 : 0);
+        if (score >= bestScore) continue;
+        bestScore = score;
+        best = [lx + 0.5, ly + 0.5, 1];
+      }
+    }
+    return best;
+  };
+
+  /** Starts an action: moves her to a wall to face it, and finds what she stares at. */
+  const startXnAction = (who: Xn, action: XnAction) => {
+    const surface = who.surface;
+    if (action === "faceWall" && surface !== "wall") {
+      // The face of wall nearest her, preferably one where the visitor can see her.
+      let best: XnSpot | null = null;
+      let bestScore = Infinity;
+      for (const face of wallFaces(who.x, who.y, FACE_WALL_SEARCH)) {
+        const sx = face.x + face.nx * FACE_WALL_GAP;
+        const sy = face.y + face.ny * FACE_WALL_GAP;
+        const mx = sx + face.nx * 0.1;
+        const my = sy + face.ny * 0.1;
+        if (!roomFor(mx, my)) continue;
+        const score = Math.hypot(sx - who.x, sy - who.y) + (clearBetween(player.x, player.y, mx, my) ? 0 : 4);
+        if (score >= bestScore) continue;
+        bestScore = score;
+        const facing = Math.atan2(-face.ny, -face.nx);
+        best = surface === "ceiling" ? ceilingSpot(sx, sy, facing) : floorSpot(sx, sy, facing);
+      }
+      if (best) who.moveTo(best);
+    }
+    let gaze: Point | null = null;
+    if (action === "lamp") gaze = lampFor(who);
+    if (action === "carpet") {
+      const { x, y, front } = who.where;
+      // Just ahead of her feet, or the floor under her.
+      gaze = surface === "floor" ? [x + front[0] * 0.3, y + front[1] * 0.3, 0] : [who.x, who.y, 0];
+    }
+    who.act(action, gaze);
+  };
+
+  /** XN is in the visitor's view: in the picture, give or take her width, with no wall between. */
+  const sees = (cam: Camera, x: number, y: number) => {
+    const dx = x - cam.x;
+    const dy = y - cam.y;
+    const fx = Math.cos(cam.angle);
+    const fy = Math.sin(cam.angle);
+    const ahead = dx * fx + dy * fy;
+    if (ahead <= 0) return false;
+    if (Math.abs(dy * fx - dx * fy) - XN_RADIUS > ahead * renderer.spread(tuning.fov)) return false;
+    const n = Math.ceil(Math.hypot(dx, dy) / 0.1);
+    for (let i = 1; i < n; i++) {
+      const k = i / n;
+      if (light.wallAt(Math.floor(cam.x + dx * k), Math.floor(cam.y + dy * k), map)) return false;
+    }
+    return true;
+  };
+
   const blocked = (x: number, y: number) => {
     for (const mesh of nearby) {
       if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
@@ -345,7 +543,8 @@ export function createGame(parts: GameParts): Game {
     props = [];
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     if (xn && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
-      props.push({ mesh: xn.update(dt, cam.x, cam.y, reduced), model: xn.figure.look, skin: xnSkin });
+      const eye: Point = [cam.x, cam.y, EYE];
+      props.push({ mesh: xn.update(dt, eye, sees(cam, xn.x, xn.y), reduced), model: xn.figure.look, skin: xnSkin });
     }
   };
 
@@ -595,6 +794,18 @@ export function createGame(parts: GameParts): Game {
   fit();
   raf = requestAnimationFrame(frame);
 
+  /** The dev panel is used paused, so the held frame is redrawn to show a change. */
+  const redrawHeld = () => {
+    if (mode !== "pause") return;
+    light.build(player.x, player.y, map);
+    light.step(0, reduced, tuning.bright / 100);
+    lookAround(playerCamera());
+    gather(playerCamera(), 0);
+    renderer.render({ ...playerCamera(), bob: 0 }, light, map, tuning, props, CLEAN, reduced);
+    renderer.hold();
+    nextJitter = 0;
+  };
+
   return {
     stop: () => leaveBy("stop"),
     pause,
@@ -607,20 +818,28 @@ export function createGame(parts: GameParts): Game {
         meshes.clear();
         nearby = [];
         trail = [];
+        if (xn) {
+          xn.moveTo(spotAhead(player.x, player.y, player.angle, xnPreview.surface));
+          startXnAction(xn, xnPreview.action);
+        }
       }
       fit();
       light.forget();
       if (mode === "play") hum.setLevel(tuning.hum ? 1 : 0);
-      // The panel is used paused, so the held frame is redrawn to show the change.
-      if (mode === "pause") {
-        light.build(player.x, player.y, map);
-        light.step(0, reduced, tuning.bright / 100);
-        lookAround(playerCamera());
-        gather(playerCamera(), 0);
-        renderer.render({ ...playerCamera(), bob: 0 }, light, map, tuning, props, CLEAN, reduced);
-        renderer.hold();
-        nextJitter = 0;
-      }
+      redrawHeld();
+    },
+    previewXn(next, restart) {
+      const moved = next.surface !== xnPreview.surface;
+      xnPreview = { ...next };
+      if (!xn) return;
+      xn.ignore = next.ignore;
+      xn.manner = { tailUp: next.tailUp, swingArms: next.swingArms };
+      xn.crouch = { ...next.crouch };
+      xn.sit = { ...next.sit };
+      if (moved) xn.moveTo(spotAhead(player.x, player.y, player.angle, next.surface));
+      if (restart) startXnAction(xn, next.action);
+      else xn.repose();
+      redrawHeld();
     },
     dispose() {
       left = true;

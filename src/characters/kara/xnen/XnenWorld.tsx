@@ -7,7 +7,8 @@ import xnMeshUrl from "./assets/xn-mesh.bin?url";
 import DevPanel from "./DevPanel";
 import { loadTuning } from "./devTuning";
 import { DEFAULT_TUNING } from "./engine/tuning";
-import { createGame, type Exit, type Game, type Mode } from "./game";
+import { createGame, type Exit, type Game, type Mode, type XnPreview } from "./game";
+import { DEFAULT_CROUCH, DEFAULT_SIT } from "./xn";
 import "./xnen.css";
 
 /*
@@ -76,6 +77,17 @@ function ModeReadout({ mode }: { mode: Mode }) {
   }
 }
 
+/** XN as she is until the dev panel says otherwise: on the floor, standing, minding the visitor. */
+const FIRST_PREVIEW: XnPreview = {
+  surface: "floor",
+  action: "stand",
+  tailUp: false,
+  swingArms: false,
+  crouch: DEFAULT_CROUCH,
+  sit: DEFAULT_SIT,
+  ignore: false,
+};
+
 const SPOKEN_MODE: Record<Mode, string> = { play: "Playing", pause: "Paused", rewind: "Rewinding", stop: "Stopped" };
 
 interface XnenWorldProps {
@@ -95,6 +107,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
   const [mode, setMode] = useState<Mode>("play");
   const [prompt, setPrompt] = useState(false);
   const [devOpen, setDevOpen] = useState(false);
+  const [xnPreview, setXnPreview] = useState(FIRST_PREVIEW);
 
   useEffect(() => {
     leaveRef.current = onLeave;
@@ -132,6 +145,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       xnMeshUrl,
       xnAtlasUrl,
       tuning: import.meta.env.DEV ? loadTuning() : { ...DEFAULT_TUNING },
+      xnPreview: FIRST_PREVIEW,
       touch: TOUCH,
       onMode: setMode,
       onPrompt: setPrompt,
@@ -214,7 +228,15 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
         )}
       </div>
       {import.meta.env.DEV && devOpen && (
-        <DevPanel panelRef={devRef} onTune={(next, freshMap) => gameRef.current?.tune(next, freshMap)} />
+        <DevPanel
+          panelRef={devRef}
+          onTune={(next, freshMap) => gameRef.current?.tune(next, freshMap)}
+          xnPreview={xnPreview}
+          onXnPreview={(next, restart) => {
+            setXnPreview(next);
+            gameRef.current?.previewXn(next, restart);
+          }}
+        />
       )}
     </div>
   );

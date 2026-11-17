@@ -13,7 +13,7 @@ import type { Tuning } from "./tuning";
 const FOG: readonly [number, number, number] = [14, 12, 6];
 const EMIT = [255, 250, 225];
 /** Eye height, with floor at 0 and ceiling at 1. */
-const EYE = 0.5;
+export const EYE = 0.5;
 /** Nothing is drawn past this many cells. */
 const FAR = 28;
 
@@ -122,6 +122,11 @@ export class Renderer {
     return this.height;
   }
 
+  /** How far the picture reaches to each side of straight ahead, at one cell ahead. */
+  spread(fov: number): number {
+    return Math.tan((fov * Math.PI) / 360) * Math.min(1, this.aspect / 1.2);
+  }
+
   render(
     cam: Camera,
     light: Lighting,
@@ -136,7 +141,7 @@ export class Renderer {
     const d = this.image.data;
     const wallDepth = this.wallDepth;
     const wallBottom = this.wallBottom;
-    const plane = Math.tan((tuning.fov * Math.PI) / 360) * Math.min(1, this.aspect / 1.2);
+    const plane = this.spread(tuning.fov);
     const dx = Math.cos(cam.angle);
     const dy = Math.sin(cam.angle);
     const plx = -dy * plane;

@@ -257,6 +257,26 @@
   color: var(--xnen-paper);
 }
 
+[data-skin="kara"] .kara-os .kara-xnen-dev__buttons button[aria-pressed="true"] {
+  border-color: var(--xnen-wall);
+  color: var(--xnen-wall);
+}
+
+[data-skin="kara"] .kara-os .kara-xnen-dev__buttons button:disabled {
+  opacity: 0.35;
+}
+
+[data-skin="kara"] .kara-xnen-dev h3 {
+  margin: 8px 0 0;
+  color: var(--xnen-wall);
+  font: 400 18px var(--xnen-osd);
+}
+
+[data-skin="kara"] .kara-xnen-dev__note {
+  margin: 0;
+  color: var(--xnen-dim);
+}
+
 [data-skin="kara"] .kara-xnen-dev__summary {
   color: var(--xnen-dim);
   font: 16px/1.15 var(--xnen-osd);
