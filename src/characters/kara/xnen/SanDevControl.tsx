@@ -1,11 +1,10 @@
+import { formatSan, SAN_STAGE_LABEL } from "./devFlags";
 import { SAN_DEV_RANGE, SAN_LOW_AT, SAN_MIDDLE_AT, setSanExposure, stageAt, useSanSeconds } from "./san";
 
 /*
  * Dev builds only: SAN on Kara's desktop, live, to set it without going through the door. Plain inline styles: it's a
  * tool, not part of the page.
  */
-
-const STAGE_LABEL = { high: "高", middle: "中", low: "低" } as const;
 
 /**
  * Where the quick buttons put SAN: high, half way through the middle, and a minute into low, since the desktop takes a
@@ -16,10 +15,6 @@ const PRESETS: readonly [string, number][] = [
   ["中", Math.round((SAN_MIDDLE_AT + SAN_LOW_AT) / 2)],
   ["低", SAN_LOW_AT + 60],
 ];
-
-function formatMinutes(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
 
 function SanDevControl() {
   const seconds = useSanSeconds();
@@ -41,7 +36,7 @@ function SanDevControl() {
       }}
     >
       <span>
-        SAN {formatMinutes(seconds)}（{STAGE_LABEL[stageAt(seconds)]}）
+        SAN {formatSan(seconds)}（{SAN_STAGE_LABEL[stageAt(seconds)]}）
       </span>
       <input
         type="range"

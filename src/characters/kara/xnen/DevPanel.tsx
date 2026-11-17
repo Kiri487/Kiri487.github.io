@@ -1,5 +1,6 @@
 import { useState, type Ref } from "react";
 import { DEFAULT_TUNING, type Tuning } from "./engine/tuning";
+import { formatSan, SAN_STAGE_LABEL } from "./devFlags";
 import { describeTuning, loadTuning, saveTuning } from "./devTuning";
 import { forgetDoor } from "./door";
 import { readableAt, SAN_DEV_RANGE, setSanExposure, stageAt, useSanSeconds } from "./san";
@@ -54,14 +55,6 @@ const ACTION_LABELS: Record<XnAction, string> = {
   sit: "坐著抱膝",
   spin: "原地慢轉",
 };
-
-const SAN_STAGE_LABEL = { high: "高", middle: "中", low: "低" } as const;
-
-/** Seconds as m:ss. */
-function formatMinutes(seconds: number): string {
-  const whole = Math.round(seconds);
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-}
 
 /** A pose's settings in the panel: setting, label, range. */
 type PoseSliders<T> = readonly [keyof T & string, string, number, number][];
@@ -226,7 +219,7 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
       <h3>SAN（隱藏）</h3>
       <label className="kara-xnen-dev__field">
         <span>
-          在後室累積的時間 <b>{formatMinutes(san)}</b>（{SAN_STAGE_LABEL[stageAt(san)]}，XN 看得懂 {Math.round(readableAt(san) * 100)}%）
+          在後室累積的時間 <b>{formatSan(san)}</b>（{SAN_STAGE_LABEL[stageAt(san)]}，XN 看得懂 {Math.round(readableAt(san) * 100)}%）
         </span>
         <input
           type="range"

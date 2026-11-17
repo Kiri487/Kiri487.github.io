@@ -6,3 +6,12 @@
 const DEV_PANEL = false;
 
 export const XN_DEV_TOOLS = import.meta.env.DEV && DEV_PANEL;
+
+/** SAN's stages, as the dev controls name them. */
+export const SAN_STAGE_LABEL = { high: "高", middle: "中", low: "低" } as const;
+
+/** Seconds as m:ss, for the dev controls. */
+export function formatSan(seconds: number): string {
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+}
