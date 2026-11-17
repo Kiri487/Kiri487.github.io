@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { abandonVisit, enterBackrooms, leaveBackrooms, useXnVisit } from "../xnen/door";
 import DoorGlitch from "../xnen/DoorGlitch";
 import { loadXnenWorld } from "../xnen/load";
+import { passSanTime } from "../xnen/san";
 import XnenBoundary from "../xnen/XnenBoundary";
 import { useOsState } from "./context";
 import Desktop from "./Desktop";
@@ -36,6 +37,15 @@ function KaraOs() {
 
   // Leaving Kara's page from behind the door shouldn't leave the next visit to it stuck back there.
   useEffect(() => abandonVisit, []);
+
+  // Time on the plain desktop gives SAN back, a second for a second, but only while the page is in front.
+  useEffect(() => {
+    if (visit !== "none") return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) passSanTime(-1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [visit]);
 
   return (
     <div className="kara-os">

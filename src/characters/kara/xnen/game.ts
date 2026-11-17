@@ -18,6 +18,7 @@ import type { Tuning } from "./engine/tuning";
 import { MUTTER, rot13 } from "./lines";
 import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, playXnTalkSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
+import { passSanTime } from "./san";
 import { forgetMeetings, Talk } from "./talk";
 import {
   ceilingSpot,
@@ -752,6 +753,8 @@ export function createGame(parts: GameParts): Game {
       tuning.bob && !reduced ? renderer.pictureHeight : 0,
     );
     if (step) playStepSfx();
+    // Time in here wears the visitor's SAN down. Only while playing: paused, hidden or leaving doesn't count.
+    passSanTime(dt);
     trailClock += dt;
     if (trailClock >= TRAIL_STEP) {
       trailClock = 0;
