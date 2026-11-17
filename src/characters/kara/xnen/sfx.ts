@@ -1,4 +1,5 @@
 import { getAudioContext } from "../../../shared/audio";
+import { VOICE } from "../os/petSfx";
 import { noise, slide, VOLUME, whenAudible } from "../os/sfx";
 
 /* XN's sounds. All placeholders, synthesized like the rest of the desktop's, for Kiri to replace. */
@@ -147,4 +148,50 @@ export function playStopSfx() {
 /** ‖ PAUSE: a small click. */
 export function playPauseSfx() {
   whenAudible((c) => noise(c, 2400, c.currentTime, 0.035, VOLUME * 0.6));
+}
+
+/** Her syllables last this many times Kara's, long enough to hear each one swell and stop: Kara's are too short. */
+const XN_STRETCH = 2;
+/** A second voice this far above each syllable grinds against it, as XR's does. */
+const SEMITONE = 2 ** (1 / 12);
+/** Each swell ends in a cut this short: abrupt, but not a click. */
+const CUT = 0.006;
+
+/** One of her syllables: Kara's backwards, sliding up and swelling from nothing, then cut. */
+function backwardsSyllable(c: AudioContext, pitch: number, start: number, length: number, peak: number) {
+  const end = start + length;
+  const osc = c.createOscillator();
+  const gain = c.createGain();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(pitch * VOICE.fall, start);
+  osc.frequency.exponentialRampToValueAtTime(pitch, end);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peak, end);
+  gain.gain.linearRampToValueAtTime(0, end + CUT);
+  osc.connect(gain).connect(c.destination);
+  osc.onended = () => {
+    gain.disconnect();
+    osc.disconnect();
+  };
+  osc.start(start);
+  osc.stop(end + CUT + 0.01);
+}
+
+/**
+ * XN talking: Kara's voice backwards, the way XR's is Kere's: each syllable slides up instead of down and swells
+ * instead of fading, then stops dead, with a second voice a semitone above grinding against it. Her syllables are
+ * longer than Kara's, or none of that could be heard.
+ */
+export function playXnTalkSfx() {
+  whenAudible((c) => {
+    const t = c.currentTime;
+    const length = VOICE.length * XN_STRETCH;
+    const spacing = VOICE.spacing * XN_STRETCH;
+    for (let i = 0; i < VOICE.syllables; i++) {
+      const pitch = VOICE.lowest + Math.random() * VOICE.spread;
+      const start = t + i * spacing;
+      backwardsSyllable(c, pitch, start, length, VOICE.loudness);
+      backwardsSyllable(c, pitch * SEMITONE, start, length, VOICE.loudness * 0.7);
+    }
+  });
 }

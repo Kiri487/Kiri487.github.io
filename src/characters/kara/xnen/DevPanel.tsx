@@ -2,12 +2,24 @@ import { useState, type Ref } from "react";
 import { DEFAULT_TUNING, type Tuning } from "./engine/tuning";
 import { describeTuning, loadTuning, saveTuning } from "./devTuning";
 import { forgetDoor } from "./door";
+import { meetingsSoFar } from "./talk";
 import type { XnPreview } from "./game";
 import { XN_ACTIONS, type XnAction, type XnCrouch, type XnSit, type XnSurface } from "./xn";
 
 /* Dev builds only: Kiri's sliders for tuning the place. The changes are kept, and 複製設定 copies them to paste back. */
 
-type NumberKey = "fog" | "yellow" | "bright" | "dead" | "fov" | "compass" | "region" | "spawnMin" | "spawnMax";
+type NumberKey =
+  | "fog"
+  | "yellow"
+  | "bright"
+  | "dead"
+  | "fov"
+  | "compass"
+  | "region"
+  | "spawnMin"
+  | "spawnMax"
+  | "statueReach"
+  | "xnReach";
 
 /** Setting, label and range. */
 const SLIDERS: readonly [NumberKey, string, number, number][] = [
@@ -20,6 +32,8 @@ const SLIDERS: readonly [NumberKey, string, number, number][] = [
   ["region", "神像區塊大小（換地圖後生效）", 40, 220],
   ["spawnMin", "最近神像至少幾格（換地圖後生效）", 10, 300],
   ["spawnMax", "最近神像至多幾格（換地圖後生效）", 20, 400],
+  ["statueReach", "神像幾格內出現 E（÷100）", 40, 160],
+  ["xnReach", "XN 幾格內出現 E（÷100）", 30, 160],
 ];
 
 const RESOLUTIONS = [100, 140, 180, 240, 360];
@@ -79,12 +93,15 @@ interface DevPanelProps {
   xnPreview: XnPreview;
   onXnPreview: (next: XnPreview, restart: boolean) => void;
   onMoveXnOn: () => void;
+  onForgetXn: () => void;
 }
 
-function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn }: DevPanelProps) {
+function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForgetXn }: DevPanelProps) {
   const [tuning, setTuning] = useState(loadTuning);
   const [copied, setCopied] = useState<"" | "done" | "failed">("");
   const [poseCopied, setPoseCopied] = useState<"" | "done" | "failed">("");
+  // Read when the panel draws; forgetting sets it, so the button shows the change at once.
+  const [meetings, setMeetings] = useState(meetingsSoFar);
 
   const change = (patch: Partial<Tuning>, freshMap = false) => {
     const next = { ...tuning, ...patch };
@@ -203,6 +220,15 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn }: DevP
       <div className="kara-xnen-dev__buttons">
         <button type="button" onClick={onMoveXnOn}>
           XN 馬上瞬移
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onForgetXn();
+            setMeetings(0);
+          }}
+        >
+          XN 熟悉度歸零（遇過 {meetings} 次）
         </button>
       </div>
       <div className="kara-xnen-dev__buttons" role="group" aria-label="XN 在哪個面">

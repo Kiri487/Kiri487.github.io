@@ -108,6 +108,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
   const leaveRef = useRef(onLeave);
   const [mode, setMode] = useState<Mode>("play");
   const [prompt, setPrompt] = useState(false);
+  const [line, setLine] = useState<string | null>(null);
   const [devOpen, setDevOpen] = useState(false);
   const [xnPreview, setXnPreview] = useState(FIRST_PREVIEW);
 
@@ -151,6 +152,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       touch: TOUCH,
       onMode: setMode,
       onPrompt: setPrompt,
+      onLine: setLine,
       onLeave: (exit) => leaveRef.current(exit),
     });
     gameRef.current = game;
@@ -192,9 +194,14 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
         <span ref={timeRef} />
         <span ref={dateRef} />
       </div>
-      {prompt && mode === "play" && (
+      {/* The [ E ] and XN's subtitle share a spot and take turns: while she's talking, it's her line. */}
+      {prompt && mode === "play" && line === null && (
         <div className="kara-xnen__osd kara-xnen__prompt">{TOUCH ? "[ TAP ]" : "[ E ]"}</div>
       )}
+      {/* XN's subtitle: what she says, read out as it's shown (her ROT13 included). */}
+      <p className="kara-xnen__osd kara-xnen__line" aria-live="polite">
+        {line !== null && !leaving && <span>{line}</span>}
+      </p>
       {mode === "pause" && (
         <div className="kara-xnen__osd kara-xnen__paused" aria-hidden="true">
           {TOUCH ? (
@@ -239,6 +246,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
             gameRef.current?.previewXn(next, restart);
           }}
           onMoveXnOn={() => gameRef.current?.moveXnOn()}
+          onForgetXn={() => gameRef.current?.forgetXnMeetings()}
         />
       )}
     </div>

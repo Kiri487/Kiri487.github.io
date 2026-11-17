@@ -93,10 +93,32 @@
   gap: 2px;
 }
 
+/* Bottom middle, clear of the stamp, where XN's subtitle goes too: the two take turns. */
 [data-skin="kara"] .kara-xnen__prompt {
-  bottom: 18%;
+  bottom: calc(var(--xnen-bottom) + 64px);
   left: 50%;
   transform: translateX(-50%);
+}
+
+/* XN's subtitle: white on black boxes like a tape's captions, bottom middle, clear of the stamp. */
+[data-skin="kara"] .kara-xnen__line {
+  bottom: calc(var(--xnen-bottom) + 64px);
+  left: 50%;
+  width: min(80%, 34em);
+  margin: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: normal;
+  text-shadow: none;
+}
+
+[data-skin="kara"] .kara-xnen__line span {
+  padding: 0 0.3em;
+  background: #000;
+  color: #fff;
+  line-height: 1.3;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 [data-skin="kara"] .kara-xnen__paused {

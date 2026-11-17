@@ -22,6 +22,9 @@ export interface Tuning {
   spawnMax: number;
   /** Stretches the distances at which the timecode gains digits, in percent. */
   compass: number;
+  /** How near a statue's middle, and XN's, the visitor has to be for [ E ], in hundredths of a cell. */
+  statueReach: number;
+  xnReach: number;
 }
 
 export const DEFAULT_TUNING: Tuning = {
@@ -37,4 +40,6 @@ export const DEFAULT_TUNING: Tuning = {
   spawnMin: 70,
   spawnMax: 110,
   compass: 100,
+  statueReach: 90,
+  xnReach: 80,
 };

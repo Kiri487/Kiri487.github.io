@@ -1,6 +1,6 @@
 import { resumeAudioContext } from "../../../shared/audio";
 import { prefersReducedMotion } from "../../../shared/motion";
-import { AT_STATUE, nearestStatue, Timecode } from "./engine/compass";
+import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
@@ -15,8 +15,10 @@ import {
   type StatueSkin,
 } from "./engine/statue";
 import type { Tuning } from "./engine/tuning";
-import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, startHum } from "./sfx";
+import { MUTTER, rot13 } from "./lines";
+import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, playXnTalkSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
+import { forgetMeetings, Talk } from "./talk";
 import {
   ceilingSpot,
   floorSpot,
@@ -78,6 +80,8 @@ export interface GameParts {
   touch: boolean;
   onMode: (mode: Mode) => void;
   onPrompt: (show: boolean) => void;
+  /** XN's subtitle, as shown (ROT13'd), or null when there's none. */
+  onLine: (line: string | null) => void;
   onLeave: (exit: Exit) => void;
 }
 
@@ -95,6 +99,8 @@ export interface Game {
   previewXn: (next: XnPreview, restart: boolean) => void;
   /** The dev panel: XN moves on now, as if the visitor had looked away long enough. */
   moveXnOn: () => void;
+  /** The dev panel: XN forgets every meeting, as if the visitor had never been. */
+  forgetXnMeetings: () => void;
   dispose: () => void;
 }
 
@@ -114,7 +120,10 @@ const REWIND_SPAN = 200;
 const CALM_LEAVE_TIME = 0.5;
 /** Statues further than this aren't drawn. */
 const DRAW_RANGE = 28;
-/** How squarely a statue has to be faced to touch it (close enough is AT_STATUE, where the timecode reads 4:20). */
+/**
+ * How squarely a statue, or XN, has to be faced to touch it. Close enough is the tuning's statueReach or xnReach:
+ * nearer than where the timecode starts reading 4:20 (AT_STATUE in compass.ts).
+ */
 const FACING = 0.55;
 /** A touch shorter and stiller than this is a tap. */
 const TAP_MS = 300;
@@ -168,6 +177,16 @@ function pickSurface(): XnSurface {
   }
   return "floor";
 }
+
+/**
+ * Seconds of play a subtitle stays: at least LINE_TIME, and longer lines a little longer, LINE_BASE plus this much
+ * a character, so the longest stay about seven and a half.
+ */
+const LINE_TIME = 4;
+/** A subtitle goes once the visitor is further than this many cells from her. */
+const LINE_RANGE = 2;
+const LINE_BASE = 2;
+const LINE_PER_CHARACTER = 0.07;
 
 /** The four sides of a cell. */
 const SIDES = [
@@ -284,6 +303,11 @@ export function createGame(parts: GameParts): Game {
   let trail: Camera[] = [];
   let trailClock = 0;
   let prompt = false;
+  /** What pressing E would do now. */
+  let reach: "xn" | "statue" | null = null;
+  let talk = new Talk();
+  let shownLine: string | null = null;
+  let lineLeft = 0;
   let shownTime = "";
   let nearby: StatueMesh[] = [];
   /** What the picture draws besides the place itself, built again each frame. */
@@ -354,8 +378,16 @@ export function createGame(parts: GameParts): Game {
     if (!touch) lock();
   };
 
+  const showLine = (line: string | null) => {
+    if (line === null && shownLine === null) return;
+    shownLine = line;
+    if (line !== null) lineLeft = Math.max(LINE_TIME, LINE_BASE + line.length * LINE_PER_CHARACTER);
+    parts.onLine(line);
+  };
+
   const leaveBy = (exit: Exit) => {
     if (mode === "rewind" || mode === "stop") return;
+    showLine(null);
     fxTime = 0;
     bandPhase = 0;
     burst = false;
@@ -370,8 +402,21 @@ export function createGame(parts: GameParts): Game {
     setMode(exit);
   };
 
+  /** XN's next line: often only "...", which makes no sound; her words in ROT13, with her voice. */
+  const speak = () => {
+    const line = talk.next();
+    if (line === MUTTER) {
+      showLine(line);
+      return;
+    }
+    showLine(rot13(line));
+    playXnTalkSfx();
+  };
+
   const interact = () => {
-    if (mode === "play" && prompt) leaveBy("rewind");
+    if (mode !== "play" || !prompt) return;
+    if (reach === "xn") speak();
+    else if (reach === "statue") leaveBy("rewind");
   };
 
   // ---- where XN can go ----
@@ -561,6 +606,24 @@ export function createGame(parts: GameParts): Game {
     xnHere = true;
     xnUnseen = 0;
     xnPatience = between(XN_UNSEEN);
+    talk.newMeeting();
+    showLine(null);
+  };
+
+  /** She's gone for a while. */
+  const sendXnAway = (seconds: number) => {
+    xnHere = false;
+    xnAway = seconds;
+    showLine(null);
+  };
+
+  /** Near enough XN, and facing her, to talk to her. */
+  const xnInReach = () => {
+    if (!xn || !xnHere) return false;
+    const dx = xn.x - player.x;
+    const dy = xn.y - player.y;
+    const dist = Math.hypot(dx, dy);
+    return dist <= tuning.xnReach / 100 && (dx * Math.cos(player.angle) + dy * Math.sin(player.angle)) / (dist || 1) > FACING;
   };
 
   /** Puts XN somewhere new near the visitor, doing something new. False if there was nowhere. */
@@ -596,10 +659,7 @@ export function createGame(parts: GameParts): Game {
     }
     xnUnseen += dt;
     if (xnUnseen < xnPatience) return;
-    if (Math.random() < XN_AWAY_CHANCE || !relocateXn(xn, cam)) {
-      xnHere = false;
-      xnAway = between(XN_AWAY);
-    }
+    if (Math.random() < XN_AWAY_CHANCE || !relocateXn(xn, cam)) sendXnAway(between(XN_AWAY));
   };
 
   const blocked = (x: number, y: number) => {
@@ -663,7 +723,7 @@ export function createGame(parts: GameParts): Game {
         meshes.set(statue, mesh);
       }
       nearby.push(mesh);
-      if (dist <= AT_STATUE && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
+      if (dist <= tuning.statueReach / 100 && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
     }
     return reachable;
   };
@@ -699,8 +759,15 @@ export function createGame(parts: GameParts): Game {
       if (trail.length > TRAIL_KEEP) trail = trail.slice(-TRAIL_KEEP);
     }
     if (light.needsBuild(player.x, player.y)) light.build(player.x, player.y, map);
-    setPrompt(lookAround(playerCamera()));
+    const atStatue = lookAround(playerCamera());
     runXn(dt);
+    // She comes first: a statue by her can wait.
+    reach = xnInReach() ? "xn" : atStatue ? "statue" : null;
+    setPrompt(reach !== null);
+    // Her line stays until the next, its time is up, or the visitor walks off.
+    lineLeft -= dt;
+    const off = !xn || !xnHere || Math.hypot(xn.x - player.x, xn.y - player.y) > LINE_RANGE;
+    if (shownLine !== null && (off || lineLeft <= 0)) showLine(null);
     const digits = timecode.update(nearestStatue(map, player.x, player.y), tuning.compass, now, reduced);
     const line = timeStamp(digits);
     if (line !== shownTime) {
@@ -951,8 +1018,7 @@ export function createGame(parts: GameParts): Game {
         trail = [];
         if (xnPreview.auto) {
           // A new start: she turns up a while from now, as when the visitor comes in.
-          xnHere = false;
-          xnAway = between(XN_FIRST_WAIT);
+          sendXnAway(between(XN_FIRST_WAIT));
         } else if (xn) {
           xn.moveTo(spotAhead(player.x, player.y, player.angle, xnPreview.surface));
           startXnAction(xn, xnPreview.action);
@@ -984,6 +1050,10 @@ export function createGame(parts: GameParts): Game {
         xn.repose();
       }
       redrawHeld();
+    },
+    forgetXnMeetings() {
+      forgetMeetings();
+      talk = new Talk();
     },
     moveXnOn() {
       if (xn && relocateXn(xn, playerCamera())) redrawHeld();

@@ -16,13 +16,30 @@ export function playLandSfx(speed: number) {
   whenAudible((c) => slide(c, "sine", 170, 52, c.currentTime, 0.13, VOLUME * 1.8 * loudness));
 }
 
+/**
+ * Kara's voice: syllables of a square wave, each a random pitch sliding down. XN talks with the same voice played
+ * backwards (xnen/sfx.ts), so tuning it here changes hers too.
+ */
+export const VOICE = {
+  syllables: 3,
+  /** Seconds from one syllable to the next, and how long each lasts. */
+  spacing: 0.065,
+  length: 0.055,
+  /** Each syllable's starting pitch in Hz: lowest, and how much higher it can be. */
+  lowest: 330,
+  spread: 300,
+  /** Where each one's pitch ends, as a share of where it starts. */
+  fall: 0.85,
+  loudness: VOLUME * 0.35,
+};
+
 /** Talking: three syllables in no particular language, different every time. ~190ms. */
 export function playTalkSfx() {
   whenAudible((c) => {
     const t = c.currentTime;
-    for (let i = 0; i < 3; i++) {
-      const pitch = 330 + Math.random() * 300;
-      slide(c, "square", pitch, pitch * 0.85, t + i * 0.065, 0.055, VOLUME * 0.35);
+    for (let i = 0; i < VOICE.syllables; i++) {
+      const pitch = VOICE.lowest + Math.random() * VOICE.spread;
+      slide(c, "square", pitch, pitch * VOICE.fall, t + i * VOICE.spacing, VOICE.length, VOICE.loudness);
     }
   });
 }

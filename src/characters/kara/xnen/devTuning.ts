@@ -35,5 +35,7 @@ export function describeTuning(t: Tuning): string {
     `區塊 ${t.region}`,
     `神像距離 ${t.spawnMin}–${t.spawnMax}`,
     `時間碼 ${t.compass}%`,
+    `神像 E ${t.statueReach / 100}`,
+    `XN E ${t.xnReach / 100}`,
   ].join("｜");
 }
