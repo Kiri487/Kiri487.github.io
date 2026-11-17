@@ -1006,7 +1006,15 @@ export function createGame(parts: GameParts): Game {
   canvas.addEventListener("pointercancel", onPointerUp);
   canvas.addEventListener("contextmenu", onContextMenu);
 
-  const fit = () => renderer.resize(stage.clientWidth, stage.clientHeight, tuning.res);
+  const fit = () => {
+    renderer.resize(stage.clientWidth, stage.clientHeight, tuning.res);
+    // Paused (a phone turned, a window resized): the held frame went with the old size, so it's drawn again at the
+    // new one, and the noise band moves to somewhere on it.
+    if (mode === "pause") {
+      pausedBand = Math.floor(Math.random() * renderer.pictureHeight * 0.8);
+      redrawHeld();
+    }
+  };
   const resizer = new ResizeObserver(fit);
   resizer.observe(stage);
   fit();
