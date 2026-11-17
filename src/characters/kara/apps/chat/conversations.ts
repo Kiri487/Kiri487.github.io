@@ -368,7 +368,7 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
           xn("nothing. i like how it sounds from here"),
           kara("it sounds like xnen from there"),
           xn("that's the good part"),
-          kara("say mine again"),
+          kara("say yours"),
           xn("xnen"),
           kara("perfect :3"),
         ],
