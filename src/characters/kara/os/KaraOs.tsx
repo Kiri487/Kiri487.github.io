@@ -10,7 +10,13 @@ import ShutdownDialog from "./ShutdownDialog";
 import Taskbar from "./Taskbar";
 import Window from "./Window";
 
-const XnenWorld = lazy(loadXnenWorld);
+/** Made again after a failed load: lazy() keeps a failure for good, and the next try at the door should really try. */
+let XnenWorld = lazy(loadXnenWorld);
+
+function backroomsFailed() {
+  XnenWorld = lazy(loadXnenWorld);
+  leaveBackrooms("stop");
+}
 
 function WindowLayer() {
   const { windows, focusedId } = useOsState();
@@ -38,9 +44,9 @@ function KaraOs() {
       <WindowLayer />
       <Taskbar onTurnOff={() => setShuttingDown(true)} />
       {shuttingDown && <ShutdownDialog onCancel={() => setShuttingDown(false)} />}
-      {visit === "glitch" && <DoorGlitch onDone={enterBackrooms} />}
+      {visit === "glitch" && <DoorGlitch onDone={enterBackrooms} onGiveUp={backroomsFailed} />}
       {visit === "inside" && (
-        <XnenBoundary onFail={() => leaveBackrooms("stop")}>
+        <XnenBoundary onFail={backroomsFailed}>
           <Suspense fallback={null}>
             <XnenWorld onLeave={leaveBackrooms} />
           </Suspense>

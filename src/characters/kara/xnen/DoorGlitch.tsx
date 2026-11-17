@@ -6,21 +6,33 @@ import "./doorGlitch.css";
 /*
  * Kara's desktop breaking up on the way through the door: the whole screen jumps and smears while torn rows of snow
  * spread over it, until it's all snow, which is where the backrooms' own picture starts. It also waits for the
- * backrooms to finish loading, so there's never an empty moment between the two.
+ * backrooms to finish loading, so there's never an empty moment between the two. Meanwhile the desktop underneath
+ * takes no keys or clicks; Escape gives up and goes back, as does waiting too long on a slow connection.
  */
 
 /** Seconds of breaking up. */
 const GLITCH_TIME = 1;
+/** Still loading after this many seconds: give up and go back to the desktop. */
+const LOAD_LIMIT = 12;
 /** The snow is drawn this small and stretched, like the tape's picture. */
 const W = 160;
 const H = 90;
 
-function DoorGlitch({ onDone }: { onDone: () => void }) {
+interface DoorGlitchProps {
+  /** The backrooms are loaded and the snow has run its course. */
+  onDone: () => void;
+  /** Escape, or loading took too long or failed: back to the desktop. */
+  onGiveUp: () => void;
+}
+
+function DoorGlitch({ onDone, onGiveUp }: DoorGlitchProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const doneRef = useRef(onDone);
+  const giveUpRef = useRef(onGiveUp);
 
   useEffect(() => {
     doneRef.current = onDone;
+    giveUpRef.current = onGiveUp;
   });
 
   useEffect(() => {
@@ -30,6 +42,7 @@ function DoorGlitch({ onDone }: { onDone: () => void }) {
     if (!canvas || !ctx) return;
     const calm = prefersReducedMotion();
     let loaded = false;
+    /** Done, given up, or gone: nothing more happens. */
     let finished = false;
     let raf = 0;
     const finish = () => {
@@ -37,18 +50,41 @@ function DoorGlitch({ onDone }: { onDone: () => void }) {
       finished = true;
       doneRef.current();
     };
+    const giveUp = () => {
+      if (finished) return;
+      finished = true;
+      giveUpRef.current();
+    };
     loadXnenWorld().then(
       () => {
         loaded = true;
         if (calm) finish();
       },
-      () => {
-        // Couldn't load: the boundary around the backrooms will send everyone back to the desktop.
-        loaded = true;
-        finish();
-      },
+      giveUp,
     );
-    if (calm) return;
+    const tooLong = window.setTimeout(giveUp, LOAD_LIMIT * 1000);
+
+    // The desktop underneath sleeps: no focus, no clicks, no keys but Escape, which goes back.
+    const asleep: HTMLElement[] = [];
+    for (const sibling of Array.from(canvas.parentElement?.children ?? [])) {
+      if (sibling !== canvas && sibling instanceof HTMLElement && !sibling.inert) {
+        sibling.inert = true;
+        asleep.push(sibling);
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.key === "Escape") giveUp();
+    };
+    window.addEventListener("keydown", onKey, true);
+    const wake = () => {
+      finished = true;
+      window.clearTimeout(tooLong);
+      window.removeEventListener("keydown", onKey, true);
+      for (const sibling of asleep) sibling.inert = false;
+    };
+    if (calm) return wake;
 
     os?.classList.add("kara-os--glitching");
     const image = ctx.createImageData(W, H);
@@ -77,6 +113,7 @@ function DoorGlitch({ onDone }: { onDone: () => void }) {
     };
     raf = requestAnimationFrame(draw);
     return () => {
+      wake();
       cancelAnimationFrame(raf);
       os?.classList.remove("kara-os--glitching");
     };
