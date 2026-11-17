@@ -1,7 +1,11 @@
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
-import { CARPET, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
+import { CARPET, CARPET_FLIP, CARPET_SIZE, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
+
+/** The carpet picture's size, for wrapping pixels into it: CARPET_SIZE − 1, and log2 of CARPET_SIZE. */
+const CARPET_MASK = CARPET_SIZE - 1;
+const CARPET_SHIFT = Math.log2(CARPET_SIZE);
 import type { Tuning } from "./tuning";
 
 /*
@@ -204,7 +208,14 @@ export class Renderer {
           d[o + 3] = 255;
           if (isFloor) {
             const li = l * inv;
-            const ti = ((Math.floor(fy * 64) & 127) * 128 + (Math.floor(fx * 64) & 127)) * 3;
+            // Each column and row of carpet pictures mirrored or not, so the stains don't line up.
+            const tx = Math.floor(fx * 64);
+            const ty = Math.floor(fy * 64);
+            let cu = tx & CARPET_MASK;
+            let cv = ty & CARPET_MASK;
+            if (CARPET_FLIP[(tx >> CARPET_SHIFT) & 255]) cu = CARPET_MASK - cu;
+            if (CARPET_FLIP[(ty >> CARPET_SHIFT) & 255]) cv = CARPET_MASK - cv;
+            const ti = (cv * CARPET_SIZE + cu) * 3;
             d[o] = CARPET[ti] * li + ar;
             d[o + 1] = CARPET[ti + 1] * li + ag;
             d[o + 2] = CARPET[ti + 2] * li + ab;
