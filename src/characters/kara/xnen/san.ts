@@ -38,6 +38,15 @@ let savedSecond = Math.floor(exposure);
 const listeners = new Set<() => void>();
 let xnListed = readBoolean(CONTACT_KEY, false);
 
+// Another tab of Kara's page wrote its own SAN: take it up, or the two tabs would keep overwriting each other.
+window.addEventListener("storage", (event) => {
+  if (event.key !== KEY && event.key !== CONTACT_KEY) return;
+  exposure = readNumber(KEY, exposure, { min: 0 });
+  savedSecond = Math.floor(exposure);
+  xnListed = readBoolean(CONTACT_KEY, xnListed);
+  for (const listener of listeners) listener();
+});
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
