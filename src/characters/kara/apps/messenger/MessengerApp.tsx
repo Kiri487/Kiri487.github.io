@@ -18,18 +18,19 @@ const STATUS: Record<Contact["id"], { label: string; presence: Presence }> = {
   linkedin: { label: "Busy", presence: "busy" },
 };
 
-/** Kara's other sides, plus things that went missing elsewhere on this computer. Only the characters open a chat. */
-const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId }[] = [
+/**
+ * Kara's other sides, plus things that went missing elsewhere on this computer. Only the characters open a chat.
+ * XN is only there while the visitor's SAN is low (`onlyWhenXnListed`), with no notice: as if she'd always been.
+ */
+const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId; onlyWhenXnListed?: boolean }[] = [
   { name: "Kiri", status: "Asleep. Allegedly.", partner: "kiri" },
   { name: "Kuru", status: "Chill", partner: "kuru" },
   { name: "Kere", status: "Out of office", partner: "kere" },
   { name: "Koro", status: "Won't read it yet :P", partner: "koro" },
+  { name: "Xnen", status: "In the ceiling", partner: "xn", onlyWhenXnListed: true },
   { name: "Thursday", status: "Uninstalled" },
   { name: "The Printer", status: "Rumored" },
 ];
-
-/** XN, among the other cats, while the visitor's SAN is low. No notice: as if she'd always been there. */
-const XN_CONTACT = { name: "Xnen", status: "In the ceiling", partner: "xn" as const };
 
 /** A row without `onOpen` is a contact nobody can reach. */
 function ContactRow({
@@ -64,10 +65,7 @@ function MessengerApp() {
   const { openApp } = useWindow();
   const doorFound = useDoor() !== null;
   const xnListed = useXnListed();
-  // She goes in after the last of the cats, before the contacts nobody can reach.
-  const offline = xnListed
-    ? OFFLINE_CONTACTS.flatMap((contact) => (contact.partner === "koro" ? [contact, XN_CONTACT] : [contact]))
-    : OFFLINE_CONTACTS;
+  const offline = OFFLINE_CONTACTS.filter((contact) => xnListed || !contact.onlyWhenXnListed);
 
   const openChat = (partner: ChatPartnerId) => {
     const args: ChatArgs = { partner };
