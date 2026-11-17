@@ -6,7 +6,7 @@ export const PLAYER_RADIUS = 0.22;
 const WALK = 1.5;
 const RUN = 2.7;
 const TURN = 2.2;
-const MAX_PITCH = 0.42;
+const MAX_PITCH = 0.6;
 
 export interface Move {
   /** -1 to 1: back to forward. */
