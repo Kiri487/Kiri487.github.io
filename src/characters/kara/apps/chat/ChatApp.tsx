@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
-import { garble } from "../../xnen/rot13";
-import { useCatsLost } from "../../xnen/san";
+import { garble, readAs } from "../../xnen/rot13";
+import { useCatsLost, useXnReadable } from "../../xnen/san";
 import { pickDifferent } from "../common/pickDifferent";
 import { CHAT_PARTNERS, chatTime, type ChatArgs } from "./conversations";
 import "./chat.css";
@@ -24,6 +24,8 @@ function ChatApp() {
   const partner = CHAT_PARTNERS[partnerId];
   // Every cat in here, Kara too, reads wrong with too little SAN. The notices are the app's own, and stay as they are.
   const catsLost = useCatsLost();
+  // XN is the other way round: the lower SAN gets, the more of her reads plainly.
+  const xnReadable = useXnReadable();
   const rootRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const lastReplyRef = useRef<string | null>(null);
@@ -61,7 +63,7 @@ function ChatApp() {
                     <span className="kara-chat__sender">
                       {line.from === "kara" ? "Kara" : partner.name} ({chatTime(conversationIndex, lineIndex)}):
                     </span>{" "}
-                    {garble(line.text, catsLost)}
+                    {line.from === "xn" ? readAs(line.text, xnReadable) : garble(line.text, catsLost)}
                   </p>
                 ),
               )}

@@ -2,6 +2,7 @@ import { contacts, type Contact } from "../../../../data/portfolio";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
 import { useDoor } from "../../xnen/door";
+import { useXnListed } from "../../xnen/san";
 import { isTouchPointer, openGesture } from "../../os/openGesture";
 import { chatTitle, type ChatArgs, type ChatPartnerId } from "../chat/conversations";
 import { openExternal } from "../common/openExternal";
@@ -26,6 +27,9 @@ const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId 
   { name: "Thursday", status: "Uninstalled" },
   { name: "The Printer", status: "Rumored" },
 ];
+
+/** XN, among the other cats, while the visitor's SAN is low. No notice: as if she'd always been there. */
+const XN_CONTACT = { name: "Xnen", status: "In the ceiling", partner: "xn" as const };
 
 /** A row without `onOpen` is a contact nobody can reach. */
 function ContactRow({
@@ -59,6 +63,11 @@ function ContactRow({
 function MessengerApp() {
   const { openApp } = useWindow();
   const doorFound = useDoor() !== null;
+  const xnListed = useXnListed();
+  // She goes in after the last of the cats, before the contacts nobody can reach.
+  const offline = xnListed
+    ? OFFLINE_CONTACTS.flatMap((contact) => (contact.partner === "koro" ? [contact, XN_CONTACT] : [contact]))
+    : OFFLINE_CONTACTS;
 
   const openChat = (partner: ChatPartnerId) => {
     const args: ChatArgs = { partner };
@@ -90,8 +99,8 @@ function MessengerApp() {
           ))}
         </section>
         <section className="kara-messenger__group">
-          <h3 className="kara-messenger__group-title">Offline ({OFFLINE_CONTACTS.length})</h3>
-          {OFFLINE_CONTACTS.map(({ name, status, partner }) => (
+          <h3 className="kara-messenger__group-title">Offline ({offline.length})</h3>
+          {offline.map(({ name, status, partner }) => (
             <ContactRow
               key={name}
               presence="offline"

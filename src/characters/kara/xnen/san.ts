@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { clamp } from "../../../shared/math";
-import { readNumber, writeString } from "../../../shared/storage";
+import { readBoolean, readNumber, writeBoolean, writeString } from "../../../shared/storage";
 
 /*
  * The visitor's hidden SAN, kept as how long they've spent in XN's backrooms: it climbs while they're inside and
@@ -29,11 +29,14 @@ const MIDDLE_LOSS = 0.1;
 export type SanStage = "high" | "middle" | "low";
 
 const KEY = "kara-xn-san";
+/** XN is in Kara's Messenger: she comes in at low SAN and only goes once it's high again, not at the middle. */
+const CONTACT_KEY = "kara-xn-contact";
 
 let exposure = readNumber(KEY, 0, { min: 0 });
 /** The whole second last written down: storage gets a write a second at most, and React hears of it as often. */
 let savedSecond = Math.floor(exposure);
 const listeners = new Set<() => void>();
+let xnListed = readBoolean(CONTACT_KEY, false);
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -101,8 +104,23 @@ export function useSanSeconds(): number {
   return useSyncExternalStore(subscribe, () => Math.floor(exposure));
 }
 
+/** For Messenger: whether XN is among Kara's contacts right now. */
+export function useXnListed(): boolean {
+  return useSyncExternalStore(subscribe, () => xnListed);
+}
+
+/** In at low, out at high, as she was in between: so she doesn't flicker on the edge of a stage. */
+function updateContact() {
+  const stage = stageAt(exposure);
+  const listed = stage === "low" ? true : stage === "high" ? false : xnListed;
+  if (listed === xnListed) return;
+  xnListed = listed;
+  writeBoolean(CONTACT_KEY, listed);
+}
+
 function save() {
   savedSecond = Math.floor(exposure);
   writeString(KEY, String(Math.round(exposure * 10) / 10));
+  updateContact();
   for (const listener of listeners) listener();
 }
