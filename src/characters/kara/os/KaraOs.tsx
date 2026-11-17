@@ -79,7 +79,9 @@ function KaraOs() {
       {visit === "glitch" && <DoorGlitch onDone={enterBackrooms} onGiveUp={backroomsFailed} />}
       {visit === "inside" && (
         <XnenBoundary onFail={backroomsFailed}>
-          <Suspense fallback={null}>
+          {/* The door's glitch waits for the backrooms to load, but lazy() still holds back the first render a moment
+              after: the backrooms' dark covers the desktop meanwhile, or it would flash through. */}
+          <Suspense fallback={<div className="kara-xnen" aria-hidden="true" />}>
             <XnenWorld onLeave={leaveBackrooms} />
           </Suspense>
         </XnenBoundary>
