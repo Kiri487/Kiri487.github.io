@@ -89,6 +89,25 @@ export function openDoor() {
   emit();
 }
 
+/** The backrooms took the whole screen when the door opened, and should give it back on the way out. */
+let fillingScreen = false;
+
+/**
+ * Phones: the backrooms fill the whole screen, where the browser allows it. Must be called while the tap that opens
+ * the door is still being handled; browsers refuse otherwise, and iPhones don't allow it at all.
+ */
+export function fillScreen(element: Element | null) {
+  if (!element || typeof element.requestFullscreen !== "function" || document.fullscreenElement) return;
+  element.requestFullscreen().then(
+    () => {
+      fillingScreen = true;
+    },
+    () => {
+      /* refused: the backrooms play in the page */
+    },
+  );
+}
+
 export function enterBackrooms() {
   if (visit !== "glitch") return;
   visit = "inside";
@@ -98,6 +117,10 @@ export function enterBackrooms() {
 export function leaveBackrooms(exit: Exit) {
   if (visit === "none") return;
   visit = "none";
+  if (fillingScreen) {
+    fillingScreen = false;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
   lastReturn = { exit, id: ++returns };
   emit();
 }

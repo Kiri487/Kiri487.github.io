@@ -11,7 +11,7 @@ import { useSkin } from "../../../SkinContext";
 import MessageBox from "../apps/common/MessageBox";
 import { APPS, DESKTOP_ICONS, type DesktopIconDefinition } from "../apps/registry";
 import { DoorIcon } from "../icons";
-import { openDoor, useDoor, useDoorIsFresh } from "../xnen/door";
+import { fillScreen, openDoor, useDoor, useDoorIsFresh } from "../xnen/door";
 import ContextMenu, { type ContextMenuItem } from "./ContextMenu";
 import { DRAGGING_CLASS, useOs } from "./context";
 import { isTouchPointer, openGesture } from "./openGesture";
@@ -202,10 +202,14 @@ function Desktop() {
    * by the time the backrooms are on screen, the browser would no longer allow it.
    */
   const goThroughDoor = () => {
-    if (!isTouchPointer()) {
+    // Looked up rather than read from a ref: this is handed out while rendering, where refs can't be touched.
+    const os = document.querySelector(".kara-os");
+    if (isTouchPointer()) {
+      // A phone: the backrooms take the whole screen, while this tap still counts as one.
+      fillScreen(os);
+    } else {
       try {
-        // Looked up rather than read from a ref: this is handed out while rendering, where refs can't be touched.
-        const pending: unknown = document.querySelector(".kara-os")?.requestPointerLock();
+        const pending: unknown = os?.requestPointerLock();
         if (pending instanceof Promise) pending.catch(() => {});
       } catch {
         /* refused: a click inside locks it instead */
