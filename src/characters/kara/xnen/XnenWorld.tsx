@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
+import { isTouchPointer } from "../os/openGesture";
 import atlasUrl from "./assets/statue-atlas.png";
 import { STATUE } from "./assets/statueModel";
 import xnAtlasUrl from "./assets/xn-atlas.png";
@@ -24,7 +25,7 @@ const DEV_PANEL = false;
 const TUNING_PANEL = import.meta.env.DEV && DEV_PANEL;
 
 /** Phones and tablets: no mouse lock, a stick and a stop button instead. */
-const TOUCH = window.matchMedia("(pointer: coarse)").matches;
+const TOUCH = isTouchPointer();
 
 type TapeKind = "play" | "pause" | "rewind" | "stop";
 

@@ -1,3 +1,4 @@
+import { clamp } from "../../../shared/math";
 import { Figure, type FigureModel, type Placement } from "./engine/figure";
 import type { StatueMesh } from "./engine/statue";
 
@@ -163,10 +164,6 @@ const ARMS_BUSY = new Set<XnAction>(["crouch", "sit"]);
 
 /** Looking away from the visitor at something: she takes her time turning to them. */
 const SLOW_TO_NOTICE = new Set<XnAction>(["faceWall", "carpet"]);
-
-function clampTo(value: number, low: number, high: number) {
-  return value < low ? low : value > high ? high : value;
-}
 
 export class Xn {
   readonly figure: Figure;
@@ -353,7 +350,7 @@ export class Xn {
       this.thighs.forEach((thigh, i) => {
         const a = knees - (i === 1 ? SIT_UNEVEN : 0);
         const kneeHeight = seat - THIGH_LENGTH * Math.cos(a);
-        const s = Math.acos(clampTo((kneeHeight - ANKLE_HEIGHT) / SHIN_LENGTH, -1, 1));
+        const s = Math.acos(clamp((kneeHeight - ANKLE_HEIGHT) / SHIN_LENGTH, -1, 1));
         figure.turn(thigh, 0, -a, i === 0 ? -spread : spread);
         figure.turn(this.shins[i], 0, a - s);
         figure.turn(this.feet[i], 0, s * feet);
@@ -397,8 +394,8 @@ export class Xn {
       const level = Math.hypot(lx, lz);
       const yaw = Math.atan2(lx, lz);
       // Straight over her head, which way to turn means little: turn less.
-      wantYaw = clampTo(yaw, -HEAD_REACH, HEAD_REACH) * Math.min(1, level / (0.5 * Math.hypot(level, ly) || 1));
-      wantPitch = clampTo(-Math.atan2(ly, level), -HEAD_BACK, HEAD_DOWN);
+      wantYaw = clamp(yaw, -HEAD_REACH, HEAD_REACH) * Math.min(1, level / (0.5 * Math.hypot(level, ly) || 1));
+      wantPitch = clamp(-Math.atan2(ly, level), -HEAD_BACK, HEAD_DOWN);
       // Further round than her head goes: she tilts it instead.
       const over = Math.abs(yaw) - HEAD_REACH;
       if (over > 0) wantStrain = Math.min(STRAIN_TILT, over * 0.5) * (yaw > 0 ? -1 : 1);
@@ -433,9 +430,7 @@ export class Xn {
 
     // ---- hair and tail ----
     // Her hair trails her head when it turns, and otherwise sways a little.
-    let trail = -this.headSwing * 0.09;
-    if (trail > 0.3) trail = 0.3;
-    if (trail < -0.3) trail = -0.3;
+    const trail = clamp(-this.headSwing * 0.09, -0.3, 0.3);
     const sway = still ? 0 : 1;
     // Her head tipped back further than her back (looking up, or straight ahead while she leans forward) would swing
     // her long hair forward through her; it turns back to hang down her back instead.
