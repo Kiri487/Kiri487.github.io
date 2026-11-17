@@ -570,10 +570,12 @@ function Desktop() {
           ]
             .filter(Boolean)
             .join(" ")}
-          // Where Kara sank, standing on that spot. On a phone it joins the grid like the rest.
-          style={
-            isPhone ? phoneIconStyle(DESKTOP_ICONS.length) : { left: `${door.x}%`, top: `${door.y}%`, translate: "-50% -100%" }
-          }
+          // Where Kara sank, standing on that spot, on a phone too (it stays out of the grid), and never past an edge.
+          style={{
+            left: `clamp(calc(var(--kara-icon-width) / 2), ${door.x}%, calc(100% - var(--kara-icon-width) / 2))`,
+            top: `${door.y}%`,
+            translate: "-50% -100%",
+          }}
           onPointerDown={() => setSelectedLabels(new Set([DOOR_LABEL]))}
           {...openGesture(goThroughDoor)}
         >

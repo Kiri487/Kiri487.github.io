@@ -144,6 +144,11 @@
   [data-skin="kara"] .kara-icon {
     position: static;
   }
+
+  /* XN's door isn't one of the grid: it stands where Kara sank. */
+  [data-skin="kara"] .kara-icon.kara-icon--door {
+    position: absolute;
+  }
 }
 
 [data-skin="kara"] .kara-icon--selected,
