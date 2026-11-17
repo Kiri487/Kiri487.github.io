@@ -6,6 +6,26 @@ type Rgb = [number, number, number];
 
 const grain = (x: number, y: number, s: number) => hash3(x, y, s + 9001);
 
+/**
+ * Each noise's lattice of random values, per × per, worked out once: the big carpet asks for millions of them, and
+ * hashing each one afresh made opening the door stall.
+ */
+const lattices = new Map<number, Float64Array>();
+
+function lattice(per: number, s: number): Float64Array {
+  // Every `per` used is well under 100 000.
+  const key = s * 100_000 + per;
+  let values = lattices.get(key);
+  if (!values) {
+    values = new Float64Array(per * per);
+    for (let j = 0; j < per; j++) {
+      for (let i = 0; i < per; i++) values[i + j * per] = grain(i, j, s);
+    }
+    lattices.set(key, values);
+  }
+  return values;
+}
+
 /** Smooth noise that wraps every `per` steps, so the texture tiles. */
 function valueNoise(u: number, v: number, per: number, s: number): number {
   const x = u * per;
@@ -17,10 +37,15 @@ function valueNoise(u: number, v: number, per: number, s: number): number {
   xf = xf * xf * (3 - 2 * xf);
   yf = yf * yf * (3 - 2 * yf);
   const wrap = (n: number) => ((n % per) + per) % per;
-  const a = grain(wrap(xi), wrap(yi), s);
-  const b = grain(wrap(xi + 1), wrap(yi), s);
-  const c = grain(wrap(xi), wrap(yi + 1), s);
-  const d = grain(wrap(xi + 1), wrap(yi + 1), s);
+  const values = lattice(per, s);
+  const x0 = wrap(xi);
+  const x1 = wrap(xi + 1);
+  const y0 = wrap(yi) * per;
+  const y1 = wrap(yi + 1) * per;
+  const a = values[x0 + y0];
+  const b = values[x1 + y0];
+  const c = values[x0 + y1];
+  const d = values[x1 + y1];
   return (a + (b - a) * xf) * (1 - yf) + (c + (d - c) * xf) * yf;
 }
 
@@ -88,14 +113,28 @@ function wallPixel(variant: number) {
 
 export const WALL_TEXTURES = [0, 1, 2].map((variant) => makeTexture(64, wallPixel(variant)));
 
-export const CARPET = makeTexture(128, (x, y) => {
-  const u = x / 128;
-  const v = y / 128;
+/**
+ * The carpet, at 64 pixels a cell, and how many cells its picture covers before it repeats. Its stains are the same
+ * size they always were; the picture is just big enough that they don't line up every couple of cells.
+ */
+export const CARPET_SIZE = 512;
+export const CARPET_CELLS = CARPET_SIZE / 64;
+
+export const CARPET = makeTexture(CARPET_SIZE, (x, y) => {
+  const u = x / CARPET_SIZE;
+  const v = y / CARPET_SIZE;
+  const k = CARPET_CELLS / 2;
   let m = 0.74 + 0.5 * grain(x, y, 3);
-  m *= 0.7 + 0.5 * layered(u, v, 3, 20);
-  m *= 1 - 0.3 * smoothstep(0.56, 0.72, layered(u, v, 2, 33));
+  m *= 0.7 + 0.5 * layered(u, v, 3 * k, 20);
+  m *= 1 - 0.3 * smoothstep(0.56, 0.72, layered(u, v, 2 * k, 33));
   return [150 * m, 128 * m, 66 * m];
 });
+
+/**
+ * Whether each column, and each row, of carpet pictures is mirrored, so even eight cells apart the stains don't repeat.
+ * A mirror meets its neighbour seamlessly whichever way either is turned. Indexed by column (or row) & 255.
+ */
+export const CARPET_FLIP = Uint8Array.from({ length: 256 }, (_, i) => (grain(i, 0, 77) < 0.5 ? 1 : 0));
 
 /** Ceiling tiles in a 32-pixel grid, a few of them stained. */
 function ceilingPixel(x: number, y: number): Rgb {
