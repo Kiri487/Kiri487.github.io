@@ -15,10 +15,10 @@ import {
   type StatueSkin,
 } from "./engine/statue";
 import type { Tuning } from "./engine/tuning";
-import { MUTTER, rot13 } from "./lines";
+import { MUTTER, readAs } from "./lines";
 import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, playXnTalkSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
-import { passSanTime } from "./san";
+import { passSanTime, xnReadable } from "./san";
 import { forgetMeetings, Talk } from "./talk";
 import {
   ceilingSpot,
@@ -403,14 +403,14 @@ export function createGame(parts: GameParts): Game {
     setMode(exit);
   };
 
-  /** XN's next line: often only "...", which makes no sound; her words in ROT13, with her voice. */
+  /** XN's next line: often only "...", which makes no sound; her words with her voice, as much read as SAN allows. */
   const speak = () => {
     const line = talk.next();
     if (line === MUTTER) {
       showLine(line);
       return;
     }
-    showLine(rot13(line));
+    showLine(readAs(line, xnReadable()));
     playXnTalkSfx();
   };
 
