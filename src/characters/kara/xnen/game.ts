@@ -1,4 +1,5 @@
 import { resumeAudioContext } from "../../../shared/audio";
+import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
@@ -24,6 +25,7 @@ import { forgetMeetings, Talk } from "./talk";
 import {
   ceilingSpot,
   floorSpot,
+  randomWalk,
   wallSpot,
   Xn,
   XN_ACTIONS,
@@ -31,7 +33,9 @@ import {
   type Point,
   type XnAction,
   type XnCrouch,
+  type XnRoute,
   type XnSit,
+  type XnWalk,
   type XnSpot,
   type XnSurface,
 } from "./xn";
@@ -49,6 +53,7 @@ export interface XnPreview {
   swingArms: boolean;
   crouch: XnCrouch;
   sit: XnSit;
+  walk: XnWalk;
   /** She never notices the visitor, so the action can be watched. */
   ignore: boolean;
   /** She only watches a visitor this many cells off, or nearer. */
@@ -144,6 +149,22 @@ const FACE_WALL_SEARCH = 4;
 const FACE_WALL_GAP = 0.16;
 /** Lights she might stare at are at most this far off. */
 const LAMP_SEARCH = 3.5;
+/*
+ * XN walking. Each time she sets off she goes one of three ways, as likely as each other: wandering, turning off when
+ * the way ahead is blocked or she feels like it; back and forth along a stretch; or round and round a light or a
+ * pillar near her (wandering, if there's none she can walk round).
+ */
+/** How fast she turns as she walks, in radians a second. */
+const XN_TURN = 1.6;
+/** Wandering: how far ahead she wants room, and seconds, at least and at most, before she feels like a new way. */
+const XN_LOOK_AHEAD = 0.45;
+const XN_WANDER_TURN = [3, 8] as const;
+/** Back and forth: the stretch, at least and at most, in cells. */
+const XN_PACE_SPAN = [1.5, 4] as const;
+/** Round and round: how far off she looks for something to walk round, and how far from its middle she walks. */
+const XN_ROUND_SEARCH = 3;
+const XN_ROUND_LAMP = [0.5, 1.2] as const;
+const XN_ROUND_PILLAR = [0.95, 1.4] as const;
 /*
  * XN turns up by herself. The first time a while after the visitor comes in; then, whenever she's been out of their
  * view long enough, she's somewhere else near them: or now and then nowhere, for a while. Wherever she turns up, it's
@@ -289,6 +310,7 @@ export function createGame(parts: GameParts): Game {
       xn.manner = { tailUp: xnPreview.tailUp, swingArms: xnPreview.swingArms };
       xn.crouch = { ...xnPreview.crouch };
       xn.sit = { ...xnPreview.sit };
+      xn.walk = { ...xnPreview.walk };
       startXnAction(xn, xnPreview.action);
     })
     .catch(() => {
@@ -531,10 +553,140 @@ export function createGame(parts: GameParts): Game {
     return best;
   };
 
+  // ---- XN walking ----
+
+  /** Her on the floor or the ceiling at (x, y), facing `facing`. */
+  const spotOn = (surface: XnSurface, x: number, y: number, facing: number) =>
+    (surface === "ceiling" ? ceilingSpot : floorSpot)(x, y, facing);
+
+  /** Room for her all the way from (x, y) `far` cells along `angle`. */
+  const wayClear = (x: number, y: number, angle: number, far: number) => {
+    const n = Math.max(1, Math.ceil(far / 0.1));
+    for (let i = 1; i <= n; i++) {
+      const k = (far * i) / n;
+      if (!roomFor(x + Math.cos(angle) * k, y + Math.sin(angle) * k)) return false;
+    }
+    return true;
+  };
+
+  /**
+   * A route that turns her a little at a time toward the way `aim` gives and walks her on along her front: slower the
+   * further she still has to turn, and never into a wall or nearer into the visitor.
+   */
+  const walker =
+    (aim: (x: number, y: number, facing: number, dt: number) => number): XnRoute =>
+    (spot, distance, dt) => {
+      const facing = Math.atan2(spot.front[1], spot.front[0]);
+      const want = aim(spot.x, spot.y, facing, dt);
+      const off = Math.atan2(Math.sin(want - facing), Math.cos(want - facing));
+      const turned = facing + clamp(off, -XN_TURN * dt, XN_TURN * dt);
+      const go = distance * Math.max(0, Math.cos(off));
+      const x = spot.x + Math.cos(turned) * go;
+      const y = spot.y + Math.sin(turned) * go;
+      const near = Math.hypot(x - player.x, y - player.y);
+      const intoVisitor = near < XN_RADIUS + PLAYER_RADIUS && near < Math.hypot(spot.x - player.x, spot.y - player.y);
+      const moved = go > 0 && roomFor(x, y) && !intoVisitor;
+      return moved ? spotOn(spot.surface, x, y, turned) : spotOn(spot.surface, spot.x, spot.y, turned);
+    };
+
+  /** A way from (x, y) with room to walk, near `facing` if there's one; back the way she came if there's none. */
+  const openWay = (x: number, y: number, facing: number) => {
+    for (let i = 0; i < 12; i++) {
+      const a = facing + (Math.random() * 2 - 1) * (i < 6 ? 1.2 : Math.PI);
+      if (wayClear(x, y, a, 1)) return a;
+    }
+    return facing + Math.PI;
+  };
+
+  /** Wandering: on ahead until the way is blocked, or she feels like going another way. */
+  const wander = (): XnRoute => {
+    let want: number | null = null;
+    let restless = between(XN_WANDER_TURN);
+    return walker((x, y, facing, dt) => {
+      restless -= dt;
+      if (want === null) want = facing;
+      if (restless <= 0 || !wayClear(x, y, want, XN_LOOK_AHEAD)) {
+        restless = between(XN_WANDER_TURN);
+        want = openWay(x, y, want);
+      }
+      return want;
+    });
+  };
+
+  /** Back and forth between where she is and somewhere a straight walk off. Null if there's no room for it. */
+  const backAndForth = (from: XnSpot): XnRoute | null => {
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const far = between(XN_PACE_SPAN);
+      if (!wayClear(from.x, from.y, a, far)) continue;
+      const ends = [
+        [from.x, from.y],
+        [from.x + Math.cos(a) * far, from.y + Math.sin(a) * far],
+      ];
+      let to = 1;
+      return walker((x, y) => {
+        if (Math.hypot(ends[to][0] - x, ends[to][1] - y) < 0.1) to = 1 - to;
+        return Math.atan2(ends[to][1] - y, ends[to][0] - x);
+      });
+    }
+    return null;
+  };
+
+  /**
+   * Round and round a light, or a pillar, near her: one with room all round it, and a clear walk to it. Null if
+   * there's none.
+   */
+  const roundAbout = (from: XnSpot): XnRoute | null => {
+    const rings: [number, number, number][] = [];
+    const r = XN_ROUND_SEARCH;
+    const cx = Math.floor(from.x);
+    const cy = Math.floor(from.y);
+    for (let j = -r; j <= r; j++) {
+      for (let i = -r; i <= r; i++) {
+        const lx = cx + i;
+        const ly = cy + j;
+        const pillar = map.wall(lx, ly);
+        // Lights hang over cells 1, 4, 7… on both axes.
+        const lamp = !pillar && (((lx % 3) + 3) % 3) === 1 && (((ly % 3) + 3) % 3) === 1;
+        if (!pillar && !lamp) continue;
+        const ox = lx + 0.5;
+        const oy = ly + 0.5;
+        const away = Math.hypot(from.x - ox, from.y - oy);
+        if (away > r) continue;
+        const radius = between(pillar ? XN_ROUND_PILLAR : XN_ROUND_LAMP);
+        let room = true;
+        for (let k = 0; k < 16 && room; k++) {
+          const a = (k / 16) * Math.PI * 2;
+          room = roomFor(ox + Math.cos(a) * radius, oy + Math.sin(a) * radius);
+        }
+        // The nearest point of the ring, and a clear walk there.
+        const toward = Math.atan2(oy - from.y, ox - from.x);
+        if (room && wayClear(from.x, from.y, away > radius ? toward : toward + Math.PI, Math.abs(away - radius))) {
+          rings.push([ox, oy, radius]);
+        }
+      }
+    }
+    if (!rings.length) return null;
+    const [ox, oy, radius] = rings[Math.floor(Math.random() * rings.length)];
+    const turn = Math.random() < 0.5 ? -1 : 1;
+    return walker((x, y) => {
+      // Along the ring, leaning in or out toward it when she's off it.
+      const off = clamp((Math.hypot(x - ox, y - oy) - radius) * 2, -0.8, 0.8);
+      return Math.atan2(y - oy, x - ox) + turn * (Math.PI / 2 + off);
+    });
+  };
+
+  /** One of her three ways of walking, at random. */
+  const routeFor = (who: Xn): XnRoute => {
+    const roll = Math.floor(Math.random() * 3);
+    return (roll === 1 && backAndForth(who.where)) || (roll === 2 && roundAbout(who.where)) || wander();
+  };
+
   /** Starts an action: moves her to a wall to face it, and finds what she stares at. */
   const startXnAction = (who: Xn, action: XnAction) => {
     const surface = who.surface;
-    let chosen = action;
+    // Sticking out of a wall, she can't walk.
+    let chosen = action === "walk" && surface === "wall" ? "stand" : action;
     if (action === "faceWall" && surface !== "wall") {
       // The face of wall nearest her, preferably one where the visitor can see her.
       let best: XnSpot | null = null;
@@ -563,6 +715,7 @@ export function createGame(parts: GameParts): Game {
       gaze = surface === "floor" ? [x + front[0] * 0.3, y + front[1] * 0.3, 0] : [who.x, who.y, 0];
     }
     who.act(chosen, gaze);
+    if (chosen === "walk") who.route = routeFor(who);
   };
 
   /** XN is in the visitor's view: in the picture's width, give or take hers, with no wall between. */
@@ -639,7 +792,11 @@ export function createGame(parts: GameParts): Game {
     if (!spot) return false;
     who.moveTo(spot);
     who.manner = { tailUp: Math.random() < XN_TAIL_UP, swingArms: Math.random() < XN_SWING_ARMS };
-    const actions = XN_ACTIONS.filter((action) => !(action === "faceWall" && spot.surface === "wall"));
+    // If she walks, it's a new way of walking each time.
+    who.walk = randomWalk();
+    const actions = XN_ACTIONS.filter(
+      (action) => !((action === "faceWall" || action === "walk") && spot.surface === "wall"),
+    );
     startXnAction(who, actions[Math.floor(Math.random() * actions.length)]);
     // Going to a wall to face it can bring her into view; then she just stands where she turned up.
     if (sees(cam, who.x, who.y)) {
@@ -779,6 +936,8 @@ export function createGame(parts: GameParts): Game {
     lineLeft -= dt;
     const off = !xn || !xnHere || Math.hypot(xn.x - player.x, xn.y - player.y) > LINE_RANGE;
     if (shownLine !== null && (off || lineLeft <= 0)) showLine(null);
+    // She stops walking while the visitor can talk to her, and until her line is done.
+    if (xn) xn.halted = reach === "xn" || shownLine !== null;
     const digits = timecode.update(nearestStatue(map, player.x, player.y), tuning.compass, now, reduced);
     const line = timeStamp(digits);
     if (line !== shownTime) {
@@ -1082,6 +1241,7 @@ export function createGame(parts: GameParts): Game {
       xn.manner = { tailUp: next.tailUp, swingArms: next.swingArms };
       xn.crouch = { ...next.crouch };
       xn.sit = { ...next.sit };
+      xn.walk = { ...next.walk };
       if (moved) xn.moveTo(spotAhead(player.x, player.y, player.angle, next.surface));
       if (bring) {
         startXnAction(xn, next.action);

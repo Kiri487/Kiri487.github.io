@@ -6,7 +6,7 @@ import { forgetDoor } from "./door";
 import { readableAt, SAN_DEV_RANGE, setSanExposure, stageAt, useSanSeconds } from "./san";
 import { meetingsSoFar } from "./talk";
 import type { XnPreview } from "./game";
-import { XN_ACTIONS, type XnAction, type XnCrouch, type XnSit, type XnSurface } from "./xn";
+import { XN_ACTIONS, type XnAction, type XnCrouch, type XnSit, type XnSurface, type XnWalk, randomWalk, WALK_RANGE } from "./xn";
 
 /* Dev builds only: Kiri's sliders for tuning the place. The changes are kept, and 複製設定 copies them to paste back. */
 
@@ -54,7 +54,11 @@ const ACTION_LABELS: Record<XnAction, string> = {
   crouch: "蹲下",
   sit: "坐著抱膝",
   spin: "原地慢轉",
+  walk: "走路",
 };
+
+/** What she can't do sticking out of a wall. */
+const NOT_ON_WALLS = new Set<XnAction>(["faceWall", "walk"]);
 
 /** A pose's settings in the panel: setting, label, range. */
 type PoseSliders<T> = readonly [keyof T & string, string, number, number][];
@@ -76,6 +80,19 @@ const SIT_SLIDERS: PoseSliders<XnSit> = [
   ["fold", "前臂往內折", 0, 2],
   ["feet", "腳掌貼平", 0, 1],
 ];
+
+const WALK_LABELS: readonly [keyof XnWalk, string][] = [
+  ["pace", "速度（每秒幾輪，一輪兩步）"],
+  ["stride", "步幅"],
+  ["lift", "抬膝"],
+  ["limp", "跛腳（負的跛左、正的跛右）"],
+  ["sway", "身體左右晃"],
+  ["loll", "頭歪來歪去"],
+  ["stutter", "走一走卡住的機率"],
+  ["lean", "身體前傾"],
+];
+/** Her walk's sliders run over the whole range she picks from. */
+const WALK_SLIDERS: PoseSliders<XnWalk> = WALK_LABELS.map(([key, label]) => [key, label, ...WALK_RANGE[key]]);
 
 function describePose<T>(name: string, sliders: PoseSliders<T>, values: T): string {
   return `${name}：${sliders.map(([key, label]) => `${label} ${(values[key] as number).toFixed(2)}`).join("｜")}`;
@@ -148,7 +165,20 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
               set: (value: number) => onXnPreview({ ...xnPreview, sit: { ...xnPreview.sit, [key]: value } }, false),
             })),
           }
-        : null;
+        : xnPreview.action === "walk"
+          ? {
+              summary: describePose("走路", WALK_SLIDERS, xnPreview.walk),
+              sliders: WALK_SLIDERS.map(([key, label, min, max]) => ({
+                key,
+                label,
+                min,
+                max,
+                value: xnPreview.walk[key],
+                set: (value: number) =>
+                  onXnPreview({ ...xnPreview, walk: { ...xnPreview.walk, [key]: value } }, false),
+              })),
+            }
+          : null;
 
   const copyPose = () => {
     if (!pose) return;
@@ -262,7 +292,7 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
                   ...xnPreview,
                   surface,
                   // There's no wall to face from a wall.
-                  action: surface === "wall" && xnPreview.action === "faceWall" ? "stand" : xnPreview.action,
+                  action: surface === "wall" && NOT_ON_WALLS.has(xnPreview.action) ? "stand" : xnPreview.action,
                 },
                 true,
               )
@@ -278,8 +308,11 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
             key={action}
             type="button"
             aria-pressed={xnPreview.action === action}
-            disabled={action === "faceWall" && xnPreview.surface === "wall"}
-            onClick={() => onXnPreview({ ...xnPreview, action }, true)}
+            disabled={NOT_ON_WALLS.has(action) && xnPreview.surface === "wall"}
+            onClick={() =>
+              // Each time she starts walking she walks a new way, as she will in the game.
+              onXnPreview({ ...xnPreview, action, walk: action === "walk" ? randomWalk() : xnPreview.walk }, true)
+            }
           >
             {ACTION_LABELS[action]}
           </button>
@@ -328,6 +361,11 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
             </label>
           ))}
           <div className="kara-xnen-dev__buttons">
+            {xnPreview.action === "walk" && (
+              <button type="button" onClick={() => onXnPreview({ ...xnPreview, walk: randomWalk() }, true)}>
+                隨機一組
+              </button>
+            )}
             <button type="button" onClick={copyPose}>
               {poseCopied === "done" ? "已複製" : poseCopied === "failed" ? "請手動選取下面文字" : "複製姿勢設定"}
             </button>

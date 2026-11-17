@@ -11,7 +11,7 @@ import { loadTuning } from "./devTuning";
 import { refocusOpener } from "./door";
 import { DEFAULT_TUNING } from "./engine/tuning";
 import { createGame, type Exit, type Game, type Mode, type XnPreview } from "./game";
-import { DEFAULT_CROUCH, DEFAULT_SIT, NOTICE_RANGE } from "./xn";
+import { DEFAULT_CROUCH, DEFAULT_SIT, DEFAULT_WALK, NOTICE_RANGE } from "./xn";
 import "./xnen.css";
 
 /*
@@ -88,6 +88,7 @@ const FIRST_PREVIEW: XnPreview = {
   swingArms: false,
   crouch: DEFAULT_CROUCH,
   sit: DEFAULT_SIT,
+  walk: DEFAULT_WALK,
   ignore: false,
   noticeRange: NOTICE_RANGE,
   auto: true,

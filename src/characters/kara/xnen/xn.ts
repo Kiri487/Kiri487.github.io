@@ -4,8 +4,8 @@ import type { StatueMesh } from "./engine/statue";
 
 /*
  * XN in her backrooms. She stands on the floor, hangs from the ceiling or sticks out of a wall, and does one thing
- * where she is: stands, stares at a light or the carpet, faces the wall, crouches, sits hugging her knees, or turns
- * on the spot. On top of any of them her tail can be up or down, and her arms still or swinging. She minds her own
+ * where she is: stands, stares at a light or the carpet, faces the wall, crouches, sits hugging her knees, turns
+ * on the spot, or walks (a different way every time) wherever the game's route takes her. On top of any of them her tail can be up or down, and her arms still or swinging. She minds her own
  * business until the visitor comes near; then her head follows them, and only her head: her body carries on with
  * what it was doing. Her tail and hair always move a little, and once in
  * a while her head twitches.
@@ -47,10 +47,10 @@ const HAIR_RIGHT = ["hair_side_r_1", "hair_side_r_2", "hair_side_r_3"];
 
 export type XnSurface = "floor" | "ceiling" | "wall";
 
-export type XnAction = "stand" | "lamp" | "carpet" | "faceWall" | "crouch" | "sit" | "spin";
+export type XnAction = "stand" | "lamp" | "carpet" | "faceWall" | "crouch" | "sit" | "spin" | "walk";
 
 /** Everything she can do, in the dev panel's order. */
-export const XN_ACTIONS: readonly XnAction[] = ["stand", "lamp", "carpet", "faceWall", "crouch", "sit", "spin"];
+export const XN_ACTIONS: readonly XnAction[] = ["stand", "lamp", "carpet", "faceWall", "crouch", "sit", "spin", "walk"];
 
 /** What goes on top of any action. */
 export interface XnManner {
@@ -101,6 +101,7 @@ const REST_NOD: Record<XnAction, number> = {
   crouch: 0,
   sit: 0.3,
   spin: 0,
+  walk: 0.1,
 };
 
 /**
@@ -159,6 +160,71 @@ export const DEFAULT_SIT: XnSit = { seat: 0.03, knees: 2.5, spread: 0, lean: 0.5
 /** Her right thigh is raised this much less than her left, so she isn't a mirror image. */
 const SIT_UNEVEN = 0.2;
 
+/**
+ * Walking, not quite right: one leg lagging, her body rolling over each foot and her head
+ * lolling after it, and now and then she stops dead mid-step. In radians unless said; Kiri tunes it in the dev panel.
+ */
+export interface XnWalk {
+  /** Strides (two steps) per second. */
+  pace: number;
+  /** How far her thighs swing fore and aft. */
+  stride: number;
+  /** How high she lifts each knee. */
+  lift: number;
+  /** How much less one leg does: her left when negative, her right when positive, up to 1 either way. */
+  limp: number;
+  /** Her body rolling over the foot she's on. */
+  sway: number;
+  /** Her head lolling after it. */
+  loll: number;
+  /** The chance, each step, that she freezes a moment with a foot in the air, 0–1. */
+  stutter: number;
+  /** Chest forward. */
+  lean: number;
+}
+
+export const DEFAULT_WALK: XnWalk = {
+  pace: 0.55,
+  stride: 0.42,
+  lift: 0.95,
+  limp: 0.5,
+  sway: 0.12,
+  loll: 0.22,
+  stutter: 0.25,
+  lean: 0.18,
+};
+
+/** Every walk setting's whole range: each time she walks she picks anywhere in it, since she's XN. */
+export const WALK_RANGE: Record<keyof XnWalk, readonly [number, number]> = {
+  pace: [0.2, 1.5],
+  stride: [0, 0.8],
+  lift: [0, 1.8],
+  limp: [-1, 1],
+  sway: [0, 0.4],
+  loll: [0, 0.6],
+  stutter: [0, 1],
+  lean: [0, 0.6],
+};
+
+/** A new way to walk, every setting picked anywhere in its range. */
+export function randomWalk(): XnWalk {
+  const walk = { ...DEFAULT_WALK };
+  for (const key of Object.keys(WALK_RANGE) as (keyof XnWalk)[]) {
+    const [min, max] = WALK_RANGE[key];
+    walk[key] = min + Math.random() * (max - min);
+  }
+  return walk;
+}
+/**
+ * Where she walks: from `spot`, up to `distance` further on, over `dt` seconds. The game knows the walls, so it decides
+ * the way, turns her toward it and says where she ends up.
+ */
+export type XnRoute = (spot: XnSpot, distance: number, dt: number) => XnSpot;
+
+/** How long a stutter holds her, at least and at most, in seconds. */
+const STUTTER_MIN = 0.3;
+const STUTTER_MAX = 0.8;
+
 /** Her arms are busy (on her knees): they never swing. */
 const ARMS_BUSY = new Set<XnAction>(["crouch", "sit"]);
 
@@ -180,8 +246,14 @@ export class Xn {
   manner: XnManner = { tailUp: false, swingArms: false };
   crouch: XnCrouch = { ...DEFAULT_CROUCH };
   sit: XnSit = { ...DEFAULT_SIT };
+  walk: XnWalk = { ...DEFAULT_WALK };
+  /** Where she goes while she walks; null walks on the spot. */
+  route: XnRoute | null = null;
+  /** She stops walking and stands, while the visitor talks to her. */
+  halted = false;
   private readonly neck: number;
   private readonly head: number;
+  private readonly spine: number;
   private readonly chest: number;
   private readonly upperArms: [number, number];
   private readonly foreArms: [number, number];
@@ -207,6 +279,10 @@ export class Xn {
   private nextTwitch = TWITCH_MIN + Math.random() * (TWITCH_MAX - TWITCH_MIN);
   private twitchLeft = 0;
   private twitchSide = 1;
+  /** How far through her walk she is, in radians: a whole stride is 2π. */
+  private gait = 0;
+  /** Seconds she stays frozen mid-step. */
+  private frozen = 0;
   private mesh: StatueMesh | null = null;
 
   constructor(model: FigureModel, spot: XnSpot) {
@@ -216,6 +292,7 @@ export class Xn {
     const pair = (name: string): [number, number] => [figure.bone(`${name}_l`), figure.bone(`${name}_r`)];
     this.neck = figure.bone("neck");
     this.head = figure.bone("head");
+    this.spine = figure.bone("spine");
     this.chest = figure.bone("chest");
     this.upperArms = pair("upper_arm");
     this.foreArms = pair("fore_arm");
@@ -269,6 +346,9 @@ export class Xn {
     this.action = action;
     this.gaze = gaze;
     this.actionClock = 0;
+    this.gait = 0;
+    this.frozen = 0;
+    this.route = null;
     this.mesh = null;
   }
 
@@ -303,10 +383,32 @@ export class Xn {
     return [front[0] * c + sx * s, front[1] * c + sy * s, front[2] * c + sz * s];
   }
 
+  /** Walking, by `step` seconds: on through her stride, and along her route by as far as her feet went. */
+  private walkOn(step: number) {
+    const { pace, stride, limp, stutter } = this.walk;
+    if (this.frozen > 0) {
+      this.frozen -= step;
+      return;
+    }
+    const before = Math.floor(this.gait / Math.PI);
+    this.gait += step * pace * Math.PI * 2;
+    // Each step, as the lifted foot passes the other, she may stop dead and hold it there.
+    if (Math.floor(this.gait / Math.PI) !== before && Math.random() < stutter) {
+      this.frozen = STUTTER_MIN + Math.random() * (STUTTER_MAX - STUTTER_MIN);
+    }
+    // A stride carries her as far as each foot swings, front to back, so they don't slide on the floor.
+    const leg = THIGH_LENGTH + SHIN_LENGTH;
+    const far = 2 * leg * (Math.sin(stride) + Math.sin(stride * (1 - 0.6 * Math.abs(limp))));
+    if (this.route) this.spot = this.route(this.spot, step * pace * far, step);
+  }
+
   private pose(step: number, viewer: Point, still: boolean): Placement {
     const figure = this.figure;
     const t = still ? 0 : this.clock;
     const ta = still ? 0 : this.actionClock;
+    /** Walking: her arms swing with her legs instead of on their own; her head lolls and nods with her steps. */
+    const walking = this.action === "walk" && !still && !this.halted;
+    if (walking && step) this.walkOn(step);
     const at: Placement = { ...this.spot, front: this.front(still) };
     figure.rest();
 
@@ -321,6 +423,8 @@ export class Xn {
     /** Her forearms folded in toward each other (left arm), and her right arm raised so it lies over the left. */
     let foreIn = 0;
     let rightOver = 0;
+    let loll = 0;
+    let nod = 0;
     if (this.action === "crouch") {
       // Down on her heels. The ankle under the hip, worked out from the leg's two bones; the whole of her drops
       // by what the legs lost, and the bones fold so her feet stay where they were.
@@ -361,17 +465,54 @@ export class Xn {
       rightOver = 0.15;
       // Lying flat behind her.
       tailLift = 1.4;
+    } else if (walking) {
+      const { stride, lift, limp, sway, loll: lolls, lean: forward } = this.walk;
+      const g = this.gait;
+      // Each leg in turn: forward through the air with its knee up, then back along the floor. Whichever reaches
+      // lower is the one she's on; she drops by what it lost.
+      let reach = 0;
+      this.thighs.forEach((thigh, i) => {
+        const p = g + (i === 1 ? Math.PI : 0);
+        const weak = (limp > 0 ? i === 1 : i === 0) ? 1 - 0.6 * Math.abs(limp) : 1;
+        const air = Math.max(0, Math.cos(p));
+        const a = -stride * weak * Math.sin(p) - lift * weak * 0.45 * air * air;
+        const k = lift * weak * Math.pow(air, 1.5);
+        figure.turn(thigh, 0, a);
+        figure.turn(this.shins[i], 0, k);
+        // On the floor her foot stays flat; in the air it hangs, toes down.
+        figure.turn(this.feet[i], 0, -(a + k) * (1 - 0.7 * air));
+        reach = Math.max(reach, THIGH_LENGTH * Math.cos(a) + SHIN_LENGTH * Math.cos(a + k));
+      });
+      headDrop = THIGH_LENGTH + SHIN_LENGTH - reach;
+      figure.shift(0, -headDrop, 0);
+      // Her body rolls over the foot she's on and twists against her hips; her head lolls a beat behind.
+      figure.turn(this.spine, -0.25 * stride * Math.sin(g), 0, sway * Math.sin(g));
+      lean = forward;
+      loll = lolls * Math.sin(g - 0.6);
+      nod = 0.06 * Math.cos(2 * g);
+      tailLift = 0.15;
     }
 
     // Arms: at rest, or hanging loose and swinging round it, the forearms a beat behind.
-    const w = ta * 2.2;
-    const swing = this.manner.swingArms && !ARMS_BUSY.has(this.action) ? 1 : 0;
     const [upperL, upperR] = this.upperArms;
     const [foreL, foreR] = this.foreArms;
-    figure.turn(upperL, 0, upperArm + swing * 0.3 * Math.sin(w), armIn - swing * 0.06);
-    figure.turn(upperR, 0, upperArm - rightOver + swing * 0.3 * Math.sin(w - 0.25), -armIn + swing * 0.06);
-    figure.turn(foreL, 0, swing * 0.2 * Math.sin(w - 0.6), foreIn);
-    figure.turn(foreR, 0, swing * 0.2 * Math.sin(w - 0.85), -foreIn);
+    if (walking) {
+      // Swinging against her legs, or hanging limp and only jolted by each step.
+      const g = this.gait;
+      const swing = this.manner.swingArms ? this.walk.stride * 0.9 : 0;
+      const jolt = 0.07 * Math.sin(2 * g - 0.5);
+      figure.turn(upperL, 0, swing * Math.sin(g) + jolt, 0.04);
+      figure.turn(upperR, 0, -swing * Math.sin(g) + jolt, -0.04);
+      figure.turn(foreL, 0, -swing * 0.5 * Math.sin(g - 0.7) - 0.1 * swing - jolt);
+      figure.turn(foreR, 0, swing * 0.5 * Math.sin(g - 0.7) - 0.1 * swing - jolt);
+    } else {
+      const w = ta * 2.2;
+      const swing = this.manner.swingArms && !ARMS_BUSY.has(this.action) ? 1 : 0;
+      figure.turn(upperL, 0, upperArm + swing * 0.3 * Math.sin(w), armIn - swing * 0.06);
+      figure.turn(upperR, 0, upperArm - rightOver + swing * 0.3 * Math.sin(w - 0.25), -armIn + swing * 0.06);
+      figure.turn(foreL, 0, swing * 0.2 * Math.sin(w - 0.6), foreIn);
+      figure.turn(foreR, 0, swing * 0.2 * Math.sin(w - 0.85), -foreIn);
+    }
 
     // ---- the head: what she looks at ----
     const target = this.watching ? viewer : this.gaze;
@@ -409,7 +550,7 @@ export class Xn {
     this.headStrain += (wantStrain - this.headStrain) * k;
     this.headSwing = step ? (this.headYaw - before) / step : 0;
 
-    let tilt = (still ? 0 : 0.05 * Math.sin(t * 0.9)) + this.headStrain;
+    let tilt = (still ? 0 : 0.05 * Math.sin(t * 0.9)) + this.headStrain + loll;
     if (!still) {
       this.nextTwitch -= step;
       if (this.nextTwitch <= 0) {
@@ -426,7 +567,7 @@ export class Xn {
     const breath = still ? 0 : 0.012 * Math.sin(t * 1.7);
     figure.turn(this.chest, 0, lean + breath + this.headPitch * 0.2);
     figure.turn(this.neck, this.headYaw * 0.3, this.headPitch * 0.3);
-    figure.turn(this.head, this.headYaw * 0.7, this.headPitch * 0.5 - lean, tilt);
+    figure.turn(this.head, this.headYaw * 0.7, this.headPitch * 0.5 - lean + nod, tilt);
 
     // ---- hair and tail ----
     // Her hair trails her head when it turns, and otherwise sways a little.
@@ -458,7 +599,7 @@ export class Xn {
         const a = t * 2.6 - 0.75 * i;
         figure.turn(
           bone,
-          sway * (0.11 + 0.065 * i) * Math.sin(a),
+          sway * (0.11 + 0.065 * i) * Math.sin(a) + (walking && i === 0 ? 0.25 * Math.sin(this.gait) : 0),
           sway * 0.05 * Math.sin(a + 1.2) + (i === 0 ? tailLift : 0),
         );
       });
