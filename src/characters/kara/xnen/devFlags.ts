@@ -3,6 +3,6 @@
  * only while this is on. Off, a dev build plays with the defaults, as visitors do; her saved tuning stays put for
  * when it's back on.
  */
-const DEV_PANEL = true;
+const DEV_PANEL = false;
 
 export const XN_DEV_TOOLS = import.meta.env.DEV && DEV_PANEL;
