@@ -7,11 +7,14 @@ import { SAN_DEV_RANGE, SAN_LOW_AT, SAN_MIDDLE_AT, setSanExposure, stageAt, useS
 
 const STAGE_LABEL = { high: "高", middle: "中", low: "低" } as const;
 
-/** Where the quick buttons put SAN: high, half way through the middle, low. */
+/**
+ * Where the quick buttons put SAN: high, half way through the middle, and a minute into low, since the desktop takes a
+ * second back every second and right on the line would be middle again at once.
+ */
 const PRESETS: readonly [string, number][] = [
   ["高", 0],
   ["中", Math.round((SAN_MIDDLE_AT + SAN_LOW_AT) / 2)],
-  ["低", SAN_LOW_AT],
+  ["低", SAN_LOW_AT + 60],
 ];
 
 function formatMinutes(seconds: number): string {
