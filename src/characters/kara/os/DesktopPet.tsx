@@ -360,6 +360,11 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       }
       motion.mode = "away";
       motion.away = place;
+      // Whatever her last exit had planned (a line, the twelfth's lines, sinking to the door) is off: she's gone
+      // somewhere else first. A bin exit still waiting behind a phone's window is off too.
+      motion.exitLine = null;
+      motion.exitScript = null;
+      if (place === "game") pendingExitRef.current = null;
       awayTargetRef.current = target;
       setWalking(false);
       setSunk(false);
@@ -948,8 +953,10 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
       drag.moved = true;
       motion.ledge = null;
       motion.walkedOff = false;
-      // Caught on the way out of the bin: she's too busy being carried to remark on it.
+      // Caught on the way out of the bin: she's too busy being carried to remark on it, or to sink through the
+      // floor. Her throws still count as after any exit, so one more soon takes her down to the door.
       motion.exitLine = null;
+      motion.exitScript = null;
       const root = event.currentTarget.closest(".kara-os");
       const bin = root && findVisibleBin(root, event.currentTarget);
       if (bin) {
