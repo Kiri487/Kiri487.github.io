@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { clamp } from "../../../shared/math";
 import { readNumber, writeString } from "../../../shared/storage";
 
@@ -20,14 +21,24 @@ import { readNumber, writeString } from "../../../shared/storage";
  */
 export const SAN_MIDDLE_AT = 4 * 60 + 20;
 export const SAN_LOW_AT = 8 * 60 + 40;
+/** How far the dev controls' sliders reach. Only theirs: SAN itself goes on. */
+export const SAN_DEV_RANGE = 30 * 60;
+/** Through the middle stage, the other cats lose up to this share of their words to ROT13: a word here and there. */
+const MIDDLE_LOSS = 0.1;
 
 export type SanStage = "high" | "middle" | "low";
 
 const KEY = "kara-xn-san";
 
 let exposure = readNumber(KEY, 0, { min: 0 });
-/** The whole second last written down: storage gets a write a second at most. */
+/** The whole second last written down: storage gets a write a second at most, and React hears of it as often. */
 let savedSecond = Math.floor(exposure);
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 /** Seconds the visitor counts as having spent in the backrooms. */
 export function sanExposure(): number {
@@ -66,7 +77,32 @@ export function xnReadable(): number {
   return readableAt(exposure);
 }
 
+/** How much of the other cats' speech has turned to ROT13 after this many seconds: none, a little, or all of it. */
+export function lostAt(seconds: number): number {
+  const stage = stageAt(seconds);
+  return stage === "low" ? 1 : stage === "middle" ? MIDDLE_LOSS * readableAt(seconds) : 0;
+}
+
+/**
+ * For the desktop: how much of what the other cats say has turned to ROT13 right now. Rounded, so whatever shows it
+ * only redraws when that could change a word, and not at all while SAN is high or low.
+ */
+export function useCatsLost(): number {
+  return useSyncExternalStore(subscribe, () => Math.round(lostAt(exposure) * 1000) / 1000);
+}
+
+/** For the desktop: how much of XN reads plainly right now, rounded the same way. */
+export function useXnReadable(): number {
+  return useSyncExternalStore(subscribe, () => Math.round(readableAt(exposure) * 1000) / 1000);
+}
+
+/** For the dev controls: the whole seconds, live. */
+export function useSanSeconds(): number {
+  return useSyncExternalStore(subscribe, () => Math.floor(exposure));
+}
+
 function save() {
   savedSecond = Math.floor(exposure);
   writeString(KEY, String(Math.round(exposure * 10) / 10));
+  for (const listener of listeners) listener();
 }

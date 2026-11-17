@@ -14,6 +14,8 @@ import {
   type BinExit,
 } from "./petBin";
 import { placeDoor, useDoor, useLastReturn, useXnVisit, type DoorSpot } from "../xnen/door";
+import { garble } from "../xnen/rot13";
+import { useCatsLost } from "../xnen/san";
 import type { Exit } from "../xnen/game";
 import { readBoolean, writeBoolean } from "../../../shared/storage";
 import { setPetSeat } from "./petGame";
@@ -309,6 +311,8 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
   const pendingExitRef = useRef<BinExit | null>(null);
   const lastBackLineRef = useRef<string | null>(null);
   const door = useDoor();
+  // Back from XN's backrooms with too little SAN, her words come out wrong (only as read: what she says is the same).
+  const catsLost = useCatsLost();
   const doorRef = useRef<DoorSpot | null>(door);
   const visit = useXnVisit();
   const lastReturn = useLastReturn();
@@ -1073,7 +1077,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
           style={balloonDrop > 0 ? { translate: `0 ${balloonDrop}px` } : undefined}
           role="status"
         >
-          <span className="kara-balloon__text">{line}</span>
+          <span className="kara-balloon__text">{garble(line, catsLost)}</span>
         </span>
       )}
     </button>
