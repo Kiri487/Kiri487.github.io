@@ -14,7 +14,10 @@ import { readNumber, writeString } from "../../../shared/storage";
  * back days later finds things as strange as they left them. Small on purpose: it's in Kara's page from the start.
  */
 
-/** Seconds in the backrooms at which SAN turns middle, and low. Lower never goes further: 8:40 back is the way out. */
+/**
+ * Seconds in the backrooms at which SAN turns middle, and low. It keeps falling past low, with no floor: however long
+ * the visitor stayed, it takes as long on the desktop to come back.
+ */
 export const SAN_MIDDLE_AT = 4 * 60 + 20;
 export const SAN_LOW_AT = 8 * 60 + 40;
 
@@ -22,7 +25,7 @@ export type SanStage = "high" | "middle" | "low";
 
 const KEY = "kara-xn-san";
 
-let exposure = readNumber(KEY, 0, { min: 0, max: SAN_LOW_AT });
+let exposure = readNumber(KEY, 0, { min: 0 });
 /** The whole second last written down: storage gets a write a second at most. */
 let savedSecond = Math.floor(exposure);
 
@@ -33,13 +36,13 @@ export function sanExposure(): number {
 
 /** Sets it outright: the dev panel. */
 export function setSanExposure(seconds: number) {
-  exposure = clamp(seconds, 0, SAN_LOW_AT);
+  exposure = Math.max(0, seconds);
   save();
 }
 
 /** More time in the backrooms (seconds > 0), or back on the desktop (seconds < 0). */
 export function passSanTime(seconds: number) {
-  const next = clamp(exposure + seconds, 0, SAN_LOW_AT);
+  const next = Math.max(0, exposure + seconds);
   if (next === exposure) return;
   exposure = next;
   if (Math.floor(exposure) !== savedSecond) save();
