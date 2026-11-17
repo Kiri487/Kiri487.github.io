@@ -83,6 +83,7 @@ export function forgetDoor() {
 }
 
 /** Through the door: the desktop breaks up first, then the backrooms. */
+
 export function openDoor() {
   if (visit !== "none") return;
   visit = "glitch";
@@ -114,13 +115,30 @@ export function enterBackrooms() {
   emit();
 }
 
-export function leaveBackrooms(exit: Exit) {
-  if (visit === "none") return;
-  visit = "none";
+/** The screen and the mouse back as they were before the door. */
+function giveBack() {
   if (fillingScreen) {
     fillingScreen = false;
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   }
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+
+export function leaveBackrooms(exit: Exit) {
+  if (visit === "none") return;
+  visit = "none";
+  giveBack();
   lastReturn = { exit, id: ++returns };
+  emit();
+}
+
+/**
+ * Kara's page is going away mid-visit (Back, another skin): nobody's behind the door any more, so coming back to the
+ * page starts on the desktop. Nobody comes back out either: the pet starts afresh with the page.
+ */
+export function abandonVisit() {
+  if (visit === "none") return;
+  visit = "none";
+  giveBack();
   emit();
 }

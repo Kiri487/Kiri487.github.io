@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState } from "react";
-import { enterBackrooms, leaveBackrooms, useXnVisit } from "../xnen/door";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { abandonVisit, enterBackrooms, leaveBackrooms, useXnVisit } from "../xnen/door";
 import DoorGlitch from "../xnen/DoorGlitch";
 import { loadXnenWorld } from "../xnen/load";
 import XnenBoundary from "../xnen/XnenBoundary";
@@ -27,6 +27,9 @@ function WindowLayer() {
 function KaraOs() {
   const [shuttingDown, setShuttingDown] = useState(false);
   const visit = useXnVisit();
+
+  // Leaving Kara's page from behind the door shouldn't leave the next visit to it stuck back there.
+  useEffect(() => abandonVisit, []);
 
   return (
     <div className="kara-os">
