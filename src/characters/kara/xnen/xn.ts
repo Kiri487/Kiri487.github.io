@@ -52,6 +52,9 @@ export type XnAction = "stand" | "lamp" | "carpet" | "faceWall" | "crouch" | "si
 /** Everything she can do, in the dev panel's order. */
 export const XN_ACTIONS: readonly XnAction[] = ["stand", "lamp", "carpet", "faceWall", "crouch", "sit", "spin", "walk"];
 
+/** What she can't do sticking out of a wall: there's no wall in front of her to face, and nothing to walk on. */
+export const NOT_ON_WALLS: ReadonlySet<XnAction> = new Set<XnAction>(["faceWall", "walk"]);
+
 /** What goes on top of any action. */
 export interface XnManner {
   tailUp: boolean;
@@ -73,6 +76,11 @@ export function floorSpot(x: number, y: number, facing: number): XnSpot {
 /** Hanging from the ceiling over (x, y), her front toward `facing`. */
 export function ceilingSpot(x: number, y: number, facing: number): XnSpot {
   return { surface: "ceiling", x, y, z: 1 - GAP, up: [0, 0, -1], front: [Math.cos(facing), Math.sin(facing), 0] };
+}
+
+/** On the ceiling at (x, y) facing `facing`, or else on the floor there. */
+export function spotOn(surface: XnSurface, x: number, y: number, facing: number): XnSpot {
+  return (surface === "ceiling" ? ceilingSpot : floorSpot)(x, y, facing);
 }
 
 /**
@@ -208,12 +216,21 @@ export const WALK_RANGE: Record<keyof XnWalk, readonly [number, number]> = {
 
 /** A new way to walk, every setting picked anywhere in its range. */
 export function randomWalk(): XnWalk {
-  const walk = { ...DEFAULT_WALK };
-  for (const key of Object.keys(WALK_RANGE) as (keyof XnWalk)[]) {
+  const pick = (key: keyof XnWalk) => {
     const [min, max] = WALK_RANGE[key];
-    walk[key] = min + Math.random() * (max - min);
-  }
-  return walk;
+    return min + Math.random() * (max - min);
+  };
+  // A stride near nothing is allowed: she marches on the spot and gets nowhere. She's XN.
+  return {
+    pace: pick("pace"),
+    stride: pick("stride"),
+    lift: pick("lift"),
+    limp: pick("limp"),
+    sway: pick("sway"),
+    loll: pick("loll"),
+    stutter: pick("stutter"),
+    lean: pick("lean"),
+  };
 }
 /**
  * Where she walks: from `spot`, up to `distance` further on, over `dt` seconds. The game knows the walls, so it decides

@@ -158,6 +158,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       onPrompt: setPrompt,
       onLine: setLine,
       onLeave: (exit) => leaveRef.current(exit),
+      onXnWalk: XN_DEV_TOOLS ? (walk) => setXnPreview((preview) => ({ ...preview, walk })) : undefined,
     });
     gameRef.current = game;
     return () => {

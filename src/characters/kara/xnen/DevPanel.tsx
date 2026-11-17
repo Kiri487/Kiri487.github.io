@@ -6,7 +6,17 @@ import { forgetDoor } from "./door";
 import { readableAt, SAN_DEV_RANGE, setSanExposure, stageAt, useSanSeconds } from "./san";
 import { meetingsSoFar } from "./talk";
 import type { XnPreview } from "./game";
-import { XN_ACTIONS, type XnAction, type XnCrouch, type XnSit, type XnSurface, type XnWalk, randomWalk, WALK_RANGE } from "./xn";
+import {
+  NOT_ON_WALLS,
+  randomWalk,
+  WALK_RANGE,
+  XN_ACTIONS,
+  type XnAction,
+  type XnCrouch,
+  type XnSit,
+  type XnSurface,
+  type XnWalk,
+} from "./xn";
 
 /* Dev builds only: Kiri's sliders for tuning the place. The changes are kept, and 複製設定 copies them to paste back. */
 
@@ -57,8 +67,6 @@ const ACTION_LABELS: Record<XnAction, string> = {
   walk: "走路",
 };
 
-/** What she can't do sticking out of a wall. */
-const NOT_ON_WALLS = new Set<XnAction>(["faceWall", "walk"]);
 
 /** A pose's settings in the panel: setting, label, range. */
 type PoseSliders<T> = readonly [keyof T & string, string, number, number][];
@@ -362,7 +370,7 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
           ))}
           <div className="kara-xnen-dev__buttons">
             {xnPreview.action === "walk" && (
-              <button type="button" onClick={() => onXnPreview({ ...xnPreview, walk: randomWalk() }, true)}>
+              <button type="button" onClick={() => onXnPreview({ ...xnPreview, walk: randomWalk() }, false)}>
                 隨機一組
               </button>
             )}
