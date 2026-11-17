@@ -2,6 +2,7 @@ import { contacts, type Contact } from "../../../../data/portfolio";
 import CharacterAvatar from "../../CharacterAvatar";
 import { useWindow } from "../../os/context";
 import { useDoor } from "../../xnen/door";
+import { useXnListed } from "../../xnen/san";
 import { isTouchPointer, openGesture } from "../../os/openGesture";
 import { chatTitle, type ChatArgs, type ChatPartnerId } from "../chat/conversations";
 import { openExternal } from "../common/openExternal";
@@ -17,12 +18,16 @@ const STATUS: Record<Contact["id"], { label: string; presence: Presence }> = {
   linkedin: { label: "Busy", presence: "busy" },
 };
 
-/** Kara's other sides, plus things that went missing elsewhere on this computer. Only the characters open a chat. */
-const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId }[] = [
+/**
+ * Kara's other sides, plus things that went missing elsewhere on this computer. Only the characters open a chat.
+ * XN is only there while the visitor's SAN is low (`onlyWhenXnListed`), with no notice: as if she'd always been.
+ */
+const OFFLINE_CONTACTS: { name: string; status: string; partner?: ChatPartnerId; onlyWhenXnListed?: boolean }[] = [
   { name: "Kiri", status: "Asleep. Allegedly.", partner: "kiri" },
   { name: "Kuru", status: "Chill", partner: "kuru" },
   { name: "Kere", status: "Out of office", partner: "kere" },
   { name: "Koro", status: "Won't read it yet :P", partner: "koro" },
+  { name: "Xnen", status: "In the ceiling", partner: "xn", onlyWhenXnListed: true },
   { name: "Thursday", status: "Uninstalled" },
   { name: "The Printer", status: "Rumored" },
 ];
@@ -59,6 +64,8 @@ function ContactRow({
 function MessengerApp() {
   const { openApp } = useWindow();
   const doorFound = useDoor() !== null;
+  const xnListed = useXnListed();
+  const offline = OFFLINE_CONTACTS.filter((contact) => xnListed || !contact.onlyWhenXnListed);
 
   const openChat = (partner: ChatPartnerId) => {
     const args: ChatArgs = { partner };
@@ -90,8 +97,8 @@ function MessengerApp() {
           ))}
         </section>
         <section className="kara-messenger__group">
-          <h3 className="kara-messenger__group-title">Offline ({OFFLINE_CONTACTS.length})</h3>
-          {OFFLINE_CONTACTS.map(({ name, status, partner }) => (
+          <h3 className="kara-messenger__group-title">Offline ({offline.length})</h3>
+          {offline.map(({ name, status, partner }) => (
             <ContactRow
               key={name}
               presence="offline"

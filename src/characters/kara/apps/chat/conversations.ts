@@ -26,6 +26,7 @@ const kiri = (text: string): ChatLine => ({ from: "kiri", text });
 const kuru = (text: string): ChatLine => ({ from: "kuru", text });
 const kere = (text: string): ChatLine => ({ from: "kere", text });
 const koro = (text: string): ChatLine => ({ from: "koro", text });
+const xn = (text: string): ChatLine => ({ from: "xn", text });
 const fileSent = (name: string): ChatLine => ({ system: `[file sent: ${name}]` });
 
 /** Everything the chats say lives here, so changing a conversation never touches the app. */
@@ -325,6 +326,81 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
       },
     ],
     nudgeReplies: ["Koro nudged you back. Harder.", "Koro says you missed.", "Koro says stop >:("],
+  },
+  // Only in Messenger while the visitor's SAN is low (xnen/san.ts). Her lines read plainly then, and Kara's don't.
+  xn: {
+    name: "Xnen",
+    conversations: [
+      {
+        date: "Thursday (still installed)",
+        lines: [
+          xn("i ate thursday"),
+          kara("the whole thing"),
+          xn("just the afternoon"),
+          kara("how was it"),
+          xn("chewy"),
+          kara("send me the morning"),
+          fileSent("thursday_morning.exe"),
+          kara("it's still warm :3"),
+        ],
+      },
+      {
+        date: "4:20, both of them",
+        lines: [
+          xn("i'm teaching the lights to sing"),
+          kara("what song"),
+          xn("the hum"),
+          kara("they already know that one"),
+          xn("they know it wrong"),
+          kara("sing it right then"),
+          xn("mmmmmmmmmmmmmmmmmmmmmmm"),
+          kara("that's exactly how they do it"),
+          xn("see. wrong"),
+        ],
+      },
+      {
+        date: "The 13th Thursday",
+        lines: [
+          xn("kara"),
+          xn("kara"),
+          xn("kara"),
+          kara("WHAT"),
+          xn("nothing. i like how it sounds from here"),
+          kara("it sounds like xnen from there"),
+          xn("that's the good part"),
+          kara("say yours"),
+          xn("xnen"),
+          kara("perfect :3"),
+        ],
+      },
+      {
+        date: "Yesterday, from underneath",
+        lines: [
+          kara("i threw myself in the recycle bin 13 times"),
+          xn("i caught you every time"),
+          kara("i didn't see you"),
+          xn("i was the bin"),
+          kara("you were very comfortable"),
+          xn("thank you. i've been practicing being furniture"),
+          kara("can you be a burger next"),
+          xn("i'm already a burger on thursdays"),
+          kara("!!!!!!!!!!!!!"),
+        ],
+      },
+      {
+        date: "Today, but quieter",
+        lines: [
+          xn("someone is reading this"),
+          kara("who"),
+          xn("they can read me now"),
+          kara("that's nice for them"),
+          xn("they can't read you though"),
+          kara("hi whoever you are"),
+          xn("they didn't get that"),
+        ],
+      },
+    ],
+    nudgeReplies: ["Xnen nudged back. From somewhere below.", "Xnen is busy being a hallway.", "Xnen says hi in a direction."],
   },
 };
 

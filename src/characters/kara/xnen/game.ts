@@ -15,9 +15,11 @@ import {
   type StatueSkin,
 } from "./engine/statue";
 import type { Tuning } from "./engine/tuning";
-import { MUTTER, rot13 } from "./lines";
+import { MUTTER } from "./lines";
+import { readAs } from "./rot13";
 import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, playXnTalkSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
+import { passSanTime, xnReadable } from "./san";
 import { forgetMeetings, Talk } from "./talk";
 import {
   ceilingSpot,
@@ -104,6 +106,11 @@ export interface Game {
   dispose: () => void;
 }
 
+/**
+ * The most one frame counts towards SAN, in seconds: a frame drawn after a long stall (the browser busy elsewhere)
+ * shouldn't count the whole stall.
+ */
+const MAX_REAL_STEP = 1;
 /** Seconds the picture takes to come out of the snow. */
 const ENTER_TIME = 0.9;
 /** A rewind: running back along the walk, then a burst of static, then a quick fade onto the desktop. */
@@ -402,14 +409,14 @@ export function createGame(parts: GameParts): Game {
     setMode(exit);
   };
 
-  /** XN's next line: often only "...", which makes no sound; her words in ROT13, with her voice. */
+  /** XN's next line: often only "...", which makes no sound; her words with her voice, as much read as SAN allows. */
   const speak = () => {
     const line = talk.next();
     if (line === MUTTER) {
       showLine(line);
       return;
     }
-    showLine(rot13(line));
+    showLine(readAs(line, xnReadable()));
     playXnTalkSfx();
   };
 
@@ -738,7 +745,8 @@ export function createGame(parts: GameParts): Game {
     }
   };
 
-  const update = (dt: number, now: number) => {
+  /** dt is capped to keep the walk steady; `real` is the time that actually passed, which is what SAN counts. */
+  const update = (dt: number, real: number, now: number) => {
     const held = (code: string) => (keys.has(code) ? 1 : 0);
     const step = player.move(
       dt,
@@ -752,6 +760,9 @@ export function createGame(parts: GameParts): Game {
       tuning.bob && !reduced ? renderer.pictureHeight : 0,
     );
     if (step) playStepSfx();
+    // Time in here wears the visitor's SAN down, at the clock's pace however slowly the picture draws. Only while
+    // playing: paused, hidden or leaving doesn't count.
+    passSanTime(real);
     trailClock += dt;
     if (trailClock >= TRAIL_STEP) {
       trailClock = 0;
@@ -850,7 +861,8 @@ export function createGame(parts: GameParts): Game {
   };
   const runFrame = (t: number) => {
     const now = t / 1000;
-    const dt = last < 0 ? 0 : Math.min(0.05, Math.max(0, (t - last) / 1000));
+    const real = last < 0 ? 0 : Math.min(MAX_REAL_STEP, Math.max(0, (t - last) / 1000));
+    const dt = Math.min(0.05, real);
     last = t;
     if (left) return;
     if (mode === "pause") {
@@ -858,7 +870,7 @@ export function createGame(parts: GameParts): Game {
       return;
     }
     nextJitter = 0;
-    if (mode === "play") update(dt, now);
+    if (mode === "play") update(dt, real, now);
     const fx = effects(dt);
     const cam = camera();
     if (mode !== "play") {

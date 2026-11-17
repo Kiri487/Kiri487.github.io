@@ -1,9 +1,11 @@
 import KereAvatar from "../kere/avatar/KereAvatar";
 import karaLeaf from "./assets/avatars/kara-leaf.webp";
 import kuruAlley from "./assets/avatars/kuru.webp";
+import xnTape from "./assets/avatars/xn.webp";
 import { PawIcon } from "./icons";
 
-export type CharacterId = "kiri" | "kuru" | "koro" | "kere" | "kara";
+/** The five K cats, and XN, who only turns up on Kara's computer once the visitor's SAN is low. */
+export type CharacterId = "kiri" | "kuru" | "koro" | "kere" | "kara" | "xn";
 
 /** Keep in sync with the border of .kara-avatar in style.css. */
 const BORDER_WIDTH = 2;
@@ -18,6 +20,8 @@ const AVATAR_ART: Partial<Record<CharacterId, { src: string; inset?: boolean }>>
   kiri: { src: "/kiri/KiriLogo.png", inset: true },
   kara: { src: karaLeaf },
   kuru: { src: kuruAlley },
+  // A frame off the backrooms' tape: her eye, dark and smeared, as Kiri cut it.
+  xn: { src: xnTape },
 };
 
 const AVATAR_COLORS: Record<CharacterId, string> = {
@@ -26,6 +30,8 @@ const AVATAR_COLORS: Record<CharacterId, string> = {
   kuru: "#1f1f22",
   koro: "#a88bc9",
   kara: "#97a786",
+  // The tape's own dark: her picture's average, so the frame all but disappears into it.
+  xn: "#241f19",
 };
 
 function CharacterAvatar({ character, size }: { character: CharacterId; size: number }) {

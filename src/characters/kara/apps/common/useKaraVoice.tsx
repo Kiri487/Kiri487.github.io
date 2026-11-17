@@ -2,6 +2,8 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, ty
 import { createPortal } from "react-dom";
 import { usePetInSeat } from "../../os/petGame";
 import { playTalkSfx } from "../../os/petSfx";
+import { garble } from "../../xnen/rot13";
+import { useCatsLost } from "../../xnen/san";
 
 /** As long as the pet's, for the same reason. */
 const BALLOON_MS = 4200;
@@ -32,6 +34,8 @@ export function useKaraVoice(hello: string): KaraVoice {
   const seatId = useId();
   const karaIsHere = usePetInSeat(seatId);
   const [line, setLine] = useState<string | null>(null);
+  // As on the desktop: with too little SAN, her words come out wrong.
+  const catsLost = useCatsLost();
   const [host] = useState(() => document.querySelector<HTMLElement>(".kara-os"));
   const seatRef = useRef<HTMLImageElement>(null);
   const balloonRef = useRef<HTMLSpanElement>(null);
@@ -105,7 +109,7 @@ export function useKaraVoice(hello: string): KaraVoice {
     line !== null && karaIsHere && host
       ? createPortal(
           <span ref={balloonRef} className="kara-scoreboard__balloon" role="status">
-            {line}
+            {garble(line, catsLost)}
           </span>,
           host,
         )

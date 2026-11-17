@@ -1,6 +1,7 @@
 /*
- * What XN says, in plain English as Kiri approved it. Her subtitles always run through ROT13, so on screen this is
- * gibberish except for numbers and names, which swap between the K and X cats (kara ↔ xnen, kuru ↔ xheh, and so on).
+ * What XN says, in plain English as Kiri approved it. Her subtitles run through ROT13, so on screen this is gibberish
+ * except for numbers and names, which swap between the K and X cats (kara ↔ xnen, kuru ↔ xheh, and so on). The longer
+ * the visitor spends in her backrooms, the more of it reads plainly, a word at a time (san.ts, rot13.ts).
  */
 
 /** Her first line in a visit. The first ever is always the first one: the player sees "kara" in the gibberish. */
@@ -57,11 +58,3 @@ export const STAGES = [
 
 /** Saying nothing, which she does often. Not ROT13'd (there's nothing to turn), and silent. */
 export const MUTTER = "...";
-
-/** ROT13: each letter thirteen places on. Doing it twice gives the original back. */
-export function rot13(text: string): string {
-  return text.replace(/[a-z]/gi, (letter) => {
-    const base = letter <= "Z" ? 65 : 97;
-    return String.fromCharCode(((letter.charCodeAt(0) - base + 13) % 26) + base);
-  });
-}
