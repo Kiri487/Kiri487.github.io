@@ -8,7 +8,7 @@ import DevPanel from "./DevPanel";
 import { loadTuning } from "./devTuning";
 import { DEFAULT_TUNING } from "./engine/tuning";
 import { createGame, type Exit, type Game, type Mode, type XnPreview } from "./game";
-import { DEFAULT_CROUCH, DEFAULT_SIT } from "./xn";
+import { DEFAULT_CROUCH, DEFAULT_SIT, NOTICE_RANGE } from "./xn";
 import "./xnen.css";
 
 /*
@@ -86,6 +86,8 @@ const FIRST_PREVIEW: XnPreview = {
   crouch: DEFAULT_CROUCH,
   sit: DEFAULT_SIT,
   ignore: false,
+  noticeRange: NOTICE_RANGE,
+  auto: true,
 };
 
 const SPOKEN_MODE: Record<Mode, string> = { play: "Playing", pause: "Paused", rewind: "Rewinding", stop: "Stopped" };
@@ -236,6 +238,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
             setXnPreview(next);
             gameRef.current?.previewXn(next, restart);
           }}
+          onMoveXnOn={() => gameRef.current?.moveXnOn()}
         />
       )}
     </div>

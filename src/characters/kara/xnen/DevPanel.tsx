@@ -66,7 +66,8 @@ function describePose<T>(name: string, sliders: PoseSliders<T>, values: T): stri
 }
 
 /** The panel's checkboxes for XN: what goes on top of any action, and noticing. */
-const XN_CHECKS: readonly ["tailUp" | "swingArms" | "ignore", string][] = [
+const XN_CHECKS: readonly ["auto" | "tailUp" | "swingArms" | "ignore", string][] = [
+  ["auto", "XN 自己出現和瞬移（關掉才會一直留在你前面）"],
   ["tailUp", "尾巴豎起"],
   ["swingArms", "手臂晃"],
   ["ignore", "XN 不理玩家（只看動作，不轉頭看你）"],
@@ -77,9 +78,10 @@ interface DevPanelProps {
   onTune: (next: Tuning, freshMap: boolean) => void;
   xnPreview: XnPreview;
   onXnPreview: (next: XnPreview, restart: boolean) => void;
+  onMoveXnOn: () => void;
 }
 
-function DevPanel({ panelRef, onTune, xnPreview, onXnPreview }: DevPanelProps) {
+function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn }: DevPanelProps) {
   const [tuning, setTuning] = useState(loadTuning);
   const [copied, setCopied] = useState<"" | "done" | "failed">("");
   const [poseCopied, setPoseCopied] = useState<"" | "done" | "failed">("");
@@ -195,7 +197,14 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview }: DevPanelProps) {
       <output className="kara-xnen-dev__summary">{describeTuning(tuning)}</output>
 
       <h3>XN 動作預覽</h3>
-      <p className="kara-xnen-dev__note">XN 會移到你前方。再按一次同一個動作＝從頭再做。按畫面繼續播放才會動。</p>
+      <p className="kara-xnen-dev__note">
+        按表面或動作，XN 會移到你前方；再按一次同一個動作＝從頭再做。按畫面繼續播放才會動。
+      </p>
+      <div className="kara-xnen-dev__buttons">
+        <button type="button" onClick={onMoveXnOn}>
+          XN 馬上瞬移
+        </button>
+      </div>
       <div className="kara-xnen-dev__buttons" role="group" aria-label="XN 在哪個面">
         {SURFACES.map(([surface, label]) => (
           <button
@@ -243,6 +252,19 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview }: DevPanelProps) {
           </label>
         ))}
       </div>
+      <label className="kara-xnen-dev__field">
+        <span>
+          幾格內才看你 <b>{xnPreview.noticeRange.toFixed(1)}</b>
+        </span>
+        <input
+          type="range"
+          min={1}
+          max={12}
+          step={0.5}
+          value={xnPreview.noticeRange}
+          onChange={(e) => onXnPreview({ ...xnPreview, noticeRange: Number(e.target.value) }, false)}
+        />
+      </label>
       {pose && (
         <>
           {pose.sliders.map(({ key, label, min, max, value, set }) => (

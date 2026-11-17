@@ -4,19 +4,21 @@ import type { StatueMesh } from "./engine/statue";
 /*
  * XN in her backrooms. She stands on the floor, hangs from the ceiling or sticks out of a wall, and does one thing
  * where she is: stands, stares at a light or the carpet, faces the wall, crouches, sits hugging her knees, or turns
- * on the spot. On top
- * of any of them her tail can be up or down, and her arms still or swinging. She minds her own business until the visitor sees her; from then on her head follows them,
- * and only her head: her body carries on with what it was doing. Her tail and hair always move a little, and once in
+ * on the spot. On top of any of them her tail can be up or down, and her arms still or swinging. She minds her own
+ * business until the visitor comes near; then her head follows them, and only her head: her body carries on with
+ * what it was doing. Her tail and hair always move a little, and once in
  * a while her head twitches.
  *
- * Where and when she turns up, and what she says, come later. For now the game puts her somewhere and picks what
- * she does (Kiri's dev panel chooses).
+ * The game decides where she is and what she does (game.ts: she turns up near the visitor and moves on when
+ * they've looked away a while). What she says comes later.
  *
  * She moves like a cheap game's character: her pose is only worked out a few times a second.
  */
 
 /** How close the visitor can come to her middle. */
 export const XN_RADIUS = 0.24;
+/** She only watches a visitor this many cells from her, or nearer; Kiri tunes it in the dev panel. */
+export const NOTICE_RANGE = 4;
 /** Poses per second. */
 const POSE_RATE = 10;
 /** How far her head turns to follow, in radians: to either side, back (to look up) and forward (to look down). */
@@ -170,12 +172,13 @@ export class Xn {
   readonly figure: Figure;
   private spot: XnSpot;
   private action: XnAction = "stand";
-  /** What she looks at until she notices the visitor; null looks ahead. */
+  /** What she looks at while the visitor is far off; null looks ahead. */
   private gaze: Point | null = null;
-  /** She's seen the visitor since she started this action, and watches them. */
-  private noticed = false;
   /** Kiri's dev panel: she never notices anyone, so the action can be watched. */
   ignore = false;
+  noticeRange = NOTICE_RANGE;
+  /** The visitor is near enough: her head follows them. */
+  private watching = false;
   /** Tail up or down, arms still or swinging, whatever the action. */
   manner: XnManner = { tailUp: false, swingArms: false };
   crouch: XnCrouch = { ...DEFAULT_CROUCH };
@@ -230,13 +233,19 @@ export class Xn {
     this.headJoint = [head.x, head.y, head.z];
   }
 
-  /** The middle of her height, on the map: where she can be bumped into and seen. */
+  /** The middle of her height, on the map: where she can be bumped into, and is looked for. */
   get x(): number {
-    return this.spot.x + (this.spot.up[0] * this.figure.height) / 2;
+    return this.middleOf(this.spot)[0];
   }
 
   get y(): number {
-    return this.spot.y + (this.spot.up[1] * this.figure.height) / 2;
+    return this.middleOf(this.spot)[1];
+  }
+
+  /** Where the middle of her height would be on the map, put at `spot`. */
+  middleOf(spot: XnSpot): [number, number] {
+    const half = this.figure.height / 2;
+    return [spot.x + spot.up[0] * half, spot.y + spot.up[1] * half];
   }
 
   get surface(): XnSurface {
@@ -247,10 +256,9 @@ export class Xn {
     return this.spot;
   }
 
-  /** Puts her somewhere else. She hasn't seen the visitor there yet. */
+  /** Puts her somewhere else. */
   moveTo(spot: XnSpot) {
     this.spot = spot;
-    this.noticed = false;
     this.mesh = null;
   }
 
@@ -259,24 +267,23 @@ export class Xn {
     this.mesh = null;
   }
 
-  /** Starts an action from the top, looking at `gaze` (or ahead) until she notices the visitor. */
+  /** Starts an action from the top, looking at `gaze` (or ahead) while the visitor is far off. */
   act(action: XnAction, gaze: Point | null) {
     this.action = action;
     this.gaze = gaze;
     this.actionClock = 0;
-    this.noticed = false;
     this.mesh = null;
   }
 
   /**
-   * Moves her on by dt seconds and returns her mesh to draw. `viewer` is the visitor's eye, and `seen` whether she's
-   * in their view. With `still` (reduced motion) she does nothing of her own accord; her head still answers the
-   * visitor.
+   * Moves her on by dt seconds and returns her mesh to draw. `viewer` is the visitor's eye. With `still` (reduced
+   * motion) she does nothing of her own accord; her head still answers the visitor.
    */
-  update(dt: number, viewer: Point, seen: boolean, still: boolean): StatueMesh {
+  update(dt: number, viewer: Point, still: boolean): StatueMesh {
     this.clock += dt;
     this.actionClock += dt;
-    if (seen && !this.ignore) this.noticed = true;
+    // She watches them while they're near; further off, she goes back to what she was doing.
+    this.watching = !this.ignore && Math.hypot(viewer[0] - this.x, viewer[1] - this.y) <= this.noticeRange;
     this.wait -= dt;
     if (this.mesh && this.wait > 0) return this.mesh;
     const step = this.mesh ? 1 / POSE_RATE : 0;
@@ -370,9 +377,9 @@ export class Xn {
     figure.turn(foreR, 0, swing * 0.2 * Math.sin(w - 0.85), -foreIn);
 
     // ---- the head: what she looks at ----
-    const target = this.noticed ? viewer : this.gaze;
+    const target = this.watching ? viewer : this.gaze;
     let wantYaw = 0;
-    let wantPitch = this.noticed ? 0 : REST_NOD[this.action];
+    let wantPitch = this.watching ? 0 : REST_NOD[this.action];
     let wantStrain = 0;
     if (target) {
       // The target in her own space, from her head.
@@ -396,7 +403,7 @@ export class Xn {
       const over = Math.abs(yaw) - HEAD_REACH;
       if (over > 0) wantStrain = Math.min(STRAIN_TILT, over * 0.5) * (yaw > 0 ? -1 : 1);
     }
-    const speed = this.noticed && SLOW_TO_NOTICE.has(this.action) ? SLOW_HEAD_SPEED : HEAD_SPEED;
+    const speed = SLOW_TO_NOTICE.has(this.action) ? SLOW_HEAD_SPEED : HEAD_SPEED;
     // The first pose looks straight there; after that her head catches up.
     const k = step ? Math.min(1, step * speed) : 1;
     const before = this.headYaw;

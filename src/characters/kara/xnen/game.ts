@@ -22,6 +22,7 @@ import {
   floorSpot,
   wallSpot,
   Xn,
+  XN_ACTIONS,
   XN_RADIUS,
   type Point,
   type XnAction,
@@ -46,6 +47,10 @@ export interface XnPreview {
   sit: XnSit;
   /** She never notices the visitor, so the action can be watched. */
   ignore: boolean;
+  /** She only watches a visitor this many cells off, or nearer. */
+  noticeRange: number;
+  /** She turns up and moves on by herself; off, she stays where the panel puts her. */
+  auto: boolean;
 }
 
 /** What the tape is doing, shown top left. */
@@ -88,6 +93,8 @@ export interface Game {
    * top; tail, arms, poses and noticing just change.
    */
   previewXn: (next: XnPreview, restart: boolean) => void;
+  /** The dev panel: XN moves on now, as if the visitor had looked away long enough. */
+  moveXnOn: () => void;
   dispose: () => void;
 }
 
@@ -112,7 +119,7 @@ const FACING = 0.55;
 /** A touch shorter and stiller than this is a tap. */
 const TAP_MS = 300;
 const TAP_PX = 12;
-/** For now XN is put this far in front of the visitor (where they come in, or where the dev panel finds them). */
+/** The dev panel puts XN this far in front of the visitor. */
 const XN_AHEAD = 1.7;
 /** Looking for a wall for XN: how far from the visitor, and how far from her, for facing one. */
 const WALL_SEARCH = 6;
@@ -121,6 +128,47 @@ const FACE_WALL_SEARCH = 4;
 const FACE_WALL_GAP = 0.16;
 /** Lights she might stare at are at most this far off. */
 const LAMP_SEARCH = 3.5;
+/*
+ * XN turns up by herself. The first time a while after the visitor comes in; then, whenever she's been out of their
+ * view long enough, she's somewhere else near them: or now and then nowhere, for a while. Wherever she turns up, it's
+ * out of their view, and where a turn of the head would find her if there's such a place.
+ */
+/** Seconds, at least and at most: before she first turns up; out of view before she moves on; gone, when she goes. */
+const XN_FIRST_WAIT = [20, 40] as const;
+const XN_UNSEEN = [4, 10] as const;
+const XN_AWAY = [20, 60] as const;
+/** How likely she is to go for a while, instead of turning up somewhere else at once. */
+const XN_AWAY_CHANCE = 0.4;
+/** She turns up this many cells from the visitor, at least and at most. */
+const XN_NEAR = 4;
+const XN_FAR = 20;
+/** How often she turns up on each surface. */
+const XN_SURFACES: readonly [XnSurface, number][] = [
+  ["floor", 5],
+  ["ceiling", 3],
+  ["wall", 2],
+];
+/** How likely her tail is up, and her arms swing, each time she turns up. */
+const XN_TAIL_UP = 0.3;
+const XN_SWING_ARMS = 0.3;
+/** Spots tried for her, each time. */
+const XN_TRIES = 80;
+
+/** Somewhere between the two, at random. */
+function between([low, high]: readonly [number, number]) {
+  return low + Math.random() * (high - low);
+}
+
+function pickSurface(): XnSurface {
+  const total = XN_SURFACES.reduce((sum, [, weight]) => sum + weight, 0);
+  let roll = Math.random() * total;
+  for (const [surface, weight] of XN_SURFACES) {
+    roll -= weight;
+    if (roll < 0) return surface;
+  }
+  return "floor";
+}
+
 /** The four sides of a cell. */
 const SIDES = [
   [1, 0],
@@ -192,6 +240,12 @@ export function createGame(parts: GameParts): Game {
   let xn: Xn | null = null;
   let xnSkin: StatueSkin | null = null;
   let xnPreview = { ...parts.xnPreview };
+  /** She's in the place now; when she isn't, she turns up once `xnAway` runs out. */
+  let xnHere = !xnPreview.auto;
+  let xnAway = between(XN_FIRST_WAIT);
+  /** Seconds she's been out of view, and how long she'll stay put out of view this time. */
+  let xnUnseen = 0;
+  let xnPatience = between(XN_UNSEEN);
   let disposed = false;
   loadSkin(parts.xnAtlasUrl, (loaded) => {
     xnSkin = loaded;
@@ -205,6 +259,7 @@ export function createGame(parts: GameParts): Game {
       if (disposed) return;
       xn = new Xn(parseFigure(buffer), spotAhead(SPAWN.x, SPAWN.y, SPAWN.angle, xnPreview.surface));
       xn.ignore = xnPreview.ignore;
+      xn.noticeRange = xnPreview.noticeRange;
       xn.manner = { tailUp: xnPreview.tailUp, swingArms: xnPreview.swingArms };
       xn.crouch = { ...xnPreview.crouch };
       xn.sit = { ...xnPreview.sit };
@@ -427,6 +482,7 @@ export function createGame(parts: GameParts): Game {
   /** Starts an action: moves her to a wall to face it, and finds what she stares at. */
   const startXnAction = (who: Xn, action: XnAction) => {
     const surface = who.surface;
+    let chosen = action;
     if (action === "faceWall" && surface !== "wall") {
       // The face of wall nearest her, preferably one where the visitor can see her.
       let best: XnSpot | null = null;
@@ -443,19 +499,21 @@ export function createGame(parts: GameParts): Game {
         const facing = Math.atan2(-face.ny, -face.nx);
         best = surface === "ceiling" ? ceilingSpot(sx, sy, facing) : floorSpot(sx, sy, facing);
       }
+      // No wall near enough: she just stands.
       if (best) who.moveTo(best);
+      else chosen = "stand";
     }
     let gaze: Point | null = null;
-    if (action === "lamp") gaze = lampFor(who);
-    if (action === "carpet") {
+    if (chosen === "lamp") gaze = lampFor(who);
+    if (chosen === "carpet") {
       const { x, y, front } = who.where;
       // Just ahead of her feet, or the floor under her.
       gaze = surface === "floor" ? [x + front[0] * 0.3, y + front[1] * 0.3, 0] : [who.x, who.y, 0];
     }
-    who.act(action, gaze);
+    who.act(chosen, gaze);
   };
 
-  /** XN is in the visitor's view: in the picture, give or take her width, with no wall between. */
+  /** XN is in the visitor's view: in the picture's width, give or take hers, with no wall between. */
   const sees = (cam: Camera, x: number, y: number) => {
     const dx = x - cam.x;
     const dy = y - cam.y;
@@ -464,19 +522,91 @@ export function createGame(parts: GameParts): Game {
     const ahead = dx * fx + dy * fy;
     if (ahead <= 0) return false;
     if (Math.abs(dy * fx - dx * fy) - XN_RADIUS > ahead * renderer.spread(tuning.fov)) return false;
-    const n = Math.ceil(Math.hypot(dx, dy) / 0.1);
-    for (let i = 1; i < n; i++) {
-      const k = i / n;
-      if (light.wallAt(Math.floor(cam.x + dx * k), Math.floor(cam.y + dy * k), map)) return false;
+    return clearBetween(cam.x, cam.y, x, y);
+  };
+
+  /**
+   * Somewhere for XN to turn up near the visitor, out of their view: one with nothing between them, so a turn of the
+   * head finds her, if any of the spots tried is; any out of view otherwise. Null if none is.
+   */
+  const pickXnSpot = (who: Xn, cam: Camera): XnSpot | null => {
+    let fallback: XnSpot | null = null;
+    for (let i = 0; i < XN_TRIES; i++) {
+      const surface = pickSurface();
+      const angle = Math.random() * Math.PI * 2;
+      const dist = between([XN_NEAR, XN_FAR]);
+      const x = cam.x + Math.cos(angle) * dist;
+      const y = cam.y + Math.sin(angle) * dist;
+      let spot: XnSpot;
+      if (surface === "wall") {
+        const faces = wallFaces(x, y, 1);
+        if (!faces.length) continue;
+        const face = faces[Math.floor(Math.random() * faces.length)];
+        spot = wallSpot(face.x, face.y, Math.atan2(face.ny, face.nx), Math.random() < 0.5 ? -1 : 1);
+      } else {
+        if (!roomFor(x, y)) continue;
+        spot = (surface === "ceiling" ? ceilingSpot : floorSpot)(x, y, Math.random() * Math.PI * 2);
+      }
+      const [mx, my] = who.middleOf(spot);
+      const away = Math.hypot(mx - cam.x, my - cam.y);
+      if (away < XN_NEAR || away > XN_FAR || sees(cam, mx, my)) continue;
+      if (clearBetween(cam.x, cam.y, mx, my)) return spot;
+      if (!fallback) fallback = spot;
     }
+    return fallback;
+  };
+
+  /** She's just turned up (or the panel put her somewhere): she stays put until she's been out of view a while. */
+  const settleXn = () => {
+    xnHere = true;
+    xnUnseen = 0;
+    xnPatience = between(XN_UNSEEN);
+  };
+
+  /** Puts XN somewhere new near the visitor, doing something new. False if there was nowhere. */
+  const relocateXn = (who: Xn, cam: Camera) => {
+    const spot = pickXnSpot(who, cam);
+    if (!spot) return false;
+    who.moveTo(spot);
+    who.manner = { tailUp: Math.random() < XN_TAIL_UP, swingArms: Math.random() < XN_SWING_ARMS };
+    const actions = XN_ACTIONS.filter((action) => !(action === "faceWall" && spot.surface === "wall"));
+    startXnAction(who, actions[Math.floor(Math.random() * actions.length)]);
+    // Going to a wall to face it can bring her into view; then she just stands where she turned up.
+    if (sees(cam, who.x, who.y)) {
+      who.moveTo(spot);
+      startXnAction(who, "stand");
+    }
+    settleXn();
     return true;
+  };
+
+  /** XN's own comings and goings, by dt seconds of play. */
+  const runXn = (dt: number) => {
+    if (!xn || !xnPreview.auto) return;
+    const cam = playerCamera();
+    if (!xnHere) {
+      xnAway -= dt;
+      // Nowhere to turn up: she tries again in a second.
+      if (xnAway <= 0 && !relocateXn(xn, cam)) xnAway = 1;
+      return;
+    }
+    if (sees(cam, xn.x, xn.y)) {
+      xnUnseen = 0;
+      return;
+    }
+    xnUnseen += dt;
+    if (xnUnseen < xnPatience) return;
+    if (Math.random() < XN_AWAY_CHANCE || !relocateXn(xn, cam)) {
+      xnHere = false;
+      xnAway = between(XN_AWAY);
+    }
   };
 
   const blocked = (x: number, y: number) => {
     for (const mesh of nearby) {
       if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
     }
-    if (xn && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
+    if (xn && xnHere && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
     const r = PLAYER_RADIUS;
     return (
       !!light.wallAt(Math.floor(x - r), Math.floor(y - r), map) ||
@@ -542,9 +672,9 @@ export function createGame(parts: GameParts): Game {
   const gather = (cam: Camera, dt: number) => {
     props = [];
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
-    if (xn && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
+    if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
       const eye: Point = [cam.x, cam.y, EYE];
-      props.push({ mesh: xn.update(dt, eye, sees(cam, xn.x, xn.y), reduced), model: xn.figure.look, skin: xnSkin });
+      props.push({ mesh: xn.update(dt, eye, reduced), model: xn.figure.look, skin: xnSkin });
     }
   };
 
@@ -570,6 +700,7 @@ export function createGame(parts: GameParts): Game {
     }
     if (light.needsBuild(player.x, player.y)) light.build(player.x, player.y, map);
     setPrompt(lookAround(playerCamera()));
+    runXn(dt);
     const digits = timecode.update(nearestStatue(map, player.x, player.y), tuning.compass, now, reduced);
     const line = timeStamp(digits);
     if (line !== shownTime) {
@@ -818,9 +949,14 @@ export function createGame(parts: GameParts): Game {
         meshes.clear();
         nearby = [];
         trail = [];
-        if (xn) {
+        if (xnPreview.auto) {
+          // A new start: she turns up a while from now, as when the visitor comes in.
+          xnHere = false;
+          xnAway = between(XN_FIRST_WAIT);
+        } else if (xn) {
           xn.moveTo(spotAhead(player.x, player.y, player.angle, xnPreview.surface));
           startXnAction(xn, xnPreview.action);
+          settleXn();
         }
       }
       fit();
@@ -829,17 +965,28 @@ export function createGame(parts: GameParts): Game {
       redrawHeld();
     },
     previewXn(next, restart) {
-      const moved = next.surface !== xnPreview.surface;
+      // A surface or action from the panel brings her in front of the visitor, as does turning her own comings and
+      // goings off while she's gone.
+      const bring = restart || (!next.auto && !xnHere);
+      const moved = next.surface !== xnPreview.surface || (bring && !xnHere);
       xnPreview = { ...next };
       if (!xn) return;
       xn.ignore = next.ignore;
+      xn.noticeRange = next.noticeRange;
       xn.manner = { tailUp: next.tailUp, swingArms: next.swingArms };
       xn.crouch = { ...next.crouch };
       xn.sit = { ...next.sit };
       if (moved) xn.moveTo(spotAhead(player.x, player.y, player.angle, next.surface));
-      if (restart) startXnAction(xn, next.action);
-      else xn.repose();
+      if (bring) {
+        startXnAction(xn, next.action);
+        settleXn();
+      } else {
+        xn.repose();
+      }
       redrawHeld();
+    },
+    moveXnOn() {
+      if (xn && relocateXn(xn, playerCamera())) redrawHeld();
     },
     dispose() {
       left = true;
