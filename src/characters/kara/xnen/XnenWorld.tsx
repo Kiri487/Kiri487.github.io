@@ -224,8 +224,8 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
           </button>
         )}
         {TOUCH && !leaving && (
-          <button type="button" className="kara-xnen__button" aria-label="Stop" onClick={() => gameRef.current?.stop()}>
-            <TapeSymbol kind="stop" />
+          <button type="button" className="kara-xnen__stop" onClick={() => gameRef.current?.stop()}>
+            <TapeSymbol kind="stop" /> STOP
           </button>
         )}
       </div>

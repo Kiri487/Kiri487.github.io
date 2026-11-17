@@ -130,6 +130,25 @@
   letter-spacing: 0.06em;
 }
 
+/* The phone's way out: the tape's own on-screen text, like PLAY across the top, with a thumb-sized place to tap. */
+[data-skin="kara"] .kara-os .kara-xnen__stop {
+  min-width: 44px;
+  min-height: 44px;
+  margin: -9px -8px 0 0;
+  padding: 9px 8px;
+  border: 0;
+  background: none;
+  color: var(--xnen-paper);
+  font-family: var(--xnen-osd);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-shadow:
+    2px 0 0 rgba(255, 60, 60, 0.35),
+    -2px 0 0 rgba(60, 120, 255, 0.35);
+}
+
+[data-skin="kara"] .kara-xnen__stop:focus-visible,
 [data-skin="kara"] .kara-xnen__button:focus-visible {
   outline: 2px solid var(--xnen-wall);
   outline-offset: 2px;
