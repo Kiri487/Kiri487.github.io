@@ -15,7 +15,8 @@ import {
   type StatueSkin,
 } from "./engine/statue";
 import type { Tuning } from "./engine/tuning";
-import { MUTTER, readAs } from "./lines";
+import { MUTTER } from "./lines";
+import { readAs } from "./rot13";
 import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, playXnTalkSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
 import { passSanTime, xnReadable } from "./san";

@@ -1,7 +1,7 @@
 /*
  * What XN says, in plain English as Kiri approved it. Her subtitles run through ROT13, so on screen this is gibberish
  * except for numbers and names, which swap between the K and X cats (kara ↔ xnen, kuru ↔ xheh, and so on). The longer
- * the visitor spends in her backrooms, the more of it reads plainly, a word at a time (san.ts, readAs below).
+ * the visitor spends in her backrooms, the more of it reads plainly, a word at a time (san.ts, rot13.ts).
  */
 
 /** Her first line in a visit. The first ever is always the first one: the player sees "kara" in the gibberish. */
@@ -58,33 +58,3 @@ export const STAGES = [
 
 /** Saying nothing, which she does often. Not ROT13'd (there's nothing to turn), and silent. */
 export const MUTTER = "...";
-
-/** ROT13: each letter thirteen places on. Doing it twice gives the original back. */
-export function rot13(text: string): string {
-  return text.replace(/[a-z]/gi, (letter) => {
-    const base = letter <= "Z" ? 65 : 97;
-    return String.fromCharCode(((letter.charCodeAt(0) - base + 13) % 26) + base);
-  });
-}
-
-/** Where a word starts reading plainly, 0 to 1: the same for that word every time, whatever line it's in. */
-function plainFrom(word: string): number {
-  // FNV-1a over the word, lower-cased so "Kara" and "kara" go together.
-  let hash = 0x811c9dc5;
-  for (const char of word.toLowerCase()) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0) / 0x100000000;
-}
-
-/**
- * A line as the visitor reads it when `readable` (0 to 1) of XN's speech has come through: each word either plain or
- * ROT13'd, by where that word starts reading plainly. 0 is all ROT13, 1 all plain.
- */
-export function readAs(line: string, readable: number): string {
-  if (readable <= 0) return rot13(line);
-  if (readable >= 1) return line;
-  // A word is its letters, with any apostrophes inside (that's, i've).
-  return line.replace(/[a-z]+(?:'[a-z]+)*/gi, (word) => (plainFrom(word) < readable ? word : rot13(word)));
-}
