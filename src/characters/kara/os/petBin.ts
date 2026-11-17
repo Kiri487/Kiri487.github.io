@@ -8,6 +8,11 @@ export type BinExit = "restored" | "crawled";
  * the bin's icon, and the folder that lists her as a file.
  */
 let inBin = false;
+/**
+ * How many times in a row she's been put in, for XN's door: the pet counts, the folder listing her reads it (from
+ * the fifth time she's "Cat (probably not)"). Only in memory, so leaving the page starts it over.
+ */
+let throws = 0;
 const listeners = new Set<() => void>();
 let exitHandler: ((how: BinExit) => void) | null = null;
 
@@ -22,6 +27,16 @@ function subscribe(listener: () => void) {
 
 export function usePetInBin(): boolean {
   return useSyncExternalStore(subscribe, () => inBin);
+}
+
+export function usePetBinThrows(): number {
+  return useSyncExternalStore(subscribe, () => throws);
+}
+
+export function setPetBinThrows(count: number) {
+  if (count === throws) return;
+  throws = count;
+  emit();
 }
 
 export function putPetInBin() {
@@ -48,9 +63,10 @@ export function handlePetBinExit(handler: (how: BinExit) => void): () => void {
   exitHandler = handler;
   return () => {
     if (exitHandler === handler) exitHandler = null;
-    // Leaving the skin with her inside shouldn't leave her stuck in there next time.
-    if (inBin) {
+    // Leaving the skin with her inside shouldn't leave her stuck in there next time, nor halfway to the door.
+    if (inBin || throws) {
       inBin = false;
+      throws = 0;
       emit();
     }
   };

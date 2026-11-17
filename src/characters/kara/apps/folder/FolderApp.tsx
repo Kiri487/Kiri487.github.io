@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import { useWindow } from "../../os/context";
-import { usePetInBin } from "../../os/petBin";
+import { usePetBinThrows, usePetInBin } from "../../os/petBin";
 import Explorer from "../explorer/Explorer";
-import { FOLDERS, PET_FILE, folderPath } from "./folders";
+import { FOLDERS, PET_FILE, STRANGE_CAT_FROM, STRANGE_PET_FILE, folderPath } from "./folders";
 import { openFile } from "./openFile";
 import type { FolderArgs, FolderFile, FolderId } from "./types";
 
@@ -29,10 +29,12 @@ function FolderApp() {
   const folderId = history.entries[history.index];
   const folder = FOLDERS[folderId];
 
+  const throws = usePetBinThrows();
   const files = useMemo(() => {
     const kept = folder.files.filter((file) => !restoredIds.has(file.id));
-    return folderId === "recycleBin" && petInBin ? [...kept, PET_FILE] : kept;
-  }, [folder, folderId, restoredIds, petInBin]);
+    if (folderId !== "recycleBin" || !petInBin) return kept;
+    return [...kept, throws >= STRANGE_CAT_FROM ? STRANGE_PET_FILE : PET_FILE];
+  }, [folder, folderId, restoredIds, petInBin, throws]);
 
   const stepTo = (index: number) => {
     setHistory({ entries: history.entries, index });

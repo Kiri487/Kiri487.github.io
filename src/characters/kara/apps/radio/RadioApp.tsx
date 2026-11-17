@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Poin
 import { SpeakerIcon } from "../../icons";
 import { useWindow } from "../../os/context";
 import { openGesture } from "../../os/openGesture";
+import { useXnVisit } from "../../xnen/door";
 import { shuffledTracks } from "./tracks";
 import { loadYouTubeApi, PLAYER_STATE, type YouTubePlayer } from "./youtubePlayer";
 import "./radio.css";
@@ -61,6 +62,8 @@ function RadioApp() {
   const failuresRef = useRef(0);
   const resumeOnRestoreRef = useRef(false);
   const isMinimizedRef = useRef(isMinimized);
+  /** Someone's behind XN's door: the radio keeps quiet, even if it only gets ready or loads a track now. */
+  const behindDoorRef = useRef(false);
 
   // Kept for as long as the window stays open: only closing it and coming back reshuffles.
   const [tracks] = useState(shuffledTracks);
@@ -120,10 +123,14 @@ function RadioApp() {
               syncProgress();
               setStatus("ready");
               // A radio is already on when you get to it. If the browser refuses, the Play button is right there.
-              player.playVideo();
+              if (!behindDoorRef.current) player.playVideo();
             },
             onStateChange: ({ data }) => {
               if (data === PLAYER_STATE.PLAYING) {
+                if (behindDoorRef.current) {
+                  playerRef.current?.pauseVideo();
+                  return;
+                }
                 // A track loaded just before minimizing only starts now, after the check on minimizing has passed.
                 if (isMinimizedRef.current) {
                   resumeOnRestoreRef.current = true;
@@ -183,6 +190,17 @@ function RadioApp() {
       player.playVideo();
     }
   }, [isMinimized]);
+
+  // Through XN's door the radio stops, and stays stopped when you come back: the backrooms only hum. A radio that
+  // was minimized forgets it was meant to carry on when it's restored.
+  const xnVisit = useXnVisit();
+  useEffect(() => {
+    behindDoorRef.current = xnVisit !== "none";
+    if (xnVisit === "none") return;
+    resumeOnRestoreRef.current = false;
+    // Not ready yet, the player's methods may not exist.
+    playerRef.current?.pauseVideo?.();
+  }, [xnVisit]);
 
   // Moves only the list. scrollIntoView could also move the desktop behind it.
   useEffect(() => {

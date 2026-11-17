@@ -22,6 +22,7 @@ import groupChat from "./assets/tango/internet-group-chat.svg";
 import printer from "./assets/tango/printer.svg";
 import dialogWarning from "./assets/tango/dialog-warning.svg";
 import dialogInformation from "./assets/tango/dialog-information.svg";
+import door from "./assets/tango/door.svg";
 import petSprite from "./assets/pet/kara-mute.webp";
 import hamburger from "./assets/fluent-emoji/hamburger.svg";
 import forkAndKnife from "./assets/fluent-emoji/fork-and-knife.svg";
@@ -63,6 +64,11 @@ export function NotepadIcon({ size }: IconProps) {
 /** Full while Kara is in it, everywhere the bin shows up. */
 export function BinIcon({ size }: IconProps) {
   return <TangoIcon src={usePetInBin() ? trashFull : trash} size={size} />;
+}
+
+/** XN's door: Tango's System Log Out with the arrow taken off and the light behind the door turned backrooms yellow. */
+export function DoorIcon({ size }: IconProps) {
+  return <TangoIcon src={door} size={size} />;
 }
 
 /** Kara as a file in the Recycle Bin. Not Tango: it's her. */

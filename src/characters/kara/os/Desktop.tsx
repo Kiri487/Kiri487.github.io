@@ -10,6 +10,8 @@ import {
 import { useSkin } from "../../../SkinContext";
 import MessageBox from "../apps/common/MessageBox";
 import { APPS, DESKTOP_ICONS, type DesktopIconDefinition } from "../apps/registry";
+import { DoorIcon } from "../icons";
+import { fillScreen, openDoor, useDoor, useDoorIsFresh } from "../xnen/door";
 import ContextMenu, { type ContextMenuItem } from "./ContextMenu";
 import { DRAGGING_CLASS, useOs } from "./context";
 import { isTouchPointer, openGesture } from "./openGesture";
@@ -81,6 +83,9 @@ interface Flight {
 }
 
 const NOTHING_SELECTED: ReadonlySet<string> = new Set();
+/** XN's door, once found. Not one of the registry's icons: it can't be moved, thrown away or renamed. */
+const DOOR_LABEL = "door";
+const DOOR_PROPERTIES = "Size: 0 KB. Modified: Very late.";
 const DEFAULT_POSITIONS: Positions = Object.fromEntries(DESKTOP_ICONS.map(({ label, x, y }) => [label, { x, y }]));
 
 function boxesTouch(a: Box, b: Box): boolean {
@@ -139,8 +144,18 @@ function Desktop() {
   const { setSkin } = useSkin();
   const isPhone = useIsPhone();
   const petInBin = usePetInBin();
+  const door = useDoor();
+  const doorIsFresh = useDoorIsFresh();
   const desktopRef = useRef<HTMLDivElement>(null);
   const [selectedLabels, setSelectedLabels] = useState(NOTHING_SELECTED);
+  // A door that has just appeared (or gone) starts out unselected, whatever the last one was.
+  const [doorSeen, setDoorSeen] = useState(door);
+  if (door !== doorSeen) {
+    setDoorSeen(door);
+    if (selectedLabels.has(DOOR_LABEL)) {
+      setSelectedLabels(new Set([...selectedLabels].filter((label) => label !== DOOR_LABEL)));
+    }
+  }
   const [selectionBox, setSelectionBox] = useState<Box | null>(null);
   const dragRef = useRef<SelectionDrag | null>(null);
   // Not remembered: a reload puts everything back where it was.
@@ -181,6 +196,33 @@ function Desktop() {
   };
 
   const openIcon = (item: DesktopIconDefinition) => ("skin" in item ? setSkin(item.skin) : os.openApp(item.appId));
+
+  /**
+   * Through XN's door. The mouse is locked here, while the double click still counts as the visitor's own action:
+   * by the time the backrooms are on screen, the browser would no longer allow it.
+   */
+  const goThroughDoor = () => {
+    // Looked up rather than read from a ref: this is handed out while rendering, where refs can't be touched.
+    const os = document.querySelector(".kara-os");
+    if (isTouchPointer()) {
+      // A phone: the backrooms take the whole screen, while this tap still counts as one.
+      fillScreen(os);
+    } else {
+      try {
+        const pending: unknown = os?.requestPointerLock();
+        if (pending instanceof Promise) pending.catch(() => {});
+      } catch {
+        /* refused: a click inside locks it instead */
+      }
+    }
+    openDoor();
+  };
+
+  const doorMenu = (): ContextMenuItem[] => [
+    { label: "Open", bold: true, onSelect: goThroughDoor },
+    "separator",
+    { label: "Properties", onSelect: () => say(`${DOOR_LABEL} Properties`, DOOR_PROPERTIES, "info") },
+  ];
 
   const iconElement = (label: string) =>
     desktopRef.current?.querySelector<HTMLElement>(`.kara-icon[data-label="${CSS.escape(label)}"]`) ?? null;
@@ -247,7 +289,9 @@ function Desktop() {
       {
         label: "Delete",
         onSelect: () =>
-          isBin ? say("Recycle Bin", "Nice try.") : blinkAway([...selection].filter((label) => label !== binLabel)),
+          isBin
+          ? say("Recycle Bin", "Nice try.")
+          : blinkAway([...selection].filter((label) => label !== binLabel && label !== DOOR_LABEL)),
       },
       { label: "Rename", onSelect: () => say(item.label, "It likes its name.") },
       "separator",
@@ -271,6 +315,11 @@ function Desktop() {
       y = box.bottom - 4;
     }
 
+    if (target.closest("[data-door]")) {
+      setSelectedLabels(new Set([DOOR_LABEL]));
+      setMenu({ x, y, items: doorMenu() });
+      return;
+    }
     const label = iconLabel(target);
     const item = DESKTOP_ICONS.find((icon) => icon.label === label);
     if (!item) {
@@ -300,7 +349,8 @@ function Desktop() {
       startY: event.clientY,
       bounds,
       started: false,
-      icons: Array.from(desktop.querySelectorAll<HTMLElement>(".kara-icon")).map((icon) => ({
+      // The door can be selected with the rest, but never carried with them, so it's left out of the box here.
+      icons: Array.from(desktop.querySelectorAll<HTMLElement>(".kara-icon[data-label]")).map((icon) => ({
         label: icon.dataset.label ?? "",
         box: boxOf(icon),
       })),
@@ -352,7 +402,7 @@ function Desktop() {
       startX: event.clientX,
       startY: event.clientY,
       label,
-      labels: [...selection],
+      labels: [...selection].filter((selected) => selected !== DOOR_LABEL),
       started: false,
       elements: [],
       boxes: {},
@@ -511,6 +561,34 @@ function Desktop() {
           </button>
         );
       })}
+      {door && (
+        <button
+          type="button"
+          // No data-label: dragging, the selection box and deleting all go by label, and none of them may touch it.
+          data-door=""
+          className={[
+            "kara-icon",
+            "kara-icon--door",
+            selectedLabels.has(DOOR_LABEL) ? "kara-icon--selected" : "",
+            doorIsFresh ? "kara-icon--door-arriving" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          // Where Kara sank, standing on that spot, on a phone too (it stays out of the grid), and never past an edge.
+          style={{
+            left: `clamp(calc(var(--kara-icon-width) / 2), ${door.x}%, calc(100% - var(--kara-icon-width) / 2))`,
+            top: `${door.y}%`,
+            translate: "-50% -100%",
+          }}
+          onPointerDown={() => setSelectedLabels(new Set([DOOR_LABEL]))}
+          {...openGesture(goThroughDoor)}
+        >
+          <span className="kara-icon__image">
+            <DoorIcon size={40} />
+          </span>
+          <span className="kara-icon__label">{DOOR_LABEL}</span>
+        </button>
+      )}
       {selectionBox && (
         <div
           className="kara-desktop__selection"
