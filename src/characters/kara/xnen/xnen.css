@@ -65,11 +65,18 @@
   height: 0.6em;
   fill: currentColor;
   filter: drop-shadow(2px 0 0 rgba(255, 60, 60, 0.35)) drop-shadow(-2px 0 0 rgba(60, 120, 255, 0.35));
-  vertical-align: 0.05em;
+  vertical-align: -0.02em;
 }
 
 [data-skin="kara"] .kara-xnen__symbol--rewind {
   width: 1.2em;
+}
+
+/* The paused line is lowercase: its symbols sit a little smaller, centred on the lowercase letters. */
+[data-skin="kara"] .kara-xnen__paused .kara-xnen__symbol {
+  width: 0.5em;
+  height: 0.5em;
+  vertical-align: middle;
 }
 
 [data-skin="kara"] .kara-xnen__mode {
