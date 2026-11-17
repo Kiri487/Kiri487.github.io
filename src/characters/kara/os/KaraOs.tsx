@@ -3,7 +3,7 @@ import { abandonVisit, enterBackrooms, leaveBackrooms, useXnVisit } from "../xne
 import { XN_DEV_TOOLS } from "../xnen/devFlags";
 import DoorGlitch from "../xnen/DoorGlitch";
 import { loadXnenWorld } from "../xnen/load";
-import { passSanTime } from "../xnen/san";
+import { passSanTime, setDesktopAsleep } from "../xnen/san";
 import SanDevControl from "../xnen/SanDevControl";
 import XnenBoundary from "../xnen/XnenBoundary";
 import { useOsState } from "./context";
@@ -20,6 +20,9 @@ function backroomsFailed() {
   XnenWorld = lazy(loadXnenWorld);
   leaveBackrooms("stop");
 }
+
+/** The most one tick of the desktop gives back, in seconds, after a throttled or stalled stretch. */
+const SAN_TICK_LIMIT = 2;
 
 function WindowLayer() {
   const { windows, focusedId } = useOsState();
@@ -40,13 +43,29 @@ function KaraOs() {
   // Leaving Kara's page from behind the door shouldn't leave the next visit to it stuck back there.
   useEffect(() => abandonVisit, []);
 
-  // Time on the plain desktop gives SAN back, a second for a second, but only while the page is in front.
+  // Time on the plain desktop gives SAN back, second for second, but only while the page is in front: shown and
+  // focused, so two windows side by side don't give it back twice. Measured, not counted in ticks, since timers drift.
   useEffect(() => {
+    setDesktopAsleep(visit !== "none");
     if (visit !== "none") return;
+    let last = performance.now();
     const timer = window.setInterval(() => {
-      if (!document.hidden) passSanTime(-1);
+      const now = performance.now();
+      const passed = Math.min(SAN_TICK_LIMIT, (now - last) / 1000);
+      last = now;
+      if (!document.hidden && document.hasFocus()) passSanTime(-passed);
     }, 1000);
-    return () => window.clearInterval(timer);
+    // Back in front: only the time from here on counts, not the time away before the next tick.
+    const restart = () => {
+      last = performance.now();
+    };
+    document.addEventListener("visibilitychange", restart);
+    window.addEventListener("focus", restart);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", restart);
+      window.removeEventListener("focus", restart);
+    };
   }, [visit]);
 
   return (
