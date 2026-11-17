@@ -400,7 +400,7 @@ export const CHAT_PARTNERS: Record<ChatPartnerId, ChatPartner> = {
         ],
       },
     ],
-    nudgeReplies: ["XN nudged back. From somewhere below.", "XN is busy being a hallway.", "XN says hi in a direction."],
+    nudgeReplies: ["Xnen nudged back. From somewhere below.", "Xnen is busy being a hallway.", "Xnen says hi in a direction."],
   },
 };
 
