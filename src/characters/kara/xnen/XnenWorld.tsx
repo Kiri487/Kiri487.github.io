@@ -7,6 +7,7 @@ import xnAtlasUrl from "./assets/xn-atlas.png";
 import xnMeshUrl from "./assets/xn-mesh.bin?url";
 import DevPanel from "./DevPanel";
 import { loadTuning } from "./devTuning";
+import { refocusOpener } from "./door";
 import { DEFAULT_TUNING } from "./engine/tuning";
 import { createGame, type Exit, type Game, type Mode, type XnPreview } from "./game";
 import { DEFAULT_CROUCH, DEFAULT_SIT, NOTICE_RANGE } from "./xn";
@@ -168,6 +169,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       game.dispose();
       gameRef.current = null;
       for (const sibling of asleep) sibling.inert = false;
+      refocusOpener();
     };
   }, []);
 

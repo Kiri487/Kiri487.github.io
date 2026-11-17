@@ -83,11 +83,24 @@ export function forgetDoor() {
 }
 
 /** Through the door: the desktop breaks up first, then the backrooms. */
+/** What had the focus when the door opened (the door itself, mostly), to get it back afterwards. */
+let opener: HTMLElement | null = null;
 
 export function openDoor() {
   if (visit !== "none") return;
+  // Kept now: once the desktop goes to sleep behind the door, the browser takes the focus off it.
+  opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   visit = "glitch";
   emit();
+}
+
+/**
+ * Back from the door: the focus returns to what opened it, as from any modal on the site. Called once the desktop is
+ * awake again (not inert), or the browser won't put the focus there.
+ */
+export function refocusOpener() {
+  // Kept, not used up: a dev build mounts the backrooms twice, and the first unmount mustn't spend it.
+  if (opener?.isConnected) opener.focus({ preventScroll: true });
 }
 
 /** The backrooms took the whole screen when the door opened, and should give it back on the way out. */

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { prefersReducedMotion } from "../../../shared/motion";
+import { refocusOpener } from "./door";
 import { loadXnenWorld } from "./load";
 import "./doorGlitch.css";
 
@@ -50,9 +51,11 @@ function DoorGlitch({ onDone, onGiveUp }: DoorGlitchProps) {
       finished = true;
       doneRef.current();
     };
+    let gaveUp = false;
     const giveUp = () => {
       if (finished) return;
       finished = true;
+      gaveUp = true;
       giveUpRef.current();
     };
     loadXnenWorld().then(
@@ -83,6 +86,9 @@ function DoorGlitch({ onDone, onGiveUp }: DoorGlitchProps) {
       window.clearTimeout(tooLong);
       window.removeEventListener("keydown", onKey, true);
       for (const sibling of asleep) sibling.inert = false;
+      // Back to the desktop without ever getting in: the focus goes back to the door. (Through it, the backrooms
+      // take the focus, and give it back when they're done.)
+      if (gaveUp) refocusOpener();
     };
     if (calm) return wake;
 
