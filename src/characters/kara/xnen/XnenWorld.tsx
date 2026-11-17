@@ -6,6 +6,7 @@ import { STATUE } from "./assets/statueModel";
 import xnAtlasUrl from "./assets/xn-atlas.png";
 import xnMeshUrl from "./assets/xn-mesh.bin?url";
 import DevPanel from "./DevPanel";
+import { XN_DEV_TOOLS } from "./devFlags";
 import { loadTuning } from "./devTuning";
 import { refocusOpener } from "./door";
 import { DEFAULT_TUNING } from "./engine/tuning";
@@ -17,13 +18,6 @@ import "./xnen.css";
  * Behind Kara's door: XN's backrooms, full screen, on a videotape. The page here is only the frame (the picture,
  * the tape's on-screen text, the phone's stick and stop button); game.ts runs the place itself.
  */
-
-/**
- * Kiri's tuning panel, in dev builds only, and only while this is on. Off, a dev build plays with the defaults, as
- * visitors do; her saved tuning stays put for when it's back on.
- */
-const DEV_PANEL = true;
-const TUNING_PANEL = import.meta.env.DEV && DEV_PANEL;
 
 /** Phones and tablets: no mouse lock, a stick and a stop button instead. */
 const TOUCH = isTouchPointer();
@@ -156,7 +150,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       atlasUrl,
       xnMeshUrl,
       xnAtlasUrl,
-      tuning: TUNING_PANEL ? loadTuning() : { ...DEFAULT_TUNING },
+      tuning: XN_DEV_TOOLS ? loadTuning() : { ...DEFAULT_TUNING },
       xnPreview: FIRST_PREVIEW,
       touch: TOUCH,
       onMode: setMode,
@@ -227,7 +221,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       )}
 
       <div className="kara-xnen__corner">
-        {TUNING_PANEL && (
+        {XN_DEV_TOOLS && (
           <button
             type="button"
             className="kara-xnen__button"
@@ -246,7 +240,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
           </button>
         )}
       </div>
-      {TUNING_PANEL && devOpen && (
+      {XN_DEV_TOOLS && devOpen && (
         <DevPanel
           panelRef={devRef}
           onTune={(next, freshMap) => gameRef.current?.tune(next, freshMap)}

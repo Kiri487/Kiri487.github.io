@@ -1,8 +1,10 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { abandonVisit, enterBackrooms, leaveBackrooms, useXnVisit } from "../xnen/door";
+import { XN_DEV_TOOLS } from "../xnen/devFlags";
 import DoorGlitch from "../xnen/DoorGlitch";
 import { loadXnenWorld } from "../xnen/load";
 import { passSanTime } from "../xnen/san";
+import SanDevControl from "../xnen/SanDevControl";
 import XnenBoundary from "../xnen/XnenBoundary";
 import { useOsState } from "./context";
 import Desktop from "./Desktop";
@@ -54,6 +56,7 @@ function KaraOs() {
       <WindowLayer />
       <Taskbar onTurnOff={() => setShuttingDown(true)} />
       {shuttingDown && <ShutdownDialog onCancel={() => setShuttingDown(false)} />}
+      {XN_DEV_TOOLS && visit === "none" && <SanDevControl />}
       {visit === "glitch" && <DoorGlitch onDone={enterBackrooms} onGiveUp={backroomsFailed} />}
       {visit === "inside" && (
         <XnenBoundary onFail={backroomsFailed}>
