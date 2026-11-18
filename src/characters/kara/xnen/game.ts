@@ -366,7 +366,8 @@ export function createGame(parts: GameParts): Game {
   let pausedBand = -1;
   let nextJitter = 0;
 
-  const locked = () => document.pointerLockElement !== null;
+  // iPhones have no pointer lock at all: there the element is undefined, not null, and exitPointerLock is missing.
+  const locked = () => !!document.pointerLockElement;
   const lock = () => {
     try {
       // A promise in newer browsers, nothing in older ones.
