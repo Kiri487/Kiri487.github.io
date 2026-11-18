@@ -1,6 +1,14 @@
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
-import { POSTER_GLOW, postersOn, type PosterArt, type PosterLevel, type PosterSpot } from "./posters";
+import {
+  POSTER_GLOW,
+  POSTER_WIDTH,
+  postersOn,
+  postersOver,
+  type PosterArt,
+  type PosterLevel,
+  type PosterSpot,
+} from "./posters";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
 import { CARPET, CARPET_FLIP, CARPET_SIZE, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
@@ -89,6 +97,8 @@ export class Renderer {
   private noiseSeed = 1;
   /** The cult's posters, once their picture has loaded and been aged. */
   private posters: readonly PosterArt[] = [];
+  /** The ceiling's posters over each cell of the light window, looked up once a frame; undefined until then. */
+  private ceilingPosters: (PosterSpot[] | null | undefined)[] = new Array(WN * WN);
 
   setPosters(posters: readonly PosterArt[]) {
     this.posters = posters;
@@ -177,6 +187,8 @@ export class Renderer {
     // The posters this column crosses, and the size of each to draw.
     const crossed: PosterSpot[] = [];
     const crossedLevel: PosterLevel[] = [];
+    const ceilingPosters = this.ceilingPosters;
+    ceilingPosters.fill(undefined);
 
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
@@ -203,6 +215,12 @@ export class Renderer {
         }
         const inv = 1 - f;
         const ar = FR * f, ag = FG * f, ab = FB * f;
+        // The posters' size for this row of ceiling, so far ones don't sparkle; seen at a slant, they shrink more.
+        let posterLevel = -1;
+        if (!floorPass && posters.length) {
+          const ratio = (posters[0][0].w * rd * 1.5) / (POSTER_WIDTH * focal);
+          posterLevel = Math.min(posters[0].length - 1, Math.max(0, Math.floor(Math.log2(Math.max(1, ratio)))));
+        }
         const sx = (rd * 2 * plx) / W;
         const sy = (rd * 2 * ply) / W;
         let fx = px + rd * (dx - plx) + sx * 0.5;
@@ -257,9 +275,42 @@ export class Renderer {
               }
             } else {
               const li = l * inv;
-              d[o] = CEILING[ti] * li + ar;
-              d[o + 1] = CEILING[ti + 1] * li + ag;
-              d[o + 2] = CEILING[ti + 2] * li + ab;
+              let papered = false;
+              if (posterLevel >= 0 && inWindow && pi >= 0 && pi < WN * WN) {
+                let over = ceilingPosters[pi];
+                if (over === undefined) {
+                  over = postersOver(map, cx, cy, tuning, posterAspect);
+                  ceilingPosters[pi] = over;
+                }
+                if (over) {
+                  // Across runs south and down runs east: seen from below, the picture isn't mirrored.
+                  const across = fy - cy;
+                  const down = fx - cx;
+                  for (let i = over.length - 1; i >= 0; i--) {
+                    const spot = over[i];
+                    const ox = across - spot.across;
+                    const oy = down - spot.down;
+                    const pu = (ox * spot.cos + oy * spot.sin) / (spot.halfW * 2) + 0.5;
+                    const pv = (oy * spot.cos - ox * spot.sin) / (spot.halfH * 2) + 0.5;
+                    if (pu < 0 || pu >= 1 || pv < 0 || pv >= 1) continue;
+                    const level = posters[spot.copy][posterLevel];
+                    const k = Math.floor(pv * level.h) * level.w + Math.floor(pu * level.w);
+                    const m = level.mask[k];
+                    if (!m) continue;
+                    const e = ((m - 1) / 254) * POSTER_GLOW * (1 - f * 0.5);
+                    d[o] = level.rgb[k * 3] * li + ar + 26 * e;
+                    d[o + 1] = level.rgb[k * 3 + 1] * li + ag + 150 * e;
+                    d[o + 2] = level.rgb[k * 3 + 2] * li + ab + 70 * e;
+                    papered = true;
+                    break;
+                  }
+                }
+              }
+              if (!papered) {
+                d[o] = CEILING[ti] * li + ar;
+                d[o + 1] = CEILING[ti + 1] * li + ag;
+                d[o + 2] = CEILING[ti + 2] * li + ab;
+              }
             }
           }
         }
