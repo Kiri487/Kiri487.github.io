@@ -1,3 +1,4 @@
+import { tileGone } from "./decay";
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
 import {
@@ -62,6 +63,10 @@ export interface Effects {
 
 export const CLEAN: Effects = { snow: 0, tear: 0, roll: 0, bands: 0, bandPhase: 0, bleed: 1, flash: 0, wallGaps: 0 };
 
+/** Up through a missing ceiling tile: the dark, and a pipe. Only the frame's dark line is left round it. */
+const HOLE_DARK = [22, 20, 14];
+const HOLE_PIPE = [70, 66, 54];
+
 /** Screen columns go missing together in strips this wide. */
 const GAP_STRIP = 5;
 const GAP_COLOUR = [11, 10, 6];
@@ -99,6 +104,8 @@ export class Renderer {
   private posters: readonly PosterArt[] = [];
   /** The ceiling's posters over each cell of the light window, looked up once a frame; undefined until then. */
   private ceilingPosters: (PosterSpot[] | null | undefined)[] = new Array(WN * WN);
+  /** Which of the four ceiling tiles over each cell of the light window are gone, as bits; -1 until looked up. */
+  private ceilingHoles = new Int8Array(WN * WN);
 
   setPosters(posters: readonly PosterArt[]) {
     this.posters = posters;
@@ -189,6 +196,8 @@ export class Renderer {
     const crossedLevel: PosterLevel[] = [];
     const ceilingPosters = this.ceilingPosters;
     ceilingPosters.fill(undefined);
+    const ceilingHoles = this.ceilingHoles;
+    ceilingHoles.fill(-1);
 
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
@@ -306,7 +315,32 @@ export class Renderer {
                   }
                 }
               }
-              if (!papered) {
+              // A tile gone: the dark above it, inside what's left of its frame.
+              let holes = 0;
+              if (!papered && inWindow && pi >= 0 && pi < WN * WN) {
+                holes = ceilingHoles[pi];
+                if (holes < 0) {
+                  holes =
+                    (tileGone(map, cx * 2, cy * 2) ? 1 : 0) |
+                    (tileGone(map, cx * 2 + 1, cy * 2) ? 2 : 0) |
+                    (tileGone(map, cx * 2, cy * 2 + 1) ? 4 : 0) |
+                    (tileGone(map, cx * 2 + 1, cy * 2 + 1) ? 8 : 0);
+                  ceilingHoles[pi] = holes;
+                }
+              }
+              const hx = Math.floor((fx - cx) * 64);
+              const hy = Math.floor((fy - cy) * 64);
+              const lx = hx & 31;
+              const ly = hy & 31;
+              if (holes && holes & (1 << ((hx >> 5) + (hy >> 5) * 2)) && lx > 0 && ly > 0) {
+                const shade = (0.2 + 0.45 * l) * inv;
+                // A pipe running across some of the holes.
+                const pipe = ly >= 13 && ly <= 17 && (cx + cy + (hx >> 5)) % 2 === 0;
+                const c = pipe ? HOLE_PIPE : HOLE_DARK;
+                d[o] = c[0] * shade + ar;
+                d[o + 1] = c[1] * shade + ag;
+                d[o + 2] = c[2] * shade + ab;
+              } else if (!papered) {
                 d[o] = CEILING[ti] * li + ar;
                 d[o + 1] = CEILING[ti + 1] * li + ag;
                 d[o + 2] = CEILING[ti + 2] * li + ab;
