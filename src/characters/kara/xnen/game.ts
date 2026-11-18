@@ -6,6 +6,7 @@ import { parseFigure } from "./engine/figure";
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
+import { agePosters } from "./engine/posters";
 import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
 import {
   placeStatue,
@@ -82,6 +83,8 @@ export interface GameParts {
   /** XN: her mesh and skeleton, and her atlas. */
   xnMeshUrl: string;
   xnAtlasUrl: string;
+  /** The Weed Cat Cult's poster. */
+  posterUrl: string;
   tuning: Tuning;
   xnPreview: XnPreview;
   touch: boolean;
@@ -270,7 +273,8 @@ function pickMap(tuning: Tuning): WorldMap {
   return best;
 }
 
-function loadSkin(url: string, done: (skin: StatueSkin) => void) {
+/** An image's pixels, RGBA, once it has loaded. */
+function loadPixels(url: string, done: (data: Uint8ClampedArray, width: number, height: number) => void) {
   const image = new Image();
   image.onload = () => {
     const canvas = document.createElement("canvas");
@@ -279,9 +283,13 @@ function loadSkin(url: string, done: (skin: StatueSkin) => void) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(image, 0, 0);
-    done({ data: ctx.getImageData(0, 0, image.width, image.height).data });
+    done(ctx.getImageData(0, 0, image.width, image.height).data, image.width, image.height);
   };
   image.src = url;
+}
+
+function loadSkin(url: string, done: (skin: StatueSkin) => void) {
+  loadPixels(url, (data) => done({ data }));
 }
 
 export function createGame(parts: GameParts): Game {
@@ -309,6 +317,9 @@ export function createGame(parts: GameParts): Game {
   let disposed = false;
   loadSkin(parts.xnAtlasUrl, (loaded) => {
     xnSkin = loaded;
+  });
+  loadPixels(parts.posterUrl, (data, width, height) => {
+    if (!disposed) renderer.setPosters(agePosters(data, width, height));
   });
   fetch(parts.xnMeshUrl)
     .then((response) => {

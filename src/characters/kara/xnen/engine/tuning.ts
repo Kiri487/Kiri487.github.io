@@ -25,6 +25,9 @@ export interface Tuning {
   /** How near a statue's middle, and XN's, the visitor has to be for [ E ], in hundredths of a cell. */
   statueReach: number;
   xnReach: number;
+  /** How many of the cult's posters there are, in percent: everywhere, and the extra near statues. */
+  posters: number;
+  posterNear: number;
 }
 
 export const DEFAULT_TUNING: Tuning = {
@@ -42,4 +45,6 @@ export const DEFAULT_TUNING: Tuning = {
   compass: 100,
   statueReach: 90,
   xnReach: 80,
+  posters: 100,
+  posterNear: 100,
 };

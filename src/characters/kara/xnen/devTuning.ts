@@ -37,5 +37,7 @@ export function describeTuning(t: Tuning): string {
     `時間碼 ${t.compass}%`,
     `神像 E ${t.statueReach / 100}`,
     `XN E ${t.xnReach / 100}`,
+    `海報 ${t.posters}%`,
+    `神像附近海報 ${t.posterNear}%`,
   ].join("｜");
 }

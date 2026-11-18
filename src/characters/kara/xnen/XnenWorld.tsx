@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import { isTouchPointer } from "../os/openGesture";
+import posterUrl from "./assets/cult-poster.webp";
 import atlasUrl from "./assets/statue-atlas.png";
 import { STATUE } from "./assets/statueModel";
 import xnAtlasUrl from "./assets/xn-atlas.png";
@@ -151,6 +152,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       atlasUrl,
       xnMeshUrl,
       xnAtlasUrl,
+      posterUrl,
       tuning: XN_DEV_TOOLS ? loadTuning() : { ...DEFAULT_TUNING },
       xnPreview: FIRST_PREVIEW,
       touch: TOUCH,

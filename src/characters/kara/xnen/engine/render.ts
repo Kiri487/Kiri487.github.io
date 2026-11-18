@@ -1,5 +1,6 @@
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
+import { POSTER_GLOW, postersOn, type PosterArt, type PosterLevel, type PosterSpot } from "./posters";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
 import { CARPET, CARPET_FLIP, CARPET_SIZE, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
@@ -86,6 +87,12 @@ export class Renderer {
   /** The frame on screen when the tape was paused. */
   private still: Uint8ClampedArray | null = null;
   private noiseSeed = 1;
+  /** The cult's posters, once their picture has loaded and been aged. */
+  private posters: readonly PosterArt[] = [];
+
+  setPosters(posters: readonly PosterArt[]) {
+    this.posters = posters;
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -162,6 +169,14 @@ export class Renderer {
     const glow = light.glow;
     const px = cam.x;
     const py = cam.y;
+    const posters = this.posters;
+    const posterAspect = posters.length ? posters[0][0].h / posters[0][0].w : 1;
+    // Neighbouring columns mostly see the same face of wall: its posters are looked up once.
+    let faceKey = "";
+    let onFace: PosterSpot[] | null = null;
+    // The posters this column crosses, and the size of each to draw.
+    const crossed: PosterSpot[] = [];
+    const crossedLevel: PosterLevel[] = [];
 
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
@@ -319,6 +334,31 @@ export class Renderer {
       const pick = map.noise(mapX, mapY, 30);
       const tex = WALL_TEXTURES[pick < 0.6 ? 0 : pick < 0.85 ? 1 : 2];
       const gap = this.gaps[x] < effects.wallGaps;
+
+      // The posters on this face of wall that this column crosses. Across the face runs left to right as seen.
+      crossed.length = 0;
+      crossedLevel.length = 0;
+      let across = 0;
+      if (posters.length) {
+        const face = side === 0 ? (stepX > 0 ? 0 : 1) : stepY > 0 ? 2 : 3;
+        const key = `${mapX},${mapY},${face}`;
+        if (key !== faceKey) {
+          faceKey = key;
+          onFace = postersOn(map, mapX, mapY, face, tuning, posterAspect);
+        }
+        if (onFace) {
+          across = side === 0 ? (stepX > 0 ? wallX : 1 - wallX) : stepY > 0 ? 1 - wallX : wallX;
+          for (const spot of onFace) {
+            if (Math.abs(across - spot.across) >= spot.reach) continue;
+            // The size whose pixels are about as big as the screen's, so a far poster doesn't sparkle.
+            const art = posters[spot.copy];
+            const ratio = art[0].h / Math.max(1, lineH * spot.halfH * 2);
+            const n = Math.min(art.length - 1, Math.max(0, Math.floor(Math.log2(Math.max(1, ratio)))));
+            crossed.push(spot);
+            crossedLevel.push(art[n]);
+          }
+        }
+      }
       for (let y = y0; y <= y1; y++) {
         if (gap && y > horizon) {
           const o = (y * W + x) * 4;
@@ -334,6 +374,27 @@ export class Renderer {
         const ti = (ty * 64 + tx) * 3;
         const li = l * (1.1 - 0.25 * tv) * inv;
         const o = (y * W + x) * 4;
+        let papered = false;
+        // The topmost poster here: the last one stuck up.
+        for (let i = crossed.length - 1; i >= 0; i--) {
+          const spot = crossed[i];
+          const ox = across - spot.across;
+          const oy = tv - spot.down;
+          const pu = (ox * spot.cos + oy * spot.sin) / (spot.halfW * 2) + 0.5;
+          const pv = (oy * spot.cos - ox * spot.sin) / (spot.halfH * 2) + 0.5;
+          if (pu < 0 || pu >= 1 || pv < 0 || pv >= 1) continue;
+          const level = crossedLevel[i];
+          const k = Math.floor(pv * level.h) * level.w + Math.floor(pu * level.w);
+          const m = level.mask[k];
+          if (!m) continue;
+          const e = ((m - 1) / 254) * POSTER_GLOW * (1 - f * 0.5);
+          d[o] = level.rgb[k * 3] * li + ar + 26 * e;
+          d[o + 1] = level.rgb[k * 3 + 1] * li + ag + 150 * e;
+          d[o + 2] = level.rgb[k * 3 + 2] * li + ab + 70 * e;
+          papered = true;
+          break;
+        }
+        if (papered) continue;
         d[o] = tex[ti] * li + ar;
         d[o + 1] = tex[ti + 1] * li + ag;
         d[o + 2] = tex[ti + 2] * li + ab;
