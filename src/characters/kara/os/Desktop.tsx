@@ -17,6 +17,7 @@ import { DRAGGING_CLASS, useOs } from "./context";
 import { isTouchPointer, openGesture } from "./openGesture";
 import { usePetInBin } from "./petBin";
 import { useIsPhone } from "./useIsPhone";
+import { resumeAudioContext } from "../../../shared/audio";
 import { clamp } from "../../../shared/math";
 
 /** How far the pointer must travel before a press on the desktop counts as a drag and not a click. */
@@ -204,6 +205,8 @@ function Desktop() {
   const goThroughDoor = () => {
     // Looked up rather than read from a ref: this is handed out while rendering, where refs can't be touched.
     const os = document.querySelector(".kara-os");
+    // The backrooms hum from the start, but an iPhone only lets sound start on a tap that has ended, like this one.
+    resumeAudioContext();
     if (isTouchPointer()) {
       // A phone: the backrooms take the whole screen, while this tap still counts as one.
       fillScreen(os);
