@@ -1191,6 +1191,8 @@ export function createGame(parts: GameParts): Game {
     }
   };
   const onPointerUp = (e: PointerEvent) => {
+    // Again as the finger lifts: iPhones don't count a finger coming down as asking for sound, only one lifting.
+    resumeAudioContext();
     if (tap && tap.id === e.pointerId) {
       const still = Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < TAP_PX;
       if (still && performance.now() - tap.at < TAP_MS) interact();
