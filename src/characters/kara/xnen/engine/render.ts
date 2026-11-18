@@ -506,7 +506,9 @@ export class Renderer {
         fogK,
         fog: FOG,
       };
-      for (const prop of props) drawStatue(frame, prop.mesh, prop.model, prop.skin, light.at(prop.mesh.x, prop.mesh.y));
+      for (const prop of props) {
+        drawStatue(frame, prop.mesh, prop.model, prop.skin, light.at(prop.mesh.x, prop.mesh.y), prop.clip);
+      }
     }
 
     this.tape(d, W, H, tuning, effects, reduced);
