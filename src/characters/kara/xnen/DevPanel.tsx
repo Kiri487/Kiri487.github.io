@@ -31,7 +31,9 @@ type NumberKey =
   | "spawnMin"
   | "spawnMax"
   | "statueReach"
-  | "xnReach";
+  | "xnReach"
+  | "posters"
+  | "posterNear";
 
 /** Setting, label and range. */
 const SLIDERS: readonly [NumberKey, string, number, number][] = [
@@ -46,6 +48,8 @@ const SLIDERS: readonly [NumberKey, string, number, number][] = [
   ["spawnMax", "最近神像至多幾格（換地圖後生效）", 20, 400],
   ["statueReach", "神像幾格內出現 E（÷100）", 40, 160],
   ["xnReach", "XN 幾格內出現 E（÷100）", 30, 160],
+  ["posters", "海報多寡（%）", 0, 400],
+  ["posterNear", "神像附近多出的海報（%）", 0, 300],
 ];
 
 const RESOLUTIONS = [100, 140, 180, 240, 360];

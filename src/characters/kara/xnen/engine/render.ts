@@ -1,5 +1,15 @@
+import { tileGone } from "./decay";
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
+import {
+  POSTER_GLOW,
+  POSTER_WIDTH,
+  postersOn,
+  postersOver,
+  type PosterArt,
+  type PosterLevel,
+  type PosterSpot,
+} from "./posters";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
 import { CARPET, CARPET_FLIP, CARPET_SIZE, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
@@ -53,6 +63,10 @@ export interface Effects {
 
 export const CLEAN: Effects = { snow: 0, tear: 0, roll: 0, bands: 0, bandPhase: 0, bleed: 1, flash: 0, wallGaps: 0 };
 
+/** Up through a missing ceiling tile: the dark, and a pipe. Only the frame's dark line is left round it. */
+const HOLE_DARK = [22, 20, 14];
+const HOLE_PIPE = [70, 66, 54];
+
 /** Screen columns go missing together in strips this wide. */
 const GAP_STRIP = 5;
 const GAP_COLOUR = [11, 10, 6];
@@ -86,6 +100,16 @@ export class Renderer {
   /** The frame on screen when the tape was paused. */
   private still: Uint8ClampedArray | null = null;
   private noiseSeed = 1;
+  /** The cult's posters, once their picture has loaded and been aged. */
+  private posters: readonly PosterArt[] = [];
+  /** The ceiling's posters over each cell of the light window, looked up once a frame; undefined until then. */
+  private ceilingPosters: (PosterSpot[] | null | undefined)[] = new Array(WN * WN);
+  /** Which of the four ceiling tiles over each cell of the light window are gone, as bits; -1 until looked up. */
+  private ceilingHoles = new Int8Array(WN * WN);
+
+  setPosters(posters: readonly PosterArt[]) {
+    this.posters = posters;
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -162,6 +186,18 @@ export class Renderer {
     const glow = light.glow;
     const px = cam.x;
     const py = cam.y;
+    const posters = this.posters;
+    const posterAspect = posters.length ? posters[0][0].h / posters[0][0].w : 1;
+    // Neighbouring columns mostly see the same face of wall: its posters are looked up once.
+    let faceKey = "";
+    let onFace: PosterSpot[] | null = null;
+    // The posters this column crosses, and the size of each to draw.
+    const crossed: PosterSpot[] = [];
+    const crossedLevel: PosterLevel[] = [];
+    const ceilingPosters = this.ceilingPosters;
+    ceilingPosters.fill(undefined);
+    const ceilingHoles = this.ceilingHoles;
+    ceilingHoles.fill(-1);
 
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
@@ -188,6 +224,12 @@ export class Renderer {
         }
         const inv = 1 - f;
         const ar = FR * f, ag = FG * f, ab = FB * f;
+        // The posters' size for this row of ceiling, so far ones don't sparkle; seen at a slant, they shrink more.
+        let posterLevel = -1;
+        if (!floorPass && posters.length) {
+          const ratio = (posters[0][0].w * rd * 1.5) / (POSTER_WIDTH * focal);
+          posterLevel = Math.min(posters[0].length - 1, Math.max(0, Math.floor(Math.log2(Math.max(1, ratio)))));
+        }
         const sx = (rd * 2 * plx) / W;
         const sy = (rd * 2 * ply) / W;
         let fx = px + rd * (dx - plx) + sx * 0.5;
@@ -242,9 +284,67 @@ export class Renderer {
               }
             } else {
               const li = l * inv;
-              d[o] = CEILING[ti] * li + ar;
-              d[o + 1] = CEILING[ti + 1] * li + ag;
-              d[o + 2] = CEILING[ti + 2] * li + ab;
+              let papered = false;
+              if (posterLevel >= 0 && inWindow && pi >= 0 && pi < WN * WN) {
+                let over = ceilingPosters[pi];
+                if (over === undefined) {
+                  over = postersOver(map, cx, cy, tuning, posterAspect);
+                  ceilingPosters[pi] = over;
+                }
+                if (over) {
+                  // Across runs south and down runs east: seen from below, the picture isn't mirrored.
+                  const across = fy - cy;
+                  const down = fx - cx;
+                  for (let i = over.length - 1; i >= 0; i--) {
+                    const spot = over[i];
+                    const ox = across - spot.across;
+                    const oy = down - spot.down;
+                    const pu = (ox * spot.cos + oy * spot.sin) / (spot.halfW * 2) + 0.5;
+                    const pv = (oy * spot.cos - ox * spot.sin) / (spot.halfH * 2) + 0.5;
+                    if (pu < 0 || pu >= 1 || pv < 0 || pv >= 1) continue;
+                    const level = posters[spot.copy][posterLevel];
+                    const k = Math.floor(pv * level.h) * level.w + Math.floor(pu * level.w);
+                    const m = level.mask[k];
+                    if (!m) continue;
+                    const e = ((m - 1) / 254) * POSTER_GLOW * (1 - f * 0.5);
+                    d[o] = level.rgb[k * 3] * li + ar + 26 * e;
+                    d[o + 1] = level.rgb[k * 3 + 1] * li + ag + 150 * e;
+                    d[o + 2] = level.rgb[k * 3 + 2] * li + ab + 70 * e;
+                    papered = true;
+                    break;
+                  }
+                }
+              }
+              // A tile gone: the dark above it, inside what's left of its frame.
+              let holes = 0;
+              if (!papered && inWindow && pi >= 0 && pi < WN * WN) {
+                holes = ceilingHoles[pi];
+                if (holes < 0) {
+                  holes =
+                    (tileGone(map, cx * 2, cy * 2) ? 1 : 0) |
+                    (tileGone(map, cx * 2 + 1, cy * 2) ? 2 : 0) |
+                    (tileGone(map, cx * 2, cy * 2 + 1) ? 4 : 0) |
+                    (tileGone(map, cx * 2 + 1, cy * 2 + 1) ? 8 : 0);
+                  ceilingHoles[pi] = holes;
+                }
+              }
+              const hx = Math.floor((fx - cx) * 64);
+              const hy = Math.floor((fy - cy) * 64);
+              const lx = hx & 31;
+              const ly = hy & 31;
+              if (holes && holes & (1 << ((hx >> 5) + (hy >> 5) * 2)) && lx > 0 && ly > 0) {
+                const shade = (0.2 + 0.45 * l) * inv;
+                // A pipe running across some of the holes.
+                const pipe = ly >= 13 && ly <= 17 && (cx + cy + (hx >> 5)) % 2 === 0;
+                const c = pipe ? HOLE_PIPE : HOLE_DARK;
+                d[o] = c[0] * shade + ar;
+                d[o + 1] = c[1] * shade + ag;
+                d[o + 2] = c[2] * shade + ab;
+              } else if (!papered) {
+                d[o] = CEILING[ti] * li + ar;
+                d[o + 1] = CEILING[ti + 1] * li + ag;
+                d[o + 2] = CEILING[ti + 2] * li + ab;
+              }
             }
           }
         }
@@ -319,6 +419,31 @@ export class Renderer {
       const pick = map.noise(mapX, mapY, 30);
       const tex = WALL_TEXTURES[pick < 0.6 ? 0 : pick < 0.85 ? 1 : 2];
       const gap = this.gaps[x] < effects.wallGaps;
+
+      // The posters on this face of wall that this column crosses. Across the face runs left to right as seen.
+      crossed.length = 0;
+      crossedLevel.length = 0;
+      let across = 0;
+      if (posters.length) {
+        const face = side === 0 ? (stepX > 0 ? 0 : 1) : stepY > 0 ? 2 : 3;
+        const key = `${mapX},${mapY},${face}`;
+        if (key !== faceKey) {
+          faceKey = key;
+          onFace = postersOn(map, mapX, mapY, face, tuning, posterAspect);
+        }
+        if (onFace) {
+          across = side === 0 ? (stepX > 0 ? wallX : 1 - wallX) : stepY > 0 ? 1 - wallX : wallX;
+          for (const spot of onFace) {
+            if (Math.abs(across - spot.across) >= spot.reach) continue;
+            // The size whose pixels are about as big as the screen's, so a far poster doesn't sparkle.
+            const art = posters[spot.copy];
+            const ratio = art[0].h / Math.max(1, lineH * spot.halfH * 2);
+            const n = Math.min(art.length - 1, Math.max(0, Math.floor(Math.log2(Math.max(1, ratio)))));
+            crossed.push(spot);
+            crossedLevel.push(art[n]);
+          }
+        }
+      }
       for (let y = y0; y <= y1; y++) {
         if (gap && y > horizon) {
           const o = (y * W + x) * 4;
@@ -334,6 +459,27 @@ export class Renderer {
         const ti = (ty * 64 + tx) * 3;
         const li = l * (1.1 - 0.25 * tv) * inv;
         const o = (y * W + x) * 4;
+        let papered = false;
+        // The topmost poster here: the last one stuck up.
+        for (let i = crossed.length - 1; i >= 0; i--) {
+          const spot = crossed[i];
+          const ox = across - spot.across;
+          const oy = tv - spot.down;
+          const pu = (ox * spot.cos + oy * spot.sin) / (spot.halfW * 2) + 0.5;
+          const pv = (oy * spot.cos - ox * spot.sin) / (spot.halfH * 2) + 0.5;
+          if (pu < 0 || pu >= 1 || pv < 0 || pv >= 1) continue;
+          const level = crossedLevel[i];
+          const k = Math.floor(pv * level.h) * level.w + Math.floor(pu * level.w);
+          const m = level.mask[k];
+          if (!m) continue;
+          const e = ((m - 1) / 254) * POSTER_GLOW * (1 - f * 0.5);
+          d[o] = level.rgb[k * 3] * li + ar + 26 * e;
+          d[o + 1] = level.rgb[k * 3 + 1] * li + ag + 150 * e;
+          d[o + 2] = level.rgb[k * 3 + 2] * li + ab + 70 * e;
+          papered = true;
+          break;
+        }
+        if (papered) continue;
         d[o] = tex[ti] * li + ar;
         d[o + 1] = tex[ti + 1] * li + ag;
         d[o + 2] = tex[ti + 2] * li + ab;
@@ -360,7 +506,9 @@ export class Renderer {
         fogK,
         fog: FOG,
       };
-      for (const prop of props) drawStatue(frame, prop.mesh, prop.model, prop.skin, light.at(prop.mesh.x, prop.mesh.y));
+      for (const prop of props) {
+        drawStatue(frame, prop.mesh, prop.model, prop.skin, light.at(prop.mesh.x, prop.mesh.y), prop.clip);
+      }
     }
 
     this.tape(d, W, H, tuning, effects, reduced);

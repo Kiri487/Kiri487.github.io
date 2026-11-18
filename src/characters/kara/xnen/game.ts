@@ -3,9 +3,11 @@ import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
+import { junkAround, monitorSkin, placeJunk, SIGN_SKIN, WOOD_SKIN, type Junk } from "./engine/junk";
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
+import { agePosters } from "./engine/posters";
 import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
 import {
   placeStatue,
@@ -82,6 +84,10 @@ export interface GameParts {
   /** XN: her mesh and skeleton, and her atlas. */
   xnMeshUrl: string;
   xnAtlasUrl: string;
+  /** The Weed Cat Cult's poster. */
+  posterUrl: string;
+  /** Kara's wallpaper, for the desktop on the old monitors' screens. */
+  wallpaperUrl: string;
   tuning: Tuning;
   xnPreview: XnPreview;
   touch: boolean;
@@ -270,7 +276,8 @@ function pickMap(tuning: Tuning): WorldMap {
   return best;
 }
 
-function loadSkin(url: string, done: (skin: StatueSkin) => void) {
+/** An image's pixels, RGBA, once it has loaded. */
+function loadPixels(url: string, done: (data: Uint8ClampedArray, width: number, height: number) => void) {
   const image = new Image();
   image.onload = () => {
     const canvas = document.createElement("canvas");
@@ -279,9 +286,13 @@ function loadSkin(url: string, done: (skin: StatueSkin) => void) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.drawImage(image, 0, 0);
-    done({ data: ctx.getImageData(0, 0, image.width, image.height).data });
+    done(ctx.getImageData(0, 0, image.width, image.height).data, image.width, image.height);
   };
   image.src = url;
+}
+
+function loadSkin(url: string, done: (skin: StatueSkin) => void) {
+  loadPixels(url, (data) => done({ data }));
 }
 
 export function createGame(parts: GameParts): Game {
@@ -310,6 +321,14 @@ export function createGame(parts: GameParts): Game {
   loadSkin(parts.xnAtlasUrl, (loaded) => {
     xnSkin = loaded;
   });
+  loadPixels(parts.posterUrl, (data, width, height) => {
+    if (!disposed) renderer.setPosters(agePosters(data, width, height));
+  });
+  let monitor: StatueSkin | null = null;
+  loadPixels(parts.wallpaperUrl, (data, width, height) => {
+    monitor = monitorSkin(data, width, height);
+  });
+  const junkMeshes = new Map<string, StatueMesh>();
   fetch(parts.xnMeshUrl)
     .then((response) => {
       if (!response.ok) throw new Error(`XN's mesh: ${response.status}`);
@@ -352,6 +371,19 @@ export function createGame(parts: GameParts): Game {
   let lineLeft = 0;
   let shownTime = "";
   let nearby: StatueMesh[] = [];
+  /** The junk in drawing range: the old monitors stuck through things. */
+  let nearJunk: Junk[] = [];
+  /**
+   * Whether (x, y) is inside a piece of junk, with `room` to spare: on the floor the junk down there, on the ceiling
+   * the junk up there, on a wall (or not knowing) any.
+   */
+  const intoJunk = (x: number, y: number, room: number, surface: XnSurface = "wall") =>
+    nearJunk.some(
+      (junk) =>
+        junk.solid &&
+        (surface === "wall" || !!junk.solid.overhead === (surface === "ceiling")) &&
+        Math.hypot(x - junk.solid.x, y - junk.solid.y) < junk.solid.r + room,
+    );
   /** What the picture draws besides the place itself, built again each frame. */
   let props: Prop[] = [];
 
@@ -570,6 +602,7 @@ export function createGame(parts: GameParts): Game {
   /** Room for her middle at (x, y) as she walks: no wall, statue or visitor there. */
   const freeFor = (x: number, y: number) => {
     if (!roomFor(x, y) || Math.hypot(x - player.x, y - player.y) < XN_RADIUS + PLAYER_RADIUS) return false;
+    if (intoJunk(x, y, XN_RADIUS)) return false;
     return nearby.every((mesh) => Math.hypot(x - mesh.x, y - mesh.y) >= STATUE_RADIUS + XN_RADIUS);
   };
 
@@ -636,7 +669,9 @@ export function createGame(parts: GameParts): Game {
       const y = spot.y + Math.sin(turned) * go;
       const near = Math.hypot(x - player.x, y - player.y);
       const intoVisitor = near < XN_RADIUS + PLAYER_RADIUS && near < Math.hypot(spot.x - player.x, spot.y - player.y);
-      const intoStatue = nearby.some((mesh) => Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS + XN_RADIUS);
+      const intoStatue =
+        nearby.some((mesh) => Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS + XN_RADIUS) ||
+        intoJunk(x, y, XN_RADIUS, spot.surface);
       if (!roomFor(x, y) || intoVisitor || intoStatue) {
         held += dt;
         return spotOn(spot.surface, spot.x, spot.y, turned);
@@ -732,7 +767,7 @@ export function createGame(parts: GameParts): Game {
         const sy = face.y + face.ny * FACE_WALL_GAP;
         const mx = sx + face.nx * 0.1;
         const my = sy + face.ny * 0.1;
-        if (!roomFor(mx, my)) continue;
+        if (!roomFor(mx, my) || intoJunk(mx, my, XN_RADIUS)) continue;
         const score = Math.hypot(sx - who.x, sy - who.y) + (clearBetween(player.x, player.y, mx, my) ? 0 : 4);
         if (score >= bestScore) continue;
         bestScore = score;
@@ -789,6 +824,7 @@ export function createGame(parts: GameParts): Game {
         spot = spotOn(surface, x, y, Math.random() * Math.PI * 2);
       }
       const [mx, my] = who.middleOf(spot);
+      if (intoJunk(mx, my, XN_RADIUS, surface)) continue;
       const away = Math.hypot(mx - cam.x, my - cam.y);
       if (away < XN_NEAR || away > XN_FAR || sees(cam, mx, my)) continue;
       if (clearBetween(cam.x, cam.y, mx, my)) return spot;
@@ -867,6 +903,7 @@ export function createGame(parts: GameParts): Game {
       if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
     }
     if (xn && xnHere && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
+    if (intoJunk(x, y, 0.1, "floor")) return true;
     const r = PLAYER_RADIUS;
     return (
       !!light.wallAt(Math.floor(x - r), Math.floor(y - r), map) ||
@@ -925,6 +962,7 @@ export function createGame(parts: GameParts): Game {
       nearby.push(mesh);
       if (dist <= tuning.statueReach / 100 && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
     }
+    nearJunk = junkAround(map, cam.x, cam.y, DRAW_RANGE);
     return reachable;
   };
 
@@ -932,6 +970,17 @@ export function createGame(parts: GameParts): Game {
   const gather = (cam: Camera, dt: number) => {
     props = [];
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
+    for (const junk of nearJunk) {
+      // A monitor waits for its screen's picture.
+      const junkSkin = junk.kind === "monitor" ? monitor : junk.kind === "chair" ? WOOD_SKIN : SIGN_SKIN;
+      if (!junkSkin) continue;
+      let mesh = junkMeshes.get(junk.key);
+      if (!mesh) {
+        mesh = placeJunk(junk.model, junk);
+        junkMeshes.set(junk.key, mesh);
+      }
+      props.push({ mesh, model: junk.model, skin: junkSkin, clip: true });
+    }
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
       const eye: Point = [cam.x, cam.y, EYE];
       props.push({ mesh: xn.update(dt, eye, reduced), model: xn.figure.look, skin: xnSkin });
@@ -1252,6 +1301,8 @@ export function createGame(parts: GameParts): Game {
         timecode = new Timecode();
         meshes.clear();
         nearby = [];
+        junkMeshes.clear();
+        nearJunk = [];
         trail = [];
         if (xnPreview.auto) {
           // A new start: she turns up a while from now, as when the visitor comes in.

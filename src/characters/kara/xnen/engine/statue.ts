@@ -19,7 +19,7 @@ export interface StatueModel {
   stone: readonly [number, number, number];
 }
 
-/** The atlas pixels, RGBA. Alpha 128–254 marks the glowing leaf. */
+/** The atlas pixels, RGBA. Alpha 128–254 marks the glowing leaf; 64–127, a part lit by itself, like a screen. */
 export interface StatueSkin {
   data: Uint8ClampedArray;
 }
@@ -41,6 +41,8 @@ export interface Prop {
   mesh: StatueMesh;
   model: StatueModel;
   skin: StatueSkin;
+  /** Cut off below the floor and above the ceiling, for things stuck through them. */
+  clip?: boolean;
 }
 
 /** How close the player can come to a statue's middle. */
@@ -117,7 +119,14 @@ export interface StatueFrame {
 
 const screen = new Float32Array(9);
 
-export function drawStatue(f: StatueFrame, mesh: StatueMesh, model: StatueModel, skin: StatueSkin, light: number) {
+export function drawStatue(
+  f: StatueFrame,
+  mesh: StatueMesh,
+  model: StatueModel,
+  skin: StatueSkin,
+  light: number,
+  clip = false,
+) {
   const ahead = (mesh.x - f.camX) * f.dirX + (mesh.y - f.camY) * f.dirY;
   if (ahead < -0.6 || ahead > 27) return;
   const { pixels: d, width: W, height: H, wallDepth, depth, focal, horizon, dirX: dx, dirY: dy, camX, camY, eye } = f;
@@ -191,6 +200,11 @@ export function drawStatue(f: StatueFrame, mesh: StatueMesh, model: StatueModel,
         if (l0 < 0 || l1 < 0 || l2 < 0) continue;
         const z = l0 * d0 + l1 * d1 + l2 * d2;
         if (z >= wallDepth[x]) continue;
+        // Its height in the room at this pixel: the floor and ceiling hide what's through them.
+        if (clip) {
+          const height = eye - ((yc - horizon) * z) / focal;
+          if (height < 0 || height > 1) continue;
+        }
         const zi = y * W + x;
         if (z >= depth[zi]) continue;
         // Affine texture mapping on purpose: no perspective correction.
@@ -215,9 +229,16 @@ export function drawStatue(f: StatueFrame, mesh: StatueMesh, model: StatueModel,
         }
         depth[zi] = z;
         const o = zi * 4;
-        r = r * sh + ar;
-        g = g * sh + ag;
-        b = b * sh + ab;
+        if (a >= 64 && a < 128) {
+          // Lit by itself, whatever the light: dimmed only by the fog.
+          r = r * (1 - fog) + ar;
+          g = g * (1 - fog) + ag;
+          b = b * (1 - fog) + ab;
+        } else {
+          r = r * sh + ar;
+          g = g * sh + ag;
+          b = b * sh + ab;
+        }
         if (a >= 128 && a < 255) {
           const e = ((a - 128) / 126) * glow;
           r += 26 * e;
