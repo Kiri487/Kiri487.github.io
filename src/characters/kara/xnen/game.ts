@@ -3,7 +3,7 @@ import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
-import { junkAround, monitorSkin, placeJunk, WOOD_SKIN, type Junk } from "./engine/junk";
+import { junkAround, monitorSkin, placeJunk, SIGN_SKIN, WOOD_SKIN, type Junk } from "./engine/junk";
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
@@ -972,7 +972,7 @@ export function createGame(parts: GameParts): Game {
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
       // A monitor waits for its screen's picture.
-      const junkSkin = junk.kind === "monitor" ? monitor : WOOD_SKIN;
+      const junkSkin = junk.kind === "monitor" ? monitor : junk.kind === "chair" ? WOOD_SKIN : SIGN_SKIN;
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
       if (!mesh) {

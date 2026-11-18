@@ -222,9 +222,218 @@ export const WOOD_SKIN: StatueSkin = (() => {
   return { data };
 })();
 
+// ---- the road signs ----
+
+/** The signs' atlas: each face in its own square, then the bare metal for the backs and the pole. */
+const SIGN_FACES = {
+  stop: { x: 0, y: 0, w: 64, h: 64 },
+  noEntry: { x: 64, y: 0, w: 64, h: 64 },
+  noCats: { x: 0, y: 64, w: 64, h: 64 },
+  warning: { x: 128, y: 0, w: 64, h: 64 },
+};
+const METAL: Rect = { x: 64, y: 64, w: 64, h: 64 };
+
+export type SignKind = keyof typeof SIGN_FACES;
+const SIGN_KINDS: readonly SignKind[] = ["stop", "noEntry", "noCats", "warning"];
+const SIGN_ATLAS_W = 192;
+const SIGN_ATLAS_H = 128;
+
+/** The plate's radius, and the pole's half thickness. */
+const SIGN_R = 0.14;
+/** The warning triangle's plate, against the others'. */
+const WARNING_SIZE = 1.4;
+const POLE = 0.016;
+
+type Corner = [number, number, number, number, number];
+
+function tri(out: number[], a: Corner, b: Corner, c: Corner) {
+  out.push(...a, ...b, ...c, 0);
+}
+
+/**
+ * A sign on a pole: an octagon (the stop sign), a triangle (the warning) or a disc, its face toward +z, its middle
+ * `middle` above the foot of the pole, which ends a little above the plate. The back of the plate is bare metal.
+ */
+function buildSign(kind: SignKind, middle: number): StatueModel {
+  const tris: number[] = [];
+  // A triangle in the same circle looks small beside the others, so it's drawn in a bigger one.
+  const R = kind === "warning" ? SIGN_R * WARNING_SIZE : SIGN_R;
+  const pole = middle + R * 0.6;
+  box(tris, -POLE, POLE, 0, pole, -0.03 - POLE, -0.03 + POLE, METAL, METAL, METAL);
+  // An octagon, a triangle point up, or near enough a disc.
+  const sides = kind === "stop" ? 8 : kind === "warning" ? 3 : 20;
+  const turn = kind === "stop" ? Math.PI / 8 : kind === "warning" ? Math.PI / 2 : 0;
+  const face = SIGN_FACES[kind];
+  const rim: [number, number][] = [];
+  for (let i = 0; i < sides; i++) {
+    const a = turn + (i / sides) * Math.PI * 2;
+    rim.push([Math.cos(a) * R, Math.sin(a) * R]);
+  }
+  // Atlas spot for a point on the plate, from its own square.
+  const front = (x: number, y: number, r: Rect): Corner => [
+    x,
+    middle + y,
+    -0.01,
+    r.x + (x / R / 2 + 0.5) * (r.w - 1) + 0.5,
+    r.y + (0.5 - y / R / 2) * (r.h - 1) + 0.5,
+  ];
+  const back = (x: number, y: number): Corner => [x, middle + y, -0.016, METAL.x + 8, METAL.y + 8];
+  for (let i = 0; i < sides; i++) {
+    const [x0, y0] = rim[i];
+    const [x1, y1] = rim[(i + 1) % sides];
+    tri(tris, front(0, 0, face), front(x0, y0, face), front(x1, y1, face));
+    tri(tris, back(0, 0), back(x1, y1), back(x0, y0));
+  }
+  return { tris, atlasWidth: SIGN_ATLAS_W, atlasHeight: SIGN_ATLAS_H, stone: [150, 150, 146] };
+}
+
+/** The letters of STOP, three pixels by five. */
+const LETTERS: Record<string, readonly string[]> = {
+  S: ["###", "#..", "###", "..#", "###"],
+  T: ["###", ".#.", ".#.", ".#.", ".#."],
+  O: ["###", "#.#", "#.#", "#.#", "###"],
+  P: ["###", "#.#", "###", "#..", "#.."],
+};
+
+/** Whether point (px, py) is inside the triangle a, b, c. */
+function inTriangle(px: number, py: number, a: readonly number[], b: readonly number[], c: readonly number[]) {
+  const side = (p: readonly number[], q: readonly number[]) =>
+    (px - q[0]) * (p[1] - q[1]) - (p[0] - q[0]) * (py - q[1]);
+  const d1 = side(a, b);
+  const d2 = side(b, c);
+  const d3 = side(c, a);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+}
+
+const inEllipse = (px: number, py: number, cx: number, cy: number, rx: number, ry: number) =>
+  ((px - cx) / rx) ** 2 + ((py - cy) / ry) ** 2 <= 1;
+
+/**
+ * A sitting cat seen side on, in the 64-pixel face: head up to the right, clear of the slash, ears up, chest, body,
+ * one front leg, and the tail curling round on the left.
+ */
+function inCat(x: number, y: number): boolean {
+  // Drawn facing left, then mirrored.
+  const px = 63.5 - x;
+  const py = y + 0.5;
+  if (inEllipse(px, py, 25, 23, 8, 7)) return true;
+  if (inTriangle(px, py, [18.5, 20], [20, 10.5], [25, 17])) return true;
+  if (inTriangle(px, py, [25, 16.5], [30.5, 11], [31.5, 20])) return true;
+  if (inEllipse(px, py, 30, 33, 7, 9)) return true;
+  if (inEllipse(px, py, 35, 42, 10, 9)) return true;
+  if (inEllipse(px, py, 37, 49, 11, 4.5)) return true;
+  if (px >= 25.5 && px <= 29.5 && py >= 33 && py <= 52) return true;
+  if (inEllipse(px, py, 27.5, 52, 3.2, 1.6)) return true;
+  const d = Math.hypot(px - 48, py - 44);
+  const a = Math.atan2(py - 44, px - 48);
+  return Math.abs(d - 7) < 1.8 && a > -1.9 && a < 1.75;
+}
+
+const SIGN_RED = [196, 34, 30];
+const SIGN_WHITE = [236, 234, 226];
+
+const SIGN_YELLOW = [232, 186, 40];
+const SIGN_BLACK = [26, 24, 22];
+
+/** The signs' faces, drawn: the stop sign, no entry, no cats, and the warning triangle. */
+export const SIGN_SKIN: StatueSkin = (() => {
+  const W = SIGN_ATLAS_W;
+  const data = new Uint8ClampedArray(W * SIGN_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[]) => {
+    const o = (y * W + x) * 4;
+    const m = 0.93 + 0.1 * grain(x, y);
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  // Bare galvanised metal.
+  for (let y = METAL.y; y < METAL.y + METAL.h; y++) {
+    for (let x = METAL.x; x < METAL.x + METAL.w; x++) put(x, y, [150, 152, 150]);
+  }
+  // The stop sign: red with a thin white edge, STOP across the middle.
+  const stop = SIGN_FACES.stop;
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      const dx = Math.abs(x + 0.5 - 32);
+      const dy = Math.abs(y + 0.5 - 32);
+      // Distance in from the octagon's edge.
+      const inward = 32 - Math.max(dx, dy, (dx + dy) / Math.SQRT2);
+      put(stop.x + x, stop.y + y, inward < 3 ? SIGN_WHITE : SIGN_RED);
+    }
+  }
+  const word = "STOP";
+  const scale = 3;
+  const left = 32 - Math.floor((word.length * 4 - 1) * scale / 2);
+  const top = 32 - Math.floor((5 * scale) / 2);
+  [...word].forEach((letter, i) => {
+    LETTERS[letter].forEach((row, ry) => {
+      for (let rx = 0; rx < 3; rx++) {
+        if (row[rx] !== "#") continue;
+        for (let sy = 0; sy < scale; sy++) {
+          for (let sx = 0; sx < scale; sx++) {
+            put(stop.x + left + (i * 4 + rx) * scale + sx, stop.y + top + ry * scale + sy, SIGN_WHITE);
+          }
+        }
+      }
+    });
+  });
+  // The round signs, edged in white: no entry red with a white bar, no cats white in a red ring, a black cat struck
+  // through.
+  for (const kind of ["noEntry", "noCats"] as const) {
+    const r = SIGN_FACES[kind];
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 64; x++) {
+        const dx = x + 0.5 - 32;
+        const dy = y + 0.5 - 32;
+        const d = Math.hypot(dx, dy);
+        let c = d > 25 ? SIGN_RED : SIGN_WHITE;
+        if (d > 30.5) c = SIGN_WHITE;
+        // No entry is the other way round: red all over, the bar white.
+        if (kind === "noEntry" && d <= 30.5) c = Math.abs(dy) < 5 && Math.abs(dx) < 19 ? SIGN_WHITE : SIGN_RED;
+        if (kind === "noCats" && d <= 25) {
+          if (inCat(x, y)) c = [28, 26, 24];
+          // The slash, top left to bottom right.
+          if (Math.abs(dx - dy) < 5.5) c = SIGN_RED;
+        }
+        put(r.x + x, r.y + y, c);
+      }
+    }
+  }
+  // The warning triangle, point up: yellow, a black border, a black exclamation mark.
+  const warning = SIGN_FACES.warning;
+  const corners = [Math.PI / 2, (Math.PI * 7) / 6, (Math.PI * 11) / 6].map((a) => [
+    32 + Math.cos(a) * 31.5,
+    32 - Math.sin(a) * 31.5,
+  ]);
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 64; x++) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      // Distance in from the nearest edge (negative outside).
+      let inward = Infinity;
+      for (let k = 0; k < 3; k++) {
+        const [ax, ay] = corners[k];
+        const [bx, by] = corners[(k + 1) % 3];
+        const len = Math.hypot(bx - ax, by - ay);
+        // The edges run anticlockwise on screen, so inside is to their left.
+        inward = Math.min(inward, ((by - ay) * (px - ax) - (bx - ax) * (py - ay)) / len);
+      }
+      let c = inward < 4.5 ? SIGN_BLACK : SIGN_YELLOW;
+      if (inward < 1.5) c = SIGN_WHITE;
+      // Kept clear of the border: the bar starts where the triangle is wide enough, the dot sits above the bottom edge.
+      const bar = Math.abs(px - 32) < 3 - (py - 18.5) * 0.06 && py > 18.5 && py < 33.5;
+      const dot = Math.hypot(px - 32, py - 38.2) < 2.8;
+      if (bar || dot) c = SIGN_BLACK;
+      put(warning.x + x, warning.y + y, c);
+    }
+  }
+  return { data };
+})();
+
 // ---- where they are ----
 
-export type JunkKind = "monitor" | "chair";
+export type JunkKind = "monitor" | "chair" | "sign";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -245,9 +454,10 @@ export interface Junk {
 
 /** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
-/** How many blocks have a monitor, and how many a chair. */
+/** How many blocks have a monitor, a chair, a sign. */
 const MONITOR_CHANCE = 0.18;
 const CHAIR_CHANCE = 0.18;
+const SIGN_CHANCE = 0.15;
 
 const OUT = [
   [-1, 0],
@@ -314,6 +524,11 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (chairRoll(0) < CHAIR_CHANCE) {
     const spot = spotIn(map, bx, by, chairRoll);
     if (spot) found.push(placeChair(`c${bx},${by}`, spot, chairRoll));
+  }
+  const signRoll = (k: number) => map.noise(bx * 31 + k, by, 720);
+  if (signRoll(0) < SIGN_CHANCE) {
+    const spot = spotIn(map, bx, by, signRoll);
+    if (spot) found.push(placeSign(`s${bx},${by}`, spot, signRoll));
   }
   return found;
 }
@@ -428,6 +643,65 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
     pitch: (roll(63) - 0.5) * 0.3,
     roll: Math.PI,
     solid: { x, y, r: 0.24, overhead: h - tall > 0.55 },
+  };
+}
+
+/** Where a sign's plate is, on an ordinary one: above head height, as on a street. */
+const SIGN_MIDDLE = 0.72;
+
+/**
+ * Road signs, indoors: standing in the middle of a room as if on a street corner, turned to face a wall, the pole
+ * running up through the ceiling with only the bottom of the plate showing, or aslant in the carpet or a wall.
+ */
+function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const kind = SIGN_KINDS[Math.floor(roll(70) * SIGN_KINDS.length)];
+  const how = roll(40);
+  const x = spot.cx + 0.3 + roll(50) * 0.4;
+  const y = spot.cy + 0.3 + roll(51) * 0.4;
+  const base = { key, kind: "sign" as const, pitch: 0, roll: 0 };
+  if (how < 0.3) {
+    const model = buildSign(kind, SIGN_MIDDLE);
+    return { ...base, model, x, y, h: 0, yaw: roll(52) * Math.PI * 2, solid: { x, y, r: 0.1 } };
+  }
+  if (how < 0.5 && spot.wall) {
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const sx = fx - ox * 0.18;
+    const sy = fy - oy * 0.18;
+    const model = buildSign(kind, SIGN_MIDDLE);
+    return { ...base, model, x: sx, y: sy, h: 0, yaw: Math.atan2(oy, ox), solid: { x: sx, y: sy, r: 0.1 } };
+  }
+  if (how < 0.7) {
+    // The plate's middle just over the ceiling: only its lower edge hangs down into the room.
+    const model = buildSign(kind, 1 + SIGN_R * (0.1 + roll(53) * 0.4));
+    return { ...base, model, x, y, h: 0, yaw: roll(52) * Math.PI * 2, solid: { x, y, r: 0.1 } };
+  }
+  const model = buildSign(kind, SIGN_MIDDLE);
+  if (spot.wall && how < 0.85) {
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    return {
+      ...base,
+      model,
+      x: fx,
+      y: fy,
+      h: -0.1 + roll(43) * 0.3,
+      yaw: roll(44) * Math.PI * 2,
+      pitch: (roll(45) - 0.5) * 1.4,
+      roll: (roll(46) - 0.5) * 1.4,
+      solid: { x: fx - ox * 0.1, y: fy - oy * 0.1, r: 0.1 },
+    };
+  }
+  return {
+    ...base,
+    model,
+    x,
+    y,
+    h: -0.15 - roll(53) * 0.25,
+    yaw: roll(52) * Math.PI * 2,
+    pitch: (roll(54) - 0.5) * 1.2,
+    roll: (roll(55) - 0.5) * 1.2,
+    solid: { x, y, r: 0.12 },
   };
 }
 
