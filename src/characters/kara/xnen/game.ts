@@ -3,7 +3,7 @@ import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
-import { junkAround, monitorSkin, MONITOR, placeJunk, type Junk } from "./engine/junk";
+import { junkAround, monitorSkin, placeJunk, WOOD_SKIN, type Junk } from "./engine/junk";
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
@@ -970,15 +970,16 @@ export function createGame(parts: GameParts): Game {
   const gather = (cam: Camera, dt: number) => {
     props = [];
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
-    if (monitor) {
-      for (const junk of nearJunk) {
-        let mesh = junkMeshes.get(junk.key);
-        if (!mesh) {
-          mesh = placeJunk(MONITOR, junk);
-          junkMeshes.set(junk.key, mesh);
-        }
-        props.push({ mesh, model: MONITOR, skin: monitor, clip: true });
+    for (const junk of nearJunk) {
+      // A monitor waits for its screen's picture.
+      const junkSkin = junk.kind === "monitor" ? monitor : WOOD_SKIN;
+      if (!junkSkin) continue;
+      let mesh = junkMeshes.get(junk.key);
+      if (!mesh) {
+        mesh = placeJunk(junk.model, junk);
+        junkMeshes.set(junk.key, mesh);
       }
+      props.push({ mesh, model: junk.model, skin: junkSkin, clip: true });
     }
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
       const eye: Point = [cam.x, cam.y, EYE];

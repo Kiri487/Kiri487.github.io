@@ -2,9 +2,10 @@ import type { WorldMap } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
 
 /*
- * Things that don't belong, half through the place as if nobody minded: for now, Kara's old CRT monitor, still on,
- * showing her desktop. Stuck in a wall, sunk into the carpet, or hanging upside down out of the ceiling. Rare, and
- * anywhere. They're only scenery: nothing happens when they're touched, but they're in the way.
+ * Things that don't belong, half through the place as if nobody minded: Kara's old CRT monitor, still on, showing
+ * her desktop, and plain wooden chairs, some of them gone wrong. Stuck in a wall, sunk into the carpet, hanging
+ * upside down out of the ceiling, or (a chair) just facing a wall. Rare, and anywhere. They're only scenery: nothing
+ * happens when they're touched, but they're in the way.
  */
 
 // ---- the monitor ----
@@ -62,7 +63,7 @@ function buildMonitor(): StatueModel {
   return { tris, atlasWidth: AW, atlasHeight: AH, stone: [190, 180, 146] };
 }
 
-export const MONITOR = buildMonitor();
+const MONITOR = buildMonitor();
 
 const grain = (x: number, y: number) => {
   let n = Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1);
@@ -137,11 +138,99 @@ export function monitorSkin(wallpaper: Uint8ClampedArray, ww: number, wh: number
   return { data };
 }
 
+// ---- the chair ----
+
+/** The chair's atlas: one square of wood. */
+const WOOD: Rect = { x: 0, y: 0, w: 32, h: 32 };
+
+/** How a chair is bent out of shape: each 1 for an ordinary one. */
+interface ChairShape {
+  /** Width across the seat. */
+  width: number;
+  /** Leg length. */
+  legs: number;
+  /** Backrest height. */
+  back: number;
+  /** Everything's height, squashed flat. */
+  flat: number;
+}
+
+const ORDINARY: ChairShape = { width: 1, legs: 1, back: 1, flat: 1 };
+/** The whole chair scaled by this: an ordinary one's back comes up to just under eye height. */
+const CHAIR_SIZE = 0.72;
+
+/** A plain wooden chair with a back: four legs, rails between them, a seat, two posts, a top rail and two slats. */
+function buildChair(shape: ChairShape): StatueModel {
+  const tris: number[] = [];
+  const hw = 0.15 * shape.width;
+  const hd = 0.14;
+  const L = 0.03;
+  const legH = 0.3 * shape.legs;
+  const seatTop = legH + 0.03;
+  const top = seatTop + 0.32 * shape.back;
+  const f = shape.flat;
+  const k = CHAIR_SIZE;
+  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) =>
+    box(tris, x0 * k, x1 * k, y0 * f * k, y1 * f * k, z0 * k, z1 * k, WOOD, WOOD, WOOD);
+  // Legs; the back two carry on up as the backrest's posts.
+  for (const sx of [-1, 1]) {
+    const x0 = sx < 0 ? -hw : hw - L;
+    part(x0, x0 + L, 0, legH, hd - L, hd);
+    part(x0, x0 + L, 0, top, -hd, -hd + L);
+    // Rails along the sides, low down.
+    part(x0 + 0.005, x0 + L - 0.005, legH * 0.3, legH * 0.3 + 0.02, -hd + L, hd - L);
+  }
+  part(-hw + L, hw - L, legH * 0.3, legH * 0.3 + 0.02, -hd + 0.005, -hd + L - 0.005);
+  part(-hw - 0.01, hw + 0.01, legH, seatTop, -hd - 0.005, hd + 0.01);
+  // The backrest: a top rail and two slats between the posts.
+  part(-hw, hw, top - 0.05, top, -hd, -hd + 0.025);
+  part(-hw + L, hw - L, top - 0.13, top - 0.1, -hd + 0.002, -hd + 0.022);
+  part(-hw + L, hw - L, top - 0.21, top - 0.18, -hd + 0.002, -hd + 0.022);
+  return { tris, atlasWidth: 32, atlasHeight: 32, stone: [120, 84, 50] };
+}
+
+/** How tall a chair of this shape stands. */
+const chairHeight = (shape: ChairShape) => (0.33 * shape.legs + 0.32 * shape.back) * shape.flat * CHAIR_SIZE;
+
+/**
+ * Most chairs are ordinary; the rest are the same chair gone wrong: legs far too long, squashed flat, a backrest
+ * reaching up and up, stretched wide, or thin as a rake.
+ */
+function chairShape(a: number, b: number): ChairShape {
+  if (a < 0.55) return ORDINARY;
+  if (a < 0.67) return { ...ORDINARY, legs: 2.2 + b * 1.2 };
+  if (a < 0.77) return { ...ORDINARY, flat: 0.25 + b * 0.15 };
+  if (a < 0.86) return { ...ORDINARY, back: 2 + b * 1.2 };
+  if (a < 0.94) return { ...ORDINARY, width: 1.8 + b * 0.8 };
+  return { ...ORDINARY, width: 0.45, legs: 1.5 + b * 0.5 };
+}
+
+/** The wood: warm brown with a grain running along it, a little worn. */
+export const WOOD_SKIN: StatueSkin = (() => {
+  const data = new Uint8ClampedArray(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const streak = Math.sin(y * 0.9 + Math.sin(x * 0.35) * 1.6 + grain(0, y) * 2);
+      const m = 0.82 + 0.1 * streak + 0.1 * grain(x, y);
+      const o = (y * 32 + x) * 4;
+      data[o] = 142 * m;
+      data[o + 1] = 98 * m;
+      data[o + 2] = 58 * m;
+      data[o + 3] = 255;
+    }
+  }
+  return { data };
+})();
+
 // ---- where they are ----
 
-/** One piece of junk: where it's put, how it's turned, and the part of it in the way (if any). */
+export type JunkKind = "monitor" | "chair";
+
+/** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
   key: string;
+  kind: JunkKind;
+  model: StatueModel;
   x: number;
   y: number;
   /** Height of its base above the floor; below 0 it's sunk in. */
@@ -154,10 +243,11 @@ export interface Junk {
   solid: { x: number; y: number; r: number; overhead?: boolean } | null;
 }
 
-/** Junk is worked out a square block at a time, this many cells across; each block has at most one. */
+/** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
-/** How many blocks have something. */
-const CHANCE = 0.18;
+/** How many blocks have a monitor, and how many a chair. */
+const MONITOR_CHANCE = 0.18;
+const CHAIR_CHANCE = 0.18;
 
 const OUT = [
   [-1, 0],
@@ -190,83 +280,160 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   return out;
 }
 
-function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
-  const roll = (k: number) => map.noise(bx * 31 + k, by, 700);
-  if (roll(0) >= CHANCE) return [];
-  const key = `${bx},${by}`;
+/** An open cell in the block, and the way to a wall beside it if there is one. */
+interface Spot {
+  cx: number;
+  cy: number;
+  wall: readonly [number, number] | null;
+}
+
+function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => number): Spot | null {
   for (let k = 0; k < 16; k++) {
     const cx = bx * BLOCK + Math.floor(roll(1 + k) * BLOCK);
     const cy = by * BLOCK + Math.floor(roll(20 + k) * BLOCK);
     if (map.wall(cx, cy)) continue;
-    const how = roll(40);
-    if (how < 0.5) {
-      // In a wall beside this cell, if there is one.
-      const side = Math.floor(roll(41) * 4);
-      for (let s = 0; s < 4; s++) {
-        const [ox, oy] = OUT[(side + s) % 4];
-        if (map.wall(cx + ox, cy + oy)) return [inWall(key, cx, cy, ox, oy, roll(42), roll(43), roll(44), roll(45))];
-      }
+    const side = Math.floor(roll(41) * 4);
+    let wall: readonly [number, number] | null = null;
+    for (let s = 0; s < 4 && !wall; s++) {
+      const out = OUT[(side + s) % 4];
+      if (map.wall(cx + out[0], cy + out[1])) wall = out;
     }
-    if (how < 0.8) {
-      return [inFloor(key, cx + 0.3 + roll(50) * 0.4, cy + 0.3 + roll(51) * 0.4, roll(52), roll(53), roll(54))];
-    }
-    return [inCeiling(key, cx + 0.3 + roll(60) * 0.4, cy + 0.3 + roll(61) * 0.4, roll(62), roll(63))];
+    return { cx, cy, wall };
   }
-  return [];
+  return null;
 }
 
-/** Half into the wall on side (ox, oy) of cell (cx, cy), facing out of it, at some height, a little askew. */
-function inWall(
-  key: string,
-  cx: number,
-  cy: number,
-  ox: number,
-  oy: number,
-  a: number,
-  b: number,
-  c: number,
-  d: number,
-): Junk {
-  // The wall's face, part way along it.
-  const along = 0.25 + a * 0.5;
-  const fx = cx + 0.5 + ox * 0.5 + (oy !== 0 ? along - 0.5 : 0);
-  const fy = cy + 0.5 + oy * 0.5 + (ox !== 0 ? along - 0.5 : 0);
-  const h = 0.12 + b * 0.45;
-  return {
-    key,
-    x: fx - ox * 0.02,
-    y: fy - oy * 0.02,
-    h,
-    yaw: Math.atan2(-oy, -ox),
-    pitch: (c - 0.5) * 0.4,
-    roll: (d - 0.5) * 0.7,
-    solid: h < 0.85 ? { x: fx - ox * 0.14, y: fy - oy * 0.14, r: 0.2 } : null,
-  };
+function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
+  const found: Junk[] = [];
+  const monitorRoll = (k: number) => map.noise(bx * 31 + k, by, 700);
+  if (monitorRoll(0) < MONITOR_CHANCE) {
+    const spot = spotIn(map, bx, by, monitorRoll);
+    if (spot) found.push(placeMonitor(`m${bx},${by}`, spot, monitorRoll));
+  }
+  const chairRoll = (k: number) => map.noise(bx * 31 + k, by, 710);
+  if (chairRoll(0) < CHAIR_CHANCE) {
+    const spot = spotIn(map, bx, by, chairRoll);
+    if (spot) found.push(placeChair(`c${bx},${by}`, spot, chairRoll));
+  }
+  return found;
 }
 
-/** Sunk into the carpet, tipped back so the screen looks up, any way round. */
-function inFloor(key: string, x: number, y: number, a: number, b: number, c: number): Junk {
+/** A point on the wall's face beside the cell, `along` (0–1) of the way along it. */
+function wallFace(spot: Spot, [ox, oy]: readonly [number, number], along: number): [number, number] {
+  return [
+    spot.cx + 0.5 + ox * 0.5 + (oy !== 0 ? along - 0.5 : 0),
+    spot.cy + 0.5 + oy * 0.5 + (ox !== 0 ? along - 0.5 : 0),
+  ];
+}
+
+/** Monitors: half into a wall facing out of it, sunk into the carpet looking up, or upside down in the ceiling. */
+function placeMonitor(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const base = { key, kind: "monitor" as const, model: MONITOR };
+  const how = roll(40);
+  if (how < 0.5 && spot.wall) {
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.25 + roll(42) * 0.5);
+    const h = 0.12 + roll(43) * 0.45;
+    return {
+      ...base,
+      x: fx - ox * 0.02,
+      y: fy - oy * 0.02,
+      h,
+      yaw: Math.atan2(-oy, -ox),
+      pitch: (roll(44) - 0.5) * 0.4,
+      roll: (roll(45) - 0.5) * 0.7,
+      solid: h < 0.85 ? { x: fx - ox * 0.14, y: fy - oy * 0.14, r: 0.2 } : null,
+    };
+  }
+  const x = spot.cx + 0.3 + roll(50) * 0.4;
+  const y = spot.cy + 0.3 + roll(51) * 0.4;
+  if (how < 0.8) {
+    return {
+      ...base,
+      x,
+      y,
+      h: -0.06 - roll(53) * 0.1,
+      yaw: roll(52) * Math.PI * 2,
+      pitch: -0.25 - roll(54) * 0.45,
+      roll: (roll(53) - 0.5) * 0.5,
+      solid: { x, y, r: 0.24 },
+    };
+  }
   return {
-    key,
+    ...base,
     x,
     y,
-    h: -0.06 - b * 0.1,
-    yaw: a * Math.PI * 2,
-    pitch: -0.25 - c * 0.45,
-    roll: (b - 0.5) * 0.5,
-    solid: { x, y, r: 0.24 },
+    h: 1.08,
+    yaw: roll(62) * Math.PI * 2,
+    pitch: (roll(63) - 0.5) * 0.4,
+    roll: Math.PI,
+    solid: { x, y, r: 0.24, overhead: true },
   };
 }
 
-/** Upside down, its stand buried in the ceiling. Above the visitor's head, but in the way of anyone up there. */
-function inCeiling(key: string, x: number, y: number, a: number, b: number): Junk {
-  const solid = { x, y, r: 0.24, overhead: true };
-  return { key, x, y, h: 1.08, yaw: a * Math.PI * 2, pitch: (b - 0.5) * 0.4, roll: Math.PI, solid };
+/**
+ * Chairs: half into a wall at any angle, sunk aslant into the carpet, upside down with their legs in the ceiling, or
+ * just standing there, pushed up to a wall and facing it.
+ */
+function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const shape = chairShape(roll(70), roll(71));
+  const base = { key, kind: "chair" as const, model: buildChair(shape) };
+  const tall = chairHeight(shape);
+  const how = roll(40);
+  if (spot.wall && how < 0.35) {
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const h = -0.05 + roll(43) * 0.35;
+    return {
+      ...base,
+      x: fx,
+      y: fy,
+      h,
+      yaw: roll(44) * Math.PI * 2,
+      pitch: (roll(45) - 0.5) * 0.8,
+      roll: (roll(46) - 0.5) * 1.2,
+      solid: h < 0.8 ? { x: fx - ox * 0.15, y: fy - oy * 0.15, r: 0.2 } : null,
+    };
+  }
+  if (spot.wall && how < 0.55) {
+    // Facing the wall, close up, as if someone had been made to sit there.
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const x = fx - ox * 0.2;
+    const y = fy - oy * 0.2;
+    return { ...base, x, y, h: 0, yaw: Math.atan2(oy, ox), pitch: 0, roll: 0, solid: { x, y, r: 0.2 } };
+  }
+  const x = spot.cx + 0.3 + roll(50) * 0.4;
+  const y = spot.cy + 0.3 + roll(51) * 0.4;
+  if (how < 0.8) {
+    return {
+      ...base,
+      x,
+      y,
+      h: -0.08 - roll(53) * 0.17,
+      yaw: roll(52) * Math.PI * 2,
+      pitch: (roll(54) - 0.5) * 1.2,
+      roll: (roll(55) - 0.5) * 1.2,
+      solid: { x, y, r: 0.24 },
+    };
+  }
+  // Upside down, legs in the ceiling; one hanging low enough is in the visitor's way too.
+  const h = 1.04 + roll(60) * 0.06;
+  return {
+    ...base,
+    x,
+    y,
+    h,
+    yaw: roll(62) * Math.PI * 2,
+    pitch: (roll(63) - 0.5) * 0.3,
+    roll: Math.PI,
+    solid: { x, y, r: 0.24, overhead: h - tall > 0.55 },
+  };
 }
 
 // ---- putting one in place ----
 
-/** The monitor turned and moved to where this piece of junk is, ready to draw. */
+/** A model turned and moved to where this piece of junk is, ready to draw. */
 export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
   const src = model.tris;
   const count = src.length / 16;
