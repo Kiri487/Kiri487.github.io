@@ -3,6 +3,9 @@ import { visuallyHidden } from "../../../shared/visuallyHidden";
 import { isTouchPointer } from "../os/openGesture";
 import wallpaperUrl from "../assets/wallpaper.webp";
 import posterUrl from "./assets/cult-poster.webp";
+import godDrawingUrl from "./assets/god-drawing.webp";
+import karaDrawingUrl from "./assets/kara-drawing.webp";
+import xnDrawingUrl from "./assets/xn-drawing.webp";
 import atlasUrl from "./assets/statue-atlas.png";
 import { STATUE } from "./assets/statueModel";
 import xnAtlasUrl from "./assets/xn-atlas.png";
@@ -154,6 +157,9 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       xnMeshUrl,
       xnAtlasUrl,
       posterUrl,
+      xnDrawingUrl,
+      karaDrawingUrl,
+      godDrawingUrl,
       wallpaperUrl,
       tuning: XN_DEV_TOOLS ? loadTuning() : { ...DEFAULT_TUNING },
       xnPreview: FIRST_PREVIEW,

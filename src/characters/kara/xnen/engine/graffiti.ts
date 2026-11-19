@@ -10,7 +10,12 @@ import type { Tuning } from "./tuning";
  *   every word's length, so the letters stay where they were sprayed and only their shapes change.
  * - Arrows, in the same black, pointing nowhere in particular.
  * - Tally marks, tiny, at about eye height: someone counting, in fives, up to thirteen fives.
+ * - XN's drawings of herself and Kara (Kiri's drawings, traced in black): on their heads as they are, turned
+ *   upright or toppled over, leaning opposite ways, and labelled "me" and "kara" (read through SAN like her
+ *   words: at first they say ZR and XNEN).
  * - The Weed Cat Cult's slogans off its poster, written small in green by hand at eye height, across or down.
+ * - The cult's cat god (Kiri's drawing, traced in the same green), drawn upright with care at eye height, half the
+ *   time with one of the slogans written small under it.
  *
  * Walls run along the lattice every 5 cells, so a tag belongs to one stretch of lattice (the four cells between two
  * points) and one side of it, and keeps inside the part of that side the visitor can see.
@@ -38,23 +43,61 @@ const BLACK: readonly [number, number, number] = [20, 18, 15];
 const GREEN: readonly [number, number, number] = [26, 64, 24];
 /** How often a side of a stretch has something on it, at 100 %. */
 const CHANCE = 0.065;
-/** Of those, what: XN's words, an arrow, tally marks, a cult slogan. */
+/** Of those, what: XN's words, an arrow, tally marks, a cult slogan, XN's drawing, the cat god. */
 const KINDS: readonly [Kind, number][] = [
-  ["text", 0.48],
-  ["arrow", 0.2],
-  ["tally", 0.15],
-  ["cult", 0.17],
+  ["text", 0.41],
+  ["arrow", 0.18],
+  ["tally", 0.13],
+  ["cult", 0.14],
+  ["portrait", 0.08],
+  ["shrine", 0.06],
 ];
 /** The stroke's thickness as a share of a grid step. */
 const STROKE = 0.38;
 
-export type Kind = "text" | "arrow" | "tally" | "cult";
+export type Kind = "text" | "arrow" | "tally" | "cult" | "portrait" | "shrine";
 
 type Stroke = readonly (readonly [number, number])[];
 /** A glyph: strokes on a grid this wide and 6 tall, y down. */
 interface GlyphDef {
   w: number;
   strokes: readonly Stroke[];
+}
+
+/** XN and Kara, traced from Kiri's drawings (assets/xn-drawing.webp, kara-drawing.webp): keys for the drawings. */
+const XN_FIGURE = "Ⓧ";
+const KARA_FIGURE = "Ⓚ";
+/** The cat god, traced from Kiri's drawing (assets/god-drawing.webp). */
+const GOD_FIGURE = "Ⓖ";
+/** A drawing's width in grid steps, against its 6 tall: the drawings are a little over half as wide as they're tall. */
+const FIGURE_W = 3.3;
+/** The cat god's width in grid steps, against its 6 tall. */
+const GOD_W = 3.1;
+/** How much darker than the drawing the traced lines go: a little, so thin lines hold up on the wall. */
+const INK_GAIN = 1.2;
+
+/** A traced drawing: per pixel how much ink, 0–255. */
+export interface Drawing {
+  w: number;
+  h: number;
+  ink: Uint8Array;
+}
+
+const drawings = new Map<string, Drawing>();
+
+/** The ink of a drawing loaded as RGBA: the files keep it light on black (Kiri's lines' alpha), so its red is how much ink. */
+export function inkOf(rgba: Uint8ClampedArray, w: number, h: number): Drawing {
+  const ink = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) ink[i] = rgba[i * 4];
+  return { w, h, ink };
+}
+
+/** The drawings have loaded: any drawing sprayed before them was sprayed without them, so it's sprayed again. */
+export function setDrawings(xn: Drawing, kara: Drawing, god: Drawing) {
+  drawings.set(XN_FIGURE, xn);
+  drawings.set(KARA_FIGURE, kara);
+  drawings.set(GOD_FIGURE, god);
+  sprayed.clear();
 }
 
 const latin = (strokes: readonly Stroke[]): GlyphDef => ({ w: 4, strokes });
@@ -339,6 +382,8 @@ interface Glyph {
   weight: number;
   /** How far gone the hand was, 0–1. */
   chaos: number;
+  /** Its box's width in grid steps (6 tall): where a drawing is traced. */
+  w: number;
 }
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -369,6 +414,10 @@ interface Item {
 /** What's on a tag, row by row (or column by column, written downwards), before it's laid out. */
 interface Plan {
   rows: Item[][];
+  /** Lays itself out instead of in rows: a drawing. */
+  custom?: (size: number) => Placed[];
+  /** What the tag says, read through SAN, when the plan decides it rather than the pick of XN's lines. */
+  text?: string;
   /** Glyph height as a share of the wall: what it would like, and the least it can shrink to. */
   size: number;
   least: number;
@@ -470,6 +519,10 @@ function planOf(kind: Kind, text: string, pickText: number, r: (k: number) => nu
         eye: true,
       };
     }
+    case "portrait":
+      return portraitPlan(base, r);
+    case "shrine":
+      return shrinePlan(base, pickText, r);
     case "cult": {
       const slogan = CULT_TEXTS[pickText];
       // Small and neat, as a person writes on a wall at eye height: one line, or two if it's long.
@@ -497,6 +550,116 @@ function planOf(kind: Kind, text: string, pickText: number, r: (k: number) => nu
   }
 }
 
+/**
+ * XN's drawing of herself and Kara, side by side: mostly on their heads, as Kiri drew them; now and then turned
+ * upright, or toppled over. They never lean the same way: one tips one side, the other the other. Often labelled,
+ * "me" with an arrow at her and "kara" by Kara's head.
+ */
+function portraitPlan(base: Omit<Plan, "rows" | "size" | "least" | "colour">, r: (k: number) => number): Plan {
+  const labelled = r(8) < 0.6;
+  const pose = r(9);
+  // The drawings are upside down: turned 0 is on their heads, π upright.
+  const tilt =
+    pose < 0.6
+      ? (r(10) - 0.5) * 0.12
+      : pose < 0.85
+        ? Math.PI + (r(10) - 0.5) * 0.12
+        : (r(10) < 0.5 ? -1 : 1) * (0.5 + r(11) * 0.5);
+  // How far each leans off that, opposite ways; which way XN goes is a toss.
+  const lean = (r(7) < 0.5 ? -1 : 1) * (0.15 + r(6) * 0.25);
+  const text = labelled ? "me kara" : "";
+  const hand = Math.floor(r(12) * 1e6);
+  const custom = (size: number): Placed[] => {
+    const step = size / 6;
+    const out: Placed[] = [];
+    const g = (k: number) => hash3(hand, k, 7727);
+    // Half the width a drawing takes, in grid steps, turned this far.
+    const halfWidth = (angle: number) => (FIGURE_W / 2) * Math.abs(Math.cos(angle)) + 3 * Math.abs(Math.sin(angle));
+    const xnTilt = tilt - lean + (g(5) - 0.5) * 0.08;
+    const karaTilt = tilt + lean + (g(7) - 0.5) * 0.08;
+    // The labels are small next to the drawings.
+    const letter = 0.2;
+    const lw = step * letter;
+    let x = (halfWidth(xnTilt) - FIGURE_W / 2) * step;
+    if (labelled) {
+      // "me →", at the height of her head, wherever the pose has put it (low in the drawing).
+      const headY = 3 + Math.cos(xnTilt) * 1.7;
+      const y = (headY - 3 * letter) * step;
+      const glyph = (it: Item, at: number, k: number, w = 4) =>
+        out.push({ item: it, x: at, y: y + (g(k) - 0.5) * lw, angle: (g(k + 1) - 0.5) * 0.3, scale: letter, w });
+      let lx = 0;
+      glyph(item("", 0, 0.8), lx, 0);
+      lx += lw * 5.4;
+      glyph(item("", 1, 0.8), lx, 2);
+      lx += lw * 5.6;
+      glyph(item("→", -1, 0.8), lx, 4, 4.4);
+      x += lx + lw * 6 - 0.6 * step;
+    }
+    out.push({ item: item(XN_FIGURE), x, y: 0, angle: xnTilt, scale: 1, w: FIGURE_W });
+    // Kara beside her, far enough that the two don't run into each other however they lean.
+    x += (halfWidth(xnTilt) + halfWidth(karaTilt) - 0.7 + g(6) * 0.5) * step;
+    const ky = (g(8) - 0.5) * step * 0.6;
+    const kScale = 0.92 + g(9) * 0.12;
+    out.push({ item: item(KARA_FIGURE), x, y: ky, angle: karaTilt, scale: kScale, w: FIGURE_W });
+    if (labelled) {
+      // "kara" by her head: under the drawing while she's on her head, over it once she's upright.
+      const y = Math.cos(karaTilt) > 0 ? ky + 6 * step + step * 0.4 : ky - letter * 6 * step - step * 0.4;
+      const kx = x + (FIGURE_W / 2) * step - lw * 5.4 * 2;
+      for (let i = 0; i < 4; i++) {
+        out.push({
+          item: item("", 3 + i, 0.8),
+          x: kx + i * lw * 5.4,
+          y: y + (g(10 + i) - 0.5) * lw,
+          angle: (g(14 + i) - 0.5) * 0.3,
+          scale: letter,
+          w: 4,
+        });
+      }
+    }
+    return out;
+  };
+  return { ...base, rows: [], custom, text, size: 0.55 + r(0) * 0.15, least: 0.3, colour: BLACK, px: 512 };
+}
+
+/**
+ * The cat god, drawn by a believer: upright, with care, in the cult's green pen at eye height. Half the time one of
+ * the slogans is written small under its feet, picked at random.
+ */
+function shrinePlan(base: Omit<Plan, "rows" | "size" | "least" | "colour">, pickText: number, r: (k: number) => number): Plan {
+  const captioned = r(7) < 0.5;
+  const tilt = (r(10) - 0.5) * 0.08;
+  const chars = Array.from(CULT_TEXTS[pickText]);
+  const custom = (size: number): Placed[] => {
+    const step = size / 6;
+    const out: Placed[] = [];
+    const g = (k: number) => hash3(Math.floor(r(12) * 1e6), k, 7729);
+    out.push({ item: item(GOD_FIGURE), x: 0, y: 0, angle: tilt, scale: 1, w: GOD_W });
+    if (captioned) {
+      // The slogan in the cult's small hand, the size it's written elsewhere: one line, or two if it's long.
+      const letter = 0.07 / size;
+      const lw = step * letter;
+      const per = chars.length > 8 ? Math.ceil(chars.length / 2) : chars.length;
+      for (let i = 0; i < chars.length; i += per) {
+        const row = chars.slice(i, i + per);
+        const width = row.length * lw * 6.8;
+        const y = 6 * step + step * 0.3 + (i / per) * lw * 7.4;
+        row.forEach((ch, j) => {
+          out.push({
+            item: item(ch, -1, 0.55),
+            x: (GOD_W / 2) * step - width / 2 + j * lw * 6.8 + (g(j * 3) - 0.5) * lw * 0.4,
+            y: y + (g(j * 3 + 1) - 0.5) * lw * 0.4,
+            angle: (g(j * 3 + 2) - 0.5) * 0.08,
+            scale: letter,
+            w: 6,
+          });
+        });
+      }
+    }
+    return out;
+  };
+  return { ...base, rows: [], custom, size: 0.45 + r(0) * 0.12, least: 0.28, colour: GREEN, px: 512, eye: true };
+}
+
 /** Glyphs placed in wall units, relative to the tag's own corner, before the bounds are known. */
 interface Placed {
   item: Item;
@@ -509,6 +672,7 @@ interface Placed {
 
 /** Lays the plan out at this glyph height. */
 function place(plan: Plan, size: number, seed: number): Placed[] {
+  if (plan.custom) return plan.custom(size);
   const step = size / 6;
   const out: Placed[] = [];
   const columns = plan.down ? plan.rows.length : 0;
@@ -537,7 +701,7 @@ function place(plan: Plan, size: number, seed: number): Placed[] {
 }
 
 /** The bounds of what's placed, with the stroke and overspray round it and room below for drips. */
-function bounds(placed: Placed[], size: number): [number, number, number, number] {
+function bounds(placed: Placed[], size: number, drip: number): [number, number, number, number] {
   const step = size / 6;
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   for (const p of placed) {
@@ -556,7 +720,7 @@ function bounds(placed: Placed[], size: number): [number, number, number, number
     }
   }
   const reach = step * 1.6;
-  return [x0 - reach, x1 + reach, y0 - reach, y1 + reach + size * 0.6];
+  return [x0 - reach, x1 + reach, y0 - reach, y1 + reach + size * drip];
 }
 
 /** The tallest a tag may be, as a share of the wall. */
@@ -570,7 +734,7 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
   const r = (k: number) => hash3(seed, k, 7717);
   let size = plan.size;
   let placed = place(plan, size, seed);
-  let [x0, x1, y0, y1] = bounds(placed, size);
+  let [x0, x1, y0, y1] = bounds(placed, size, plan.custom ? 0.12 : 0.6);
   // Too big for the room: smaller, but not too small to read. The hand wanders, so it's measured again after.
   for (let tries = 0; tries < 4; tries++) {
     const fit = Math.min((room - 0.1) / (x1 - x0), TALLEST / (y1 - y0));
@@ -578,7 +742,7 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
     size *= fit * 0.97;
     if (size < plan.least) return null;
     placed = place(plan, size, seed);
-    [x0, x1, y0, y1] = bounds(placed, size);
+    [x0, x1, y0, y1] = bounds(placed, size, plan.custom ? 0.12 : 0.6);
   }
   const w = x1 - x0;
   const h = y1 - y0;
@@ -600,6 +764,7 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
     step: step * p.scale * px,
     weight: p.item.weight,
     chaos: p.item.chaos,
+    w: p.w,
   }));
   return {
     kind,
@@ -666,7 +831,7 @@ function spray(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, stroke:
     const [bx, by] = pts[Math.min(i + 1, pts.length - 1)];
     dab(ax, ay, bx, by, radius, spread);
     // Where the can paused, the paint ran: a thin drip straight down, ending in a bead. Not from a pen.
-    const roll = tag.kind === "cult" || tag.kind === "tally" ? 1 : hash3(tag.seed, k * 64 + i, 7753);
+    const roll = tag.kind === "cult" || tag.kind === "tally" || tag.kind === "shrine" ? 1 : hash3(tag.seed, k * 64 + i, 7753);
     if (roll < 0.14) {
       const length = (0.3 + hash3(tag.seed, k * 64 + i, 7759) * 0.9) * glyph.step * 3;
       const thin = Math.max(0.5, radius * 0.45);
@@ -695,11 +860,52 @@ function halve(level: GraffitiLevel): GraffitiLevel {
   return { w, h, paint };
 }
 
+/** Traces a drawing into the mask, turned and scaled as its glyph is, in its box (the glyph's width × 6). */
+function trace(tag: Tag, paint: Uint8Array, glyph: Glyph, drawing: Drawing) {
+  const W = tag.maskW;
+  const H = tag.maskH;
+  const half = (glyph.w / 2) * glyph.step;
+  const cx = glyph.x + half;
+  const cy = glyph.y + 3 * glyph.step;
+  const reach = Math.hypot(half, 3 * glyph.step);
+  const x0 = Math.max(0, Math.floor(cx - reach));
+  const x1 = Math.min(W - 1, Math.ceil(cx + reach));
+  const y0 = Math.max(0, Math.floor(cy - reach));
+  const y1 = Math.min(H - 1, Math.ceil(cy + reach));
+  const { w: dw, h: dh, ink } = drawing;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5 - cx;
+      const py = y + 0.5 - cy;
+      // Back into the drawing's own frame, 0–1 across and down.
+      const u = (px * glyph.cos + py * glyph.sin) / (glyph.w * glyph.step) + 0.5;
+      const v = (py * glyph.cos - px * glyph.sin) / (6 * glyph.step) + 0.5;
+      if (u < 0 || u >= 1 || v < 0 || v >= 1) continue;
+      // Bilinear, so the drawing's thin lines don't break up.
+      const fx = u * dw - 0.5;
+      const fy = v * dh - 0.5;
+      const ix = Math.max(0, Math.min(dw - 2, Math.floor(fx)));
+      const iy = Math.max(0, Math.min(dh - 2, Math.floor(fy)));
+      const tx = clamp01(fx - ix);
+      const ty = clamp01(fy - iy);
+      const k = iy * dw + ix;
+      const a = Math.min(255, ((ink[k] * (1 - tx) + ink[k + 1] * tx) * (1 - ty) + (ink[k + dw] * (1 - tx) + ink[k + dw + 1] * tx) * ty) * INK_GAIN);
+      const i = y * W + x;
+      if (a > paint[i]) paint[i] = a;
+    }
+  }
+}
+
 /** The tag's mask as it reads now (`shown` is XN's text after SAN has had its say), at every size. */
 function sprayTag(tag: Tag, shown: string): GraffitiLevel[] {
   const paint = new Uint8Array(tag.maskW * tag.maskH);
   tag.layout.forEach((glyph, gi) => {
     const char = glyph.at >= 0 ? shown[glyph.at].toUpperCase() : glyph.ch;
+    const drawing = drawings.get(char);
+    if (drawing) {
+      trace(tag, paint, glyph, drawing);
+      return;
+    }
     const def = GLYPHS[char];
     if (!def) return;
     def.strokes.forEach((stroke, si) => spray(tag, paint, glyph, def, stroke, gi * 16 + si));
@@ -772,7 +978,8 @@ function kindOf(dice: number): Kind {
 interface Forced {
   kind: Kind;
   line: number;
-  down?: boolean;
+  /** Dice it fixes: a slogan's direction (6); a drawing's lean (7), labels (8) and pose (9); a shrine's caption (7). */
+  dice?: Record<number, number>;
 }
 
 /** Tags by stretch, side and map: they're laid out once. */
@@ -798,19 +1005,19 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
       const kind = forced?.kind ?? kindOf(pick(1));
-      const lines = kind === "cult" ? CULT_TEXTS : GRAFFITI_TEXTS;
+      const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : GRAFFITI_TEXTS;
       const line = forced?.line ?? Math.floor(pick(2) * lines.length);
       const text = kind === "text" ? GRAFFITI_TEXTS[line] : "";
       const seed = Math.floor(pick(3) * 0x7fffffff);
       const dice = (k: number) => hash3(seed, k, 7717);
-      // A preview's slogan runs the way it asks; the rest of its dice stay.
-      const down = forced?.down;
-      const r = down === undefined ? dice : (k: number) => (k === 6 ? (down ? 0 : 0.99) : dice(k));
+      // A preview fixes what it wants to show; the rest of its dice stay.
+      const fixed = forced?.dice;
+      const r = fixed ? (k: number) => fixed[k] ?? dice(k) : dice;
       const plan = planOf(kind, text, line, r);
       // Seen from the north (side 0 of an east-running stretch) or the east (side 1 of a south-running one), the
       // world's axis runs right to left.
       const reversed = dir === 0 ? side === 0 : side === 1;
-      tag = layOut(plan, kind, text, seed, (dir === 0 ? lx : ly) * 5 + first, count, reversed);
+      tag = layOut(plan, kind, plan.text ?? text, seed, (dir === 0 ? lx : ly) * 5 + first, count, reversed);
     }
   }
   tags.set(key, tag);
@@ -839,10 +1046,18 @@ export function graffitiOn(map: WorldMap, cx: number, cy: number, face: number, 
  */
 const PREVIEW = true;
 const PREVIEW_ORDER: readonly Forced[] = [
-  { kind: "cult", line: 0, down: true },
-  { kind: "cult", line: 1, down: false },
-  { kind: "cult", line: 2, down: true },
-  { kind: "cult", line: 3, down: false },
+  // On their heads, labelled, leaning one way and then the other; upright, labelled; toppled, no words.
+  { kind: "portrait", line: 0, dice: { 7: 0, 8: 0, 9: 0.3 } },
+  { kind: "portrait", line: 0, dice: { 7: 0.99, 8: 0.99, 9: 0.3 } },
+  { kind: "portrait", line: 0, dice: { 7: 0, 8: 0, 9: 0.7 } },
+  { kind: "portrait", line: 0, dice: { 7: 0.99, 8: 0.99, 9: 0.9 } },
+  // The cat god with a slogan under it, and without.
+  { kind: "shrine", line: 2, dice: { 7: 0 } },
+  { kind: "shrine", line: 0, dice: { 7: 0.99 } },
+  { kind: "cult", line: 0, dice: { 6: 0 } },
+  { kind: "cult", line: 1, dice: { 6: 0.99 } },
+  { kind: "cult", line: 2, dice: { 6: 0 } },
+  { kind: "cult", line: 3, dice: { 6: 0.99 } },
   { kind: "tally", line: 0 },
   { kind: "tally", line: 0 },
   ...GRAFFITI_TEXTS.map((_, line): Forced => ({ kind: "text", line })),
