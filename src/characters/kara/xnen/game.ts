@@ -7,6 +7,7 @@ import {
   DOOR_SKIN,
   junkAround,
   monitorSkin,
+  OFFICE_SKIN,
   placeJunk,
   SAFETY_SKIN,
   SIGN_SKIN,
@@ -989,6 +990,9 @@ export function createGame(parts: GameParts): Game {
         door: DOOR_SKIN,
         exit: SAFETY_SKIN,
         wetFloor: SAFETY_SKIN,
+        cabinet: OFFICE_SKIN,
+        desk: WOOD_SKIN,
+        socket: OFFICE_SKIN,
       }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);

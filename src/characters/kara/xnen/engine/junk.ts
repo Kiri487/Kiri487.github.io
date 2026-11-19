@@ -828,9 +828,232 @@ export const SAFETY_SKIN: StatueSkin = (() => {
   return { data };
 })();
 
+// ---- the filing cabinets, desks and wall sockets ----
+
+/**
+ * One atlas for the filing cabinets and the sockets: a drawer front (handle, label holder), steel, darker steel, a
+ * manila folder, and a wall socket's plate with two outlets. The desks are wood, the chairs' own.
+ */
+const DRAWER: Rect = { x: 0, y: 0, w: 32, h: 16 };
+const STEEL: Rect = { x: 32, y: 0, w: 16, h: 16 };
+const STEEL_DARK: Rect = { x: 48, y: 0, w: 16, h: 16 };
+const FOLDER: Rect = { x: 44, y: 16, w: 8, h: 8 };
+const SOCKET: Rect = { x: 32, y: 16, w: 12, h: 20 };
+/** A corner of the socket's plate, plain, for its edges. */
+const PLATE: Rect = { x: 32, y: 16, w: 2, h: 2 };
+const OFFICE_ATLAS_W = 64;
+const OFFICE_ATLAS_H = 36;
+
+/** One drawer's height, and the plinth under the bottom one. */
+const DRAWER_H = 0.1;
+const PLINTH = 0.012;
+
+/** How a filing cabinet is made, or bent out of shape: drawers, width, depth, and how far out each drawer is. */
+interface CabinetShape {
+  drawers: number;
+  width: number;
+  depth: number;
+  /** From the bottom drawer up. */
+  pulled: readonly number[];
+}
+
+const cabinetHeight = (shape: CabinetShape) => PLINTH + shape.drawers * DRAWER_H;
+
+/**
+ * Most cabinets are ordinary, one in three with a drawer left open; the rest a tower of drawers up through the ceiling,
+ * squat and wide, thin as a sheet, far too deep, or every drawer out like steps.
+ */
+function cabinetShape(a: number, b: number, c: number): CabinetShape {
+  const ordinary = { drawers: 4, width: 0.15, depth: 0.2 };
+  const open = (n: number) =>
+    Array.from({ length: n }, (_, i) => (c < 0.35 && i === Math.floor((c / 0.35) * n) ? 0.04 + ((c * 7) % 1) * 0.1 : 0));
+  if (a < 0.5) return { ...ordinary, pulled: open(4) };
+  if (a < 0.62) {
+    const drawers = 8 + Math.floor(b * 9);
+    return { ...ordinary, drawers, pulled: open(drawers) };
+  }
+  if (a < 0.74) {
+    const drawers = 1 + Math.floor(b * 2);
+    return { ...ordinary, drawers, width: 0.3 + b * 0.25, pulled: open(drawers) };
+  }
+  if (a < 0.84) return { ...ordinary, width: 0.035 + b * 0.02, pulled: open(4) };
+  if (a < 0.92) return { ...ordinary, depth: 0.55 + b * 0.5, pulled: open(4) };
+  return { ...ordinary, pulled: [0.18, 0.135, 0.09, 0.045] };
+}
+
+/** A filing cabinet standing on the floor, its drawers toward +z. */
+function buildCabinet(shape: CabinetShape): StatueModel {
+  const tris: number[] = [];
+  const hw = shape.width / 2;
+  const hd = shape.depth / 2;
+  const tall = cabinetHeight(shape);
+  const inset = Math.min(0.012, hw * 0.3);
+  box(tris, -hw, hw, 0, tall, -hd, hd - 0.004, STEEL, STEEL, STEEL);
+  for (let i = 0; i < shape.drawers; i++) {
+    const y0 = PLINTH + i * DRAWER_H + 0.004;
+    const y1 = PLINTH + (i + 1) * DRAWER_H - 0.004;
+    const out = shape.pulled[i] ?? 0;
+    if (out > 0) {
+      // The drawer itself, as far out as it's pulled: open at the top, a bottom, two sides and a back, and hanging
+      // folders standing in it.
+      const back = hd + out - Math.min(shape.depth * 0.9, 0.5);
+      const front = hd + out - 0.004;
+      const x0 = -hw + inset;
+      const x1 = hw - inset;
+      const floor = y0 + 0.006;
+      const rim = y1 - 0.014;
+      const T = Math.min(0.004, (x1 - x0) / 4);
+      box(tris, x0, x1, floor, floor + T, back, front, STEEL_DARK, STEEL_DARK, STEEL_DARK);
+      box(tris, x0, x0 + T, floor, rim, back, front, STEEL_DARK, STEEL_DARK, STEEL_DARK);
+      box(tris, x1 - T, x1, floor, rim, back, front, STEEL_DARK, STEEL_DARK, STEEL_DARK);
+      box(tris, x0, x1, floor, rim, back, back + T, STEEL_DARK, STEEL_DARK, STEEL_DARK);
+      const folders = Math.max(1, Math.floor((front - back) / 0.03));
+      for (let f = 0; f < folders; f++) {
+        const z = back + ((f + 0.6) / folders) * (front - back - 0.01);
+        box(tris, x0 + T, x1 - T, floor + T, rim + 0.006, z, z + 0.003, FOLDER, FOLDER, FOLDER);
+      }
+    }
+    box(tris, -hw + 0.003, hw - 0.003, y0, y1, hd + out - 0.004, hd + out + 0.008, DRAWER, STEEL, STEEL);
+  }
+  return { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [150, 152, 150] };
+}
+
+/** How a desk is made, or bent out of shape. */
+interface DeskShape {
+  length: number;
+  depth: number;
+  height: number;
+  /** Pairs of legs, front and back, spread along it. */
+  legs: number;
+  /** A shallow drawer in the front rail. */
+  drawer: boolean;
+}
+
+/**
+ * Most desks are ordinary, half of them with a drawer; the rest on legs far too long, far too long themselves, down
+ * almost to the carpet, on too many legs, or narrow as a plank.
+ */
+function deskShape(a: number, b: number, c: number): DeskShape {
+  const ordinary = { length: 0.38, depth: 0.19, height: 0.23, legs: 2, drawer: c < 0.5 };
+  if (a < 0.5) return ordinary;
+  if (a < 0.62) return { ...ordinary, height: 0.45 + b * 0.45, drawer: false };
+  if (a < 0.74) {
+    const length = 0.8 + b * 0.9;
+    return { ...ordinary, length, legs: 2 + Math.floor(length / 0.4) };
+  }
+  if (a < 0.84) return { ...ordinary, height: 0.04 + b * 0.05, drawer: false };
+  if (a < 0.92) return { ...ordinary, legs: 4 + Math.floor(b * 5) };
+  return { ...ordinary, depth: 0.04 + b * 0.03, drawer: false };
+}
+
+/**
+ * A wooden desk to go with the chairs, standing on the floor, its length across and the side you'd sit at toward +z:
+ * a top, square legs, a rail round under the top, and maybe a drawer in the front rail with a little knob.
+ */
+function buildDesk(shape: DeskShape): StatueModel {
+  const tris: number[] = [];
+  const hl = shape.length / 2;
+  const hd = shape.depth / 2;
+  const top = shape.height;
+  const thick = 0.014;
+  const L = Math.min(0.011, hd * 0.4);
+  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) =>
+    box(tris, x0, x1, y0, y1, z0, z1, WOOD, WOOD, WOOD);
+  // The top, a little proud of the legs all round.
+  part(-hl, hl, top - thick, top, -hd, hd);
+  const under = top - thick;
+  const inset = 0.008;
+  for (let i = 0; i < shape.legs; i++) {
+    const x = -hl + inset + L + (i / (shape.legs - 1)) * (shape.length - (inset + L) * 2);
+    for (const z of [-hd + inset + L, hd - inset - L]) part(x - L, x + L, 0, under, z - L, z + L);
+  }
+  // The rail round under the top, as deep as there's room for.
+  const rail = Math.min(0.035, under * 0.5);
+  if (rail > 0.006) {
+    const x0 = -hl + inset;
+    const x1 = hl - inset;
+    const z0 = -hd + inset;
+    const z1 = hd - inset;
+    part(x0, x1, under - rail, under, z1 - 0.006, z1);
+    part(x0, x1, under - rail, under, z0, z0 + 0.006);
+    part(x0, x0 + 0.006, under - rail, under, z0, z1);
+    part(x1 - 0.006, x1, under - rail, under, z0, z1);
+    if (shape.drawer) {
+      const w = Math.min(0.16, shape.length * 0.4);
+      part(-w / 2, w / 2, under - rail + 0.004, under - 0.004, z1, z1 + 0.004);
+      const mid = under - rail / 2;
+      part(-0.006, 0.006, mid - 0.005, mid + 0.005, z1 + 0.004, z1 + 0.012);
+    }
+  }
+  return { tris, atlasWidth: 32, atlasHeight: 32, stone: [120, 84, 50] };
+}
+
+/** A wall socket's half width and height, and how far it stands off the wall. */
+const SOCKET_HW = 0.0175;
+const SOCKET_H = 0.055;
+const SOCKET_T = 0.006;
+
+/** A wall socket, its back at z = 0 and its face toward +z, its foot at 0. */
+const SOCKET_MODEL: StatueModel = (() => {
+  const tris: number[] = [];
+  box(tris, -SOCKET_HW, SOCKET_HW, 0, SOCKET_H, 0, SOCKET_T, SOCKET, PLATE, PLATE);
+  return { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [226, 222, 208] };
+})();
+
+/** Steel, the drawer fronts, the laminate and the sockets, drawn. */
+export const OFFICE_SKIN: StatueSkin = (() => {
+  const W = OFFICE_ATLAS_W;
+  const data = new Uint8ClampedArray(W * OFFICE_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const GREY = [150, 152, 150];
+  const noise = (x: number, y: number) => 0.94 + 0.08 * grain(x, y + 400);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      put(STEEL.x + x, STEEL.y + y, GREY, noise(x, y));
+      put(STEEL_DARK.x + x, STEEL_DARK.y + y, [88, 90, 90], noise(x, y));
+    }
+  }
+  // A drawer front: grey, a darker edge, a label holder with a white card, a dark handle under it.
+  for (let y = 0; y < DRAWER.h; y++) {
+    for (let x = 0; x < DRAWER.w; x++) {
+      let c = GREY;
+      let m = noise(x, y + 20);
+      if (x === 0 || y === 0 || x === DRAWER.w - 1 || y === DRAWER.h - 1) m *= 0.72;
+      if (x >= 12 && x <= 19 && y >= 3 && y <= 7) c = x === 12 || x === 19 || y === 3 || y === 7 ? [110, 112, 112] : [230, 228, 214];
+      if (x >= 10 && x <= 21 && y >= 10 && y <= 11) c = [40, 40, 42];
+      put(DRAWER.x + x, DRAWER.y + y, c, m);
+    }
+  }
+  // Manila folders, a darker fold along the top.
+  for (let y = 0; y < FOLDER.h; y++) {
+    for (let x = 0; x < FOLDER.w; x++) put(FOLDER.x + x, FOLDER.y + y, [214, 184, 120], y === 0 ? 0.75 : noise(x, y + 40));
+  }
+  // The socket: an off-white plate, two outlets, each two slots and the earth hole under them.
+  for (let y = 0; y < SOCKET.h; y++) {
+    for (let x = 0; x < SOCKET.w; x++) {
+      let c = [226, 222, 208];
+      let m = 1;
+      if (x === 0 || y === 0 || x === SOCKET.w - 1 || y === SOCKET.h - 1) m = 0.8;
+      for (const top of [2, 11]) {
+        if (x >= 2 && x <= 9 && y >= top && y <= top + 6) m = 0.9;
+        if ((x === 4 || x === 7) && y >= top + 1 && y <= top + 3) c = [40, 36, 32];
+        if ((x === 5 || x === 6) && y === top + 5) c = [40, 36, 32];
+      }
+      put(SOCKET.x + x, SOCKET.y + y, c, m);
+    }
+  }
+  return { data };
+})();
+
 // ---- where they are ----
 
-export type JunkKind = "monitor" | "chair" | "sign" | "door" | "exit" | "wetFloor";
+export type JunkKind = "monitor" | "chair" | "sign" | "door" | "exit" | "wetFloor" | "cabinet" | "desk" | "socket";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -873,13 +1096,19 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
 
 /** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
-/** How many blocks have a monitor, a chair, a sign, a door, an exit sign, a wet floor sign. */
+/**
+ * How many blocks have a monitor, a chair, a sign, a door, an exit sign, a wet floor sign, a filing cabinet, a desk;
+ * and for each of two tries, how many have sockets.
+ */
 const MONITOR_CHANCE = 0.09;
 const CHAIR_CHANCE = 0.18;
 const SIGN_CHANCE = 0.15;
 const DOOR_CHANCE = 0.1;
 const EXIT_CHANCE = 0.12;
 const WET_CHANCE = 0.12;
+const CABINET_CHANCE = 0.12;
+const DESK_CHANCE = 0.12;
+const SOCKET_CHANCE = 0.45;
 
 const OUT = [
   [-1, 0],
@@ -966,6 +1195,22 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (wetRoll(0) < WET_CHANCE) {
     const spot = spotIn(map, bx, by, wetRoll);
     if (spot) found.push(placeWetFloor(`w${bx},${by}`, spot, wetRoll));
+  }
+  const cabinetRoll = (k: number) => map.noise(bx * 31 + k, by, 760);
+  if (cabinetRoll(0) < CABINET_CHANCE) {
+    const spot = spotIn(map, bx, by, cabinetRoll);
+    if (spot) found.push(placeCabinet(`f${bx},${by}`, spot, cabinetRoll));
+  }
+  const deskRoll = (k: number) => map.noise(bx * 31 + k, by, 770);
+  if (deskRoll(0) < DESK_CHANCE) {
+    const spot = spotIn(map, bx, by, deskRoll);
+    if (spot) found.push(placeDesk(`t${bx},${by}`, spot, deskRoll));
+  }
+  for (const salt of [780, 790]) {
+    const socketRoll = (k: number) => map.noise(bx * 31 + k, by, salt);
+    if (socketRoll(0) >= SOCKET_CHANCE) continue;
+    const spot = spotIn(map, bx, by, socketRoll);
+    if (spot) found.push(...placeSockets(`o${salt}.${bx},${by}`, spot, socketRoll));
   }
   return found;
 }
@@ -1395,6 +1640,144 @@ function placeWetFloor(key: string, spot: Spot, roll: (k: number) => number): Ju
   // Upside down, its feet up in the ceiling space.
   const pose = { x, y, h: 1 + buried(WET_H, roll(53)), yaw, pitch: 0, roll: Math.PI };
   return { ...base, ...pose, solid: solidThrough(pose, 1, 0.1, pose.h - WET_H > HEAD_ROOM) };
+}
+
+/** In the way along a line through (x, y) half `ax, ay` each way, r either side of it. */
+const slab = (x: number, y: number, ax: number, ay: number, r: number, overhead = false): Solid => ({
+  x,
+  y,
+  r,
+  along: [ax, ay],
+  overhead,
+});
+
+/**
+ * Something that stands, put somewhere: back against the wall facing out (`wall`), aslant into the wall, standing
+ * in the room, sunk into the carpet, or upside down in the ceiling. `inWay` gives what's in the way at a point, for
+ * a yaw; `reach` is how much of it is reckoned to go into a wall; `back` is how far its middle stands off the wall
+ * when it's up against it.
+ */
+function placeFurniture(
+  spot: Spot,
+  roll: (k: number) => number,
+  tall: number,
+  reach: number,
+  back: number,
+  inWay: (x: number, y: number, yaw: number, overhead?: boolean) => Solid,
+): Pose & { solid: Solid | null } {
+  const how = roll(40);
+  if (how < 0.3 && spot.wall) {
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const x = fx - ox * back;
+    const y = fy - oy * back;
+    const yaw = Math.atan2(-oy, -ox);
+    return { x, y, h: 0, yaw, pitch: 0, roll: 0, solid: tall < STEP ? null : inWay(x, y, yaw) };
+  }
+  if (how < 0.5 && spot.wall) {
+    const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const w = intoWall(fx, fy, spot.wall, reach, roll(47));
+    return {
+      x: w.x,
+      y: w.y,
+      h: -0.1 + roll(43) * 0.25,
+      yaw: roll(44) * Math.PI * 2,
+      pitch: (roll(45) - 0.5) * 1.2,
+      roll: (roll(46) - 0.5) * 1.2,
+      solid: wallSolid(fx, fy, spot.wall, w.out),
+    };
+  }
+  const x = spot.cx + 0.3 + roll(50) * 0.4;
+  const y = spot.cy + 0.3 + roll(51) * 0.4;
+  // Half of them square to the walls, the rest at any angle.
+  const yaw =
+    roll(52) < 0.5 ? Math.floor(roll(53) * 4) * (Math.PI / 2) + (roll(54) - 0.5) * 0.1 : roll(53) * Math.PI * 2;
+  if (how < 0.65) return { x, y, h: 0, yaw, pitch: 0, roll: 0, solid: tall < STEP ? null : inWay(x, y, yaw) };
+  if (how < 0.85) {
+    const sunk = buried(tall, roll(55));
+    const pose = { x, y, h: -sunk, yaw, pitch: (roll(56) - 0.5) * 1, roll: (roll(57) - 0.5) * 1 };
+    const [sx, sy] = through(pose, 0);
+    return { ...pose, solid: tall - sunk < STEP ? null : inWay(sx, sy, yaw) };
+  }
+  const pose = {
+    x,
+    y,
+    h: 1 + buried(tall, roll(55)),
+    yaw,
+    pitch: (roll(56) - 0.5) * 0.5,
+    roll: Math.PI + (roll(57) - 0.5) * 0.5,
+  };
+  const [sx, sy] = through(pose, 1);
+  return { ...pose, solid: inWay(sx, sy, yaw, pose.h - tall > HEAD_ROOM) };
+}
+
+/** Filing cabinets: backed up to a wall, aslant in one, standing about, sunk in the carpet, or in the ceiling. */
+function placeCabinet(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const shape = cabinetShape(roll(70), roll(71), roll(72));
+  const hd = shape.depth / 2;
+  // In the way from back to front, as wide as it is.
+  const inWay = (x: number, y: number, yaw: number, overhead = false) =>
+    slab(x, y, Math.cos(yaw) * hd, Math.sin(yaw) * hd, shape.width / 2 + 0.01, overhead);
+  const reach = Math.max(shape.width, Math.min(shape.depth, 0.6), 0.2);
+  const placed = placeFurniture(spot, roll, cabinetHeight(shape), reach, hd + 0.005, inWay);
+  return { key, kind: "cabinet", model: buildCabinet(shape), ...placed };
+}
+
+/** Desks: pushed up to a wall to be worked at, aslant in one, standing about, sunk in the carpet, or in the ceiling. */
+function placeDesk(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const shape = deskShape(roll(70), roll(71), roll(72));
+  const hl = shape.length / 2;
+  // In the way from end to end, as deep as it is.
+  const inWay = (x: number, y: number, yaw: number, overhead = false) =>
+    slab(x, y, Math.sin(yaw) * hl, -Math.cos(yaw) * hl, shape.depth / 2 + 0.01, overhead);
+  const reach = Math.max(Math.min(shape.length, 0.6), 0.25);
+  const placed = placeFurniture(spot, roll, shape.height, reach, shape.depth / 2 + 0.005, inWay);
+  return { key, kind: "desk", model: buildDesk(shape), ...placed };
+}
+
+/**
+ * Wall sockets, by the skirting where they belong, or somewhere no one could reach, now and then upside down, and
+ * once in a while a whole run of them up the wall or along it. Never in the way.
+ */
+function placeSockets(key: string, spot: Spot, roll: (k: number) => number): Junk[] {
+  if (!spot.wall) return [];
+  const [ox, oy] = spot.wall;
+  // Along the wall.
+  const tx = oy !== 0 ? 1 : 0;
+  const ty = ox !== 0 ? 1 : 0;
+  const [fx, fy] = wallFace(spot, spot.wall, 0.2 + roll(42) * 0.6);
+  const yaw = Math.atan2(-oy, -ox);
+  const flip = roll(44) < 0.15 ? Math.PI : 0;
+  const one = (i: number, along: number, h: number): Junk => ({
+    key: `${key}.${i}`,
+    kind: "socket",
+    model: SOCKET_MODEL,
+    x: fx + tx * along,
+    y: fy + ty * along,
+    // Upside down, it turns about its foot, so it's lifted by its own height to stay where it was.
+    h: flip ? h + SOCKET_H : h,
+    yaw,
+    pitch: 0,
+    roll: flip,
+    solid: null,
+  });
+  const how = roll(40);
+  if (how < 0.6) return [one(0, 0, 0.06 + roll(43) * 0.04)];
+  if (how < 0.85) return [one(0, 0, 0.1 + roll(43) * 0.8)];
+  if (how < 0.95) {
+    // A column of them, up from the skirting.
+    const count = 3 + Math.floor(roll(45) * 6);
+    const gap = 0.07 + roll(46) * 0.05;
+    return Array.from({ length: count }, (_, i) => one(i, 0, 0.06 + i * gap)).filter((s) => s.h < 0.95);
+  }
+  // A row of them along the wall, all at one height.
+  const count = 3 + Math.floor(roll(45) * 4);
+  const gap = 0.06 + roll(46) * 0.04;
+  const h = 0.06 + roll(43) * 0.6;
+  const start = Math.max(-0.45 + roll(42) * 0.1, -((count - 1) * gap) / 2);
+  return Array.from({ length: count }, (_, i) => one(i, start + i * gap, h)).filter(
+    (s) => Math.abs((tx ? s.x : s.y) - (tx ? spot.cx : spot.cy) - 0.5) < 0.47,
+  );
 }
 
 // ---- putting one in place ----
