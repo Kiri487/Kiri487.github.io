@@ -1,4 +1,5 @@
 import { tileGone } from "./decay";
+import { graffitiOn, paintAt, tagArt, type GraffitiLevel, type Tag } from "./graffiti";
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
 import {
@@ -111,6 +112,13 @@ export class Renderer {
     this.posters = posters;
   }
 
+  /** How XN's graffiti reads right now: her words through the visitor's SAN. Plain until the game says otherwise. */
+  private readGraffiti: (text: string) => string = (text) => text;
+
+  setGraffitiReader(read: (text: string) => string) {
+    this.readGraffiti = read;
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
@@ -198,6 +206,10 @@ export class Renderer {
     ceilingPosters.fill(undefined);
     const ceilingHoles = this.ceilingHoles;
     ceilingHoles.fill(-1);
+    // The graffiti on the face of wall being drawn, looked up once per face, and what it shows this frame.
+    let tagKey = "";
+    let tag: Tag | null = null;
+    let tagMask: GraffitiLevel[] | null = null;
 
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
@@ -421,12 +433,12 @@ export class Renderer {
       const gap = this.gaps[x] < effects.wallGaps;
 
       // The posters on this face of wall that this column crosses. Across the face runs left to right as seen.
+      const face = side === 0 ? (stepX > 0 ? 0 : 1) : stepY > 0 ? 2 : 3;
+      const key = `${mapX},${mapY},${face}`;
       crossed.length = 0;
       crossedLevel.length = 0;
       let across = 0;
       if (posters.length) {
-        const face = side === 0 ? (stepX > 0 ? 0 : 1) : stepY > 0 ? 2 : 3;
-        const key = `${mapX},${mapY},${face}`;
         if (key !== faceKey) {
           faceKey = key;
           onFace = postersOn(map, mapX, mapY, face, tuning, posterAspect);
@@ -444,6 +456,15 @@ export class Renderer {
           }
         }
       }
+      // XN's graffiti on this face, if any, at the size whose pixels are about as big as the screen's.
+      if (key !== tagKey) {
+        tagKey = key;
+        tag = graffitiOn(map, mapX, mapY, face, tuning);
+        tagMask = tag ? tagArt(tag, tag.text ? this.readGraffiti(tag.text) : "") : null;
+      }
+      const along = (side === 0 ? mapY : mapX) + wallX;
+      const painted = tag && tagMask && along >= tag.from && along < tag.to ? tag : null;
+      const tagLevel = painted ? Math.max(0, Math.floor(Math.log2(Math.max(1, painted.px / Math.max(1, lineH))))) : 0;
       for (let y = y0; y <= y1; y++) {
         if (gap && y > horizon) {
           const o = (y * W + x) * 4;
@@ -480,6 +501,17 @@ export class Renderer {
           break;
         }
         if (papered) continue;
+        if (painted && tagMask) {
+          const a = paintAt(painted, tagMask, tagLevel, along, tv);
+          if (a > 0) {
+            const b = 1 - a;
+            const paint = painted.colour;
+            d[o] = (tex[ti] * b + paint[0] * a) * li + ar;
+            d[o + 1] = (tex[ti + 1] * b + paint[1] * a) * li + ag;
+            d[o + 2] = (tex[ti + 2] * b + paint[2] * a) * li + ab;
+            continue;
+          }
+        }
         d[o] = tex[ti] * li + ar;
         d[o + 1] = tex[ti + 1] * li + ag;
         d[o + 2] = tex[ti + 2] * li + ab;

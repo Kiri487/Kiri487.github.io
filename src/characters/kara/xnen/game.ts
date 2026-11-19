@@ -310,6 +310,8 @@ export function createGame(parts: GameParts): Game {
   const { stage, canvas, tuning, touch } = parts;
   const reduced = prefersReducedMotion();
   const renderer = new Renderer(canvas);
+  // XN's graffiti reads as her subtitles do: through the visitor's SAN, a word at a time.
+  renderer.setGraffitiReader((text) => readAs(text, xnReadable()));
   const light = new Lighting();
   let timecode = new Timecode();
   let player = new Player();

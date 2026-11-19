@@ -28,6 +28,8 @@ export interface Tuning {
   /** How many of the cult's posters there are, in percent: everywhere, and the extra near statues. */
   posters: number;
   posterNear: number;
+  /** How much of XN's graffiti there is, in percent. */
+  graffiti: number;
 }
 
 export const DEFAULT_TUNING: Tuning = {
@@ -47,4 +49,5 @@ export const DEFAULT_TUNING: Tuning = {
   xnReach: 80,
   posters: 100,
   posterNear: 100,
+  graffiti: 100,
 };
