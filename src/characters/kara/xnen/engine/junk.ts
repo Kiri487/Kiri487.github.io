@@ -21,6 +21,13 @@ const VENTS = { x: 32, y: 32, w: 32, h: 32 };
 type Rect = { x: number; y: number; w: number; h: number };
 type V3 = [number, number, number];
 
+/**
+ * Faces are cut into tiles no bigger than this. The drawing skips a whole triangle with a corner too close to the eye
+ * or behind it, so a big face (a desk's top, seen standing over it) would vanish all at once; small tiles only go
+ * where they really are that close.
+ */
+const TILE = 0.1;
+
 /** A face of four corners, counter-clockwise seen from outside, painted with a rect of the atlas. */
 function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect) {
   const u0 = r.x + 0.5;
@@ -28,8 +35,25 @@ function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect) {
   const u1 = r.x + r.w - 0.5;
   const v1 = r.y + r.h - 0.5;
   // a bottom left, b bottom right, c top right, d top left, as the face is seen.
-  out.push(...a, u0, v1, ...b, u1, v1, ...c, u1, v0, 0);
-  out.push(...a, u0, v1, ...c, u1, v0, ...d, u0, v0, 0);
+  const across = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / TILE));
+  const up = Math.max(1, Math.ceil(Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]) / TILE));
+  // The point s across and t up, and its place in the atlas.
+  const at = (s: number, t: number) => {
+    const p = [0, 1, 2].map(
+      (k) => a[k] * (1 - s) * (1 - t) + b[k] * s * (1 - t) + c[k] * s * t + d[k] * (1 - s) * t,
+    );
+    return [...p, u0 + (u1 - u0) * s, v1 + (v0 - v1) * t];
+  };
+  for (let j = 0; j < up; j++) {
+    for (let i = 0; i < across; i++) {
+      const pa = at(i / across, j / up);
+      const pb = at((i + 1) / across, j / up);
+      const pc = at((i + 1) / across, (j + 1) / up);
+      const pd = at(i / across, (j + 1) / up);
+      out.push(...pa, ...pb, ...pc, 0);
+      out.push(...pa, ...pc, ...pd, 0);
+    }
+  }
 }
 
 /** A box from (x0, y0, z0) to (x1, y1, z1); `front` paints the +z face, `back` the −z face, `side` the rest. */
