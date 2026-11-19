@@ -433,6 +433,8 @@ export interface Tag {
   px: number;
   /** Whether the mask runs the opposite way to the world's axis, so it reads left to right from its side. */
   reversed: boolean;
+  /** Its middle on the wall's face, as a point in the place (z up from the floor), and the way the face looks. */
+  centre: { x: number; y: number; z: number; nx: number; ny: number };
   /** Whether XN has put anything of hers over the top. */
   over: boolean;
   /** How heavy the paint went on, and its colour. */
@@ -1105,6 +1107,7 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
     maskH: Math.ceil(h * px),
     px,
     reversed,
+    centre: { x: 0, y: 0, z: 0, nx: 0, ny: 0 },
     over: placed.some((p) => p.item.layer === 1),
     strength: 0.78 + r(5) * 0.2,
     colour: plan.colour,
@@ -1398,10 +1401,35 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
       // world's axis runs right to left.
       const reversed = dir === 0 ? side === 0 : side === 1;
       tag = layOut(plan, kind, plan.text ?? text, seed, (dir === 0 ? lx : ly) * 5 + first, count, reversed);
+      if (tag) {
+        // Side 0 looks north (or west), out from the wall cells' near edge; side 1 south (or east), from the far one.
+        const along = (tag.from + tag.to) / 2;
+        const line = (dir === 0 ? ly : lx) * 5 + side;
+        const out = side ? 1 : -1;
+        const z = 1 - (tag.top + tag.bottom) / 2;
+        tag.centre =
+          dir === 0 ? { x: along, y: line, z, nx: 0, ny: out } : { x: line, y: along, z, nx: out, ny: 0 };
+      }
     }
   }
   tags.set(key, tag);
   return tag;
+}
+
+/** Every tag whose middle is within `radius` of (x, y). */
+export function graffitiNear(map: WorldMap, x: number, y: number, radius: number, tuning: Tuning): Tag[] {
+  const out: Tag[] = [];
+  for (let ly = Math.floor((y - radius) / 5) - 1; ly <= Math.floor((y + radius) / 5) + 1; ly++) {
+    for (let lx = Math.floor((x - radius) / 5) - 1; lx <= Math.floor((x + radius) / 5) + 1; lx++) {
+      for (let dir = 0; dir < 2; dir++) {
+        for (let side = 0; side < 2; side++) {
+          const tag = tagOn(map, lx, ly, dir, side, tuning);
+          if (tag && Math.hypot(tag.centre.x - x, tag.centre.y - y) <= radius) out.push(tag);
+        }
+      }
+    }
+  }
+  return out;
 }
 
 /**

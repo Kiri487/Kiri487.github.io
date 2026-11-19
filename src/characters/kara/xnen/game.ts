@@ -18,7 +18,7 @@ import {
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
-import { inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
+import { graffitiNear, inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
 import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
 import {
@@ -39,7 +39,9 @@ import { forgetMeetings, Talk } from "./talk";
 import {
   NOT_ON_WALLS,
   randomWalk,
+  floorSpot,
   spotOn,
+  topSpot,
   wallSpot,
   Xn,
   XN_ACTIONS,
@@ -58,6 +60,28 @@ import {
  * Runs the place: input, the frame loop, the tape's PLAY / PAUSE / REW / STOP, sound. Everything here is plain DOM
  * and canvas; XnenWorld only lays out the page and shows what this reports.
  */
+
+/**
+ * What XN can do with something near her. Get up on a chair, a desk, a filing cabinet or a monitor lying back
+ * (stand, crouch, or sit on the edge with her legs hanging, still or swinging), the same upside down under a chair
+ * in the ceiling; stand at a door, or sit or crouch facing it or with her back to it; stand, sit or
+ * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign.
+ */
+export type PropTarget = "chair" | "desk" | "cabinet" | "monitor" | "hung" | "door" | "graffiti" | "portrait" | "sign";
+export type PropPose = "stand" | "crouch" | "perch" | "swing" | "sit" | "sitBack" | "crouchBack";
+
+/** Which poses go with which things. */
+export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
+  chair: ["stand", "crouch", "perch", "swing"],
+  desk: ["stand", "crouch", "perch", "swing"],
+  cabinet: ["stand", "crouch", "perch", "swing"],
+  monitor: ["stand", "crouch", "perch", "swing"],
+  hung: ["stand", "crouch", "perch", "swing"],
+  door: ["stand", "sit", "crouch", "sitBack", "crouchBack"],
+  graffiti: ["stand", "sit", "crouch"],
+  portrait: ["stand", "sit", "crouch"],
+  sign: ["stand", "sit", "crouch"],
+};
 
 /** Kiri's dev panel: where XN is put and what she does, to look at each action on each surface. */
 export interface XnPreview {
@@ -128,6 +152,11 @@ export interface Game {
   previewXn: (next: XnPreview, restart: boolean) => void;
   /** The dev panel: XN moves on now, as if the visitor had looked away long enough. */
   moveXnOn: () => void;
+  /**
+   * The dev panel: XN goes to the nearest thing of this kind to the visitor and does this with it; asked again for
+   * the same, she goes to the next nearest, and so on round.
+   */
+  previewXnProp: (target: PropTarget, pose: PropPose) => void;
   /** The dev panel: XN forgets every meeting, as if the visitor had never been. */
   forgetXnMeetings: () => void;
   dispose: () => void;
@@ -218,6 +247,17 @@ const XN_TAIL_UP = 0.3;
 const XN_SWING_ARMS = 0.3;
 /** Spots tried for her, each time. */
 const XN_TRIES = 80;
+/** How likely she is, each time she turns up, to be at something near her (getting up on it, looking at it). */
+const XN_PROP_CHANCE = 0.5;
+/** Looking at graffiti or a sign, she's this far from it, at least and at most. */
+const XN_LOOK_AWAY = [0.45, 0.8] as const;
+/** At a door: facing it, how far off she stands or sits; with her back to it, how far her heels are. */
+const XN_DOOR_FACING = 0.3;
+const XN_DOOR_BACK = 0.12;
+/** Her head tipped this far, looking at her own drawing. */
+const XN_CURIOUS = 0.3;
+/** Sitting on an edge, her hips this far back from it. */
+const XN_EDGE_BACK = 0.035;
 
 /** Somewhere between the two, at random. */
 function between([low, high]: readonly [number, number]) {
@@ -325,6 +365,9 @@ export function createGame(parts: GameParts): Game {
     skin = loaded;
   });
   let xn: Xn | null = null;
+  /** The dev panel's last thing-and-pose for XN, and how many times running it's been asked for. */
+  let propKey = "";
+  let propTurn = 0;
   let xnSkin: StatueSkin | null = null;
   let xnPreview = { ...parts.xnPreview };
   /** She's in the place now; when she isn't, she turns up once `xnAway` runs out. */
@@ -880,8 +923,164 @@ export function createGame(parts: GameParts): Game {
     return dist <= tuning.xnReach / 100 && (dx * Math.cos(player.angle) + dy * Math.sin(player.angle)) / (dist || 1) > FACING;
   };
 
+  // ---- XN and things ----
+
+  /** Something near her that XN can do something with: what it is, how far it is, and where. */
+  interface Thing {
+    target: PropTarget;
+    x: number;
+    y: number;
+    junk: Junk | null;
+    /** To get up on: the middle of its top, the way its front faces, how far its front edge is. */
+    perch?: { x: number; y: number; z: number; yaw: number; edge: number };
+    /** A door's foot and the way it faces, and whether its back is free. */
+    door?: { x: number; y: number; yaw: number; both: boolean };
+    /** To look at: its middle and the way it faces out. */
+    look?: { x: number; y: number; z: number; nx: number; ny: number };
+  }
+
+  /** Everything near (x, y) she could do something with. */
+  const thingsNear = (x: number, y: number, radius: number): Thing[] => {
+    const out: Thing[] = [];
+    for (const junk of junkAround(map, x, y, radius)) {
+      if (junk.perch) {
+        const target = junk.perch.ceiling ? "hung" : (junk.kind as PropTarget);
+        out.push({ target, x: junk.perch.x, y: junk.perch.y, junk, perch: junk.perch });
+      }
+      if (junk.doorway) out.push({ target: "door", x: junk.x, y: junk.y, junk, door: junk.doorway });
+      if (junk.plate) {
+        const { x: px, y: py, z, yaw } = junk.plate;
+        const look = { x: px, y: py, z, nx: Math.cos(yaw), ny: Math.sin(yaw) };
+        out.push({ target: "sign", x: px, y: py, junk, look });
+      }
+    }
+    for (const tag of graffitiNear(map, x, y, radius, tuning)) {
+      const target = tag.kind === "portrait" ? "portrait" : "graffiti";
+      out.push({ target, x: tag.centre.x, y: tag.centre.y, junk: null, look: tag.centre });
+    }
+    return out;
+  };
+
+  /** Whether there's room for her middle at (x, y) on the floor, minding everything but the thing she's at. */
+  const roomBy = (x: number, y: number, except: Junk | null) =>
+    roomFor(x, y) &&
+    !nearJunk.some(
+      (junk) =>
+        junk !== except &&
+        junk.solid &&
+        !junk.solid.overhead &&
+        solidDistance(junk.solid, x, y) < junk.solid.r + XN_RADIUS,
+    );
+
+  /** Where she goes and what she does, to do `pose` with `thing`; null if there's no room for it. */
+  interface Plan {
+    spot: XnSpot;
+    action: XnAction;
+    gaze: Point | null;
+    swing: boolean;
+    curious: number;
+    /** Her tail up: on a chair's seat there's a backrest behind her for it to go through. */
+    tailUp?: boolean;
+  }
+
+  const planFor = (thing: Thing, pose: PropPose): Plan | null => {
+    const still = { swing: false, curious: 0 };
+    if (thing.perch) {
+      const { x, y, z, yaw, edge } = thing.perch;
+      const hanging = thing.target === "hung";
+      if (pose === "perch" || pose === "swing") {
+        // On the front edge, hips just back from it, facing out over it.
+        const back = edge - XN_EDGE_BACK;
+        const spot = topSpot(x + Math.cos(yaw) * back, y + Math.sin(yaw) * back, z, yaw, hanging);
+        const chair = thing.target === "chair" || hanging;
+        return { spot, action: "perch", gaze: null, swing: pose === "swing", curious: 0, tailUp: chair };
+      }
+      if (pose !== "stand" && pose !== "crouch") return null;
+      // Upside down under a chair in the ceiling, her feet on the underside of its seat.
+      const spot = topSpot(x, y, z, yaw + (Math.random() - 0.5) * 1.2, hanging);
+      return { spot, action: pose, gaze: null, ...still };
+    }
+    if (thing.door) {
+      const { x, y, yaw, both } = thing.door;
+      const side = both && Math.random() < 0.5 ? -1 : 1;
+      const nx = Math.cos(yaw) * side;
+      const ny = Math.sin(yaw) * side;
+      const back = pose === "sitBack" || pose === "crouchBack";
+      const d = back ? XN_DOOR_BACK : XN_DOOR_FACING;
+      const sx = x + nx * d;
+      const sy = y + ny * d;
+      // Her middle out from the door, whichever way she faces.
+      const mx = x + nx * (d + 0.06);
+      const my = y + ny * (d + 0.06);
+      if (!roomBy(mx, my, thing.junk)) return null;
+      const action: XnAction = pose === "stand" ? "stand" : pose === "sit" || pose === "sitBack" ? "sit" : "crouch";
+      const facing = back ? Math.atan2(ny, nx) : Math.atan2(-ny, -nx);
+      const gaze: Point | null = back ? null : [x, y, 0.4];
+      return { spot: floorSpot(sx, sy, facing), action, gaze, ...still };
+    }
+    if (thing.look) {
+      const { x, y, z, nx, ny } = thing.look;
+      const d = between(XN_LOOK_AWAY);
+      const sx = x + nx * d;
+      const sy = y + ny * d;
+      if (!roomBy(sx, sy, thing.junk)) return null;
+      const action: XnAction = pose === "sit" ? "sit" : pose === "crouch" ? "crouch" : "stand";
+      // Facing it, a little off square.
+      const facing = Math.atan2(-ny, -nx) + (Math.random() - 0.5) * 0.4;
+      return {
+        spot: floorSpot(sx, sy, facing),
+        action,
+        gaze: [x, y, z],
+        swing: false,
+        curious: thing.target === "portrait" ? XN_CURIOUS * (Math.random() < 0.5 ? -1 : 1) : 0,
+      };
+    }
+    return null;
+  };
+
+  /** Puts her there, doing that. */
+  const carryOut = (who: Xn, plan: Plan) => {
+    who.moveTo(plan.spot);
+    who.act(plan.action, plan.gaze);
+    who.swingLegs = plan.swing;
+    who.curious = plan.curious;
+    if (plan.tailUp) who.manner = { ...who.manner, tailUp: true };
+  };
+
+  /**
+   * Something near the visitor for XN to do something with, out of their view: one with nothing between, if any of
+   * those near is; any out of view otherwise. Null if none is.
+   */
+  const pickXnProp = (who: Xn, cam: Camera): Plan | null => {
+    const things = thingsNear(cam.x, cam.y, XN_FAR);
+    for (let i = things.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [things[i], things[j]] = [things[j], things[i]];
+    }
+    let fallback: Plan | null = null;
+    for (const thing of things) {
+      const poses = PROP_POSES[thing.target];
+      const plan = planFor(thing, poses[Math.floor(Math.random() * poses.length)]);
+      if (!plan) continue;
+      const [mx, my] = who.middleOf(plan.spot);
+      const away = Math.hypot(mx - cam.x, my - cam.y);
+      if (away < XN_NEAR || away > XN_FAR || sees(cam, mx, my)) continue;
+      if (clearBetween(cam.x, cam.y, mx, my)) return plan;
+      if (!fallback) fallback = plan;
+    }
+    return fallback;
+  };
+
   /** Puts XN somewhere new near the visitor, doing something new. False if there was nowhere. */
   const relocateXn = (who: Xn, cam: Camera) => {
+    // Half the time, at something near the visitor, if there's anything.
+    const prop = Math.random() < XN_PROP_CHANCE ? pickXnProp(who, cam) : null;
+    if (prop) {
+      who.manner = { tailUp: Math.random() < XN_TAIL_UP, swingArms: false };
+      carryOut(who, prop);
+      settleXn();
+      return true;
+    }
     const spot = pickXnSpot(who, cam);
     if (!spot) return false;
     who.moveTo(spot);
@@ -1378,6 +1577,24 @@ export function createGame(parts: GameParts): Game {
     },
     moveXnOn() {
       if (xn && relocateXn(xn, playerCamera())) redrawHeld();
+    },
+    previewXnProp(target, pose) {
+      if (!xn) return;
+      // The things of this kind near the visitor, nearest first; asked again, the next one.
+      const things = thingsNear(player.x, player.y, 25)
+        .filter((thing) => thing.target === target)
+        .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
+      const key = `${target}:${pose}`;
+      propTurn = key === propKey ? propTurn + 1 : 0;
+      propKey = key;
+      for (let k = 0; k < things.length; k++) {
+        const plan = planFor(things[(propTurn + k) % things.length], pose);
+        if (!plan) continue;
+        carryOut(xn, plan);
+        settleXn();
+        redrawHeld();
+        return;
+      }
     },
     dispose() {
       left = true;

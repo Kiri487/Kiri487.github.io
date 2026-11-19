@@ -5,7 +5,9 @@ import type { StatueMesh } from "./engine/statue";
 /*
  * XN in her backrooms. She stands on the floor, hangs from the ceiling or sticks out of a wall, and does one thing
  * where she is: stands, stares at a light or the carpet, faces the wall, crouches, sits hugging her knees, turns
- * on the spot, or walks (a different way every time) wherever the game's route takes her. On top of any of them her tail can be up or down, and her arms still or swinging. She minds her own
+ * on the spot, or walks (a different way every time) wherever the game's route takes her. She also gets up on
+ * things (a chair, a desk, a filing cabinet, a monitor) to stand, crouch or sit on the edge with her legs hanging,
+ * swinging them or not; and stands, sits or crouches at a door, or in front of graffiti or a sign, looking at it. On top of any of them her tail can be up or down, and her arms still or swinging. She minds her own
  * business until the visitor comes near; then her head follows them, and only her head: her body carries on with
  * what it was doing. Her tail and hair always move a little, and once in
  * a while her head twitches.
@@ -47,7 +49,8 @@ const HAIR_RIGHT = ["hair_side_r_1", "hair_side_r_2", "hair_side_r_3"];
 
 export type XnSurface = "floor" | "ceiling" | "wall";
 
-export type XnAction = "stand" | "lamp" | "carpet" | "faceWall" | "crouch" | "sit" | "spin" | "walk";
+/** `perch` sits on an edge, legs hanging: only on something she's got up on. */
+export type XnAction = "stand" | "lamp" | "carpet" | "faceWall" | "crouch" | "sit" | "spin" | "walk" | "perch";
 
 /** Everything she can do, in the dev panel's order. */
 export const XN_ACTIONS: readonly XnAction[] = ["stand", "lamp", "carpet", "faceWall", "crouch", "sit", "spin", "walk"];
@@ -84,6 +87,21 @@ export function spotOn(surface: XnSurface, x: number, y: number, facing: number)
 }
 
 /**
+ * On top of something at height z, facing `facing`; or, `hanging`, from the underside of something upside down in
+ * the ceiling, her head toward the floor.
+ */
+export function topSpot(x: number, y: number, z: number, facing: number, hanging = false): XnSpot {
+  return {
+    surface: hanging ? "ceiling" : "floor",
+    x,
+    y,
+    z,
+    up: [0, 0, hanging ? -1 : 1],
+    front: [Math.cos(facing), Math.sin(facing), 0],
+  };
+}
+
+/**
  * Sticking straight out of a wall, half way up it. (x, y) is on the wall's face, `out` the way the face looks
  * (radians), and `along` (1 or −1) which way along the wall her front points.
  */
@@ -110,6 +128,7 @@ const REST_NOD: Record<XnAction, number> = {
   sit: 0.3,
   spin: 0,
   walk: 0.1,
+  perch: 0.15,
 };
 
 /**
@@ -167,6 +186,16 @@ export interface XnSit {
 export const DEFAULT_SIT: XnSit = { seat: 0.03, knees: 2.5, spread: 0, lean: 0.5, arms: 1.25, fold: 1.3, feet: 0.2 };
 /** Her right thigh is raised this much less than her left, so she isn't a mirror image. */
 const SIT_UNEVEN = 0.2;
+
+/**
+ * Sitting on an edge: her hip joints this high over what she sits on, her thighs out level over the edge (a little
+ * apart, the right one a touch higher), her shins hanging; swinging, each leg this far either way, this many times a
+ * second, the two out of step.
+ */
+const PERCH_SEAT = 0.035;
+const PERCH_SPREAD = 0.08;
+const PERCH_SWING = 0.4;
+const PERCH_SWING_RATE = 1.3;
 
 /**
  * Walking, not quite right: one leg lagging, her body rolling over each foot and her head
@@ -242,8 +271,8 @@ export type XnRoute = (spot: XnSpot, distance: number, dt: number) => XnSpot;
 const STUTTER_MIN = 0.3;
 const STUTTER_MAX = 0.8;
 
-/** Her arms are busy (on her knees): they never swing. */
-const ARMS_BUSY = new Set<XnAction>(["crouch", "sit"]);
+/** Her arms are busy (on her knees, or holding the edge): they never swing. */
+const ARMS_BUSY = new Set<XnAction>(["crouch", "sit", "perch"]);
 
 /** Looking away from the visitor at something: she takes her time turning to them. */
 const SLOW_TO_NOTICE = new Set<XnAction>(["faceWall", "carpet"]);
@@ -268,6 +297,10 @@ export class Xn {
   route: XnRoute | null = null;
   /** She stops walking and stands, while the visitor talks to her. */
   halted = false;
+  /** Sitting on an edge, she swings her legs. */
+  swingLegs = false;
+  /** Her head tipped to one side while she looks at something (her own drawing): radians, 0 for none. */
+  curious = 0;
   private readonly neck: number;
   private readonly head: number;
   private readonly spine: number;
@@ -362,6 +395,7 @@ export class Xn {
   act(action: XnAction, gaze: Point | null) {
     this.action = action;
     this.gaze = gaze;
+    this.curious = 0;
     this.actionClock = 0;
     this.gait = 0;
     this.frozen = 0;
@@ -482,6 +516,24 @@ export class Xn {
       rightOver = 0.15;
       // Lying flat behind her.
       tailLift = 1.4;
+    } else if (this.action === "perch") {
+      // On the edge: her seat on it, thighs out level over the edge, shins hanging from the knee and swinging, if she
+      // swings them, one leg against the other.
+      figure.shift(0, PERCH_SEAT - HIP_HEIGHT, 0);
+      headDrop = HIP_HEIGHT - PERCH_SEAT;
+      const swing = this.swingLegs ? PERCH_SWING : 0;
+      this.thighs.forEach((thigh, i) => {
+        const kick = swing * Math.sin(ta * PERCH_SWING_RATE * Math.PI * 2 + (i === 1 ? Math.PI : 0));
+        figure.turn(thigh, 0, -Math.PI / 2 + (i === 1 ? 0.06 : 0), i === 0 ? -PERCH_SPREAD : PERCH_SPREAD);
+        figure.turn(this.shins[i], 0, Math.PI / 2 - kick);
+        figure.turn(this.feet[i], 0, 0.35 + kick * 0.3);
+      });
+      lean = 0.12;
+      // Hands down beside her, on the edge.
+      upperArm = -0.15;
+      armIn = -0.18;
+      // Lying flat behind her on what she sits on, as on the floor, not down through it.
+      tailLift = 1.4;
     } else if (walking) {
       const { stride, lift, limp, sway, loll: lolls, lean: forward } = this.walk;
       const g = this.gait;
@@ -567,7 +619,8 @@ export class Xn {
     this.headStrain += (wantStrain - this.headStrain) * k;
     this.headSwing = step ? (this.headYaw - before) / step : 0;
 
-    let tilt = (still ? 0 : 0.05 * Math.sin(t * 0.9)) + this.headStrain + loll;
+    // Looking at something of her own, not at the visitor, she tips her head to one side.
+    let tilt = (still ? 0 : 0.05 * Math.sin(t * 0.9)) + this.headStrain + loll + (this.watching ? 0 : this.curious);
     if (!still) {
       this.nextTwitch -= step;
       if (this.nextTwitch <= 0) {
