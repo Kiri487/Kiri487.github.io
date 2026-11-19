@@ -18,7 +18,7 @@ import {
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
-import { inkOf, setDrawings, type Drawing } from "./engine/graffiti";
+import { inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
 import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
 import {
@@ -98,10 +98,8 @@ export interface GameParts {
   xnAtlasUrl: string;
   /** The Weed Cat Cult's poster. */
   posterUrl: string;
-  /** The drawings for the graffiti, traced from Kiri's: XN, Kara and the cult's cat god. */
-  xnDrawingUrl: string;
-  karaDrawingUrl: string;
-  godDrawingUrl: string;
+  /** The drawings for the graffiti, traced from Kiri's: XN, Kara, the cult's cat god, and what XN does to it. */
+  drawingUrls: Record<DrawingName, string>;
   /** Kara's wallpaper, for the desktop on the old monitors' screens. */
   wallpaperUrl: string;
   tuning: Tuning;
@@ -342,25 +340,12 @@ export function createGame(parts: GameParts): Game {
   loadPixels(parts.posterUrl, (data, width, height) => {
     if (!disposed) renderer.setPosters(agePosters(data, width, height));
   });
-  // Every drawing, then the graffiti that shows them.
-  let xnDrawing: Drawing | null = null;
-  let karaDrawing: Drawing | null = null;
-  let godDrawing: Drawing | null = null;
-  const drawn = () => {
-    if (!disposed && xnDrawing && karaDrawing && godDrawing) setDrawings(xnDrawing, karaDrawing, godDrawing);
-  };
-  loadPixels(parts.xnDrawingUrl, (data, width, height) => {
-    xnDrawing = inkOf(data, width, height);
-    drawn();
-  });
-  loadPixels(parts.karaDrawingUrl, (data, width, height) => {
-    karaDrawing = inkOf(data, width, height);
-    drawn();
-  });
-  loadPixels(parts.godDrawingUrl, (data, width, height) => {
-    godDrawing = inkOf(data, width, height);
-    drawn();
-  });
+  // The graffiti's drawings, each as it comes.
+  for (const [name, url] of Object.entries(parts.drawingUrls) as [DrawingName, string][]) {
+    loadPixels(url, (data, width, height) => {
+      if (!disposed) setDrawing(name, inkOf(data, width, height));
+    });
+  }
   let monitor: StatueSkin | null = null;
   loadPixels(parts.wallpaperUrl, (data, width, height) => {
     monitor = monitorSkin(data, width, height);

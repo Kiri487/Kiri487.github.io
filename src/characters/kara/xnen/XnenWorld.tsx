@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { visuallyHidden } from "../../../shared/visuallyHidden";
 import { isTouchPointer } from "../os/openGesture";
 import wallpaperUrl from "../assets/wallpaper.webp";
+import emblemUrl from "./assets/cult-emblem.webp";
 import posterUrl from "./assets/cult-poster.webp";
+import godBrowsUrl from "./assets/god-brows.webp";
 import godDrawingUrl from "./assets/god-drawing.webp";
+import godMoustacheUrl from "./assets/god-moustache.webp";
+import godTearsUrl from "./assets/god-tears.webp";
 import karaDrawingUrl from "./assets/kara-drawing.webp";
 import xnDrawingUrl from "./assets/xn-drawing.webp";
 import atlasUrl from "./assets/statue-atlas.png";
@@ -157,9 +161,15 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       xnMeshUrl,
       xnAtlasUrl,
       posterUrl,
-      xnDrawingUrl,
-      karaDrawingUrl,
-      godDrawingUrl,
+      drawingUrls: {
+        xn: xnDrawingUrl,
+        kara: karaDrawingUrl,
+        god: godDrawingUrl,
+        moustache: godMoustacheUrl,
+        brows: godBrowsUrl,
+        tears: godTearsUrl,
+        emblem: emblemUrl,
+      },
       wallpaperUrl,
       tuning: XN_DEV_TOOLS ? loadTuning() : { ...DEFAULT_TUNING },
       xnPreview: FIRST_PREVIEW,

@@ -1,5 +1,5 @@
 import { tileGone } from "./decay";
-import { graffitiOn, paintAt, tagArt, type GraffitiLevel, type Tag } from "./graffiti";
+import { OVER_COLOUR, graffitiOn, paintAt, tagArt, type GraffitiLevel, type PaintSample, type Tag } from "./graffiti";
 import { WN, type Lighting } from "./lighting";
 import type { WorldMap } from "./map";
 import {
@@ -210,6 +210,8 @@ export class Renderer {
     let tagKey = "";
     let tag: Tag | null = null;
     let tagMask: GraffitiLevel[] | null = null;
+    const sample: PaintSample = { paint: 0, over: 0 };
+    const [OR, OG, OB] = OVER_COLOUR;
 
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
@@ -501,16 +503,18 @@ export class Renderer {
           break;
         }
         if (papered) continue;
-        if (painted && tagMask) {
-          const a = paintAt(painted, tagMask, tagLevel, along, tv);
-          if (a > 0) {
-            const b = 1 - a;
-            const paint = painted.colour;
-            d[o] = (tex[ti] * b + paint[0] * a) * li + ar;
-            d[o + 1] = (tex[ti + 1] * b + paint[1] * a) * li + ag;
-            d[o + 2] = (tex[ti + 2] * b + paint[2] * a) * li + ab;
-            continue;
-          }
+        if (painted && tagMask && paintAt(painted, tagMask, tagLevel, along, tv, sample)) {
+          // Its own paint on the wall, then whatever XN put over the top.
+          const a = sample.paint;
+          const b = sample.over;
+          const paint = painted.colour;
+          const r = tex[ti] + (paint[0] - tex[ti]) * a;
+          const g = tex[ti + 1] + (paint[1] - tex[ti + 1]) * a;
+          const bl = tex[ti + 2] + (paint[2] - tex[ti + 2]) * a;
+          d[o] = (r + (OR - r) * b) * li + ar;
+          d[o + 1] = (g + (OG - g) * b) * li + ag;
+          d[o + 2] = (bl + (OB - bl) * b) * li + ab;
+          continue;
         }
         d[o] = tex[ti] * li + ar;
         d[o + 1] = tex[ti + 1] * li + ag;

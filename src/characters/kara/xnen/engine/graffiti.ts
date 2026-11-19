@@ -15,7 +15,11 @@ import type { Tuning } from "./tuning";
  *   words: at first they say ZR and XNEN).
  * - The Weed Cat Cult's slogans off its poster, written small in green by hand at eye height, across or down.
  * - The cult's cat god (Kiri's drawing, traced in the same green), drawn upright with care at eye height, half the
- *   time with one of the slogans written small under it.
+ *   time with one of the slogans written small under it. XN has been at some of them in her black: a moustache,
+ *   angry eyebrows, tears, words put in its mouth, a remark and an arrow, more leaves, the slogan struck out and answered. Her words read
+ *   through SAN like the rest of hers.
+ * - The cult's sign on its own (the leaf on the cat god's chest, Kiri's drawing), in the same green pen: no words,
+ *   and XN leaves it alone.
  *
  * Walls run along the lattice every 5 cells, so a tag belongs to one stretch of lattice (the four cells between two
  * points) and one side of it, and keeps inside the part of that side the visitor can see.
@@ -36,6 +40,37 @@ export const GRAFFITI_TEXTS: readonly string[] = [
 /** The cult's slogans, off its poster. */
 export const CULT_TEXTS: readonly string[] = ["大麻猫神教", "信者募集", "猫神はあなたを待っている", "緑の導きに身をゆだねよ"];
 
+/** What XN writes beside the cat god, with an arrow at it. */
+const GOD_REMARKS: readonly string[] = [
+  "it owes me money",
+  "not a cat",
+  "i met it. it was shorter",
+  "ask it about thursday",
+  "wrong god",
+  "it cant read",
+  "this one is fake",
+];
+
+/** What XN puts in the cat god's mouth. */
+const GOD_SAYS: readonly string[] = [
+  "meow",
+  "i am just a cat",
+  "send snacks",
+  "help",
+  "i dont know these people",
+  "smoke weed everyday",
+];
+
+/** XN's answer to each slogan (as CULT_TEXTS) once she's struck it out; the last one's e's run on as long as they like. */
+const GOD_ANSWERS: readonly string[] = ["cat club", "full", "it said it waited too long", "weed"];
+
+/** The ways XN has been at a drawing of the cat god. "answer" only where there's a slogan to strike out. */
+type Defacement = "moustache" | "brows" | "tears" | "says" | "remark" | "leaves" | "answer";
+const DEFACEMENTS: readonly Defacement[] = ["moustache", "brows", "tears", "says", "remark", "leaves", "answer"];
+/** How many of the drawings she's been at, and how many things she did to each, at most. */
+const DEFACED = 0.3;
+const DEFACE_MOST = 3;
+
 /** Mask pixels to a cell across, and to the wall's height. */
 const PX = 96;
 /** The colours: XN's black spray, and the cult's green. */
@@ -43,19 +78,21 @@ const BLACK: readonly [number, number, number] = [20, 18, 15];
 const GREEN: readonly [number, number, number] = [26, 64, 24];
 /** How often a side of a stretch has something on it, at 100 %. */
 const CHANCE = 0.065;
-/** Of those, what: XN's words, an arrow, tally marks, a cult slogan, XN's drawing, the cat god. */
+/** Of those, what: XN's words, an arrow, tally marks, a cult slogan, XN's drawing, the cat god, the cult's sign. */
+// XN's drawing of herself and Kara is a rare find; the cult's quick sign is commoner than its drawing of the god.
 const KINDS: readonly [Kind, number][] = [
-  ["text", 0.41],
-  ["arrow", 0.18],
-  ["tally", 0.13],
-  ["cult", 0.14],
-  ["portrait", 0.08],
-  ["shrine", 0.06],
+  ["text", 0.36],
+  ["arrow", 0.15],
+  ["tally", 0.12],
+  ["cult", 0.13],
+  ["portrait", 0.02],
+  ["shrine", 0.09],
+  ["emblem", 0.13],
 ];
 /** The stroke's thickness as a share of a grid step. */
 const STROKE = 0.38;
 
-export type Kind = "text" | "arrow" | "tally" | "cult" | "portrait" | "shrine";
+export type Kind = "text" | "arrow" | "tally" | "cult" | "portrait" | "shrine" | "emblem";
 
 type Stroke = readonly (readonly [number, number])[];
 /** A glyph: strokes on a grid this wide and 6 tall, y down. */
@@ -69,6 +106,14 @@ const XN_FIGURE = "Ⓧ";
 const KARA_FIGURE = "Ⓚ";
 /** The cat god, traced from Kiri's drawing (assets/god-drawing.webp). */
 const GOD_FIGURE = "Ⓖ";
+/** What XN does to the cat god, traced from Kiri's drawings of it over the god (assets/god-*.webp), in XN's spray. */
+const GOD_MOUSTACHE = "Ⓜ";
+const GOD_BROWS = "Ⓑ";
+const GOD_TEARS = "Ⓣ";
+const SPRAYED_DRAWINGS = new Set([GOD_MOUSTACHE, GOD_BROWS, GOD_TEARS]);
+/** The cult's sign, traced from Kiri's drawing (assets/cult-emblem.webp), and its width in grid steps against 6 tall. */
+const EMBLEM_FIGURE = "Ⓢ";
+const EMBLEM_W = 4.5;
 /** A drawing's width in grid steps, against its 6 tall: the drawings are a little over half as wide as they're tall. */
 const FIGURE_W = 3.3;
 /** The cat god's width in grid steps, against its 6 tall. */
@@ -93,10 +138,24 @@ export function inkOf(rgba: Uint8ClampedArray, w: number, h: number): Drawing {
 }
 
 /** The drawings have loaded: any drawing sprayed before them was sprayed without them, so it's sprayed again. */
-export function setDrawings(xn: Drawing, kara: Drawing, god: Drawing) {
-  drawings.set(XN_FIGURE, xn);
-  drawings.set(KARA_FIGURE, kara);
-  drawings.set(GOD_FIGURE, god);
+/**
+ * Kiri's drawings, by name: XN, Kara and the cat god, and what XN does to the cat god (a moustache, eyebrows, tears;
+ * drawn on the god in its own frame, so they line up).
+ */
+export type DrawingName = "xn" | "kara" | "god" | "moustache" | "brows" | "tears" | "emblem";
+const DRAWING_KEYS: Record<DrawingName, string> = {
+  xn: XN_FIGURE,
+  kara: KARA_FIGURE,
+  god: GOD_FIGURE,
+  moustache: GOD_MOUSTACHE,
+  brows: GOD_BROWS,
+  tears: GOD_TEARS,
+  emblem: EMBLEM_FIGURE,
+};
+
+/** A drawing has loaded: anything sprayed before it was sprayed without it, so it's sprayed again. */
+export function setDrawing(name: DrawingName, drawing: Drawing) {
+  drawings.set(DRAWING_KEYS[name], drawing);
   sprayed.clear();
 }
 
@@ -340,7 +399,18 @@ export interface GraffitiLevel {
   w: number;
   h: number;
   paint: Uint8Array;
+  /** XN's black over the top of it, where she's been at someone else's drawing; otherwise null. */
+  over: Uint8Array | null;
 }
+
+/** How much paint there is at a point of a tag, 0–1: its own colour, and XN's black over it. */
+export interface PaintSample {
+  paint: number;
+  over: number;
+}
+
+/** XN's black, for what she's put over the top of others' drawings. */
+export const OVER_COLOUR = BLACK;
 
 /** A tag as sprayed on its stretch: what it is, and where, in world units along the wall and down from the ceiling. */
 export interface Tag {
@@ -363,6 +433,8 @@ export interface Tag {
   px: number;
   /** Whether the mask runs the opposite way to the world's axis, so it reads left to right from its side. */
   reversed: boolean;
+  /** Whether XN has put anything of hers over the top. */
+  over: boolean;
   /** How heavy the paint went on, and its colour. */
   strength: number;
   colour: readonly [number, number, number];
@@ -384,6 +456,11 @@ interface Glyph {
   chaos: number;
   /** Its box's width in grid steps (6 tall): where a drawing is traced. */
   w: number;
+  /** 1 for XN's black over the top; and how much the hand shakes, against the usual. */
+  layer: number;
+  shake: number;
+  /** Strokes of its own, for what's drawn rather than written. */
+  own: GlyphDef | null;
 }
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -409,6 +486,12 @@ interface Item {
   weight: number;
   /** How far gone the hand was, 0–1: the tally's last fives get wilder and wilder. */
   chaos: number;
+  /** 1 for XN's black over the top of someone else's drawing. */
+  layer: number;
+  /** How much the hand shakes, against the usual. */
+  shake: number;
+  /** Strokes of its own, for what's drawn rather than written. */
+  own: GlyphDef | null;
 }
 
 /** What's on a tag, row by row (or column by column, written downwards), before it's laid out. */
@@ -440,7 +523,7 @@ interface Plan {
   eye: boolean;
 }
 
-const item = (ch: string, at = -1, weight = 1, chaos = 0): Item => ({ ch, at, weight, chaos });
+const item = (ch: string, at = -1, weight = 1, chaos = 0): Item => ({ ch, at, weight, chaos, layer: 0, shake: 1, own: null });
 
 /** XN's words in rows of about `width` characters, each letter its index into the text. */
 function textRows(text: string, width: number): Item[][] {
@@ -455,7 +538,12 @@ function textRows(text: string, width: number): Item[][] {
 }
 
 /** What goes on a tag of this kind, by its dice. `pickText` is which of the lines, for words and slogans. */
-function planOf(kind: Kind, text: string, pickText: number, r: (k: number) => number): Plan {
+function planOf(
+  kind: Kind,
+  text: string,
+  pickText: number,
+  r: (k: number) => number,
+): Plan {
   const base = {
     down: false,
     gap: 1.5,
@@ -523,6 +611,12 @@ function planOf(kind: Kind, text: string, pickText: number, r: (k: number) => nu
       return portraitPlan(base, r);
     case "shrine":
       return shrinePlan(base, pickText, r);
+    case "emblem": {
+      // The cult's sign, drawn upright with care at eye height, and nothing else.
+      const tilt = (r(10) - 0.5) * 0.08;
+      const custom = (): Placed[] => [{ item: item(EMBLEM_FIGURE), x: 0, y: 0, angle: tilt, scale: 1, w: EMBLEM_W }];
+      return { ...base, rows: [], custom, size: 0.4 + r(0) * 0.15, least: 0.25, colour: GREEN, px: 512, eye: true };
+    }
     case "cult": {
       const slogan = CULT_TEXTS[pickText];
       // Small and neat, as a person writes on a wall at eye height: one line, or two if it's long.
@@ -621,43 +715,272 @@ function portraitPlan(base: Omit<Plan, "rows" | "size" | "least" | "colour">, r:
   return { ...base, rows: [], custom, text, size: 0.55 + r(0) * 0.15, least: 0.3, colour: BLACK, px: 512 };
 }
 
+/** XN's words in rows of about `width` characters, each letter its index into `text` from `start`. */
+function rowsOf(words: string, start: number, width: number): { ch: string; at: number }[][] {
+  const rows: { ch: string; at: number }[][] = [];
+  let at = 0;
+  for (const line of wrap(words, width)) {
+    while (words[at] === " ") at++;
+    rows.push(Array.from(line, (ch, i) => ({ ch, at: start + at + i })));
+    at += line.length;
+  }
+  return rows;
+}
+
+/**
+ * A weed leaf drawn quickly, like the ones in the cat god's hands: seven rounded leaflets fanning all the way round
+ * from where they meet, the longest straight up and the last two short and drooping, over a stem; `size` tall,
+ * turned `angle`, about (cx, cy).
+ */
+function leafStrokes(cx: number, cy: number, size: number, angle: number): Stroke[] {
+  const turn = (x: number, y: number) =>
+    [cx + x * Math.cos(angle) - y * Math.sin(angle), cy + x * Math.sin(angle) + y * Math.cos(angle)] as const;
+  const strokes: Stroke[] = [];
+  const fan = [[0, 1], [-0.75, 0.85], [0.75, 0.85], [-1.5, 0.68], [1.5, 0.68], [-2.3, 0.45], [2.3, 0.45]] as const;
+  for (const [a, length] of fan) {
+    const dx = Math.sin(a);
+    const dy = -Math.cos(a);
+    const l = length * size * 0.62;
+    const w = l * 0.2;
+    strokes.push([
+      turn(0, 0),
+      // Out along one side, round the tip, and back down the other.
+      ...LEAFLET.map(([along, across]) => turn(dx * l * along - dy * w * across, dy * l * along + dx * w * across)),
+      turn(0, 0),
+    ]);
+  }
+  strokes.push([turn(0, 0), turn(0, size * 0.35)]);
+  return strokes;
+}
+
+/** One leaflet's outline from base to tip and back, as (share of its length, share of its half width). Rounded at the tip. */
+const LEAFLET: readonly (readonly [number, number])[] = [
+  [0.3, 0.8],
+  [0.6, 1],
+  [0.8, 0.9],
+  [0.92, 0.65],
+  [0.99, 0.3],
+  [1, 0],
+  [0.99, -0.3],
+  [0.92, -0.65],
+  [0.8, -0.9],
+  [0.6, -1],
+  [0.3, -0.8],
+];
+
+/** How far down a speech bubble's edge reaches at `x` (−1 to 1 across it), as a share of its half height. */
+function bubbleBottom(x: number): number {
+  return Math.pow(Math.max(0, 1 - Math.pow(Math.abs(x), 4)), 1 / 4);
+}
+
+/**
+ * A speech bubble as Kiri draws one: round on top, nearly flat underneath with rounded corners (a superellipse, the
+ * lower half squarer than the upper).
+ */
+function bubble(cx: number, cy: number, rx: number, ry: number): Stroke {
+  return Array.from({ length: 33 }, (_, i) => {
+    const a = (i / 32) * Math.PI * 2;
+    const c = Math.cos(a);
+    const sn = Math.sin(a);
+    const n = sn > 0 ? 4 : 2.2;
+    return [cx + rx * Math.sign(c) * Math.pow(Math.abs(c), 2 / n), cy + ry * Math.sign(sn) * Math.pow(Math.abs(sn), 2 / n)] as const;
+  });
+}
+
 /**
  * The cat god, drawn by a believer: upright, with care, in the cult's green pen at eye height. Half the time one of
- * the slogans is written small under its feet, picked at random.
+ * the slogans is written small under its feet, picked at random. Now and then XN has been at it: one to three of
+ * the defacements, in her black.
  */
-function shrinePlan(base: Omit<Plan, "rows" | "size" | "least" | "colour">, pickText: number, r: (k: number) => number): Plan {
+function shrinePlan(
+  base: Omit<Plan, "rows" | "size" | "least" | "colour">,
+  pickText: number,
+  r: (k: number) => number,
+): Plan {
   const captioned = r(7) < 0.5;
   const tilt = (r(10) - 0.5) * 0.08;
   const chars = Array.from(CULT_TEXTS[pickText]);
+  // What she did to it: some of the ways, shuffled by the dice, the answer only where there's a slogan.
+  let done: Defacement[] = [];
+  if (r(13) < DEFACED) {
+    const ways = DEFACEMENTS.filter((d) => d !== "answer" || captioned);
+    const shuffled = ways.map((d, i) => [d, r(20 + i)] as const).sort((a, b) => a[1] - b[1]);
+    done = shuffled.slice(0, 1 + Math.floor(r(14) * DEFACE_MOST)).map(([d]) => d);
+  }
+  const has = (d: Defacement) => done.includes(d);
+  // Her words, all in one text so SAN reads them as it reads the rest of hers.
+  let text = "";
+  const add = (words: string) => {
+    const start = text ? text.length + 1 : 0;
+    text = text ? `${text} ${words}` : words;
+    return start;
+  };
+  const remark = has("remark") ? GOD_REMARKS[Math.floor(r(15) * GOD_REMARKS.length)] : "";
+  const says = has("says") ? GOD_SAYS[Math.floor(r(16) * GOD_SAYS.length)] : "";
+  let answer = has("answer") && captioned ? GOD_ANSWERS[pickText] : "";
+  if (answer === "weed") answer = `w${"e".repeat(3 + Math.floor(r(17) * 10))}d`;
+  const remarkAt = remark ? add(remark) : 0;
+  const saysAt = says ? add(says) : 0;
+  const answerAt = answer ? add(answer) : 0;
+
   const custom = (size: number): Placed[] => {
     const step = size / 6;
     const out: Placed[] = [];
     const g = (k: number) => hash3(Math.floor(r(12) * 1e6), k, 7729);
     out.push({ item: item(GOD_FIGURE), x: 0, y: 0, angle: tilt, scale: 1, w: GOD_W });
+
+    // Her letters, smaller than her usual, and the slogan's, both against the god's height, so when the whole lot
+    // has to shrink to fit the wall they shrink with it.
+    const letter = 0.13;
+    const adv = (4 + 1.5) * letter;
+    const writeRows = (rows: { ch: string; at: number }[][], x0: number, y0: number, k: number, size = letter) => {
+      const across = (4 + 1.5) * size;
+      rows.forEach((row, ri) => {
+        row.forEach((c, ci) => {
+          if (c.ch === " ") return;
+          const j = (n: number) => g(k + ri * 40 + ci * 3 + n);
+          out.push({
+            item: { ...item("", c.at, 0.8), layer: 1 },
+            x: (x0 + ci * across + (j(0) - 0.5) * across * 0.15) * step,
+            y: (y0 + ri * size * 9 + (j(1) - 0.5) * size * 1.2) * step,
+            angle: (j(2) - 0.5) * 0.25,
+            scale: size,
+            w: 4,
+          });
+        });
+      });
+    };
+    // Something she drew rather than wrote, from strokes in the god's grid: its own glyph, boxed to fit them.
+    // `thick` and `shake` are in the god's grid too, so every mark of hers is about as heavy whatever its size.
+    const draw = (strokes: Stroke[], thick = 0.07, shake = 0.05) => {
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const stroke of strokes) {
+        for (const [x, y] of stroke) {
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+        }
+      }
+      const h = Math.max(0.3, y1 - y0);
+      const scale = h / 6;
+      const local = strokes.map((stroke) => stroke.map(([x, y]) => [(x - x0) / scale, (y - y0) / scale] as const));
+      const w = Math.max(0.3, x1 - x0) / scale;
+      out.push({
+        item: {
+          ...item("", -1, thick / (STROKE * scale)),
+          layer: 1,
+          shake: shake / (0.25 * scale),
+          own: { w, strokes: local },
+        },
+        x: x0 * step,
+        y: y0 * step,
+        angle: 0,
+        scale,
+        w,
+      });
+    };
+
+    // The slogan in the cult's small hand, the size it's written elsewhere: one line, or two if it's long.
+    let captionBottom = 6;
     if (captioned) {
-      // The slogan in the cult's small hand, the size it's written elsewhere: one line, or two if it's long.
-      const letter = 0.07 / size;
-      const lw = step * letter;
+      const letterC = 0.14;
+      const advC = letterC * 6.8;
       const per = chars.length > 8 ? Math.ceil(chars.length / 2) : chars.length;
       for (let i = 0; i < chars.length; i += per) {
         const row = chars.slice(i, i + per);
-        const width = row.length * lw * 6.8;
-        const y = 6 * step + step * 0.3 + (i / per) * lw * 7.4;
+        const width = row.length * advC;
+        const left = GOD_W / 2 - width / 2;
+        const y = 6.3 + (i / per) * letterC * 7.4;
         row.forEach((ch, j) => {
           out.push({
             item: item(ch, -1, 0.55),
-            x: (GOD_W / 2) * step - width / 2 + j * lw * 6.8 + (g(j * 3) - 0.5) * lw * 0.4,
-            y: y + (g(j * 3 + 1) - 0.5) * lw * 0.4,
+            x: (left + j * advC + (g(j * 3) - 0.5) * letterC * 0.4) * step,
+            y: (y + (g(j * 3 + 1) - 0.5) * letterC * 0.4) * step,
             angle: (g(j * 3 + 2) - 0.5) * 0.08,
-            scale: letter,
+            scale: letterC,
             w: 6,
           });
         });
+        // Struck out, with two quick passes.
+        if (answer) {
+          const mid = y + letterC * 3;
+          draw([
+            [[left - 0.2, mid + (g(200 + i) - 0.5) * 0.2], [left + width + 0.2, mid + (g(201 + i) - 0.5) * 0.2]],
+            [[left + width + 0.1, mid + 0.15], [left - 0.1, mid - 0.1 + (g(202 + i) - 0.5) * 0.2]],
+          ]);
+        }
+        captionBottom = y + letterC * 6;
       }
+    }
+
+    // Kiri's moustache, eyebrows and tears, over the god exactly where she drew them.
+    for (const [way, key] of [["moustache", GOD_MOUSTACHE], ["brows", GOD_BROWS], ["tears", GOD_TEARS]] as const) {
+      if (has(way)) out.push({ item: { ...item(key), layer: 1 }, x: 0, y: 0, angle: tilt, scale: 1, w: GOD_W });
+    }
+    if (says) {
+      // A bubble up to its right, as Kiri drew it: its bottom about level with the god's eyes, its left edge at the
+      // god's raised hand; round on top and flatter underneath; a short tail hooking down and left from its
+      // underside, towards the god but well short of it.
+      // Its words a little smaller than her others, so the bubble stays about the god's size.
+      const small = letter * 0.8;
+      const smallAdv = adv * 0.8;
+      const rows = rowsOf(says, saysAt, 10);
+      const widest = Math.max(...rows.map((row) => row.length));
+      const rx = (widest * smallAdv) / 2 + small * 7;
+      const ry = (rows.length * small * 9) / 2 + small * 5;
+      const cx = GOD_W * 0.97 + rx;
+      const cy = 0.85 - ry;
+      const tailX = cx - rx * 0.56;
+      const tailY = cy + ry * bubbleBottom(-0.56);
+      const tail: Stroke = Array.from({ length: 7 }, (_, i) => {
+        const t = i / 6;
+        const u = 1 - t;
+        // From the underside, down a little and curling over to the left.
+        const bx = tailX - 0.03;
+        const by = tailY + 0.5;
+        return [u * u * tailX + 2 * u * t * bx + t * t * (tailX - 0.6), u * u * tailY + 2 * u * t * by + t * t * (tailY + 0.65)] as const;
+      });
+      draw([bubble(cx, cy, rx, ry), tail]);
+      writeRows(rows, cx - (widest * smallAdv) / 2, cy - (rows.length * small * 9) / 2 + small * 1.5, 300, small);
+    }
+    if (remark) {
+      // Off to its left, with an arrow at it.
+      const rows = rowsOf(remark, remarkAt, 11);
+      const widest = Math.max(...rows.map((row) => row.length));
+      const right = -1.6;
+      const top = 2.2 + g(400) * 1.2;
+      writeRows(rows, right - widest * adv, top, 500);
+      out.push({
+        item: { ...item("→", -1, 0.8), layer: 1 },
+        x: (right + 0.2) * step,
+        y: (top + (g(401) - 0.5) * 0.4) * step,
+        angle: (g(402) - 0.5) * 0.5,
+        scale: letter * 1.4,
+        w: 4.4,
+      });
+    }
+    if (answer) {
+      // Under what she struck out.
+      const rows = rowsOf(answer, answerAt, 12);
+      const widest = Math.max(...rows.map((row) => row.length));
+      writeRows(rows, GOD_W / 2 - (widest * adv) / 2 + (g(600) - 0.5) * 0.6, captionBottom + 0.35, 700);
+    }
+    if (has("leaves")) {
+      // A few more leaves, hers, round the sides.
+      const count = 2 + Math.floor(g(800) * 4);
+      const strokes: Stroke[] = [];
+      for (let i = 0; i < count; i++) {
+        const j = (n: number) => g(810 + i * 5 + n);
+        const left = (i + Math.floor(g(801) * 2)) % 2 === 0;
+        const lx = left ? -2.6 + j(0) * 1.6 : GOD_W + 1.0 + j(0) * 1.6;
+        strokes.push(...leafStrokes(lx, 1.2 + j(1) * 3.8, 1.5 + j(2) * 0.9, (j(3) - 0.5) * 1.2));
+      }
+      draw(strokes, 0.05, 0.025);
     }
     return out;
   };
-  return { ...base, rows: [], custom, size: 0.45 + r(0) * 0.12, least: 0.28, colour: GREEN, px: 512, eye: true };
+  return { ...base, rows: [], custom, text, size: 0.45 + r(0) * 0.12, least: 0.28, colour: GREEN, px: 512, eye: true };
 }
 
 /** Glyphs placed in wall units, relative to the tag's own corner, before the bounds are known. */
@@ -765,6 +1088,9 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
     weight: p.item.weight,
     chaos: p.item.chaos,
     w: p.w,
+    layer: p.item.layer,
+    shake: p.item.shake,
+    own: p.item.own,
   }));
   return {
     kind,
@@ -779,6 +1105,7 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
     maskH: Math.ceil(h * px),
     px,
     reversed,
+    over: placed.some((p) => p.item.layer === 1),
     strength: 0.78 + r(5) * 0.2,
     colour: plan.colour,
   };
@@ -790,7 +1117,8 @@ function spray(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, stroke:
   const H = tag.maskH;
   const radius = glyph.step * STROKE * glyph.weight * (1 + glyph.chaos * 0.7);
   const spread = radius + Math.max(1, radius * 0.6);
-  const jitter = (i: number, a: number) => (hash3(tag.seed, k * 64 + i * 2 + a, 7741) - 0.5) * (0.5 + glyph.chaos * 2.2);
+  const jitter = (i: number, a: number) =>
+    (hash3(tag.seed, k * 64 + i * 2 + a, 7741) - 0.5) * (0.5 + glyph.chaos * 2.2) * glyph.shake;
   const mid = def.w / 2;
   const pts = stroke.map(([gx, gy], i) => {
     const lx = (gx + jitter(i, 0) - mid) * glyph.step;
@@ -830,10 +1158,15 @@ function spray(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, stroke:
     const [ax, ay] = pts[i];
     const [bx, by] = pts[Math.min(i + 1, pts.length - 1)];
     dab(ax, ay, bx, by, radius, spread);
-    // Where the can paused, the paint ran: a thin drip straight down, ending in a bead. Not from a pen.
-    const roll = tag.kind === "cult" || tag.kind === "tally" || tag.kind === "shrine" ? 1 : hash3(tag.seed, k * 64 + i, 7753);
-    if (roll < 0.14) {
-      const length = (0.3 + hash3(tag.seed, k * 64 + i, 7759) * 0.9) * glyph.step * 3;
+    // Where the can paused, the paint ran: a thin drip straight down, ending in a bead. Not from a pen: the cult
+    // writes and draws with one, and the tally's scratched.
+    const pen =
+      glyph.layer === 0 &&
+      (tag.kind === "cult" || tag.kind === "tally" || tag.kind === "shrine" || tag.kind === "emblem");
+    // What she draws has many more points than a letter: it runs at fewer of them, or it's all drips.
+    const roll = pen ? 1 : hash3(tag.seed, k * 64 + i, 7753);
+    if (roll < (glyph.own ? 0.03 : 0.14)) {
+      const length = (2.4 + hash3(tag.seed, k * 64 + i, 7759) * 7) * radius;
       const thin = Math.max(0.5, radius * 0.45);
       dab(ax, ay, ax, ay + length, thin, thin + 0.6);
       dab(ax, ay + length, ax, ay + length, thin * 1.5, thin * 1.5 + 0.5);
@@ -845,25 +1178,39 @@ function spray(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, stroke:
 function halve(level: GraffitiLevel): GraffitiLevel {
   const w = Math.max(1, level.w >> 1);
   const h = Math.max(1, level.h >> 1);
-  const paint = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let sum = 0;
-      for (let j = 0; j < 2; j++) {
-        for (let i = 0; i < 2; i++) {
-          sum += level.paint[Math.min(level.h - 1, y * 2 + j) * level.w + Math.min(level.w - 1, x * 2 + i)];
+  const shrink = (from: Uint8Array) => {
+    const to = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let sum = 0;
+        for (let j = 0; j < 2; j++) {
+          for (let i = 0; i < 2; i++) {
+            sum += from[Math.min(level.h - 1, y * 2 + j) * level.w + Math.min(level.w - 1, x * 2 + i)];
+          }
         }
+        to[y * w + x] = sum >> 2;
       }
-      paint[y * w + x] = sum >> 2;
     }
-  }
-  return { w, h, paint };
+    return to;
+  };
+  return { w, h, paint: shrink(level.paint), over: level.over && shrink(level.over) };
 }
 
 /** Traces a drawing into the mask, turned and scaled as its glyph is, in its box (the glyph's width × 6). */
-function trace(tag: Tag, paint: Uint8Array, glyph: Glyph, drawing: Drawing) {
+function trace(tag: Tag, target: Uint8Array, glyph: Glyph, drawing: Drawing, sprayed: boolean, k: number) {
   const W = tag.maskW;
   const H = tag.maskH;
+  // Sprayed, it's traced into a scratch mask first, to be roughened before it goes on the wall.
+  const paint = sprayed ? new Uint8Array(W * H) : target;
+  // The hand's shake: a slow wander across and down, a share of the drawing's size.
+  const shake = sprayed ? 0.012 : 0;
+  const wander = (t: number, n: number) => {
+    const i = Math.floor(t);
+    const f = t - i;
+    const a = hash3(i, n, tag.seed + k);
+    const b = hash3(i + 1, n, tag.seed + k);
+    return a + (b - a) * f * f * (3 - 2 * f) - 0.5;
+  };
   const half = (glyph.w / 2) * glyph.step;
   const cx = glyph.x + half;
   const cy = glyph.y + 3 * glyph.step;
@@ -878,8 +1225,12 @@ function trace(tag: Tag, paint: Uint8Array, glyph: Glyph, drawing: Drawing) {
       const px = x + 0.5 - cx;
       const py = y + 0.5 - cy;
       // Back into the drawing's own frame, 0–1 across and down.
-      const u = (px * glyph.cos + py * glyph.sin) / (glyph.w * glyph.step) + 0.5;
-      const v = (py * glyph.cos - px * glyph.sin) / (6 * glyph.step) + 0.5;
+      let u = (px * glyph.cos + py * glyph.sin) / (glyph.w * glyph.step) + 0.5;
+      let v = (py * glyph.cos - px * glyph.sin) / (6 * glyph.step) + 0.5;
+      if (shake) {
+        u += wander(v * 14, 1) * shake * 2;
+        v += wander(u * 14, 2) * shake;
+      }
       if (u < 0 || u >= 1 || v < 0 || v >= 1) continue;
       // Bilinear, so the drawing's thin lines don't break up.
       const fx = u * dw - 0.5;
@@ -894,19 +1245,60 @@ function trace(tag: Tag, paint: Uint8Array, glyph: Glyph, drawing: Drawing) {
       if (a > paint[i]) paint[i] = a;
     }
   }
+  if (!sprayed) return;
+
+  // Overspray: speckles in a ring round the strokes. Drips: now and then, from the underside of a stroke, a thin run
+  // straight down ending in a bead. Then onto the wall.
+  const ring = Math.max(1.5, glyph.step * 0.06);
+  const dripLength = glyph.step * 0.5;
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const i = y * W + x;
+      const a = paint[i];
+      if (a < 40) {
+        let near = 0;
+        for (let d = 0; d < 8; d++) {
+          const sx = Math.round(x + Math.cos((d * Math.PI) / 4) * ring);
+          const sy = Math.round(y + Math.sin((d * Math.PI) / 4) * ring);
+          if (sx >= 0 && sy >= 0 && sx < W && sy < H) near = Math.max(near, paint[sy * W + sx]);
+        }
+        if (near > 128 && hash3(x, y, tag.seed + k + 1) < 0.35) target[i] = Math.max(target[i], 90 + hash3(x, y, tag.seed) * 90);
+      }
+      if (a > target[i]) target[i] = a;
+      // The underside of a stroke: paint here, none a little below.
+      if (a > 180 && y + 2 < H && paint[i + 2 * W] < 20 && hash3(x, y, tag.seed + k + 2) < 0.025) {
+        const length = dripLength * (0.3 + hash3(x, y, tag.seed + k + 3) * 0.7);
+        const wide = hash3(x, y, tag.seed + k + 4) < 0.5 ? 1 : 2;
+        for (let dy = 1; dy <= length && y + dy < H; dy++) {
+          for (let dx = 0; dx < wide && x + dx < W; dx++) target[(y + dy) * W + x + dx] = 230;
+        }
+        // The bead.
+        const by = Math.min(H - 1, Math.floor(y + length));
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= wide; dx++) {
+            const bx = x + dx;
+            const yy = by + dy;
+            if (bx >= 0 && bx < W && yy >= 0 && yy < H) target[yy * W + bx] = 230;
+          }
+        }
+      }
+    }
+  }
 }
 
 /** The tag's mask as it reads now (`shown` is XN's text after SAN has had its say), at every size. */
 function sprayTag(tag: Tag, shown: string): GraffitiLevel[] {
-  const paint = new Uint8Array(tag.maskW * tag.maskH);
+  const base = new Uint8Array(tag.maskW * tag.maskH);
+  const over = tag.over ? new Uint8Array(tag.maskW * tag.maskH) : null;
   tag.layout.forEach((glyph, gi) => {
+    const paint = glyph.layer && over ? over : base;
     const char = glyph.at >= 0 ? shown[glyph.at].toUpperCase() : glyph.ch;
     const drawing = drawings.get(char);
     if (drawing) {
-      trace(tag, paint, glyph, drawing);
+      trace(tag, paint, glyph, drawing, SPRAYED_DRAWINGS.has(char), gi * 31);
       return;
     }
-    const def = GLYPHS[char];
+    const def = glyph.own ?? GLYPHS[char];
     if (!def) return;
     def.strokes.forEach((stroke, si) => spray(tag, paint, glyph, def, stroke, gi * 16 + si));
     // Far enough gone, the count turns to slashes scored back and forth over it.
@@ -921,7 +1313,7 @@ function sprayTag(tag: Tag, shown: string): GraffitiLevel[] {
       spray(tag, paint, glyph, def, slash, gi * 16 + 8 + e);
     }
   });
-  const levels: GraffitiLevel[] = [{ w: tag.maskW, h: tag.maskH, paint }];
+  const levels: GraffitiLevel[] = [{ w: tag.maskW, h: tag.maskH, paint: base, over }];
   while (levels[levels.length - 1].h > 6) levels.push(halve(levels[levels.length - 1]));
   return levels;
 }
@@ -974,14 +1366,6 @@ function kindOf(dice: number): Kind {
   return "text";
 }
 
-/** What a preview forces: the kind, which line, and for a slogan whether it runs down. */
-interface Forced {
-  kind: Kind;
-  line: number;
-  /** Dice it fixes: a slogan's direction (6); a drawing's lean (7), labels (8) and pose (9); a shrine's caption (7). */
-  dice?: Record<number, number>;
-}
-
 /** Tags by stretch, side and map: they're laid out once. */
 const known = new WeakMap<WorldMap, Map<string, Tag | null>>();
 
@@ -999,20 +1383,16 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   const had = tags.get(key);
   if (had !== undefined) return had;
   let tag: Tag | null = null;
-  const forced = PREVIEW ? previewFor(map).get(`${lx},${ly},${dir},${side}`) : undefined;
   const pick = (k: number) => map.noise(lx * 2 + dir, ly * 2 + side, 500 + k);
-  if (forced || pick(0) < (CHANCE * tuning.graffiti) / 100) {
+  if (pick(0) < (CHANCE * tuning.graffiti) / 100) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
-      const kind = forced?.kind ?? kindOf(pick(1));
+      const kind = kindOf(pick(1));
       const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : GRAFFITI_TEXTS;
-      const line = forced?.line ?? Math.floor(pick(2) * lines.length);
+      const line = Math.floor(pick(2) * lines.length);
       const text = kind === "text" ? GRAFFITI_TEXTS[line] : "";
       const seed = Math.floor(pick(3) * 0x7fffffff);
-      const dice = (k: number) => hash3(seed, k, 7717);
-      // A preview fixes what it wants to show; the rest of its dice stay.
-      const fixed = forced?.dice;
-      const r = fixed ? (k: number) => fixed[k] ?? dice(k) : dice;
+      const r = (k: number) => hash3(seed, k, 7717);
       const plan = planOf(kind, text, line, r);
       // Seen from the north (side 0 of an east-running stretch) or the east (side 1 of a south-running one), the
       // world's axis runs right to left.
@@ -1040,63 +1420,24 @@ export function graffitiOn(map: WorldMap, cx: number, cy: number, face: number, 
 }
 
 /**
- * TEMPORARY, for Kiri to look over: every one of XN's lines and the cult's slogans (two across, two down), arrows
- * and tally marks, on the stretches nearest where the visitor starts (the room she starts in has none,
- * only posts). Gone once she's happy.
+ * The paint on the wall at this point of the tag, into `out`: `along` in world units, `down` from the ceiling.
+ * Returns whether there's any.
  */
-const PREVIEW = true;
-const PREVIEW_ORDER: readonly Forced[] = [
-  // On their heads, labelled, leaning one way and then the other; upright, labelled; toppled, no words.
-  { kind: "portrait", line: 0, dice: { 7: 0, 8: 0, 9: 0.3 } },
-  { kind: "portrait", line: 0, dice: { 7: 0.99, 8: 0.99, 9: 0.3 } },
-  { kind: "portrait", line: 0, dice: { 7: 0, 8: 0, 9: 0.7 } },
-  { kind: "portrait", line: 0, dice: { 7: 0.99, 8: 0.99, 9: 0.9 } },
-  // The cat god with a slogan under it, and without.
-  { kind: "shrine", line: 2, dice: { 7: 0 } },
-  { kind: "shrine", line: 0, dice: { 7: 0.99 } },
-  { kind: "cult", line: 0, dice: { 6: 0 } },
-  { kind: "cult", line: 1, dice: { 6: 0.99 } },
-  { kind: "cult", line: 2, dice: { 6: 0 } },
-  { kind: "cult", line: 3, dice: { 6: 0.99 } },
-  { kind: "tally", line: 0 },
-  { kind: "tally", line: 0 },
-  ...GRAFFITI_TEXTS.map((_, line): Forced => ({ kind: "text", line })),
-  { kind: "arrow", line: 0 },
-  { kind: "arrow", line: 0 },
-];
-const previews = new WeakMap<WorldMap, Map<string, Forced>>();
-
-function previewFor(map: WorldMap): Map<string, Forced> {
-  const had = previews.get(map);
-  if (had) return had;
-  const sides: [string, number][] = [];
-  for (let ly = -3; ly <= 4; ly++) {
-    for (let lx = -3; lx <= 4; lx++) {
-      for (let dir = 0; dir < 2; dir++) {
-        for (let side = 0; side < 2; side++) {
-          const [first, count] = openRun(map, lx, ly, dir, side);
-          if (count < 3) continue;
-          const mid = first + count / 2;
-          const x = dir === 0 ? lx * 5 + mid : lx * 5 + (side ? 1 : 0);
-          const y = dir === 0 ? ly * 5 + (side ? 1 : 0) : ly * 5 + mid;
-          sides.push([`${lx},${ly},${dir},${side}`, Math.hypot(x - 2.5, y - 2.5)]);
-        }
-      }
-    }
-  }
-  sides.sort((a, b) => a[1] - b[1]);
-  const out = new Map<string, Forced>();
-  sides.slice(0, PREVIEW_ORDER.length).forEach(([key], i) => out.set(key, PREVIEW_ORDER[i]));
-  previews.set(map, out);
-  return out;
-}
-
-/** The paint on the wall at this point of the tag, 0–1: `along` in world units, `down` from the ceiling. */
-export function paintAt(tag: Tag, art: GraffitiLevel[], level: number, along: number, down: number): number {
+export function paintAt(
+  tag: Tag,
+  art: GraffitiLevel[],
+  level: number,
+  along: number,
+  down: number,
+  out: PaintSample,
+): boolean {
   let u = (along - tag.from) / (tag.to - tag.from);
   if (tag.reversed) u = 1 - u;
   const v = (down - tag.top) / (tag.bottom - tag.top);
-  if (u < 0 || u >= 1 || v < 0 || v >= 1) return 0;
+  if (u < 0 || u >= 1 || v < 0 || v >= 1) return false;
   const l = art[Math.min(level, art.length - 1)];
-  return (l.paint[Math.floor(v * l.h) * l.w + Math.floor(u * l.w)] / 255) * tag.strength;
+  const k = Math.floor(v * l.h) * l.w + Math.floor(u * l.w);
+  out.paint = (l.paint[k] / 255) * tag.strength;
+  out.over = l.over ? (l.over[k] / 255) * 0.9 : 0;
+  return out.paint > 0 || out.over > 0;
 }
