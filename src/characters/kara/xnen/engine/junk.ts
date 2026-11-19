@@ -622,7 +622,7 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
 /** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
 /** How many blocks have a monitor, a chair, a sign, a door. */
-const MONITOR_CHANCE = 0.18;
+const MONITOR_CHANCE = 0.09;
 const CHAIR_CHANCE = 0.18;
 const SIGN_CHANCE = 0.15;
 const DOOR_CHANCE = 0.1;
