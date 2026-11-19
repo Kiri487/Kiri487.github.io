@@ -33,7 +33,8 @@ type NumberKey =
   | "statueReach"
   | "xnReach"
   | "posters"
-  | "posterNear";
+  | "posterNear"
+  | "graffiti";
 
 /** Setting, label and range. */
 const SLIDERS: readonly [NumberKey, string, number, number][] = [
@@ -50,6 +51,7 @@ const SLIDERS: readonly [NumberKey, string, number, number][] = [
   ["xnReach", "XN 幾格內出現 E（÷100）", 30, 160],
   ["posters", "海報多寡（%）", 0, 400],
   ["posterNear", "神像附近多出的海報（%）", 0, 300],
+  ["graffiti", "塗鴉多寡（%）", 0, 600],
 ];
 
 const RESOLUTIONS = [100, 140, 180, 240, 360];
