@@ -291,8 +291,13 @@ function signModel(kind: SignKind, middle: number, mirrored: boolean, poleTop = 
   return { tris, atlasWidth: SIGN_ATLAS_W, atlasHeight: SIGN_ATLAS_H, stone: [150, 150, 146] };
 }
 
-/** The letters of STOP and EXIT, three pixels by five. */
+/** The letters of STOP, EXIT, CAUTION and WET, three pixels by five. */
 const LETTERS: Record<string, readonly string[]> = {
+  A: ["###", "#.#", "###", "#.#", "#.#"],
+  C: ["###", "#..", "#..", "#..", "###"],
+  N: ["#.#", "###", "###", "#.#", "#.#"],
+  U: ["#.#", "#.#", "#.#", "#.#", "###"],
+  W: ["#.#", "#.#", "###", "###", "#.#"],
   E: ["###", "#..", "##.", "#..", "###"],
   X: ["#.#", "#.#", ".#.", "#.#", "#.#"],
   I: ["###", ".#.", ".#.", ".#.", "###"],
@@ -576,9 +581,232 @@ export const DOOR_SKIN: StatueSkin = (() => {
   return { data };
 })();
 
+// ---- the exit signs and wet floor signs ----
+
+/**
+ * One atlas for both: the wet floor sign's face (CAUTION, a man slipping in a warning triangle, WET), the exit sign's
+ * face (a man running out of a doorway, a big arrow), plain yellow, the exit sign's off-white casing, and grey for its rods.
+ */
+const WET_FACE: Rect = { x: 0, y: 0, w: 32, h: 56 };
+const EXIT_FACE: Rect = { x: 32, y: 0, w: 56, h: 24 };
+const YELLOW: Rect = { x: 32, y: 28, w: 16, h: 16 };
+const CASING: Rect = { x: 48, y: 28, w: 16, h: 16 };
+const ROD: Rect = { x: 64, y: 28, w: 16, h: 16 };
+const SAFETY_ATLAS_W = 88;
+const SAFETY_ATLAS_H = 56;
+
+/** The same part of the atlas, read right to left. */
+const mirrorRect = (r: Rect): Rect => ({ x: r.x + r.w - 1, y: r.y, w: 2 - r.w, h: r.h });
+
+/** The exit sign's half width and height. */
+const EXIT_HW = 0.12;
+const EXIT_H = 0.117;
+
+/**
+ * How an exit sign is made: flat-backed for a wall, lit both sides and hung from the ceiling on two rods, or lit both
+ * sides with nothing to hang from, for one lying about.
+ */
+type ExitMount = "wall" | "hanging" | "loose";
+
+/** An exit sign, its foot at 0, its face toward +z; `mirrored`, the man runs (and the arrow points) the other way. */
+function buildExit(mount: ExitMount, mirrored: boolean): StatueModel {
+  const tris: number[] = [];
+  const face = mirrored ? mirrorRect(EXIT_FACE) : EXIT_FACE;
+  const z0 = mount === "wall" ? -0.035 : -0.0175;
+  const z1 = mount === "wall" ? 0 : 0.0175;
+  box(tris, -EXIT_HW, EXIT_HW, 0, EXIT_H, z0, z1, CASING, CASING, CASING);
+  const fx = EXIT_HW - 0.012;
+  const f0 = 0.012;
+  const f1 = EXIT_H - 0.012;
+  quad(tris, [-fx, f0, z1 + 0.002], [fx, f0, z1 + 0.002], [fx, f1, z1 + 0.002], [-fx, f1, z1 + 0.002], face);
+  if (mount !== "wall") {
+    // Seen from behind, the same picture the right way round, so the man runs the other way.
+    quad(tris, [fx, f0, z0 - 0.002], [-fx, f0, z0 - 0.002], [-fx, f1, z0 - 0.002], [fx, f1, z0 - 0.002], face);
+  }
+  if (mount === "hanging") {
+    for (const x of [-0.07, 0.07]) box(tris, x - 0.004, x + 0.004, EXIT_H, EXIT_H + 0.5, -0.004, 0.004, ROD, ROD, ROD);
+  }
+  return { tris, atlasWidth: SAFETY_ATLAS_W, atlasHeight: SAFETY_ATLAS_H, stone: [220, 218, 206] };
+}
+
+const EXIT_MODELS = new Map<string, StatueModel>();
+const exitModel = (mount: ExitMount, mirrored: boolean) => {
+  const key = `${mount}${mirrored}`;
+  let model = EXIT_MODELS.get(key);
+  if (!model) {
+    model = buildExit(mount, mirrored);
+    EXIT_MODELS.set(key, model);
+  }
+  return model;
+};
+
+/** The wet floor sign: two yellow boards leaning together, this tall and wide, their feet this far apart. */
+const WET_H = 0.24;
+const WET_HW = 0.065;
+const WET_FEET = 0.06;
+
+/** A wet floor sign standing open, its foot at 0, one face toward +z and the other toward −z. */
+function buildWetFloor(): StatueModel {
+  const tris: number[] = [];
+  const top = 0.006;
+  for (const side of [1, -1]) {
+    const foot = side * WET_FEET;
+    const head = side * top;
+    // Corners as seen from outside: bottom left, bottom right, top right, top left.
+    const x0 = -WET_HW * side;
+    const x1 = WET_HW * side;
+    quad(tris, [x0, 0, foot], [x1, 0, foot], [x1, WET_H, head], [x0, WET_H, head], WET_FACE);
+    // The inside of the board, a hair further in.
+    const inset = side * 0.003;
+    quad(tris, [x1, 0, foot - inset], [x0, 0, foot - inset], [x0, WET_H, head - inset], [x1, WET_H, head - inset], YELLOW);
+  }
+  return { tris, atlasWidth: SAFETY_ATLAS_W, atlasHeight: SAFETY_ATLAS_H, stone: [236, 190, 30] };
+}
+
+const WET_FLOOR = buildWetFloor();
+
+/** Whether (px, py) is within r of the line from a to b. */
+function nearLine(px: number, py: number, a: readonly number[], b: readonly number[], r: number) {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t) <= r;
+}
+
+/** A stick figure: a head, then lines, each a run of points joined up. */
+function inFigure(px: number, py: number, head: readonly number[], lines: readonly (readonly number[])[][], r: number) {
+  if (Math.hypot(px - head[0], py - head[1]) <= head[2]) return true;
+  return lines.some((run) => run.slice(1).some((p, i) => nearLine(px, py, run[i], p, r)));
+}
+
+/** Running out through the doorway, to the right; drawn in green on the white of the door. */
+const RUNNER_HEAD = [15.5, 6.3, 1.9];
+const RUNNER = [
+  [
+    [14.2, 9],
+    [12, 13.5],
+  ],
+  [
+    [14.5, 9.5],
+    [17.5, 10.3],
+    [20.5, 10.3],
+  ],
+  [
+    [13.8, 9.6],
+    [10.8, 10.2],
+    [9.2, 12.3],
+  ],
+  [
+    [12, 13.5],
+    [15, 15.5],
+    [15, 19],
+  ],
+  [
+    [12, 13.5],
+    [9.6, 16.2],
+    [6.6, 16.2],
+  ],
+];
+
+/** Feet going out from under him, arms up. */
+const SLIPPER_HEAD = [20.5, 26.5, 1.7];
+const SLIPPER = [
+  [
+    [19.3, 29],
+    [15.5, 33.5],
+  ],
+  [
+    [18.8, 29.8],
+    [22.5, 28.2],
+  ],
+  [
+    [18.3, 30.3],
+    [13.5, 30.8],
+  ],
+  [
+    [15.5, 33.5],
+    [20, 37],
+  ],
+  [
+    [15.5, 33.5],
+    [11.5, 36.5],
+  ],
+];
+
+const EXIT_GREEN = [14, 112, 36];
+const WET_YELLOW = [236, 190, 30];
+
+export const SAFETY_SKIN: StatueSkin = (() => {
+  const W = SAFETY_ATLAS_W;
+  const data = new Uint8ClampedArray(W * SAFETY_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1, a = 255) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = a;
+  };
+  const fill = (r: Rect, c: readonly number[]) => {
+    for (let y = r.y; y < r.y + r.h; y++) {
+      for (let x = r.x; x < r.x + r.w; x++) put(x, y, c, 0.93 + 0.1 * grain(x, y + 200));
+    }
+  };
+  fill(YELLOW, WET_YELLOW);
+  fill(CASING, [222, 220, 208]);
+  fill(ROD, [120, 122, 122]);
+  const print = (word: string, left: number, top: number, c: readonly number[]) => {
+    [...word].forEach((letter, i) => {
+      LETTERS[letter].forEach((row, ry) => {
+        for (let rx = 0; rx < 3; rx++) if (row[rx] === "#") put(left + i * 4 + rx, top + ry, c);
+      });
+    });
+  };
+
+  // The exit sign, lit from inside (alpha 64–127): on the left a white doorway with a green man running out of it and
+  // the white of the floor spilling out below; on the right a big white arrow the way he's going.
+  for (let y = 0; y < EXIT_FACE.h; y++) {
+    for (let x = 0; x < EXIT_FACE.w; x++) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      const doorway = px > 6 && px < 20.5 && py > 3 && py < 19.5;
+      const floor = py >= 19.5 && py < 21.8 && px > 6 - (py - 19.5) * 1.3 && px < 20.5 + (py - 19.5) * 1.3;
+      const runner = inFigure(px, py, RUNNER_HEAD, RUNNER, 1.1);
+      const arrow =
+        (px > 26.5 && px < 41 && py > 9.2 && py < 14.3) || inTriangle(px, py, [38.5, 3.2], [51.5, 11.75], [38.5, 20.3]);
+      const white = ((doorway || floor) && !runner) || arrow;
+      put(EXIT_FACE.x + x, EXIT_FACE.y + y, white ? [240, 248, 240] : EXIT_GREEN, 1, 100);
+    }
+  }
+
+  // The wet floor sign: yellow, a dark handle slot at the top, CAUTION, the warning triangle with the man slipping in
+  // it, and WET.
+  for (let y = 0; y < WET_FACE.h; y++) {
+    for (let x = 0; x < WET_FACE.w; x++) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      let c = WET_YELLOW;
+      if (px > 11 && px < 21 && py > 2.5 && py < 6) c = [40, 34, 20];
+      const apex = [16, 17.5];
+      const left = [3, 41];
+      const right = [29, 41];
+      if (inTriangle(px, py, apex, left, right)) {
+        const inner = inTriangle(px, py, [16, 21.5], [6.6, 39], [25.4, 39]);
+        c = inner ? WET_YELLOW : SIGN_BLACK;
+        if (inner && (inFigure(px, py, SLIPPER_HEAD, SLIPPER, 0.95) || nearLine(px, py, [9, 38], [23, 38], 0.5))) {
+          c = SIGN_BLACK;
+        }
+      }
+      put(WET_FACE.x + x, WET_FACE.y + y, c, 0.94 + 0.08 * grain(x, y + 300));
+    }
+  }
+  print("CAUTION", WET_FACE.x + 3, WET_FACE.y + 9, SIGN_BLACK);
+  print("WET", WET_FACE.x + 11, WET_FACE.y + 45, SIGN_BLACK);
+  return { data };
+})();
+
 // ---- where they are ----
 
-export type JunkKind = "monitor" | "chair" | "sign" | "door";
+export type JunkKind = "monitor" | "chair" | "sign" | "door" | "exit" | "wetFloor";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -621,11 +849,13 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
 
 /** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
-/** How many blocks have a monitor, a chair, a sign, a door. */
+/** How many blocks have a monitor, a chair, a sign, a door, an exit sign, a wet floor sign. */
 const MONITOR_CHANCE = 0.09;
 const CHAIR_CHANCE = 0.18;
 const SIGN_CHANCE = 0.15;
 const DOOR_CHANCE = 0.1;
+const EXIT_CHANCE = 0.12;
+const WET_CHANCE = 0.12;
 
 const OUT = [
   [-1, 0],
@@ -702,6 +932,16 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (doorRoll(0) < DOOR_CHANCE) {
     const spot = spotIn(map, bx, by, doorRoll);
     if (spot) found.push(placeDoor(`d${bx},${by}`, spot, doorRoll));
+  }
+  const exitRoll = (k: number) => map.noise(bx * 31 + k, by, 740);
+  if (exitRoll(0) < EXIT_CHANCE) {
+    const spot = spotIn(map, bx, by, exitRoll);
+    if (spot) found.push(placeExit(`e${bx},${by}`, spot, exitRoll));
+  }
+  const wetRoll = (k: number) => map.noise(bx * 31 + k, by, 750);
+  if (wetRoll(0) < WET_CHANCE) {
+    const spot = spotIn(map, bx, by, wetRoll);
+    if (spot) found.push(placeWetFloor(`w${bx},${by}`, spot, wetRoll));
   }
   return found;
 }
@@ -968,6 +1208,91 @@ function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
     pitch: (roll(56) - 0.5) * 1,
     roll: (roll(57) - 0.5) * 1,
     solid: solid(x, y, yaw),
+  };
+}
+
+/**
+ * Exit signs, lit, pointing the way out of nowhere: high on a wall where they belong, hung from the ceiling, low on a
+ * wall just over the carpet, or sunk aslant into the carpet. Half of them point the other way.
+ */
+function placeExit(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const mirrored = roll(71) < 0.5;
+  const base = { key, kind: "exit" as const, pitch: 0, roll: 0 };
+  const how = roll(40);
+  if (how < 0.6 && spot.wall) {
+    // High on the wall most of the time; now and then down by the skirting.
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.25 + roll(42) * 0.5);
+    const low = how >= 0.45;
+    return {
+      ...base,
+      model: exitModel("wall", mirrored),
+      // Its back against the wall, not in it.
+      x: fx - ox * 0.036,
+      y: fy - oy * 0.036,
+      h: low ? 0.02 + roll(43) * 0.1 : 0.78 + roll(43) * 0.1,
+      yaw: Math.atan2(-oy, -ox),
+      solid: null,
+    };
+  }
+  const x = spot.cx + 0.3 + roll(50) * 0.4;
+  const y = spot.cy + 0.3 + roll(51) * 0.4;
+  const yaw = roll(52) * Math.PI * 2;
+  if (how < 0.8) {
+    // Up out of the way: only XN on the ceiling has to mind it.
+    const model = exitModel("hanging", mirrored);
+    return { ...base, model, x, y, h: 0.8 + roll(53) * 0.06, yaw, solid: { x, y, r: 0.12, overhead: true } };
+  }
+  return {
+    ...base,
+    model: exitModel("loose", mirrored),
+    x,
+    y,
+    h: -0.02 - roll(53) * 0.05,
+    yaw,
+    pitch: (roll(54) - 0.5) * 1.2,
+    roll: (roll(55) - 0.5) * 1.2,
+    solid: { x, y, r: 0.12 },
+  };
+}
+
+/**
+ * Wet floor signs, where nothing is wet: standing open, knocked over on their side, sunk aslant into the carpet, or
+ * upside down in the ceiling.
+ */
+function placeWetFloor(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const base = { key, kind: "wetFloor" as const, model: WET_FLOOR, pitch: 0, roll: 0 };
+  const how = roll(40);
+  const x = spot.cx + 0.3 + roll(50) * 0.4;
+  const y = spot.cy + 0.3 + roll(51) * 0.4;
+  const yaw = roll(52) * Math.PI * 2;
+  if (how < 0.45) return { ...base, x, y, h: 0, yaw, solid: { x, y, r: 0.1 } };
+  if (how < 0.65) {
+    // Over on one side, still open.
+    const side = roll(53) < 0.5 ? 1 : -1;
+    return { ...base, x, y, h: WET_HW, yaw, roll: (side * Math.PI) / 2, solid: { x, y, r: 0.12 } };
+  }
+  if (how < 0.85) {
+    return {
+      ...base,
+      x,
+      y,
+      h: -0.04 - roll(53) * 0.1,
+      yaw,
+      pitch: (roll(54) - 0.5) * 1.2,
+      roll: (roll(55) - 0.5) * 1.2,
+      solid: { x, y, r: 0.1 },
+    };
+  }
+  // Upside down, its feet up in the ceiling space.
+  return {
+    ...base,
+    x,
+    y,
+    h: 1.04 + roll(53) * 0.1,
+    yaw,
+    roll: Math.PI,
+    solid: { x, y, r: 0.1, overhead: true },
   };
 }
 

@@ -8,6 +8,7 @@ import {
   junkAround,
   monitorSkin,
   placeJunk,
+  SAFETY_SKIN,
   SIGN_SKIN,
   solidDistance,
   WOOD_SKIN,
@@ -981,7 +982,14 @@ export function createGame(parts: GameParts): Game {
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
       // A monitor waits for its screen's picture.
-      const junkSkin = { monitor, chair: WOOD_SKIN, sign: SIGN_SKIN, door: DOOR_SKIN }[junk.kind];
+      const junkSkin = {
+        monitor,
+        chair: WOOD_SKIN,
+        sign: SIGN_SKIN,
+        door: DOOR_SKIN,
+        exit: SAFETY_SKIN,
+        wetFloor: SAFETY_SKIN,
+      }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
       if (!mesh) {
