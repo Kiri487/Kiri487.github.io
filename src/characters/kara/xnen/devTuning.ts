@@ -39,5 +39,6 @@ export function describeTuning(t: Tuning): string {
     `XN E ${t.xnReach / 100}`,
     `海報 ${t.posters}%`,
     `神像附近海報 ${t.posterNear}%`,
+    `塗鴉 ${t.graffiti}%`,
   ].join("｜");
 }

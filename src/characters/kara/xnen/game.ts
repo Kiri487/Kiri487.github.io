@@ -18,6 +18,7 @@ import {
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
+import { inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
 import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
 import {
@@ -97,6 +98,8 @@ export interface GameParts {
   xnAtlasUrl: string;
   /** The Weed Cat Cult's poster. */
   posterUrl: string;
+  /** The drawings for the graffiti, traced from Kiri's: XN, Kara, the cult's cat god, and what XN does to it. */
+  drawingUrls: Record<DrawingName, string>;
   /** Kara's wallpaper, for the desktop on the old monitors' screens. */
   wallpaperUrl: string;
   tuning: Tuning;
@@ -310,6 +313,8 @@ export function createGame(parts: GameParts): Game {
   const { stage, canvas, tuning, touch } = parts;
   const reduced = prefersReducedMotion();
   const renderer = new Renderer(canvas);
+  // XN's graffiti reads as her subtitles do: through the visitor's SAN, a word at a time.
+  renderer.setGraffitiReader((text) => readAs(text, xnReadable()));
   const light = new Lighting();
   let timecode = new Timecode();
   let player = new Player();
@@ -335,6 +340,12 @@ export function createGame(parts: GameParts): Game {
   loadPixels(parts.posterUrl, (data, width, height) => {
     if (!disposed) renderer.setPosters(agePosters(data, width, height));
   });
+  // The graffiti's drawings, each as it comes.
+  for (const [name, url] of Object.entries(parts.drawingUrls) as [DrawingName, string][]) {
+    loadPixels(url, (data, width, height) => {
+      if (!disposed) setDrawing(name, inkOf(data, width, height));
+    });
+  }
   let monitor: StatueSkin | null = null;
   loadPixels(parts.wallpaperUrl, (data, width, height) => {
     monitor = monitorSkin(data, width, height);

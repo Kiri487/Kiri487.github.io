@@ -35,7 +35,7 @@ const TAPE_ONLY = 2;
 const SCRAP_SHARE = 0.18;
 const TAPE_SHARE = 0.07;
 /** The chance of a poster on any stretch of wall, far from every statue, at 100 %. */
-const RARE = 0.015;
+const RARE = 0.0075;
 /** The chance added close to a statue, at 100 %, fading out between these two distances in cells. */
 const NEAR = 0.1;
 const NEAR_FULL = 5;
