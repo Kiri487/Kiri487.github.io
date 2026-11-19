@@ -3,7 +3,16 @@ import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
-import { junkAround, monitorSkin, placeJunk, SIGN_SKIN, WOOD_SKIN, type Junk } from "./engine/junk";
+import {
+  DOOR_SKIN,
+  junkAround,
+  monitorSkin,
+  placeJunk,
+  SIGN_SKIN,
+  solidDistance,
+  WOOD_SKIN,
+  type Junk,
+} from "./engine/junk";
 import { Lighting } from "./engine/lighting";
 import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
@@ -382,7 +391,7 @@ export function createGame(parts: GameParts): Game {
       (junk) =>
         junk.solid &&
         (surface === "wall" || !!junk.solid.overhead === (surface === "ceiling")) &&
-        Math.hypot(x - junk.solid.x, y - junk.solid.y) < junk.solid.r + room,
+        solidDistance(junk.solid, x, y) < junk.solid.r + room,
     );
   /** What the picture draws besides the place itself, built again each frame. */
   let props: Prop[] = [];
@@ -972,7 +981,7 @@ export function createGame(parts: GameParts): Game {
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
       // A monitor waits for its screen's picture.
-      const junkSkin = junk.kind === "monitor" ? monitor : junk.kind === "chair" ? WOOD_SKIN : SIGN_SKIN;
+      const junkSkin = { monitor, chair: WOOD_SKIN, sign: SIGN_SKIN, door: DOOR_SKIN }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
       if (!mesh) {

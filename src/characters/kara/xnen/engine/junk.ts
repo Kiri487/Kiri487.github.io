@@ -291,8 +291,11 @@ function signModel(kind: SignKind, middle: number, mirrored: boolean, poleTop = 
   return { tris, atlasWidth: SIGN_ATLAS_W, atlasHeight: SIGN_ATLAS_H, stone: [150, 150, 146] };
 }
 
-/** The letters of STOP, three pixels by five. */
+/** The letters of STOP and EXIT, three pixels by five. */
 const LETTERS: Record<string, readonly string[]> = {
+  E: ["###", "#..", "##.", "#..", "###"],
+  X: ["#.#", "#.#", ".#.", "#.#", "#.#"],
+  I: ["###", ".#.", ".#.", ".#.", "###"],
   S: ["###", "#..", "###", "..#", "###"],
   T: ["###", ".#.", ".#.", ".#.", ".#."],
   O: ["###", "#.#", "#.#", "#.#", "###"],
@@ -435,9 +438,147 @@ export const SIGN_SKIN: StatueSkin = (() => {
   return { data };
 })();
 
+// ---- the doors ----
+
+/**
+ * The doors' atlas: a wooden door's face with four sunk panels, a red fire door's face with EXIT on it, wood, grey
+ * metal, plain red, brass, the black of a pull handle and the silver of the push bar.
+ */
+const WOOD_FACE: Rect = { x: 0, y: 0, w: 32, h: 64 };
+const FIRE_FACE: Rect = { x: 32, y: 0, w: 32, h: 64 };
+const DOOR_WOOD: Rect = { x: 64, y: 0, w: 32, h: 32 };
+const DOOR_METAL: Rect = { x: 64, y: 32, w: 32, h: 32 };
+const DOOR_RED: Rect = { x: 96, y: 0, w: 32, h: 32 };
+const BRASS: Rect = { x: 96, y: 32, w: 16, h: 16 };
+const BAR: Rect = { x: 112, y: 32, w: 16, h: 16 };
+const SILVER: Rect = { x: 96, y: 48, w: 16, h: 16 };
+const DOOR_ATLAS_W = 128;
+const DOOR_ATLAS_H = 64;
+
+/** The door's height and width, its thickness, and the frame round it. */
+const DOOR_H = 0.7;
+const DOOR_W = 0.3;
+const DOOR_T = 0.024;
+const FRAME = 0.03;
+const FRAME_DEPTH = 0.035;
+
+type DoorKind = "wood" | "fire";
+
+/**
+ * A closed door in its frame, standing on its own, the foot of it at 0, its face toward +z. A wooden door has a brass
+ * knob each side; a fire door a push bar on the front and a pull handle on the back.
+ */
+function buildDoor(kind: DoorKind): StatueModel {
+  const tris: number[] = [];
+  const hw = DOOR_W / 2;
+  const ht = DOOR_T / 2;
+  const fire = kind === "fire";
+  const frame = fire ? DOOR_RED : DOOR_WOOD;
+  const face = fire ? FIRE_FACE : WOOD_FACE;
+  // The frame: two jambs and the head across the top.
+  box(tris, -hw - FRAME, -hw, 0, DOOR_H + FRAME, -FRAME_DEPTH, FRAME_DEPTH, frame, frame, frame);
+  box(tris, hw, hw + FRAME, 0, DOOR_H + FRAME, -FRAME_DEPTH, FRAME_DEPTH, frame, frame, frame);
+  box(tris, -hw, hw, DOOR_H, DOOR_H + FRAME, -FRAME_DEPTH, FRAME_DEPTH, frame, frame, frame);
+  // The door itself; a fire door's EXIT is only on the push side.
+  box(tris, -hw, hw, 0, DOOR_H, -ht, ht, face, fire ? DOOR_RED : face, frame);
+  if (fire) {
+    // A silver push bar nearly all the way across, from a grey housing on the hinge side to a bracket at the other
+    // end; a plain pull handle on the back.
+    const bar = DOOR_H * 0.52;
+    const z0 = ht + 0.01;
+    box(tris, -hw + 0.02, -hw + 0.05, bar - 0.02, bar + 0.02, ht, z0 + 0.018, DOOR_METAL, DOOR_METAL, DOOR_METAL);
+    box(tris, -hw + 0.05, hw - 0.025, bar - 0.009, bar + 0.009, z0, z0 + 0.014, SILVER, SILVER, SILVER);
+    box(tris, hw - 0.035, hw - 0.022, bar - 0.011, bar + 0.011, ht, z0 + 0.016, DOOR_METAL, DOOR_METAL, DOOR_METAL);
+    box(tris, hw - 0.05, hw - 0.035, bar - 0.05, bar + 0.05, -ht - 0.022, -ht, BAR, BAR, BAR);
+  } else {
+    const handle = DOOR_H * 0.46;
+    // A brass knob each side.
+    box(tris, hw - 0.055, hw - 0.033, handle - 0.011, handle + 0.011, ht, ht + 0.022, BRASS, BRASS, BRASS);
+    box(tris, hw - 0.055, hw - 0.033, handle - 0.011, handle + 0.011, -ht - 0.022, -ht, BRASS, BRASS, BRASS);
+  }
+  return {
+    tris,
+    atlasWidth: DOOR_ATLAS_W,
+    atlasHeight: DOOR_ATLAS_H,
+    stone: fire ? [170, 34, 28] : [146, 100, 60],
+  };
+}
+
+const DOORS: Record<DoorKind, StatueModel> = { wood: buildDoor("wood"), fire: buildDoor("fire") };
+
+/** The doors' faces and the rest of their atlas. */
+export const DOOR_SKIN: StatueSkin = (() => {
+  const W = DOOR_ATLAS_W;
+  const data = new Uint8ClampedArray(W * DOOR_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const DOOR_BROWN = [150, 104, 62];
+  // Wood with the grain running up the door.
+  const woodAt = (x: number, y: number) =>
+    0.84 + 0.08 * Math.sin(x * 0.9 + Math.sin(y * 0.3) * 1.6 + grain(x, 0) * 2) + 0.08 * grain(x, y);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) put(DOOR_WOOD.x + x, DOOR_WOOD.y + y, DOOR_BROWN, woodAt(x, y));
+  }
+  // The wooden door: four sunk panels, two tall above and two below, lit from the top left.
+  const panels = [
+    [4, 5, 14, 31],
+    [18, 5, 28, 31],
+    [4, 36, 14, 59],
+    [18, 36, 28, 59],
+  ];
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 32; x++) {
+      let m = woodAt(x, y);
+      for (const [x0, y0, x1, y1] of panels) {
+        if (x < x0 || x > x1 || y < y0 || y > y1) continue;
+        if (x === x0 || y === y0) m *= 0.68;
+        else if (x === x1 || y === y1) m *= 1.12;
+        else m *= 0.94;
+      }
+      put(WOOD_FACE.x + x, WOOD_FACE.y + y, DOOR_BROWN, m);
+    }
+  }
+  // Painted metal: grey for the fire door's frame, red for the door.
+  const FIRE_RED = [170, 34, 28];
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      put(DOOR_METAL.x + x, DOOR_METAL.y + y, [128, 130, 128], 0.92 + 0.1 * grain(x, y + 40));
+      put(DOOR_RED.x + x, DOOR_RED.y + y, FIRE_RED, 0.92 + 0.1 * grain(x, y + 80));
+    }
+  }
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      put(BRASS.x + x, BRASS.y + y, [196, 156, 70], 0.85 + 0.2 * grain(x, y));
+      put(BAR.x + x, BAR.y + y, [40, 40, 42], 0.9 + 0.15 * grain(x, y));
+      put(SILVER.x + x, SILVER.y + y, [196, 198, 198], 0.92 + 0.1 * grain(x, y + 20));
+    }
+  }
+  // The fire door: red all over, scuffed low down, EXIT painted on in off-white a quarter of the way down.
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 32; x++) {
+      let m = 0.92 + 0.1 * grain(x, y + 120);
+      if (y > 44 && grain(x + 7, y) > 0.93) m *= 0.75;
+      put(FIRE_FACE.x + x, FIRE_FACE.y + y, FIRE_RED, m);
+    }
+  }
+  [..."EXIT"].forEach((letter, i) => {
+    LETTERS[letter].forEach((row, ry) => {
+      for (let rx = 0; rx < 3; rx++) {
+        if (row[rx] === "#") put(FIRE_FACE.x + 9 + i * 4 + rx, FIRE_FACE.y + 14 + ry, [236, 230, 212]);
+      }
+    });
+  });
+  return { data };
+})();
+
 // ---- where they are ----
 
-export type JunkKind = "monitor" | "chair" | "sign";
+export type JunkKind = "monitor" | "chair" | "sign" | "door";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -452,16 +593,39 @@ export interface Junk {
   yaw: number;
   pitch: number;
   roll: number;
-  /** Where it's in the way, a circle on the floor plan; `overhead` if up at the ceiling, out of the visitor's way. */
-  solid: { x: number; y: number; r: number; overhead?: boolean } | null;
+  /** Where it's in the way on the floor plan; `overhead` if up at the ceiling, out of the visitor's way. */
+  solid: Solid | null;
+}
+
+/**
+ * The part of a piece of junk that's in the way: a circle of radius r round (x, y), or, given `along`, every point
+ * within r of the line from (x, y) − along to (x, y) + along (a door, edge on).
+ */
+export interface Solid {
+  x: number;
+  y: number;
+  r: number;
+  along?: readonly [number, number];
+  overhead?: boolean;
+}
+
+/** How far (x, y) is from the middle of what's in the way: closer than its r is inside it. */
+export function solidDistance(solid: Solid, x: number, y: number): number {
+  const dx = x - solid.x;
+  const dy = y - solid.y;
+  if (!solid.along) return Math.hypot(dx, dy);
+  const [ax, ay] = solid.along;
+  const t = Math.max(-1, Math.min(1, (dx * ax + dy * ay) / (ax * ax + ay * ay)));
+  return Math.hypot(dx - ax * t, dy - ay * t);
 }
 
 /** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
-/** How many blocks have a monitor, a chair, a sign. */
+/** How many blocks have a monitor, a chair, a sign, a door. */
 const MONITOR_CHANCE = 0.18;
 const CHAIR_CHANCE = 0.18;
 const SIGN_CHANCE = 0.15;
+const DOOR_CHANCE = 0.1;
 
 const OUT = [
   [-1, 0],
@@ -533,6 +697,11 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (signRoll(0) < SIGN_CHANCE) {
     const spot = spotIn(map, bx, by, signRoll);
     if (spot) found.push(placeSign(`s${bx},${by}`, spot, signRoll));
+  }
+  const doorRoll = (k: number) => map.noise(bx * 31 + k, by, 730);
+  if (doorRoll(0) < DOOR_CHANCE) {
+    const spot = spotIn(map, bx, by, doorRoll);
+    if (spot) found.push(placeDoor(`d${bx},${by}`, spot, doorRoll));
   }
   return found;
 }
@@ -721,6 +890,84 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
     pitch: leans ? (roll(54) - 0.5) * 1.2 : 0,
     roll: leans ? (roll(55) - 0.5) * 1.2 : 0,
     solid: { x, y, r: 0.12 },
+  };
+}
+
+/** How many doors are fire doors; the rest are wooden. */
+const FIRE_DOORS = 0.3;
+
+/**
+ * Doors, closed and going nowhere: standing on their own in the middle of a room, flat against a wall as if there
+ * were somewhere behind it, driven aslant into a wall, upside down halfway through the ceiling, or sunk aslant into
+ * the carpet. In the way edge on, across their width.
+ */
+function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
+  const model = DOORS[roll(70) < FIRE_DOORS ? "fire" : "wood"];
+  const base = { key, kind: "door" as const, model, pitch: 0, roll: 0 };
+  const how = roll(40);
+  const reach = DOOR_W / 2 + FRAME;
+  /** In the way across its width, turned to `yaw`. */
+  const solid = (x: number, y: number, yaw: number, overhead = false): Solid => ({
+    x,
+    y,
+    r: FRAME_DEPTH + 0.01,
+    along: [Math.sin(yaw) * reach, -Math.cos(yaw) * reach],
+    overhead,
+  });
+  if (how < 0.2 && spot.wall) {
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.35 + roll(42) * 0.3);
+    const x = fx - ox * FRAME_DEPTH;
+    const y = fy - oy * FRAME_DEPTH;
+    const yaw = Math.atan2(-oy, -ox);
+    return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw) };
+  }
+  if (how < 0.4 && spot.wall) {
+    // Driven into the wall at any angle, as far as its middle.
+    const [ox, oy] = spot.wall;
+    const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const yaw = roll(44) * Math.PI * 2;
+    return {
+      ...base,
+      x: fx,
+      y: fy,
+      h: -0.1 + roll(43) * 0.25,
+      yaw,
+      pitch: (roll(45) - 0.5) * 1.2,
+      roll: (roll(46) - 0.5) * 1.4,
+      solid: solid(fx - ox * 0.12, fy - oy * 0.12, yaw),
+    };
+  }
+  // Not far off the middle of the cell, so there's room to get round it in a corridor.
+  const x = spot.cx + 0.4 + roll(50) * 0.2;
+  const y = spot.cy + 0.4 + roll(51) * 0.2;
+  // Half of them square to the walls, the rest at any angle.
+  const yaw =
+    roll(52) < 0.5 ? Math.floor(roll(53) * 4) * (Math.PI / 2) + (roll(54) - 0.5) * 0.1 : roll(53) * Math.PI * 2;
+  if (how < 0.6) return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw) };
+  if (how < 0.8) {
+    // Upside down, its foot up in the ceiling space; one hanging low enough is in the visitor's way too.
+    const h = 1.1 + roll(55) * 0.3;
+    return {
+      ...base,
+      x,
+      y,
+      h,
+      yaw,
+      pitch: (roll(56) - 0.5) * 0.5,
+      roll: Math.PI + (roll(57) - 0.5) * 0.5,
+      solid: solid(x, y, yaw, h - DOOR_H - FRAME > 0.55),
+    };
+  }
+  return {
+    ...base,
+    x,
+    y,
+    h: -0.2 - roll(55) * 0.25,
+    yaw,
+    pitch: (roll(56) - 0.5) * 1,
+    roll: (roll(57) - 0.5) * 1,
+    solid: solid(x, y, yaw),
   };
 }
 
