@@ -360,7 +360,7 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
           </button>
         ))}
       </div>
-      {/* TEMPORARY: XN at the things in the room the visitor starts in. Pressed again, the next one of its kind. */}
+      {/* XN at the things nearest the visitor. Pressed again, the next one of its kind. */}
       {PROP_TARGETS.map(([target, name]) => (
         <div key={target} className="kara-xnen-dev__buttons" role="group" aria-label={`XN 和${name}`}>
           <span>{name}</span>

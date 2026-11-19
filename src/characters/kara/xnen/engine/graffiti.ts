@@ -1387,11 +1387,10 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   if (had !== undefined) return had;
   let tag: Tag | null = null;
   const pick = (k: number) => map.noise(lx * 2 + dir, ly * 2 + side, 500 + k);
-  const forced = PREVIEW ? previewFor(map).get(`${lx},${ly},${dir},${side}`) : undefined;
-  if (forced || pick(0) < (CHANCE * tuning.graffiti) / 100) {
+  if (pick(0) < (CHANCE * tuning.graffiti) / 100) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
-      const kind = forced ?? kindOf(pick(1));
+      const kind = kindOf(pick(1));
       const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : GRAFFITI_TEXTS;
       const line = Math.floor(pick(2) * lines.length);
       const text = kind === "text" ? GRAFFITI_TEXTS[line] : "";
@@ -1430,39 +1429,6 @@ export function graffitiNear(map: WorldMap, x: number, y: number, radius: number
       }
     }
   }
-  return out;
-}
-
-/**
- * TEMPORARY, for Kiri to look over XN looking at graffiti: a line of hers and her drawing of herself with Kara, on
- * the two stretches of wall nearest where the visitor starts. Gone once she's happy.
- */
-const PREVIEW = true;
-const PREVIEW_KINDS: readonly Kind[] = ["text", "portrait"];
-const previews = new WeakMap<WorldMap, Map<string, Kind>>();
-
-function previewFor(map: WorldMap): Map<string, Kind> {
-  const had = previews.get(map);
-  if (had) return had;
-  const sides: [string, number][] = [];
-  for (let ly = -3; ly <= 4; ly++) {
-    for (let lx = -3; lx <= 4; lx++) {
-      for (let dir = 0; dir < 2; dir++) {
-        for (let side = 0; side < 2; side++) {
-          const [first, count] = openRun(map, lx, ly, dir, side);
-          if (count < 3) continue;
-          const mid = first + count / 2;
-          const x = dir === 0 ? lx * 5 + mid : lx * 5 + side;
-          const y = dir === 0 ? ly * 5 + side : ly * 5 + mid;
-          sides.push([`${lx},${ly},${dir},${side}`, Math.hypot(x - 2.5, y - 2.5)]);
-        }
-      }
-    }
-  }
-  sides.sort((a, b) => a[1] - b[1]);
-  const out = new Map<string, Kind>();
-  sides.slice(0, PREVIEW_KINDS.length).forEach(([key], i) => out.set(key, PREVIEW_KINDS[i]));
-  previews.set(map, out);
   return out;
 }
 
