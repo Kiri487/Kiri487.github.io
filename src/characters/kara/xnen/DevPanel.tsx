@@ -5,7 +5,7 @@ import { describeTuning, loadTuning, saveTuning } from "./devTuning";
 import { forgetDoor } from "./door";
 import { readableAt, SAN_DEV_RANGE, setSanExposure, stageAt, useSanSeconds } from "./san";
 import { meetingsSoFar } from "./talk";
-import type { XnPreview } from "./game";
+import { PROP_POSES, type PropPose, type PropTarget, type XnPreview } from "./game";
 import {
   NOT_ON_WALLS,
   randomWalk,
@@ -71,6 +71,7 @@ const ACTION_LABELS: Record<XnAction, string> = {
   sit: "坐著抱膝",
   spin: "原地慢轉",
   walk: "走路",
+  perch: "坐在邊緣",
 };
 
 
@@ -120,6 +121,32 @@ const XN_CHECKS: readonly ["auto" | "tailUp" | "swingArms" | "ignore", string][]
   ["ignore", "XN 不理玩家（只看動作，不轉頭看你）"],
 ];
 
+/** XN at things: what each is called, and each pose's name. */
+const PROP_TARGETS: readonly [PropTarget, string][] = [
+  ["chair", "椅子"],
+  ["desk", "桌子"],
+  ["cabinet", "檔案櫃"],
+  ["monitor", "CRT"],
+  ["hung", "天花板的椅子"],
+  ["door", "門"],
+  ["graffiti", "塗鴉"],
+  ["portrait", "自畫像"],
+  ["sign", "告示牌"],
+];
+
+const PROP_POSE_LABELS: Record<PropPose, string> = {
+  stand: "站",
+  crouch: "蹲",
+  perch: "坐邊緣",
+  swing: "坐邊緣晃腳",
+  sit: "抱膝坐",
+  sitBack: "背靠抱膝坐",
+  crouchBack: "背靠蹲",
+};
+
+/** Looking at something, "站" reads better as "站著看". */
+const LOOKED_AT = new Set<PropTarget>(["graffiti", "portrait", "sign"]);
+
 interface DevPanelProps {
   panelRef: Ref<HTMLDivElement>;
   onTune: (next: Tuning, freshMap: boolean) => void;
@@ -127,9 +154,10 @@ interface DevPanelProps {
   onXnPreview: (next: XnPreview, restart: boolean) => void;
   onMoveXnOn: () => void;
   onForgetXn: () => void;
+  onXnProp: (target: PropTarget, pose: PropPose) => void;
 }
 
-function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForgetXn }: DevPanelProps) {
+function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForgetXn, onXnProp }: DevPanelProps) {
   const [tuning, setTuning] = useState(loadTuning);
   const [copied, setCopied] = useState<"" | "done" | "failed">("");
   const [poseCopied, setPoseCopied] = useState<"" | "done" | "failed">("");
@@ -332,6 +360,18 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
           </button>
         ))}
       </div>
+      {/* TEMPORARY: XN at the things in the room the visitor starts in. Pressed again, the next one of its kind. */}
+      {PROP_TARGETS.map(([target, name]) => (
+        <div key={target} className="kara-xnen-dev__buttons" role="group" aria-label={`XN 和${name}`}>
+          <span>{name}</span>
+          {PROP_POSES[target].map((pose) => (
+            <button key={pose} type="button" onClick={() => onXnProp(target, pose)}>
+              {PROP_POSE_LABELS[pose]}
+              {LOOKED_AT.has(target) ? "著看" : ""}
+            </button>
+          ))}
+        </div>
+      ))}
       <div className="kara-xnen-dev__checks">
         {XN_CHECKS.map(([key, label]) => (
           <label key={key}>

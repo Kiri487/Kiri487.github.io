@@ -273,6 +273,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
           }}
           onMoveXnOn={() => gameRef.current?.moveXnOn()}
           onForgetXn={() => gameRef.current?.forgetXnMeetings()}
+          onXnProp={(target, pose) => gameRef.current?.previewXnProp(target, pose)}
         />
       )}
     </div>
