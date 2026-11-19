@@ -832,13 +832,17 @@ export const SAFETY_SKIN: StatueSkin = (() => {
 
 /**
  * One atlas for the filing cabinets and the sockets: a drawer front (handle, label holder), steel, darker steel, a
- * manila folder, and a wall socket's plate with two outlets. The desks are wood, the chairs' own.
+ * manila folder, a wall socket's plate with two outlets, one above the other or side by side, and a light switch. The desks are wood, the chairs' own.
  */
 const DRAWER: Rect = { x: 0, y: 0, w: 32, h: 16 };
 const STEEL: Rect = { x: 32, y: 0, w: 16, h: 16 };
 const STEEL_DARK: Rect = { x: 48, y: 0, w: 16, h: 16 };
 const FOLDER: Rect = { x: 44, y: 16, w: 8, h: 8 };
 const SOCKET: Rect = { x: 32, y: 16, w: 12, h: 20 };
+/** The same two outlets side by side, on a plate the other way round. */
+const SOCKET_WIDE: Rect = { x: 44, y: 24, w: 20, h: 12 };
+/** A light switch on a wide plate. */
+const SWITCH: Rect = { x: 0, y: 16, w: 20, h: 12 };
 /** A corner of the socket's plate, plain, for its edges. */
 const PLATE: Rect = { x: 32, y: 16, w: 2, h: 2 };
 const OFFICE_ATLAS_W = 64;
@@ -988,17 +992,27 @@ function buildDesk(shape: DeskShape): StatueModel {
   return { tris, atlasWidth: 32, atlasHeight: 32, stone: [120, 84, 50] };
 }
 
-/** A wall socket's half width and height, and how far it stands off the wall. */
+/** A wall socket's plate, upright: its half width and its height; and how far it stands off the wall. */
 const SOCKET_HW = 0.0175;
 const SOCKET_H = 0.055;
-const SOCKET_T = 0.006;
+const SOCKET_T = 0.012;
 
-/** A wall socket, its back at z = 0 and its face toward +z, its foot at 0. */
-const SOCKET_MODEL: StatueModel = (() => {
+/** A wall socket, its back at z = 0 and its face toward +z, its foot at 0, `hw` across each way and `h` high. */
+function buildSocket(face: Rect, hw: number, h: number): StatueModel {
   const tris: number[] = [];
-  box(tris, -SOCKET_HW, SOCKET_HW, 0, SOCKET_H, 0, SOCKET_T, SOCKET, PLATE, PLATE);
+  box(tris, -hw, hw, 0, h, 0, SOCKET_T, face, PLATE, PLATE);
   return { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [226, 222, 208] };
-})();
+}
+
+/**
+ * The three kinds, as likely as each other: the outlets one above the other on an upright plate, side by side on a
+ * wide one, or a light switch on a wide one.
+ */
+const SOCKETS = [
+  { model: buildSocket(SOCKET, SOCKET_HW, SOCKET_H), h: SOCKET_H },
+  { model: buildSocket(SOCKET_WIDE, SOCKET_H / 2, SOCKET_HW * 2), h: SOCKET_HW * 2 },
+  { model: buildSocket(SWITCH, SOCKET_H / 2, SOCKET_HW * 2), h: SOCKET_HW * 2 },
+];
 
 /** Steel, the drawer fronts, the laminate and the sockets, drawn. */
 export const OFFICE_SKIN: StatueSkin = (() => {
@@ -1034,18 +1048,50 @@ export const OFFICE_SKIN: StatueSkin = (() => {
   for (let y = 0; y < FOLDER.h; y++) {
     for (let x = 0; x < FOLDER.w; x++) put(FOLDER.x + x, FOLDER.y + y, [214, 184, 120], y === 0 ? 0.75 : noise(x, y + 40));
   }
-  // The socket: an off-white plate, two outlets, each two slots and the earth hole under them.
-  for (let y = 0; y < SOCKET.h; y++) {
-    for (let x = 0; x < SOCKET.w; x++) {
-      let c = [226, 222, 208];
-      let m = 1;
-      if (x === 0 || y === 0 || x === SOCKET.w - 1 || y === SOCKET.h - 1) m = 0.8;
-      for (const top of [2, 11]) {
-        if (x >= 2 && x <= 9 && y >= top && y <= top + 6) m = 0.9;
-        if ((x === 4 || x === 7) && y >= top + 1 && y <= top + 3) c = [40, 36, 32];
-        if ((x === 5 || x === 6) && y === top + 5) c = [40, 36, 32];
+  // The sockets: an off-white plate with a raised middle, two outlets, each two upright slots and the earth hole
+  // under them; one above the other, or side by side.
+  const DARK = [40, 36, 32];
+  const plate = (r: Rect, outlets: readonly [number, number][]) => {
+    for (let y = 0; y < r.h; y++) {
+      for (let x = 0; x < r.w; x++) {
+        let c = [226, 222, 208];
+        let m = 1;
+        if (x === 0 || y === 0 || x === r.w - 1 || y === r.h - 1) m = 0.8;
+        else if (x === 1 || y === 1 || x === r.w - 2 || y === r.h - 2) m = 0.92;
+        for (const [ox, oy] of outlets) {
+          const lx = x - ox;
+          const ly = y - oy;
+          if (lx >= 0 && lx <= 7 && ly >= 0 && ly <= 6) m = 0.88;
+          if ((lx === 2 || lx === 5) && ly >= 1 && ly <= 3) c = DARK;
+          if ((lx === 3 || lx === 4) && ly === 5) c = DARK;
+        }
+        put(r.x + x, r.y + y, c, m);
       }
-      put(SOCKET.x + x, SOCKET.y + y, c, m);
+    }
+  };
+  plate(SOCKET, [
+    [2, 2],
+    [2, 11],
+  ]);
+  plate(SOCKET_WIDE, [
+    [2, 3],
+    [10, 3],
+  ]);
+  // The light switch: a beige plate, a small square frame in the middle, the rocker in it, and the little indicator
+  // at its top.
+  for (let y = 0; y < SWITCH.h; y++) {
+    for (let x = 0; x < SWITCH.w; x++) {
+      let c = [214, 208, 186];
+      let m = 1;
+      if (x === 0 || y === 0 || x === SWITCH.w - 1 || y === SWITCH.h - 1) m = 0.8;
+      else if (x === 1 || y === 1 || x === SWITCH.w - 2 || y === SWITCH.h - 2) m = 0.93;
+      if (x >= 7 && x <= 12 && y >= 2 && y <= 9) m = x === 7 || x === 12 || y === 2 || y === 9 ? 0.82 : 0.95;
+      if (x >= 8 && x <= 11 && y >= 3 && y <= 8) {
+        c = [232, 226, 206];
+        m = y <= 5 ? 0.96 : 1.02;
+      }
+      if ((x === 9 || x === 10) && y === 4) c = [110, 64, 40];
+      put(SWITCH.x + x, SWITCH.y + y, c, m);
     }
   }
   return { data };
@@ -1747,18 +1793,30 @@ function placeSockets(key: string, spot: Spot, roll: (k: number) => number): Jun
   const ty = ox !== 0 ? 1 : 0;
   const [fx, fy] = wallFace(spot, spot.wall, 0.2 + roll(42) * 0.6);
   const yaw = Math.atan2(-oy, -ox);
-  const flip = roll(44) < 0.15 ? Math.PI : 0;
+  const kind = SOCKETS[Math.floor(roll(49) * SOCKETS.length)];
+  // Which way up: upright, upside down, on its side (either side), or crooked at any angle.
+  const way = roll(44);
+  const turn =
+    way < 0.55
+      ? 0
+      : way < 0.65
+        ? Math.PI
+        : way < 0.85
+          ? (roll(48) < 0.5 ? 1 : -1) * (Math.PI / 2)
+          : (roll(48) - 0.5) * Math.PI * 2;
+  // It turns about its foot; moved so it turns about its middle instead, and stays where it was put.
+  const lift = kind.h / 2;
+  const sideways = Math.sin(turn) * lift;
   const one = (i: number, along: number, h: number): Junk => ({
     key: `${key}.${i}`,
     kind: "socket",
-    model: SOCKET_MODEL,
-    x: fx + tx * along,
-    y: fy + ty * along,
-    // Upside down, it turns about its foot, so it's lifted by its own height to stay where it was.
-    h: flip ? h + SOCKET_H : h,
+    model: kind.model,
+    x: fx + tx * along + Math.sin(yaw) * sideways,
+    y: fy + ty * along - Math.cos(yaw) * sideways,
+    h: h + lift - Math.cos(turn) * lift,
     yaw,
     pitch: 0,
-    roll: flip,
+    roll: turn,
     solid: null,
   });
   const how = roll(40);
