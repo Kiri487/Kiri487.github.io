@@ -946,6 +946,66 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   return found;
 }
 
+/**
+ * How deep into the carpet, the ceiling or a wall something `size` long goes, for a roll of 0–1: anything from a
+ * sliver of it to all but a sliver.
+ */
+const BURY_LEAST = 0.05;
+const BURY_MOST = 0.95;
+const buried = (size: number, r: number) => size * (BURY_LEAST + r * (BURY_MOST - BURY_LEAST));
+
+/** Something hanging from the ceiling lower than this is in the visitor's way. */
+const HEAD_ROOM = 0.55;
+
+/** Where a piece of junk is and how it's turned. */
+type Pose = Pick<Junk, "x" | "y" | "h" | "yaw" | "pitch" | "roll">;
+
+/**
+ * Where a piece of junk's own upright goes through the carpet (level 0) or the ceiling (level 1). Sunk deep and
+ * leaning, it comes up some way from where its foot is, so that's where it's in the way.
+ */
+function through(pose: Pose, level: number): [number, number] {
+  // Its upright, (0, 1, 0) in its own frame, turned as placeJunk turns it.
+  const across = -Math.sin(pose.roll);
+  const up = Math.cos(pose.roll) * Math.cos(pose.pitch);
+  const out = Math.cos(pose.roll) * Math.sin(pose.pitch);
+  if (Math.abs(up) < 0.2) return [pose.x, pose.y];
+  const t = Math.max(-1.2, Math.min(1.2, (level - pose.h) / up));
+  const fx = Math.cos(pose.yaw);
+  const fy = Math.sin(pose.yaw);
+  return [pose.x + t * (across * fy + out * fx), pose.y + t * (-across * fx + out * fy)];
+}
+
+/** In the way where it goes through the carpet or the ceiling, a circle of radius r. */
+function solidThrough(pose: Pose, level: number, r: number, overhead = false): Solid {
+  const [x, y] = through(pose, level);
+  return { x, y, r, overhead };
+}
+
+/** Anything sticking out of the carpet lower than this the visitor just steps over. */
+const STEP = 0.08;
+
+/** In the way where it comes up through the carpet, unless what's showing of it is low enough to step over. */
+function solidAbove(pose: Pose, showing: number, r: number): Solid | null {
+  return showing < STEP ? null : solidThrough(pose, 0, r);
+}
+
+/**
+ * Something `size` deep driven into the wall beside the spot, from a sliver of it to nearly all: where its middle
+ * goes, and how far it still comes out into the room.
+ */
+function intoWall(fx: number, fy: number, [ox, oy]: readonly [number, number], size: number, r: number) {
+  const out = size - buried(size, r);
+  const p = out - size / 2;
+  return { x: fx - ox * p, y: fy - oy * p, out };
+}
+
+/** In the way as far as something comes out of the wall at (fx, fy); not at all if it's hardly out. */
+function wallSolid(fx: number, fy: number, [ox, oy]: readonly [number, number], out: number): Solid | null {
+  if (out < 0.05) return null;
+  return { x: fx - (ox * out) / 2, y: fy - (oy * out) / 2, r: out / 2 };
+}
+
 /** A point on the wall's face beside the cell, `along` (0–1) of the way along it. */
 function wallFace(spot: Spot, [ox, oy]: readonly [number, number], along: number): [number, number] {
   return [
@@ -954,54 +1014,63 @@ function wallFace(spot: Spot, [ox, oy]: readonly [number, number], along: number
   ];
 }
 
-/** Monitors: half into a wall facing out of it, sunk into the carpet looking up, or upside down in the ceiling. */
+/** The monitor from the back of its case to the front of its screen, the middle of that, and its height. */
+const MONITOR_DEPTH = 0.332;
+const MONITOR_MIDDLE = -0.024;
+const MONITOR_TALL = 0.33;
+
+/** Monitors: into a wall facing out of it, sunk into the carpet looking up, or upside down in the ceiling. */
 function placeMonitor(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const base = { key, kind: "monitor" as const, model: MONITOR };
   const how = roll(40);
   if (how < 0.5 && spot.wall) {
     const [ox, oy] = spot.wall;
     const [fx, fy] = wallFace(spot, spot.wall, 0.25 + roll(42) * 0.5);
+    const w = intoWall(fx, fy, spot.wall, MONITOR_DEPTH, roll(47));
     const h = 0.12 + roll(43) * 0.45;
     return {
       ...base,
-      x: fx - ox * 0.02,
-      y: fy - oy * 0.02,
+      // Its middle where intoWall says; its own origin is a little in front of that.
+      x: w.x + ox * MONITOR_MIDDLE,
+      y: w.y + oy * MONITOR_MIDDLE,
       h,
       yaw: Math.atan2(-oy, -ox),
       pitch: (roll(44) - 0.5) * 0.4,
       roll: (roll(45) - 0.5) * 0.7,
-      solid: h < 0.85 ? { x: fx - ox * 0.14, y: fy - oy * 0.14, r: 0.2 } : null,
+      solid: h < 0.85 ? wallSolid(fx, fy, spot.wall, w.out) : null,
     };
   }
   const x = spot.cx + 0.3 + roll(50) * 0.4;
   const y = spot.cy + 0.3 + roll(51) * 0.4;
   if (how < 0.8) {
-    return {
-      ...base,
+    const sunk = buried(MONITOR_TALL, roll(56));
+    const pose = {
       x,
       y,
-      h: -0.06 - roll(53) * 0.1,
+      h: -sunk,
       yaw: roll(52) * Math.PI * 2,
       pitch: -0.25 - roll(54) * 0.45,
       roll: (roll(53) - 0.5) * 0.5,
-      solid: { x, y, r: 0.24 },
     };
+    return { ...base, ...pose, solid: solidAbove(pose, MONITOR_TALL - sunk, 0.2) };
   }
-  return {
-    ...base,
+  const pose = {
     x,
     y,
-    h: 1.08,
+    h: 1 + buried(MONITOR_TALL, roll(56)),
     yaw: roll(62) * Math.PI * 2,
     pitch: (roll(63) - 0.5) * 0.4,
     roll: Math.PI,
-    solid: { x, y, r: 0.24, overhead: true },
   };
+  return { ...base, ...pose, solid: solidThrough(pose, 1, 0.2, pose.h - MONITOR_TALL > HEAD_ROOM) };
 }
 
+/** How much of a chair is reckoned to go into a wall, whichever way it's turned. */
+const CHAIR_REACH = 0.35;
+
 /**
- * Chairs: half into a wall at any angle, sunk aslant into the carpet, upside down with their legs in the ceiling, or
- * just standing there, pushed up to a wall and facing it.
+ * Chairs: into a wall at any angle, sunk aslant into the carpet, upside down with their legs in the ceiling, or just
+ * standing there, pushed up to a wall and facing it.
  */
 function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const shape = chairShape(roll(70), roll(71));
@@ -1009,18 +1078,18 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
   const tall = chairHeight(shape);
   const how = roll(40);
   if (spot.wall && how < 0.35) {
-    const [ox, oy] = spot.wall;
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const w = intoWall(fx, fy, spot.wall, CHAIR_REACH, roll(47));
     const h = -0.05 + roll(43) * 0.35;
     return {
       ...base,
-      x: fx,
-      y: fy,
+      x: w.x,
+      y: w.y,
       h,
       yaw: roll(44) * Math.PI * 2,
       pitch: (roll(45) - 0.5) * 0.8,
       roll: (roll(46) - 0.5) * 1.2,
-      solid: h < 0.8 ? { x: fx - ox * 0.15, y: fy - oy * 0.15, r: 0.2 } : null,
+      solid: h < 0.8 ? wallSolid(fx, fy, spot.wall, w.out) : null,
     };
   }
   if (spot.wall && how < 0.55) {
@@ -1034,29 +1103,27 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
   const x = spot.cx + 0.3 + roll(50) * 0.4;
   const y = spot.cy + 0.3 + roll(51) * 0.4;
   if (how < 0.8) {
-    return {
-      ...base,
+    const sunk = buried(tall, roll(53));
+    const pose = {
       x,
       y,
-      h: -0.08 - roll(53) * 0.17,
+      h: -sunk,
       yaw: roll(52) * Math.PI * 2,
       pitch: (roll(54) - 0.5) * 1.2,
       roll: (roll(55) - 0.5) * 1.2,
-      solid: { x, y, r: 0.24 },
     };
+    return { ...base, ...pose, solid: solidAbove(pose, tall - sunk, 0.22) };
   }
   // Upside down, legs in the ceiling; one hanging low enough is in the visitor's way too.
-  const h = 1.04 + roll(60) * 0.06;
-  return {
-    ...base,
+  const pose = {
     x,
     y,
-    h,
+    h: 1 + buried(tall, roll(60)),
     yaw: roll(62) * Math.PI * 2,
     pitch: (roll(63) - 0.5) * 0.3,
     roll: Math.PI,
-    solid: { x, y, r: 0.24, overhead: h - tall > 0.55 },
   };
+  return { ...base, ...pose, solid: solidThrough(pose, 1, 0.22, pose.h - tall > HEAD_ROOM) };
 }
 
 /** How many signs are printed back to front. */
@@ -1064,6 +1131,9 @@ const SIGN_MIRRORED = 0.3;
 
 /** Where a sign's plate is, on an ordinary one: above head height, as on a street. */
 const SIGN_MIDDLE = 0.72;
+
+/** How much of a sign aslant in a wall is reckoned to go into it. */
+const SIGN_REACH = 0.3;
 
 /**
  * Road signs, indoors: standing in the middle of a room as if on a street corner, turned to face a wall, the pole
@@ -1093,31 +1163,31 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
     return { ...base, model, x: sx, y: sy, h: 0, yaw: Math.atan2(oy, ox), solid: { x: sx, y: sy, r: 0.1 } };
   }
   if (how < 0.55) {
-    // The pole on up through the ceiling, the plate anywhere from a little above its usual height to only its lower
-    // edge hanging down into the room.
-    const middle = SIGN_MIDDLE + 0.05 + roll(53) * (1 + R * 0.5 - SIGN_MIDDLE - 0.05);
+    // The pole on up through the ceiling, anything from a sliver of the plate's lower edge hanging down into the room
+    // to the whole sign, pole running from the carpet to the ceiling.
+    const middle = 1 + R - buried(1 + R, roll(53));
     const model = signModel(kind, middle, mirrored, 1.3);
     return { ...base, model, x, y, h: 0, yaw, solid: { x, y, r: 0.1 } };
   }
   if (how < 0.7 && spot.wall) {
-    const [ox, oy] = spot.wall;
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const w = intoWall(fx, fy, spot.wall, SIGN_REACH, roll(47));
     return {
       ...base,
       model: signModel(kind, SIGN_MIDDLE, mirrored),
-      x: fx,
-      y: fy,
+      x: w.x,
+      y: w.y,
       h: -0.1 + roll(43) * 0.3,
       yaw: roll(44) * Math.PI * 2,
       pitch: (roll(45) - 0.5) * 1.4,
       roll: (roll(46) - 0.5) * 1.4,
-      solid: { x: fx - ox * 0.1, y: fy - oy * 0.1, r: 0.1 },
+      solid: wallSolid(fx, fy, spot.wall, w.out),
     };
   }
-  // Sunk into the carpet, the plate anywhere from a little below its usual height to only its top edge showing. Half
-  // of them straight down, half leaning. The pole's foot is kept just under the carpet, so a lean swings the plate
-  // about the spot where the pole goes in.
-  const plate = -R * 0.7 + roll(53) * (SIGN_MIDDLE - 0.05 + R * 0.7);
+  // Sunk into the carpet, from hardly at all to only a sliver of the plate's top edge showing. Half of them straight
+  // down, half leaning. The pole's foot is kept just under the carpet, so a lean swings the plate about the spot where
+  // the pole goes in.
+  const plate = SIGN_MIDDLE - buried(SIGN_MIDDLE + R, roll(53));
   const foot = 0.1;
   const leans = roll(56) < 0.5;
   return {
@@ -1129,7 +1199,7 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
     yaw,
     pitch: leans ? (roll(54) - 0.5) * 1.2 : 0,
     roll: leans ? (roll(55) - 0.5) * 1.2 : 0,
-    solid: { x, y, r: 0.12 },
+    solid: plate + R < STEP ? null : { x, y, r: 0.12 },
   };
 }
 
@@ -1138,15 +1208,16 @@ const FIRE_DOORS = 0.3;
 
 /**
  * Doors, closed and going nowhere: standing on their own in the middle of a room, flat against a wall as if there
- * were somewhere behind it, driven aslant into a wall, upside down halfway through the ceiling, or sunk aslant into
- * the carpet. In the way edge on, across their width.
+ * were somewhere behind it, driven aslant into a wall, upside down in the ceiling, or sunk aslant into the carpet.
+ * In the way edge on, across their width.
  */
 function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const model = DOORS[roll(70) < FIRE_DOORS ? "fire" : "wood"];
   const base = { key, kind: "door" as const, model, pitch: 0, roll: 0 };
   const how = roll(40);
   const reach = DOOR_W / 2 + FRAME;
-  /** In the way across its width, turned to `yaw`. */
+  const tall = DOOR_H + FRAME;
+  /** In the way across its width at (x, y), turned to `yaw`. */
   const solid = (x: number, y: number, yaw: number, overhead = false): Solid => ({
     x,
     y,
@@ -1163,19 +1234,19 @@ function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
     return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw) };
   }
   if (how < 0.4 && spot.wall) {
-    // Driven into the wall at any angle, as far as its middle.
-    const [ox, oy] = spot.wall;
+    // Driven into the wall at any angle, anything from a corner of it to nearly all.
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
+    const w = intoWall(fx, fy, spot.wall, reach * 2, roll(47));
     const yaw = roll(44) * Math.PI * 2;
     return {
       ...base,
-      x: fx,
-      y: fy,
+      x: w.x,
+      y: w.y,
       h: -0.1 + roll(43) * 0.25,
       yaw,
       pitch: (roll(45) - 0.5) * 1.2,
       roll: (roll(46) - 0.5) * 1.4,
-      solid: solid(fx - ox * 0.12, fy - oy * 0.12, yaw),
+      solid: w.out < 0.05 ? null : solid(w.x, w.y, yaw),
     };
   }
   // Not far off the middle of the cell, so there's room to get round it in a corridor.
@@ -1187,33 +1258,34 @@ function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
   if (how < 0.6) return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw) };
   if (how < 0.8) {
     // Upside down, its foot up in the ceiling space; one hanging low enough is in the visitor's way too.
-    const h = 1.1 + roll(55) * 0.3;
-    return {
-      ...base,
+    const pose = {
       x,
       y,
-      h,
+      h: 1 + buried(tall, roll(55)),
       yaw,
       pitch: (roll(56) - 0.5) * 0.5,
       roll: Math.PI + (roll(57) - 0.5) * 0.5,
-      solid: solid(x, y, yaw, h - DOOR_H - FRAME > 0.55),
     };
+    const [sx, sy] = through(pose, 1);
+    return { ...base, ...pose, solid: solid(sx, sy, yaw, pose.h - tall > HEAD_ROOM) };
   }
-  return {
-    ...base,
+  const sunk = buried(tall, roll(55));
+  const pose = {
     x,
     y,
-    h: -0.2 - roll(55) * 0.25,
+    h: -sunk,
     yaw,
     pitch: (roll(56) - 0.5) * 1,
     roll: (roll(57) - 0.5) * 1,
-    solid: solid(x, y, yaw),
   };
+  const [sx, sy] = through(pose, 0);
+  return { ...base, ...pose, solid: tall - sunk < STEP ? null : solid(sx, sy, yaw) };
 }
 
 /**
- * Exit signs, lit, pointing the way out of nowhere: high on a wall where they belong, hung from the ceiling, low on a
- * wall just over the carpet, or sunk aslant into the carpet. Half of them point the other way.
+ * Exit signs, lit, pointing the way out of nowhere: high on a wall where they belong, low on a wall just over the
+ * carpet, hung from the ceiling, the box itself stuck up into the ceiling, or sunk aslant into the carpet. Half of
+ * them point the other way.
  */
 function placeExit(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const mirrored = roll(71) < 0.5;
@@ -1238,22 +1310,34 @@ function placeExit(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const x = spot.cx + 0.3 + roll(50) * 0.4;
   const y = spot.cy + 0.3 + roll(51) * 0.4;
   const yaw = roll(52) * Math.PI * 2;
-  if (how < 0.8) {
+  if (how < 0.75) {
     // Up out of the way: only XN on the ceiling has to mind it.
     const model = exitModel("hanging", mirrored);
     return { ...base, model, x, y, h: 0.8 + roll(53) * 0.06, yaw, solid: { x, y, r: 0.12, overhead: true } };
   }
-  return {
-    ...base,
-    model: exitModel("loose", mirrored),
+  const model = exitModel("loose", mirrored);
+  if (how < 0.85) {
+    // The box upside down and up into the ceiling, at a slant.
+    const pose = {
+      x,
+      y,
+      h: 1 + buried(EXIT_H, roll(53)),
+      yaw,
+      pitch: (roll(54) - 0.5) * 1.2,
+      roll: Math.PI + (roll(55) - 0.5) * 1.2,
+    };
+    return { ...base, ...pose, model, solid: solidThrough(pose, 1, 0.12, true) };
+  }
+  const sunk = buried(EXIT_H, roll(53));
+  const pose = {
     x,
     y,
-    h: -0.02 - roll(53) * 0.05,
+    h: -sunk,
     yaw,
     pitch: (roll(54) - 0.5) * 1.2,
     roll: (roll(55) - 0.5) * 1.2,
-    solid: { x, y, r: 0.12 },
   };
+  return { ...base, ...pose, model, solid: solidAbove(pose, EXIT_H - sunk, 0.12) };
 }
 
 /**
@@ -1273,27 +1357,20 @@ function placeWetFloor(key: string, spot: Spot, roll: (k: number) => number): Ju
     return { ...base, x, y, h: WET_HW, yaw, roll: (side * Math.PI) / 2, solid: { x, y, r: 0.12 } };
   }
   if (how < 0.85) {
-    return {
-      ...base,
+    const sunk = buried(WET_H, roll(53));
+    const pose = {
       x,
       y,
-      h: -0.04 - roll(53) * 0.1,
+      h: -sunk,
       yaw,
       pitch: (roll(54) - 0.5) * 1.2,
       roll: (roll(55) - 0.5) * 1.2,
-      solid: { x, y, r: 0.1 },
     };
+    return { ...base, ...pose, solid: solidAbove(pose, WET_H - sunk, 0.1) };
   }
   // Upside down, its feet up in the ceiling space.
-  return {
-    ...base,
-    x,
-    y,
-    h: 1.04 + roll(53) * 0.1,
-    yaw,
-    roll: Math.PI,
-    solid: { x, y, r: 0.1, overhead: true },
-  };
+  const pose = { x, y, h: 1 + buried(WET_H, roll(53)), yaw, pitch: 0, roll: Math.PI };
+  return { ...base, ...pose, solid: solidThrough(pose, 1, 0.1, pose.h - WET_H > HEAD_ROOM) };
 }
 
 // ---- putting one in place ----
