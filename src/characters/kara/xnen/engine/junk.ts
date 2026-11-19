@@ -213,8 +213,11 @@ function buildChair(shape: ChairShape): StatueModel {
   return { tris, atlasWidth: 32, atlasHeight: 32, stone: [120, 84, 50] };
 }
 
-/** How tall a chair of this shape stands. */
+/** How tall a chair of this shape stands, and how high its seat is. */
 const chairHeight = (shape: ChairShape) => (0.33 * shape.legs + 0.32 * shape.back) * shape.flat * CHAIR_SIZE;
+const chairSeat = (shape: ChairShape) => (0.3 * shape.legs + 0.03) * shape.flat * CHAIR_SIZE;
+/** From the middle of a chair's seat to its front edge. */
+const CHAIR_EDGE = 0.15 * CHAIR_SIZE;
 
 /**
  * Most chairs are ordinary; the rest are the same chair gone wrong: legs far too long, squashed flat, a backrest
@@ -1116,6 +1119,41 @@ export interface Junk {
   roll: number;
   /** Where it's in the way on the floor plan; `overhead` if up at the ceiling, out of the visitor's way. */
   solid: Solid | null;
+  /** A flat top XN can get up on (a chair's seat, a desk, a cabinet, a monitor lying back), if it has one. */
+  perch?: Perch | null;
+  /** A sign's plate where XN can stand and look at it: its face out in the room, not to a wall. */
+  plate?: Plate | null;
+  /** A door XN can stand at, sit or crouch by: flat against a wall, or standing on its own in a room. */
+  doorway?: Doorway | null;
+}
+
+/**
+ * The flat top of something, for XN: the middle of it, the way its front faces, how far its front edge is from the
+ * middle, and whether it's upside down in the ceiling (then the top is underneath, and she hangs from it).
+ */
+export interface Perch {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  edge: number;
+  ceiling: boolean;
+}
+
+/** The middle of a sign's plate, and the way its face looks. */
+export interface Plate {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+}
+
+/** A door's foot, the way its front faces, and whether its back is free too (standing in a room) or on a wall. */
+export interface Doorway {
+  x: number;
+  y: number;
+  yaw: number;
+  both: boolean;
 }
 
 /**
@@ -1212,6 +1250,7 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
 
 function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const found: Junk[] = [];
+  if (PREVIEW && bx === 0 && by === 0) found.push(...previewJunk(map));
   const monitorRoll = (k: number) => map.noise(bx * 31 + k, by, 700);
   if (monitorRoll(0) < MONITOR_CHANCE) {
     const spot = spotIn(map, bx, by, monitorRoll);
@@ -1274,6 +1313,37 @@ const HEAD_ROOM = 0.55;
 
 /** Where a piece of junk is and how it's turned. */
 type Pose = Pick<Junk, "x" | "y" | "h" | "yaw" | "pitch" | "roll">;
+
+/** A point of a piece of junk's own (x across, y up, z out of its front), where it is in the place. */
+function junkPoint(pose: Pose, X: number, Y: number, Z: number): [number, number, number] {
+  const fx = Math.cos(pose.yaw);
+  const fy = Math.sin(pose.yaw);
+  const x1 = X * Math.cos(pose.roll) - Y * Math.sin(pose.roll);
+  const y1 = X * Math.sin(pose.roll) + Y * Math.cos(pose.roll);
+  const y2 = y1 * Math.cos(pose.pitch) - Z * Math.sin(pose.pitch);
+  const z2 = y1 * Math.sin(pose.pitch) + Z * Math.cos(pose.pitch);
+  return [pose.x + x1 * fy + z2 * fx, pose.y - x1 * fx + z2 * fy, pose.h + y2];
+}
+
+/**
+ * The top of a piece of junk `top` up its own height (its middle `mid` out toward its front), for XN to get up on;
+ * `edge` from there to its front edge. Upright it has to be near enough level (`tilt`) and between the carpet and
+ * the ceiling; upside down in the ceiling (only where `hangs`), hanging low enough for her to hang from.
+ */
+function perchOn(pose: Pose, top: number, edge: number, tilt: number, hangs = false, mid = 0): Perch | null {
+  const upright = Math.abs(pose.pitch) <= tilt && Math.abs(pose.roll) <= 0.15;
+  const flipped = Math.abs(Math.abs(pose.roll) - Math.PI) <= 0.2 && Math.abs(pose.pitch) <= 0.2;
+  if (!upright && !(hangs && flipped)) return null;
+  const [x, y, z] = junkPoint(pose, 0, top, mid);
+  if (upright ? z < 0.1 || z > 0.95 : z < 0.3 || z > 0.95) return null;
+  return { x, y, z, yaw: pose.yaw, edge, ceiling: !upright };
+}
+
+/** A sign's plate, `middle` up its pole, for XN to look at. */
+function plateOf(pose: Pose, middle: number): Plate | null {
+  const [x, y, z] = junkPoint(pose, 0, middle, -0.013);
+  return z < 0.05 || z > 0.98 ? null : { x, y, z, yaw: pose.yaw };
+}
 
 /**
  * Where a piece of junk's own upright goes through the carpet (level 0) or the ceiling (level 1). Sunk deep and
@@ -1367,7 +1437,12 @@ function placeMonitor(key: string, spot: Spot, roll: (k: number) => number): Jun
       pitch: -0.25 - roll(54) * 0.45,
       roll: (roll(53) - 0.5) * 0.5,
     };
-    return { ...base, ...pose, solid: solidAbove(pose, MONITOR_TALL - sunk, 0.2) };
+    return {
+      ...base,
+      ...pose,
+      solid: solidAbove(pose, MONITOR_TALL - sunk, 0.2),
+      perch: perchOn(pose, MONITOR_TALL, 0.17, 0.42, false, -0.03),
+    };
   }
   const pose = {
     x,
@@ -1391,6 +1466,7 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
   const shape = chairShape(roll(70), roll(71));
   const base = { key, kind: "chair" as const, model: buildChair(shape) };
   const tall = chairHeight(shape);
+  const seat = chairSeat(shape);
   const how = roll(40);
   if (spot.wall && how < 0.35) {
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
@@ -1413,7 +1489,8 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
     const x = fx - ox * 0.2;
     const y = fy - oy * 0.2;
-    return { ...base, x, y, h: 0, yaw: Math.atan2(oy, ox), pitch: 0, roll: 0, solid: { x, y, r: 0.2 } };
+    const pose = { x, y, h: 0, yaw: Math.atan2(oy, ox), pitch: 0, roll: 0 };
+    return { ...base, ...pose, solid: { x, y, r: 0.2 }, perch: perchOn(pose, seat, CHAIR_EDGE, 0.1) };
   }
   const x = spot.cx + 0.3 + roll(50) * 0.4;
   const y = spot.cy + 0.3 + roll(51) * 0.4;
@@ -1427,7 +1504,7 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
       pitch: (roll(54) - 0.5) * 1.2,
       roll: (roll(55) - 0.5) * 1.2,
     };
-    return { ...base, ...pose, solid: solidAbove(pose, tall - sunk, 0.22) };
+    return { ...base, ...pose, solid: solidAbove(pose, tall - sunk, 0.22), perch: perchOn(pose, seat, CHAIR_EDGE, 0.1) };
   }
   // Upside down, legs in the ceiling; one hanging low enough is in the visitor's way too.
   const pose = {
@@ -1438,7 +1515,12 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
     pitch: (roll(63) - 0.5) * 0.3,
     roll: Math.PI,
   };
-  return { ...base, ...pose, solid: solidThrough(pose, 1, 0.22, pose.h - tall > HEAD_ROOM) };
+  return {
+    ...base,
+    ...pose,
+    solid: solidThrough(pose, 1, 0.22, pose.h - tall > HEAD_ROOM),
+    perch: perchOn(pose, seat, CHAIR_EDGE, 0.1, true),
+  };
 }
 
 /** How many signs are printed back to front. */
@@ -1467,7 +1549,8 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const base = { key, kind: "sign" as const, pitch: 0, roll: 0 };
   if (how < 0.15) {
     const model = signModel(kind, SIGN_MIDDLE, mirrored);
-    return { ...base, model, x, y, h: 0, yaw, solid: { x, y, r: 0.1 } };
+    const plate = plateOf({ x, y, h: 0, yaw, pitch: 0, roll: 0 }, SIGN_MIDDLE);
+    return { ...base, model, x, y, h: 0, yaw, solid: { x, y, r: 0.1 }, plate };
   }
   if (how < 0.35 && spot.wall) {
     const [ox, oy] = spot.wall;
@@ -1482,7 +1565,8 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
     // to the whole sign, pole running from the carpet to the ceiling.
     const middle = 1 + R - buried(1 + R, roll(53));
     const model = signModel(kind, middle, mirrored, 1.3);
-    return { ...base, model, x, y, h: 0, yaw, solid: { x, y, r: 0.1 } };
+    const plate = plateOf({ x, y, h: 0, yaw, pitch: 0, roll: 0 }, middle);
+    return { ...base, model, x, y, h: 0, yaw, solid: { x, y, r: 0.1 }, plate };
   }
   if (how < 0.7 && spot.wall) {
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
@@ -1505,16 +1589,20 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const plate = SIGN_MIDDLE - buried(SIGN_MIDDLE + R, roll(53));
   const foot = 0.1;
   const leans = roll(56) < 0.5;
-  return {
-    ...base,
-    model: signModel(kind, plate + foot, mirrored),
+  const pose = {
     x,
     y,
     h: -foot,
     yaw,
     pitch: leans ? (roll(54) - 0.5) * 1.2 : 0,
     roll: leans ? (roll(55) - 0.5) * 1.2 : 0,
+  };
+  return {
+    ...base,
+    ...pose,
+    model: signModel(kind, plate + foot, mirrored),
     solid: plate + R < STEP ? null : { x, y, r: 0.12 },
+    plate: plateOf(pose, plate + foot),
   };
 }
 
@@ -1546,7 +1634,7 @@ function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
     const x = fx - ox * FRAME_DEPTH;
     const y = fy - oy * FRAME_DEPTH;
     const yaw = Math.atan2(-oy, -ox);
-    return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw) };
+    return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw), doorway: { x, y, yaw, both: false } };
   }
   if (how < 0.4 && spot.wall) {
     // Driven into the wall at any angle, anything from a corner of it to nearly all.
@@ -1570,7 +1658,7 @@ function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
   // Half of them square to the walls, the rest at any angle.
   const yaw =
     roll(52) < 0.5 ? Math.floor(roll(53) * 4) * (Math.PI / 2) + (roll(54) - 0.5) * 0.1 : roll(53) * Math.PI * 2;
-  if (how < 0.6) return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw) };
+  if (how < 0.6) return { ...base, x, y, h: 0, yaw, solid: solid(x, y, yaw), doorway: { x, y, yaw, both: true } };
   if (how < 0.8) {
     // Upside down, its foot up in the ceiling space; one hanging low enough is in the visitor's way too.
     const pose = {
@@ -1766,7 +1854,9 @@ function placeCabinet(key: string, spot: Spot, roll: (k: number) => number): Jun
     slab(x, y, Math.cos(yaw) * hd, Math.sin(yaw) * hd, shape.width / 2 + 0.01, overhead);
   const reach = Math.max(shape.width, Math.min(shape.depth, 0.6), 0.2);
   const placed = placeFurniture(spot, roll, cabinetHeight(shape), reach, hd + 0.005, inWay);
-  return { key, kind: "cabinet", model: buildCabinet(shape), ...placed };
+  // Not the towers up through the ceiling, nor the ones thin as a sheet.
+  const perch = shape.drawers < 8 && shape.width >= 0.1 ? perchOn(placed, cabinetHeight(shape), hd, 0.1) : null;
+  return { key, kind: "cabinet", model: buildCabinet(shape), ...placed, perch };
 }
 
 /** Desks: pushed up to a wall to be worked at, aslant in one, standing about, sunk in the carpet, or in the ceiling. */
@@ -1778,7 +1868,9 @@ function placeDesk(key: string, spot: Spot, roll: (k: number) => number): Junk {
     slab(x, y, Math.sin(yaw) * hl, -Math.cos(yaw) * hl, shape.depth / 2 + 0.01, overhead);
   const reach = Math.max(Math.min(shape.length, 0.6), 0.25);
   const placed = placeFurniture(spot, roll, shape.height, reach, shape.depth / 2 + 0.005, inWay);
-  return { key, kind: "desk", model: buildDesk(shape), ...placed };
+  // Not the ones narrow as a plank.
+  const perch = shape.depth >= 0.1 ? perchOn(placed, shape.height, shape.depth / 2, 0.1) : null;
+  return { key, kind: "desk", model: buildDesk(shape), ...placed, perch };
 }
 
 /**
@@ -1836,6 +1928,135 @@ function placeSockets(key: string, spot: Spot, roll: (k: number) => number): Jun
   return Array.from({ length: count }, (_, i) => one(i, start + i * gap, h)).filter(
     (s) => Math.abs((tx ? s.x : s.y) - (tx ? spot.cx : spot.cy) - 0.5) < 0.47,
   );
+}
+
+// ---- TEMPORARY: a preview for Kiri ----
+
+/**
+ * TEMPORARY, for Kiri to look over XN getting up on things and looking at them: one of each in the room where the
+ * visitor starts, upright and in reach. A chair, a desk, a filing cabinet, a monitor lying back, a chair upside down
+ * in the ceiling, a door standing in the room and one flat on the nearest wall, and signs standing, through the
+ * ceiling and sunk. Gone once she's happy.
+ */
+const PREVIEW = true;
+
+function previewJunk(map: WorldMap): Junk[] {
+  const out: Junk[] = [];
+  const toward = (x: number, y: number) => Math.atan2(2.5 - y, 2.5 - x);
+  const flat = (x: number, y: number, yaw: number) => ({ x, y, h: 0, yaw, pitch: 0, roll: 0 });
+
+  const chair = ORDINARY;
+  const chairPose = flat(1.3, 1.3, toward(1.3, 1.3));
+  out.push({
+    key: "p-chair",
+    kind: "chair",
+    model: buildChair(chair),
+    ...chairPose,
+    solid: { x: 1.3, y: 1.3, r: 0.2 },
+    perch: perchOn(chairPose, chairSeat(chair), CHAIR_EDGE, 0.1),
+  });
+  const hung = { x: 2.5, y: 1.0, h: 1, yaw: Math.PI / 2, pitch: 0, roll: Math.PI };
+  out.push({
+    key: "p-hung",
+    kind: "chair",
+    model: buildChair(chair),
+    ...hung,
+    solid: solidThrough(hung, 1, 0.22, true),
+    perch: perchOn(hung, chairSeat(chair), CHAIR_EDGE, 0.1, true),
+  });
+
+  const desk = { length: 0.38, depth: 0.19, height: 0.23, legs: 2, drawer: true };
+  const deskPose = flat(3.7, 1.3, toward(3.7, 1.3));
+  out.push({
+    key: "p-desk",
+    kind: "desk",
+    model: buildDesk(desk),
+    ...deskPose,
+    solid: slab(3.7, 1.3, Math.sin(deskPose.yaw) * 0.19, -Math.cos(deskPose.yaw) * 0.19, 0.105),
+    perch: perchOn(deskPose, desk.height, desk.depth / 2, 0.1),
+  });
+
+  const cabinet = { drawers: 4, width: 0.15, depth: 0.2, pulled: [0, 0, 0, 0] };
+  const cabinetPose = flat(1.3, 3.7, toward(1.3, 3.7));
+  out.push({
+    key: "p-cabinet",
+    kind: "cabinet",
+    model: buildCabinet(cabinet),
+    ...cabinetPose,
+    solid: slab(1.3, 3.7, Math.cos(cabinetPose.yaw) * 0.1, Math.sin(cabinetPose.yaw) * 0.1, 0.085),
+    perch: perchOn(cabinetPose, cabinetHeight(cabinet), 0.1, 0.1),
+  });
+
+  const monitorPose = { x: 3.7, y: 3.7, h: -0.04, yaw: toward(3.7, 3.7), pitch: -0.25, roll: 0 };
+  out.push({
+    key: "p-monitor",
+    kind: "monitor",
+    model: MONITOR,
+    ...monitorPose,
+    solid: { x: 3.7, y: 3.7, r: 0.2 },
+    perch: perchOn(monitorPose, MONITOR_TALL, 0.17, 0.42, false, -0.03),
+  });
+
+  const roomDoor = flat(2.5, 4.3, -Math.PI / 2);
+  const reach = DOOR_W / 2 + FRAME;
+  out.push({
+    key: "p-door",
+    kind: "door",
+    model: DOORS.wood,
+    ...roomDoor,
+    solid: { x: 2.5, y: 4.3, r: FRAME_DEPTH + 0.01, along: [-reach, 0] },
+    doorway: { x: 2.5, y: 4.3, yaw: roomDoor.yaw, both: true },
+  });
+  // The nearest open cell with a wall beside it: the room the visitor starts in has none of its own.
+  let best: [number, number, readonly [number, number]] | null = null;
+  for (let cy = -4; cy <= 9; cy++) {
+    for (let cx = -4; cx <= 9; cx++) {
+      if (map.wall(cx, cy)) continue;
+      const wall = OUT.find(([ox, oy]) => map.wall(cx + ox, cy + oy));
+      if (!wall) continue;
+      if (!best || Math.hypot(cx - 2, cy - 2) < Math.hypot(best[0] - 2, best[1] - 2)) best = [cx, cy, wall];
+    }
+  }
+  if (best) {
+    const [cx, cy, [ox, oy]] = best;
+    const x = cx + 0.5 + ox * 0.5 - ox * FRAME_DEPTH;
+    const y = cy + 0.5 + oy * 0.5 - oy * FRAME_DEPTH;
+    const yaw = Math.atan2(-oy, -ox);
+    out.push({
+      key: "p-wall-door",
+      kind: "door",
+      model: DOORS.fire,
+      x,
+      y,
+      h: 0,
+      yaw,
+      pitch: 0,
+      roll: 0,
+      solid: { x, y, r: FRAME_DEPTH + 0.01, along: [Math.sin(yaw) * reach, -Math.cos(yaw) * reach] },
+      doorway: { x, y, yaw, both: false },
+    });
+  }
+
+  const sign = (key: string, x: number, y: number, yaw: number, kind: SignKind, middle: number, poleTop = 0): Junk => ({
+    key,
+    kind: "sign",
+    model: signModel(kind, middle, false, poleTop),
+    ...flat(x, y, yaw),
+    solid: { x, y, r: 0.1 },
+    plate: plateOf(flat(x, y, yaw), middle),
+  });
+  out.push(sign("p-sign", 4.3, 2.5, Math.PI, "stop", SIGN_MIDDLE));
+  out.push(sign("p-sign-high", 0.7, 2.5, 0, "noCats", 0.95, 1.3));
+  const sunk = { x: 0.8, y: 3.3, h: -0.1, yaw: 0, pitch: 0, roll: 0 };
+  out.push({
+    key: "p-sign-low",
+    kind: "sign",
+    model: signModel("warning", 0.25, false),
+    ...sunk,
+    solid: { x: 0.8, y: 3.3, r: 0.12 },
+    plate: plateOf(sunk, 0.25),
+  });
+  return out;
 }
 
 // ---- putting one in place ----
