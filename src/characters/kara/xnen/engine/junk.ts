@@ -244,6 +244,9 @@ const SIGN_R = 0.14;
 const WARNING_SIZE = 1.4;
 const POLE = 0.016;
 
+/** A triangle in the same circle looks small beside the others, so it's drawn in a bigger one. */
+const signRadius = (kind: SignKind) => (kind === "warning" ? SIGN_R * WARNING_SIZE : SIGN_R);
+
 type Corner = [number, number, number, number, number];
 
 function tri(out: number[], a: Corner, b: Corner, c: Corner) {
@@ -253,12 +256,13 @@ function tri(out: number[], a: Corner, b: Corner, c: Corner) {
 /**
  * A sign on a pole: an octagon (the stop sign), a triangle (the warning) or a disc, its face toward +z, its middle
  * `middle` above the foot of the pole, which ends a little above the plate. The back of the plate is bare metal.
+ * `mirrored`, the face is printed back to front, as if from the other side of a mirror. `poleTop`, the pole carries
+ * on up at least that far.
  */
-function buildSign(kind: SignKind, middle: number): StatueModel {
+function signModel(kind: SignKind, middle: number, mirrored: boolean, poleTop = 0): StatueModel {
   const tris: number[] = [];
-  // A triangle in the same circle looks small beside the others, so it's drawn in a bigger one.
-  const R = kind === "warning" ? SIGN_R * WARNING_SIZE : SIGN_R;
-  const pole = middle + R * 0.6;
+  const R = signRadius(kind);
+  const pole = Math.max(middle + R * 0.6, poleTop);
   box(tris, -POLE, POLE, 0, pole, -0.03 - POLE, -0.03 + POLE, METAL, METAL, METAL);
   // An octagon, a triangle point up, or near enough a disc.
   const sides = kind === "stop" ? 8 : kind === "warning" ? 3 : 20;
@@ -274,7 +278,7 @@ function buildSign(kind: SignKind, middle: number): StatueModel {
     x,
     middle + y,
     -0.01,
-    r.x + (x / R / 2 + 0.5) * (r.w - 1) + 0.5,
+    r.x + ((mirrored ? -x : x) / R / 2 + 0.5) * (r.w - 1) + 0.5,
     r.y + (0.5 - y / R / 2) * (r.h - 1) + 0.5,
   ];
   const back = (x: number, y: number): Corner => [x, middle + y, -0.016, METAL.x + 8, METAL.y + 8];
@@ -646,43 +650,52 @@ function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk 
   };
 }
 
+/** How many signs are printed back to front. */
+const SIGN_MIRRORED = 0.3;
+
 /** Where a sign's plate is, on an ordinary one: above head height, as on a street. */
 const SIGN_MIDDLE = 0.72;
 
 /**
  * Road signs, indoors: standing in the middle of a room as if on a street corner, turned to face a wall, the pole
- * running up through the ceiling with only the bottom of the plate showing, or aslant in the carpet or a wall.
+ * running up through the ceiling, aslant in a wall, or sunk into the carpet. Sunk ones and ceiling ones go in any
+ * distance: from only an edge of the plate showing to hardly at all.
  */
 function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const kind = SIGN_KINDS[Math.floor(roll(70) * SIGN_KINDS.length)];
+  // Only STOP and no cats show it; the others are the same either way round.
+  const mirrored = roll(71) < SIGN_MIRRORED;
+  const R = signRadius(kind);
   const how = roll(40);
   const x = spot.cx + 0.3 + roll(50) * 0.4;
   const y = spot.cy + 0.3 + roll(51) * 0.4;
+  const yaw = roll(52) * Math.PI * 2;
   const base = { key, kind: "sign" as const, pitch: 0, roll: 0 };
-  if (how < 0.3) {
-    const model = buildSign(kind, SIGN_MIDDLE);
-    return { ...base, model, x, y, h: 0, yaw: roll(52) * Math.PI * 2, solid: { x, y, r: 0.1 } };
+  if (how < 0.15) {
+    const model = signModel(kind, SIGN_MIDDLE, mirrored);
+    return { ...base, model, x, y, h: 0, yaw, solid: { x, y, r: 0.1 } };
   }
-  if (how < 0.5 && spot.wall) {
+  if (how < 0.35 && spot.wall) {
     const [ox, oy] = spot.wall;
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
     const sx = fx - ox * 0.18;
     const sy = fy - oy * 0.18;
-    const model = buildSign(kind, SIGN_MIDDLE);
+    const model = signModel(kind, SIGN_MIDDLE, mirrored);
     return { ...base, model, x: sx, y: sy, h: 0, yaw: Math.atan2(oy, ox), solid: { x: sx, y: sy, r: 0.1 } };
   }
-  if (how < 0.7) {
-    // The plate's middle just over the ceiling: only its lower edge hangs down into the room.
-    const model = buildSign(kind, 1 + SIGN_R * (0.1 + roll(53) * 0.4));
-    return { ...base, model, x, y, h: 0, yaw: roll(52) * Math.PI * 2, solid: { x, y, r: 0.1 } };
+  if (how < 0.55) {
+    // The pole on up through the ceiling, the plate anywhere from a little above its usual height to only its lower
+    // edge hanging down into the room.
+    const middle = SIGN_MIDDLE + 0.05 + roll(53) * (1 + R * 0.5 - SIGN_MIDDLE - 0.05);
+    const model = signModel(kind, middle, mirrored, 1.3);
+    return { ...base, model, x, y, h: 0, yaw, solid: { x, y, r: 0.1 } };
   }
-  const model = buildSign(kind, SIGN_MIDDLE);
-  if (spot.wall && how < 0.85) {
+  if (how < 0.7 && spot.wall) {
     const [ox, oy] = spot.wall;
     const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(42) * 0.4);
     return {
       ...base,
-      model,
+      model: signModel(kind, SIGN_MIDDLE, mirrored),
       x: fx,
       y: fy,
       h: -0.1 + roll(43) * 0.3,
@@ -692,15 +705,21 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
       solid: { x: fx - ox * 0.1, y: fy - oy * 0.1, r: 0.1 },
     };
   }
+  // Sunk into the carpet, the plate anywhere from a little below its usual height to only its top edge showing. Half
+  // of them straight down, half leaning. The pole's foot is kept just under the carpet, so a lean swings the plate
+  // about the spot where the pole goes in.
+  const plate = -R * 0.7 + roll(53) * (SIGN_MIDDLE - 0.05 + R * 0.7);
+  const foot = 0.1;
+  const leans = roll(56) < 0.5;
   return {
     ...base,
-    model,
+    model: signModel(kind, plate + foot, mirrored),
     x,
     y,
-    h: -0.15 - roll(53) * 0.25,
-    yaw: roll(52) * Math.PI * 2,
-    pitch: (roll(54) - 0.5) * 1.2,
-    roll: (roll(55) - 0.5) * 1.2,
+    h: -foot,
+    yaw,
+    pitch: leans ? (roll(54) - 0.5) * 1.2 : 0,
+    roll: leans ? (roll(55) - 0.5) * 1.2 : 0,
     solid: { x, y, r: 0.12 },
   };
 }
