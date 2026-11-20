@@ -4,6 +4,7 @@ import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
 import {
+  BURGER_SKIN,
   DOOR_SKIN,
   junkAround,
   monitorSkin,
@@ -1204,6 +1205,7 @@ export function createGame(parts: GameParts): Game {
         cabinet: OFFICE_SKIN,
         desk: WOOD_SKIN,
         socket: OFFICE_SKIN,
+        burger: BURGER_SKIN,
       }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
