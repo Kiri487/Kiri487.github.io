@@ -1121,6 +1121,14 @@ const BURGER_W = 0.1;
 const BURGER_TALL = 0.88;
 const BURGER_SIDES = 36;
 
+/**
+ * A burger whole, or one part of it fallen off on its own: the bottom bun, the chicken, the lettuce (and its
+ * mayonnaise), the top bun. Where each part's foot is up the whole one, and how tall it is.
+ */
+type BurgerPart = "whole" | "bottom" | "chicken" | "lettuce" | "top";
+const PART_FOOT: Record<BurgerPart, number> = { whole: 0, bottom: 0, chicken: 0.125, lettuce: 0.4, top: 0.52 };
+const PART_TALL: Record<BurgerPart, number> = { whole: BURGER_TALL, bottom: 0.15, chicken: 0.31, lettuce: 0.12, top: 0.36 };
+
 /** A bite out of a burger: the way it was taken from, round the burger, and how big a mouthful (1, an ordinary one). */
 interface Bite {
   at: number;
@@ -1134,7 +1142,8 @@ interface Bite {
  * tall soft dome of the top bun, tucked in at its edge. `bites`, the bites taken out of it, through every layer:
  * none, whole.
  */
-function buildBurger(size: number, bites: readonly Bite[]): StatueModel {
+function buildBurger(size: number, bites: readonly Bite[], part: BurgerPart = "whole"): StatueModel {
+  const has = (layer: BurgerPart) => part === "whole" || part === layer;
   const tris: number[] = [];
   const s = BURGER_W * size;
   const N = BURGER_SIDES;
@@ -1213,6 +1222,17 @@ function buildBurger(size: number, bites: readonly Bite[]): StatueModel {
       else tri(tris, mid, p(i), p(i + 1));
     }
   };
+  // A ring closed off to a point in the middle at height `tip`, above it or below it: each face painted with the
+  // whole of `rect`, as the sides are, so the pattern on it is the same size as theirs rather than one stretched disc.
+  const peak = (y: number, tip: number, r: (i: number) => number, rect: Rect, up: boolean) => {
+    for (let i = 0; i < N; i++) {
+      const top = corner([0, tip * s, 0], rect, 0.5, 0.1);
+      const a = corner(at(i, cutTo(i, y, r(i)), y), rect, 0, 0.9);
+      const b = corner(at(i + 1, cutTo(i + 1, y, r(i + 1)), y), rect, 1, 0.9);
+      if (up) tri(tris, top, b, a);
+      else tri(tris, top, a, b);
+    }
+  };
   // A layer's outline as rings up its side: each a height and a radius at every side. Faces between each pair.
   type Ring = { y: number; r: (i: number) => number };
   // `cut` is what each band shows where it's bitten (by its index up the stack), or null to show its outside.
@@ -1238,8 +1258,12 @@ function buildBurger(size: number, bites: readonly Bite[]): StatueModel {
     { y: 0.15, r: scaled(0.9, bun) },
   ];
   // Bitten, the crumb shows, inside a rim of crust.
-  stack(bottom, BUN_SIDE, 0, (j) => (j === 0 || j === bottom.length - 2 ? null : CRUMB));
-  cap(0, bottom[0].r, BUN_SIDE, false);
+  if (has("bottom")) {
+    stack(bottom, BUN_SIDE, 0, (j) => (j === 0 || j === bottom.length - 2 ? null : CRUMB));
+    cap(0, bottom[0].r, BUN_SIDE, false);
+    // On its own, its cut face shows.
+    if (part === "bottom") cap(0.15, bottom[bottom.length - 1].r, CRUMB, true);
+  }
 
   // The fried chicken: lopsided, sticking out further on some sides, craggy all over, its top and bottom tucked in.
   const chicken = (salt: number, k: number) => (i: number) =>
@@ -1253,9 +1277,26 @@ function buildBurger(size: number, bites: readonly Bite[]): StatueModel {
     { y: 0.42, r: chicken(37, 0.78) },
   ];
   // Bitten, the white meat shows, the crust still round its top and bottom.
-  stack(crust, CHICKEN, 0, (j) => (j === 0 || j === crust.length - 2 ? null : MEAT));
-  cap(0.14, crust[0].r, CHICKEN, false);
-  cap(0.42, crust[crust.length - 1].r, CHICKEN, true);
+  if (has("chicken")) {
+    stack(crust, CHICKEN, 0, (j) => (j === 0 || j === crust.length - 2 ? null : MEAT));
+    // Its top and bottom bulge a little, the way a fried piece of chicken does, rather than being cut flat.
+    const first = crust[0];
+    const lastRing = crust[crust.length - 1];
+    const under: Ring[] = [
+      { y: 0.14, r: first.r },
+      { y: 0.13, r: scaled(0.65, first.r) },
+      { y: 0.125, r: scaled(0.3, first.r) },
+    ];
+    const over: Ring[] = [
+      { y: 0.42, r: lastRing.r },
+      { y: 0.43, r: scaled(0.65, lastRing.r) },
+      { y: 0.435, r: scaled(0.3, lastRing.r) },
+    ];
+    stack([...under].reverse(), CHICKEN);
+    stack(over, CHICKEN);
+    peak(0.125, 0.12, under[2].r, CHICKEN, false);
+    peak(0.435, 0.44, over[2].r, CHICKEN, true);
+  }
 
   // The lettuce, in clumps: out a long way on some sides, hardly past the chicken on others, rumpled up and down.
   const lettuce = (salt: number, k: number) => (i: number) =>
@@ -1267,20 +1308,39 @@ function buildBurger(size: number, bites: readonly Bite[]): StatueModel {
     { y: 0.47, r: lettuce(47, 1) },
     { y: 0.5, r: lettuce(53, 0.8) },
   ];
-  stack(leaves, LETTUCE);
-  cap(0.4, leaves[0].r, LETTUCE, false);
-  cap(0.5, leaves[leaves.length - 1].r, LETTUCE, true);
+  if (has("lettuce")) {
+    stack(leaves, LETTUCE);
+    cap(0.4, leaves[0].r, LETTUCE, false);
+    cap(0.5, leaves[leaves.length - 1].r, LETTUCE, true);
+  }
 
   // Mayonnaise, mostly hidden, squeezing out past the bun in a few blobs.
   const blobs = (k: number) => (i: number) => (0.46 + 0.1 * Math.max(0, Math.cos(6 * angle(i) + 0.7)) ** 3) * k;
-  stack(
-    [
-      { y: 0.48, r: blobs(0.95) },
-      { y: 0.5, r: blobs(1) },
-      { y: 0.53, r: blobs(0.9) },
-    ],
-    MAYO,
-  );
+  if (part === "whole") {
+    stack(
+      [
+        { y: 0.48, r: blobs(0.95) },
+        { y: 0.5, r: blobs(1) },
+        { y: 0.53, r: blobs(0.9) },
+      ],
+      MAYO,
+    );
+  }
+  // Fallen off on its own, the lettuce has the mayonnaise smeared over most of its top: an uneven blob, not a ring,
+  // with the frilly edges of the leaves showing round it.
+  if (part === "lettuce") {
+    const smear = (k: number) => (i: number) =>
+      (0.4 + waves(i, 4.2, 0.03, 0.025, 0.02) + 0.03 * grain(i % N, 61)) * k;
+    stack(
+      [
+        { y: 0.5, r: smear(1) },
+        { y: 0.51, r: smear(0.8) },
+        { y: 0.515, r: smear(0.45) },
+      ],
+      MAYO,
+    );
+    cap(0.515, smear(0.45), MAYO, true);
+  }
 
   // The top bun: its cut face underneath, then up from its tucked-in edge, round its shoulder and over the dome.
   const DOME: readonly [number, number][] = [
@@ -1294,23 +1354,28 @@ function buildBurger(size: number, bites: readonly Bite[]): StatueModel {
     [0.86, 0.36],
   ];
   const dome: Ring[] = DOME.map(([y, k]) => ({ y, r: scaled(k, bun) }));
-  cap(0.52, dome[0].r, CRUMB, false);
-  stack(dome, BUN_TOP, 10, (j) => (j >= 1 ? CRUMB : null));
-  const last = dome[dome.length - 1];
-  const crown = corner([0, BURGER_TALL * s, 0], BUN_TOP, 0.5, 0.5);
-  for (let i = 0; i < N; i++) {
-    const p = (k: number) => corner(at(k, cutTo(k, last.y, last.r(k)), last.y), BUN_TOP, (k % 2) * 0.9, 0.9);
-    tri(tris, crown, p(i + 1), p(i));
+  if (has("top")) {
+    cap(0.52, dome[0].r, CRUMB, false);
+    stack(dome, BUN_TOP, 10, (j) => (j >= 1 ? CRUMB : null));
+    const last = dome[dome.length - 1];
+    const crown = corner([0, BURGER_TALL * s, 0], BUN_TOP, 0.5, 0.5);
+    for (let i = 0; i < N; i++) {
+      const p = (k: number) => corner(at(k, cutTo(k, last.y, last.r(k)), last.y), BUN_TOP, (k % 2) * 0.9, 0.9);
+      tri(tris, crown, p(i + 1), p(i));
+    }
   }
+  // A part on its own stands on its own foot.
+  const foot = PART_FOOT[part] * s;
+  for (let t = 0; t < tris.length; t += 16) for (let k = 0; k < 3; k++) tris[t + k * 5 + 1] -= foot;
   return { tris, atlasWidth: BURGER_ATLAS_W, atlasHeight: BURGER_ATLAS_H, stone: [212, 150, 76] };
 }
 
 const BURGERS = new Map<string, StatueModel>();
-const burgerModel = (size: number, bites: readonly Bite[] = []) => {
-  const key = `${size.toFixed(2)}|${bites.map((b) => `${b.at.toFixed(2)},${b.big.toFixed(2)}`).join(";")}`;
+const burgerModel = (size: number, bites: readonly Bite[] = [], part: BurgerPart = "whole") => {
+  const key = `${part}|${size.toFixed(2)}|${bites.map((b) => `${b.at.toFixed(2)},${b.big.toFixed(2)}`).join(";")}`;
   let model = BURGERS.get(key);
   if (!model) {
-    model = buildBurger(size, bites);
+    model = buildBurger(size, bites, part);
     BURGERS.set(key, model);
   }
   return model;
@@ -1499,10 +1564,16 @@ const WET_CHANCE = 0.12;
 const CABINET_CHANCE = 0.12;
 const DESK_CHANCE = 0.12;
 const SOCKET_CHANCE = 0.45;
-/** How many blocks have a chicken burger: rare. Of those, how many are bitten, and how many far too big. */
+/**
+ * How many blocks have chicken burgers: rare. Of those, how many are one on its own, a stack, one fallen apart, a
+ * pyramid (the rest are a row); and how many of the burgers are bitten.
+ */
 const BURGER_CHANCE = 0.03;
+const BURGER_ALONE = 0.65;
+const BURGER_STACKED = 0.1;
+const BURGER_FALLEN = 0.1;
+const BURGER_PYRAMID = 0.07;
 const BURGER_BITTEN = 0.3;
-const BURGER_GIANT = 0.15;
 
 const OUT = [
   [-1, 0],
@@ -1609,7 +1680,7 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const burgerRoll = (k: number) => map.noise(bx * 31 + k, by, 800);
   if (burgerRoll(0) < BURGER_CHANCE) {
     const spot = spotIn(map, bx, by, burgerRoll);
-    if (spot) found.push(placeBurger(`b${bx},${by}`, spot, burgerRoll));
+    if (spot) found.push(...placeBurgers(`b${bx},${by}`, spot, burgerRoll));
   }
   if (PREVIEW && bx === 0 && by === 0) found.push(...previewBurgers());
   return found;
@@ -2246,12 +2317,98 @@ function placeSockets(key: string, spot: Spot, roll: (k: number) => number): Jun
 }
 
 /**
- * A chicken burger, as if someone dropped it: on the carpet, now and then with a bite out of it, now and then far too
- * big, sunk into the carpet, or stuck upside down in the ceiling.
+ * Chicken burgers, as if someone left them: mostly one on its own; now and then two or three stacked up, one fallen
+ * apart into its parts across the carpet, or a neat row of them.
+ */
+function placeBurgers(key: string, spot: Spot, roll: (k: number) => number): Junk[] {
+  const how = roll(70);
+  if (how < BURGER_ALONE) return [placeBurger(key, spot, roll)];
+  const cx = spot.cx + 0.5;
+  const cy = spot.cy + 0.5;
+  const out: Junk[] = [];
+  const add = (n: number, model: StatueModel, x: number, y: number, h: number, yaw: number, tall: number, r: number) =>
+    out.push({ key: `${key}.${n}`, kind: "burger", model, x, y, h, yaw, pitch: 0, roll: 0, solid: tall < STEP ? null : { x, y, r } });
+  if (how < BURGER_ALONE + BURGER_STACKED) {
+    // Stacked: each sitting on the dome of the one below, a little off true.
+    const size = 1 + roll(71) * 1.5;
+    const w = BURGER_W * size;
+    const tall = w * BURGER_TALL;
+    const count = 2 + Math.floor(roll(72) * 2);
+    for (let n = 0; n < count; n++) {
+      const top = n === count - 1;
+      const model = burgerModel(size, top && roll(73) < BURGER_BITTEN ? bitesOf(roll) : []);
+      const x = cx + (roll(74 + n) - 0.5) * w * 0.15;
+      const y = cy + (roll(78 + n) - 0.5) * w * 0.15;
+      add(n, model, x, y, n * tall * 0.95, roll(82 + n) * Math.PI * 2, n ? 0 : tall * count, w / 2);
+    }
+    const tilt = out.slice(1);
+    tilt.forEach((burger, n) => {
+      burger.pitch = (roll(86 + n) - 0.5) * 0.12;
+      burger.roll = (roll(90 + n) - 0.5) * 0.12;
+    });
+    return out;
+  }
+  if (how < BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN) {
+    // Fallen apart: bun, chicken, lettuce and bun, each where it landed; the top bun as often as not on its back.
+    const size = 1 + roll(71) * 1.5;
+    const w = BURGER_W * size;
+    (["bottom", "chicken", "lettuce", "top"] as const).forEach((part, n) => {
+      const turn = roll(72 + n) * Math.PI * 2;
+      const far = w * 0.6 + roll(76 + n) * 0.25;
+      const x = cx + Math.cos(turn) * far;
+      const y = cy + Math.sin(turn) * far;
+      const tall = PART_TALL[part] * w;
+      add(n, burgerModel(size, [], part), x, y, 0, roll(80 + n) * Math.PI * 2, tall, w * 0.3);
+      if (part === "top" && roll(84) < 0.5) {
+        out[n].roll = Math.PI;
+        out[n].h = tall;
+      }
+    });
+    return out;
+  }
+  if (how < BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN + BURGER_PYRAMID) {
+    // A pyramid, stacked like tins: a row along the bottom, each row above one fewer, every burger sitting in the dip
+    // between the two under it.
+    const size = 1 + roll(71) * 1.2;
+    const w = BURGER_W * size;
+    const tall = w * BURGER_TALL;
+    const base = 2 + Math.floor(roll(72) * 3);
+    const gap = w * 1.12;
+    const along = roll(73) * Math.PI * 2;
+    let n = 0;
+    for (let level = 0; level < base; level++) {
+      const across = base - level;
+      for (let k = 0; k < across; k++) {
+        const t = (k - (across - 1) / 2) * gap;
+        const model = burgerModel(size, level === base - 1 && roll(74) < BURGER_BITTEN ? bitesOf(roll) : []);
+        add(n, model, cx + Math.cos(along) * t, cy + Math.sin(along) * t, level * tall * 0.8, along + Math.PI / 2, level ? 0 : tall * base, w / 2);
+        n++;
+      }
+    }
+    return out;
+  }
+  // A neat row, all facing the same way, as if laid out for someone; now and then one of them bitten.
+  const size = 1 + roll(71) * 0.8;
+  const w = BURGER_W * size;
+  const tall = w * BURGER_TALL;
+  const gap = w * 1.8;
+  const count = Math.min(3 + Math.floor(roll(72) * 4), Math.floor(0.8 / gap) + 1);
+  const along = roll(73) * Math.PI * 2;
+  const bitten = roll(74) < 0.25 ? Math.floor(roll(75) * count) : -1;
+  for (let n = 0; n < count; n++) {
+    const t = (n - (count - 1) / 2) * gap;
+    const model = burgerModel(size, n === bitten ? bitesOf(roll) : []);
+    add(n, model, cx + Math.cos(along) * t, cy + Math.sin(along) * t, 0, along + Math.PI / 2, tall, w / 2);
+  }
+  return out;
+}
+
+/**
+ * A chicken burger on its own: any size from an ordinary one to seven times it, mostly smallish; on the carpet, now
+ * and then with bites out of it, sunk into the carpet, or stuck upside down in the ceiling.
  */
 function placeBurger(key: string, spot: Spot, roll: (k: number) => number): Junk {
-  const giant = roll(42) < BURGER_GIANT;
-  const size = giant ? 5 + roll(43) * 5 : 0.9 + roll(43) * 0.25;
+  const size = 1 + 6 * roll(43) ** 2.5;
   const model = burgerModel(size, roll(41) < BURGER_BITTEN ? bitesOf(roll) : []);
   const r = (BURGER_W * size) / 2;
   const tall = BURGER_W * size * BURGER_TALL;
@@ -2287,9 +2444,9 @@ function bitesOf(roll: (k: number) => number): Bite[] {
 }
 
 /**
- * TEMPORARY, for Kiri to look over the chicken burger: by where the visitor starts, whole ones, bitten ones (a
- * nibble, a big mouthful, two bites, three), giants (whole and bitten), one sunk in the carpet and one upside down in
- * the ceiling. Gone once she's happy.
+ * TEMPORARY, for Kiri to look over the chicken burger: by where the visitor starts, a row, a stack, a pyramid and one fallen
+ * apart; on their own, an ordinary one, a bitten one, a giant, one sunk in the carpet and one upside down in the
+ * ceiling. Gone once she's happy.
  */
 const PREVIEW = false;
 
@@ -2305,18 +2462,23 @@ function previewBurgers(): Junk[] {
     yaw,
     ...rest,
   });
+  // Each arrangement by forcing the dice that pick it (and, for the pyramids, how wide).
+  const arranged = (key: string, cx: number, cy: number, how: number, wide = -1) =>
+    placeBurgers(key, { cx, cy, wall: null }, (k) =>
+      k === 70 ? how : k === 72 && wide >= 0 ? wide : k === 71 && wide >= 0 ? 0.2 : grain(k, cx * 7 + cy),
+    );
   return [
-    put("pb0", burgerModel(1), 3.15, 2.85, 0.3),
-    put("pb1", burgerModel(1, [{ at: 2.4, big: 0.75 }]), 3.45, 2.45, 0.3),
-    put("pb2", burgerModel(1, [{ at: 2.4, big: 1.3 }]), 3.75, 2.75, 0.3),
-    put("pb7", burgerModel(1, [{ at: 2.0, big: 1 }, { at: 3.2, big: 0.9 }]), 3.35, 3.2, 0.3),
-    put("pb8", burgerModel(1, [{ at: 1.6, big: 1.1 }, { at: 2.8, big: 0.85 }, { at: 3.9, big: 1.2 }]), 2.9, 3.4, 0.3),
-    put("pb3", burgerModel(7), 4.2, 4.1, 0.4, { solid: { x: 4.2, y: 4.1, r: 0.35 } }),
-    put("pb4", burgerModel(6, [{ at: 3.6, big: 1 }, { at: 4.8, big: 1.2 }]), 1.3, 3.9, 2, {
-      solid: { x: 1.3, y: 3.9, r: 0.3 },
-    }),
-    put("pb5", burgerModel(4), 4.2, 1.6, 0.9, { h: -0.12, pitch: 0.35, roll: -0.25, solid: { x: 4.2, y: 1.6, r: 0.2 } }),
-    put("pb6", burgerModel(4, [{ at: 1, big: 1 }]), 2.4, 1.4, 0, { h: 1 + 0.1, roll: Math.PI }),
+    ...arranged("pr", 3, 2, 0.95),
+    ...arranged("ps", 3, 3, BURGER_ALONE + 0.05),
+    ...arranged("pf", 2, 3, BURGER_ALONE + BURGER_STACKED + 0.05),
+    ...arranged("pp", 1, 3, BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN + 0.03, 0.1),
+    ...arranged("pq", 4, 2, BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN + 0.03, 0.5),
+    ...arranged("pt", 4, 3, BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN + 0.03, 0.9),
+    put("pb0", burgerModel(1), 3.1, 1.8, 0.3),
+    put("pb1", burgerModel(1, [{ at: 2.0, big: 1 }, { at: 3.2, big: 0.9 }]), 2.85, 1.5, 0.3),
+    put("pb3", burgerModel(7), 4.3, 4.3, 0.4, { solid: { x: 4.3, y: 4.3, r: 0.35 } }),
+    put("pb5", burgerModel(4), 4.3, 1.4, 0.9, { h: -0.12, pitch: 0.35, roll: -0.25, solid: { x: 4.3, y: 1.4, r: 0.2 } }),
+    put("pb6", burgerModel(4, [{ at: 1, big: 1 }]), 1.5, 1.5, 0, { h: 1 + 0.1, roll: Math.PI }),
   ];
 }
 
