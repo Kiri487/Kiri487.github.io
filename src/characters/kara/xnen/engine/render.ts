@@ -119,6 +119,13 @@ export class Renderer {
     this.readGraffiti = read;
   }
 
+  /** How what the lost wrote in blood reads right now: plain, until SAN takes it as it takes the other cats' words. */
+  private readLost: (text: string) => string = (text) => text;
+
+  setLostReader(read: (text: string) => string) {
+    this.readLost = read;
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
@@ -462,7 +469,9 @@ export class Renderer {
       if (key !== tagKey) {
         tagKey = key;
         tag = graffitiOn(map, mapX, mapY, face, tuning);
-        tagMask = tag ? tagArt(tag, tag.text ? this.readGraffiti(tag.text) : "") : null;
+        tagMask = tag
+          ? tagArt(tag, tag.text ? this.readGraffiti(tag.text) : "", tag.lost ? this.readLost(tag.lost) : "")
+          : null;
       }
       const along = (side === 0 ? mapY : mapX) + wallX;
       const painted = tag && tagMask && along >= tag.from && along < tag.to ? tag : null;

@@ -31,10 +31,10 @@ import {
 } from "./engine/statue";
 import type { Tuning } from "./engine/tuning";
 import { MUTTER } from "./lines";
-import { readAs } from "./rot13";
+import { garble, readAs } from "./rot13";
 import { playPauseSfx, playRewindSfx, playStepSfx, playStopSfx, playXnTalkSfx, startHum } from "./sfx";
 import { dateStamp, timeStamp } from "./stamp";
-import { passSanTime, xnReadable } from "./san";
+import { catsLost, passSanTime, xnReadable } from "./san";
 import { forgetMeetings, Talk } from "./talk";
 import {
   NOT_ON_WALLS,
@@ -355,6 +355,7 @@ export function createGame(parts: GameParts): Game {
   const renderer = new Renderer(canvas);
   // XN's graffiti reads as her subtitles do: through the visitor's SAN, a word at a time.
   renderer.setGraffitiReader((text) => readAs(text, xnReadable()));
+  renderer.setLostReader((text) => garble(text, catsLost()));
   const light = new Lighting();
   let timecode = new Timecode();
   let player = new Player();
