@@ -9,7 +9,8 @@ import type { Tuning } from "./tuning";
  *   read follows their SAN, word by word, the same as her subtitles (the renderer is handed the reading). ROT13 keeps
  *   every word's length, so the letters stay where they were sprayed and only their shapes change.
  * - Arrows, in the same black, pointing nowhere in particular.
- * - Tally marks, tiny, at about eye height: someone counting, in fives, up to thirteen fives.
+ * - Tally marks, tiny, at about eye height, in blood: someone who wandered in, counting with a bitten finger, in
+ *   fives, up to thirteen fives. Not XN: hers is the black.
  * - XN's drawings of herself and Kara (Kiri's drawings, traced in black): on their heads as they are, turned
  *   upright or toppled over, leaning opposite ways, and labelled "me" and "kara" (read through SAN like her
  *   words: at first they say ZR and XNEN).
@@ -76,6 +77,12 @@ const PX = 96;
 /** The colours: XN's black spray, and the cult's green. */
 const BLACK: readonly [number, number, number] = [20, 18, 15];
 const GREEN: readonly [number, number, number] = [26, 64, 24];
+/** Blood, dried: a dark, browning red. Thinly on, the wall shows through and it goes browner still. */
+const BLOOD: readonly [number, number, number] = [78, 20, 16];
+/** A fingertip's half width, as a share of a grid step. */
+const FINGER = 0.4;
+/** How far a finger goes, in grid steps, before the blood on it is down to about a third. */
+const DRY = 11;
 /** How often a side of a stretch has something on it, at 100 %. */
 const CHANCE = 0.065;
 /** Of those, what: XN's words, an arrow, tally marks, a cult slogan, XN's drawing, the cat god, the cult's sign. */
@@ -197,10 +204,11 @@ const GLYPHS: Record<string, GlyphDef> = {
   "'": latin([[[2.2, 0], [1.8, 1.6]]]),
   "→": { w: 4.4, strokes: [[[0, 3], [4.4, 3]], [[2.6, 1.3], [4.4, 3], [2.6, 4.7]]] },
 
+  // Spaced for a fingertip: the marks are fat.
   [TALLY_ONE]: { w: 1, strokes: [[[0.5, 0], [0.5, 6]]] },
   [TALLY_FIVE]: {
-    w: 4.6,
-    strokes: [[[0.5, 0], [0.5, 6]], [[1.6, 0], [1.6, 6]], [[2.7, 0], [2.7, 6]], [[3.8, 0], [3.8, 6]], [[-0.4, 4.8], [4.8, 1.2]]],
+    w: 5.5,
+    strokes: [[[0.5, 0], [0.5, 6]], [[2, 0], [2, 6]], [[3.5, 0], [3.5, 6]], [[5, 0], [5, 6]], [[-0.4, 4.7], [5.9, 1.3]]],
   },
 
   大: square([[[0.5, 2], [5.5, 2]], [[3, 0], [3, 2], [2.4, 4], [0.5, 6]], [[3, 2.2], [4, 4.2], [5.6, 6]]]),
@@ -437,6 +445,10 @@ export interface Tag {
   centre: { x: number; y: number; z: number; nx: number; ny: number };
   /** Whether XN has put anything of hers over the top. */
   over: boolean;
+  /** Written in blood, with a finger, rather than sprayed or penned. */
+  blood: boolean;
+  /** Whether it ends in a hand dragged down the wall, four fingers' worth, from its last mark. */
+  drag: boolean;
   /** How heavy the paint went on, and its colour. */
   strength: number;
   colour: readonly [number, number, number];
@@ -523,6 +535,10 @@ interface Plan {
   px: number;
   /** Written by hand at about eye height, rather than anywhere up the wall. */
   eye: boolean;
+  /** Room left below it for runs, against its glyph height: drips for spray, a dragged hand for blood. */
+  below?: number;
+  /** Ends in a hand dragged down the wall (blood only). */
+  drag?: boolean;
 }
 
 const item = (ch: string, at = -1, weight = 1, chaos = 0): Item => ({ ch, at, weight, chaos, layer: 0, shake: 1, own: null });
@@ -577,13 +593,16 @@ function planOf(
       const fives = r(2) < 0.3 ? 13 : 1 + Math.floor(r(3) * 13);
       const over = fives === 13 ? 0 : Math.floor(r(4) * 5);
       const perRow = 4 + Math.floor(r(5) * 4);
-      // Neat to begin with, until whoever it was starts losing it: some by the fourth five, some not till the
-      // twelfth, and a few never do. From there it gets wilder five by five, until it's only a scrawl.
-      const calm = r(7) < 0.12;
-      const snaps = 3 + r(8) * 8;
+      // Shaky from the first, and soon worse: whoever it was starts losing it by the third five, or the eighth at
+      // the latest, and hardly anyone never does. From there it gets wilder five by five, until it's smeared over;
+      // now and then it ends in a whole hand dragged down the wall.
+      const calm = r(7) < 0.05;
+      const drag = !calm && r(11) < 0.3;
+      const snaps = 2 + r(8) * 5;
       const unravels = 2 + r(9) * 4;
       const chaosAt = (n: number) => (calm ? 0.12 * (n / 12) : clamp01((n - snaps) / unravels) ** 1.2);
-      const mark = (ch: string, n: number) => item(ch, -1, 0.6, chaosAt(n));
+      // The finger trembles: every mark a little off, its own length, and leaning.
+      const mark = (ch: string, n: number) => ({ ...item(ch, -1, 1, chaosAt(n)), shake: 1.8 });
       const rows: Item[][] = [];
       for (let i = 0; i < fives; i += perRow) {
         rows.push(Array.from({ length: Math.min(perRow, fives - i) }, (_, j) => mark(TALLY_FIVE, i + j)));
@@ -593,20 +612,22 @@ function planOf(
       const last = rows[rows.length - 1];
       if (singles.length && last.length < perRow) last.push(...singles);
       else if (singles.length) rows.push(singles);
-      // Tiny, scratched in by hand at about eye height: smaller than the cult's writing.
+      // Tiny, at about eye height, smaller than the cult's writing; fine enough up close to see the finger's streaks.
       return {
         ...base,
         rows,
-        size: 0.035 + r(0) * 0.015,
-        least: 0.025,
-        gap: 1.6,
+        size: 0.025 + r(0) * 0.01,
+        least: 0.018,
+        gap: 1.8,
         rowGap: 2.6,
-        turn: 0.08,
-        wander: 0.5,
-        slope: (r(1) - 0.5) * 0.06,
-        colour: BLACK,
-        px: 384,
+        turn: 0.16,
+        wander: 1,
+        slope: (r(1) - 0.5) * 0.1,
+        colour: BLOOD,
+        px: 768,
         eye: true,
+        below: drag ? 4 + r(12) * 3 : 0.15,
+        drag,
       };
     }
     case "portrait":
@@ -1059,7 +1080,8 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
   const r = (k: number) => hash3(seed, k, 7717);
   let size = plan.size;
   let placed = place(plan, size, seed);
-  let [x0, x1, y0, y1] = bounds(placed, size, plan.custom ? 0.12 : 0.6);
+  const below = plan.below ?? (plan.custom ? 0.12 : 0.6);
+  let [x0, x1, y0, y1] = bounds(placed, size, below);
   // Too big for the room: smaller, but not too small to read. The hand wanders, so it's measured again after.
   for (let tries = 0; tries < 4; tries++) {
     const fit = Math.min((room - 0.1) / (x1 - x0), TALLEST / (y1 - y0));
@@ -1067,7 +1089,7 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
     size *= fit * 0.97;
     if (size < plan.least) return null;
     placed = place(plan, size, seed);
-    [x0, x1, y0, y1] = bounds(placed, size, plan.custom ? 0.12 : 0.6);
+    [x0, x1, y0, y1] = bounds(placed, size, below);
   }
   const w = x1 - x0;
   const h = y1 - y0;
@@ -1075,8 +1097,10 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
   const step = size / 6;
 
   const along = start + 0.05 + r(3) * Math.max(0, room - w - 0.1);
+  // At eye height it's the writing that's at eye height, not whatever runs down from it.
+  const body = h - size * below;
   const top = plan.eye
-    ? Math.min(0.96 - h, Math.max(0.04, 0.32 + r(4) * 0.3 - h / 2))
+    ? Math.min(0.96 - h, Math.max(0.04, 0.32 + r(4) * 0.3 - body / 2))
     : 0.04 + r(4) * Math.max(0, 0.92 - h);
   const px = plan.px;
   const layout: Glyph[] = placed.map((p) => ({
@@ -1109,6 +1133,8 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
     reversed,
     centre: { x: 0, y: 0, z: 0, nx: 0, ny: 0 },
     over: placed.some((p) => p.item.layer === 1),
+    blood: plan.colour === BLOOD,
+    drag: !!plan.drag,
     strength: 0.78 + r(5) * 0.2,
     colour: plan.colour,
   };
@@ -1120,17 +1146,7 @@ function spray(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, stroke:
   const H = tag.maskH;
   const radius = glyph.step * STROKE * glyph.weight * (1 + glyph.chaos * 0.7);
   const spread = radius + Math.max(1, radius * 0.6);
-  const jitter = (i: number, a: number) =>
-    (hash3(tag.seed, k * 64 + i * 2 + a, 7741) - 0.5) * (0.5 + glyph.chaos * 2.2) * glyph.shake;
-  const mid = def.w / 2;
-  const pts = stroke.map(([gx, gy], i) => {
-    const lx = (gx + jitter(i, 0) - mid) * glyph.step;
-    const ly = (gy + jitter(i, 1) - 3) * glyph.step;
-    return [
-      glyph.x + mid * glyph.step + lx * glyph.cos - ly * glyph.sin,
-      glyph.y + 3 * glyph.step + lx * glyph.sin + ly * glyph.cos,
-    ] as const;
-  });
+  const pts = strokePoints(tag, glyph, def, stroke, k);
   const dab = (ax: number, ay: number, bx: number, by: number, core: number, fringe: number) => {
     const minX = Math.max(0, Math.floor(Math.min(ax, bx) - fringe));
     const maxX = Math.min(W - 1, Math.ceil(Math.max(ax, bx) + fringe));
@@ -1162,10 +1178,8 @@ function spray(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, stroke:
     const [bx, by] = pts[Math.min(i + 1, pts.length - 1)];
     dab(ax, ay, bx, by, radius, spread);
     // Where the can paused, the paint ran: a thin drip straight down, ending in a bead. Not from a pen: the cult
-    // writes and draws with one, and the tally's scratched.
-    const pen =
-      glyph.layer === 0 &&
-      (tag.kind === "cult" || tag.kind === "tally" || tag.kind === "shrine" || tag.kind === "emblem");
+    // writes and draws with one.
+    const pen = glyph.layer === 0 && (tag.kind === "cult" || tag.kind === "shrine" || tag.kind === "emblem");
     // What she draws has many more points than a letter: it runs at fewer of them, or it's all drips.
     const roll = pen ? 1 : hash3(tag.seed, k * 64 + i, 7753);
     if (roll < (glyph.own ? 0.03 : 0.14)) {
@@ -1174,6 +1188,146 @@ function spray(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, stroke:
       dab(ax, ay, ax, ay + length, thin, thin + 0.6);
       dab(ax, ay + length, ax, ay + length, thin * 1.5, thin * 1.5 + 0.5);
     }
+  }
+}
+
+/** A stroke's points in mask pixels: the glyph's grid turned, scaled and put in place, each point off a little as the hand shook. */
+function strokePoints(tag: Tag, glyph: Glyph, def: GlyphDef, stroke: Stroke, k: number): (readonly [number, number])[] {
+  const jitter = (i: number, a: number) =>
+    (hash3(tag.seed, k * 64 + i * 2 + a, 7741) - 0.5) * (0.5 + glyph.chaos * 2.2) * glyph.shake;
+  const mid = def.w / 2;
+  return stroke.map(([gx, gy], i) => {
+    const lx = (gx + jitter(i, 0) - mid) * glyph.step;
+    const ly = (gy + jitter(i, 1) - 3) * glyph.step;
+    return [
+      glyph.x + mid * glyph.step + lx * glyph.cos - ly * glyph.sin,
+      glyph.y + 3 * glyph.step + lx * glyph.sin + ly * glyph.cos,
+    ] as const;
+  });
+}
+
+/** Smooth noise along a line, 0–1: a die at each whole number, eased between. */
+function wobble(t: number, n: number, seed: number): number {
+  const i = Math.floor(t);
+  const f = t - i;
+  const a = hash3(i, n, seed);
+  const b = hash3(i + 1, n, seed);
+  return a + (b - a) * f * f * (3 - 2 * f);
+}
+
+/**
+ * Blood drawn along a stroke with a fingertip `radius` wide. Wet, it goes on solid with a soft, ragged edge; as the
+ * finger dries it streaks along the way it moved and breaks up, lighter and browner, the wall showing through. No
+ * drips and no overspray. `ink` is how much blood is on the finger to begin with, 0–1, and `dry` how far it goes, in
+ * mask pixels, before that's down to about a third. Returns how much is left at the end.
+ */
+function smear(
+  tag: Tag,
+  paint: Uint8Array,
+  pts: readonly (readonly [number, number])[],
+  radius: number,
+  k: number,
+  ink: number,
+  dry: number,
+): number {
+  const W = tag.maskW;
+  const H = tag.maskH;
+  const seed = tag.seed + k * 131;
+  const soft = Math.max(1, radius * 0.35);
+  let run = 0;
+  const segments = Math.max(1, pts.length - 1);
+  for (let si = 0; si < segments; si++) {
+    const [ax, ay] = pts[si];
+    const [bx, by] = pts[Math.min(si + 1, pts.length - 1)];
+    const ex = bx - ax;
+    const ey = by - ay;
+    const length = Math.hypot(ex, ey);
+    const len2 = length * length || 1;
+    const reach = radius * 1.6;
+    const minX = Math.max(0, Math.floor(Math.min(ax, bx) - reach));
+    const maxX = Math.min(W - 1, Math.ceil(Math.max(ax, bx) + reach));
+    const minY = Math.max(0, Math.floor(Math.min(ay, by) - reach));
+    const maxY = Math.min(H - 1, Math.ceil(Math.max(ay, by) + reach));
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const px = x + 0.5 - ax;
+        const py = y + 0.5 - ay;
+        const t = clamp01((px * ex + py * ey) / len2);
+        const s = run + t * length;
+        const d = Math.hypot(px - ex * t, py - ey * t);
+        // Pressed hardest where it went on, so a little wider there; the edge itself never quite straight.
+        const press = 1 + 0.1 * Math.max(0, 1 - s / (radius * 2));
+        const edge = radius * press * (0.85 + wobble(s / (radius * 0.7), 1, seed) * 0.3);
+        if (d >= edge) continue;
+        const left = ink * Math.exp(-s / dry);
+        const parched = 1 - left;
+        // The ridges of the skin: bands across the finger that run along the stroke, broken here and there. As it
+        // dries, the fainter ones stop taking first.
+        const across = length ? (px * ey - py * ex) / length / radius : 0;
+        const ridge = (across + 1.3) * 3.2;
+        const band = wobble(ridge, 2, seed) * 0.75 + wobble(s / (radius * 1.5), 3 + Math.floor(ridge), seed) * 0.25;
+        if (band < parched * 1.15 - 0.2) continue;
+        // And grit: specks where none took.
+        if (hash3(x, y, seed) < parched * parched * 0.3) continue;
+        const a = (0.3 + 0.67 * Math.min(1, left * 1.15)) * (0.55 + 0.45 * clamp01((edge - d) / soft));
+        const i = y * W + x;
+        const v = Math.round(a * 255);
+        if (v > paint[i]) paint[i] = v;
+      }
+    }
+    run += length;
+  }
+  return ink * Math.exp(-run / dry);
+}
+
+/**
+ * A glyph in blood, stroke by stroke: the finger drying as it goes, and pressed for more when it runs low, so the
+ * marks go dark, fade, and go dark again. Then, the further gone the hand, the more of it is smeared over, back and
+ * forth with the side of a finger. Returns the blood left on the finger.
+ */
+function bleed(tag: Tag, paint: Uint8Array, glyph: Glyph, def: GlyphDef, gi: number, ink: number): number {
+  const radius = glyph.step * FINGER * glyph.weight * (1 + glyph.chaos * 0.3);
+  const dry = glyph.step * DRY;
+  def.strokes.forEach((stroke, si) => {
+    const k = gi * 16 + si;
+    if (ink < 0.38 + hash3(tag.seed, k, 7781) * 0.22) ink = 0.82 + hash3(tag.seed, k, 7783) * 0.18;
+    ink = smear(tag, paint, strokePoints(tag, glyph, def, stroke, k), radius, k, ink, dry);
+  });
+  const smears = glyph.chaos > 0.4 ? 1 + Math.floor((glyph.chaos - 0.4) * 5) : 0;
+  for (let e = 0; e < smears; e++) {
+    const d = (n: number) => hash3(tag.seed, gi * 97 + e * 11 + n, 7787);
+    const passes = 3 + Math.floor(d(0) * 3);
+    const top = d(1) * 2;
+    const stroke: Stroke = Array.from({ length: passes }, (_, p) => [
+      p % 2 === 0 ? -0.6 + d(2 + p) * 1.2 : def.w - 0.6 + d(2 + p) * 1.2,
+      top + (p / (passes - 1)) * (4 - top) + (d(8 + p) - 0.5),
+    ] as const);
+    const k = gi * 16 + 8 + e;
+    smear(tag, paint, strokePoints(tag, glyph, def, stroke, k), radius * 2.2, k, 0.45 + d(14) * 0.25, dry * 0.7);
+  }
+  return ink;
+}
+
+/**
+ * A bloody hand dragged down the wall from (x, y): four fingers side by side, the middle two reaching furthest,
+ * wandering a little, until the blood gives out.
+ */
+function dragHand(tag: Tag, paint: Uint8Array, x: number, y: number, radius: number) {
+  const length = tag.maskH - y - radius * 2;
+  if (length < radius * 4) return;
+  const spacing = radius * 2.3;
+  const lean = (hash3(tag.seed, 1, 7789) - 0.5) * radius * 5;
+  for (let f = 0; f < 4; f++) {
+    const j = (n: number) => hash3(tag.seed, 10 + f * 16 + n, 7789);
+    const middle = f === 1 || f === 2;
+    const reach = length * (middle ? 0.85 + j(0) * 0.15 : 0.55 + j(0) * 0.3);
+    const x0 = x + (f - 1.5) * spacing + (j(1) - 0.5) * radius * 0.6;
+    const y0 = y + (middle ? 0 : radius * 1.5) + (j(2) - 0.5) * radius;
+    const pts = Array.from({ length: 6 }, (_, i) => {
+      const t = i / 5;
+      return [x0 + lean * t * t + (j(3 + i) - 0.5) * radius * 0.5, y0 + reach * t] as const;
+    });
+    smear(tag, paint, pts, radius * (f === 3 ? 0.85 : 1), 9000 + f, 0.95, reach * 0.6);
   }
 }
 
@@ -1293,6 +1447,8 @@ function trace(tag: Tag, target: Uint8Array, glyph: Glyph, drawing: Drawing, spr
 function sprayTag(tag: Tag, shown: string): GraffitiLevel[] {
   const base = new Uint8Array(tag.maskW * tag.maskH);
   const over = tag.over ? new Uint8Array(tag.maskW * tag.maskH) : null;
+  // Blood on the finger, for what's written in it.
+  let ink = 1;
   tag.layout.forEach((glyph, gi) => {
     const paint = glyph.layer && over ? over : base;
     const char = glyph.at >= 0 ? shown[glyph.at].toUpperCase() : glyph.ch;
@@ -1303,6 +1459,10 @@ function sprayTag(tag: Tag, shown: string): GraffitiLevel[] {
     }
     const def = glyph.own ?? GLYPHS[char];
     if (!def) return;
+    if (tag.blood && !glyph.layer) {
+      ink = bleed(tag, paint, glyph, def, gi, ink);
+      return;
+    }
     def.strokes.forEach((stroke, si) => spray(tag, paint, glyph, def, stroke, gi * 16 + si));
     // Far enough gone, the count turns to slashes scored back and forth over it.
     const extra = Math.floor(Math.max(0, glyph.chaos - 0.4) * 9);
@@ -1316,6 +1476,11 @@ function sprayTag(tag: Tag, shown: string): GraffitiLevel[] {
       spray(tag, paint, glyph, def, slash, gi * 16 + 8 + e);
     }
   });
+  if (tag.drag) {
+    // The hand comes down over the last of it.
+    const last = tag.layout[tag.layout.length - 1];
+    dragHand(tag, base, last.x + (last.w / 2) * last.step, last.y + 3 * last.step, last.step * FINGER * 1.3);
+  }
   const levels: GraffitiLevel[] = [{ w: tag.maskW, h: tag.maskH, paint: base, over }];
   while (levels[levels.length - 1].h > 6) levels.push(halve(levels[levels.length - 1]));
   return levels;
@@ -1387,10 +1552,11 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   if (had !== undefined) return had;
   let tag: Tag | null = null;
   const pick = (k: number) => map.noise(lx * 2 + dir, ly * 2 + side, 500 + k);
-  if (pick(0) < (CHANCE * tuning.graffiti) / 100) {
+  const forced = PREVIEW ? previewFor(map).get(`${lx},${ly},${dir},${side}`) : undefined;
+  if (forced || pick(0) < (CHANCE * tuning.graffiti) / 100) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
-      const kind = kindOf(pick(1));
+      const kind = forced ?? kindOf(pick(1));
       const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : GRAFFITI_TEXTS;
       const line = Math.floor(pick(2) * lines.length);
       const text = kind === "text" ? GRAFFITI_TEXTS[line] : "";
@@ -1414,6 +1580,39 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   }
   tags.set(key, tag);
   return tag;
+}
+
+/**
+ * TEMPORARY, for Kiri to look over the blood: tallies on the stretches of wall nearest where the visitor starts.
+ * Gone once she's happy.
+ */
+const PREVIEW = false;
+const PREVIEW_KINDS: readonly Kind[] = Array.from({ length: 8 }, () => "tally" as const);
+const previews = new WeakMap<WorldMap, Map<string, Kind>>();
+
+function previewFor(map: WorldMap): Map<string, Kind> {
+  const had = previews.get(map);
+  if (had) return had;
+  const sides: [string, number][] = [];
+  for (let ly = -3; ly <= 4; ly++) {
+    for (let lx = -3; lx <= 4; lx++) {
+      for (let dir = 0; dir < 2; dir++) {
+        for (let side = 0; side < 2; side++) {
+          const [first, count] = openRun(map, lx, ly, dir, side);
+          if (count < 2) continue;
+          const mid = first + count / 2;
+          const x = dir === 0 ? lx * 5 + mid : lx * 5 + side;
+          const y = dir === 0 ? ly * 5 + side : ly * 5 + mid;
+          sides.push([`${lx},${ly},${dir},${side}`, Math.hypot(x - 2.5, y - 2.5)]);
+        }
+      }
+    }
+  }
+  sides.sort((a, b) => a[1] - b[1]);
+  const out = new Map<string, Kind>();
+  sides.slice(0, PREVIEW_KINDS.length).forEach(([key], i) => out.set(key, PREVIEW_KINDS[i]));
+  previews.set(map, out);
+  return out;
 }
 
 /** Every tag whose middle is within `radius` of (x, y). */
