@@ -136,6 +136,11 @@ function lostAt(seconds: number): number {
   return stage === "low" ? 1 : stage === "middle" ? MIDDLE_LOSS * readableAt(seconds) : 0;
 }
 
+/** For the backrooms' walls: how much of what people wrote there has turned to ROT13 right now, as the cats' speech has. */
+export function catsLost(): number {
+  return lostAt(now());
+}
+
 /** For the backrooms' subtitles: how much of XN reads plainly right now. */
 export function xnReadable(): number {
   return readableAt(now());
