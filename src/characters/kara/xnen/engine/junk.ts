@@ -1682,7 +1682,6 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
     const spot = spotIn(map, bx, by, burgerRoll);
     if (spot) found.push(...placeBurgers(`b${bx},${by}`, spot, burgerRoll));
   }
-  if (PREVIEW && bx === 0 && by === 0) found.push(...previewBurgers());
   return found;
 }
 
@@ -2441,45 +2440,6 @@ function bitesOf(roll: (k: number) => number): Bite[] {
     at += way * (0.9 + roll(66 + b) * 0.6);
   }
   return bites;
-}
-
-/**
- * TEMPORARY, for Kiri to look over the chicken burger: by where the visitor starts, a row, a stack, a pyramid and one fallen
- * apart; on their own, an ordinary one, a bitten one, a giant, one sunk in the carpet and one upside down in the
- * ceiling. Gone once she's happy.
- */
-const PREVIEW = false;
-
-function previewBurgers(): Junk[] {
-  const base = { kind: "burger" as const, pitch: 0, roll: 0, solid: null };
-  const put = (key: string, model: StatueModel, x: number, y: number, yaw: number, rest: Partial<Junk> = {}): Junk => ({
-    ...base,
-    key,
-    model,
-    x,
-    y,
-    h: 0,
-    yaw,
-    ...rest,
-  });
-  // Each arrangement by forcing the dice that pick it (and, for the pyramids, how wide).
-  const arranged = (key: string, cx: number, cy: number, how: number, wide = -1) =>
-    placeBurgers(key, { cx, cy, wall: null }, (k) =>
-      k === 70 ? how : k === 72 && wide >= 0 ? wide : k === 71 && wide >= 0 ? 0.2 : grain(k, cx * 7 + cy),
-    );
-  return [
-    ...arranged("pr", 3, 2, 0.95),
-    ...arranged("ps", 3, 3, BURGER_ALONE + 0.05),
-    ...arranged("pf", 2, 3, BURGER_ALONE + BURGER_STACKED + 0.05),
-    ...arranged("pp", 1, 3, BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN + 0.03, 0.1),
-    ...arranged("pq", 4, 2, BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN + 0.03, 0.5),
-    ...arranged("pt", 4, 3, BURGER_ALONE + BURGER_STACKED + BURGER_FALLEN + 0.03, 0.9),
-    put("pb0", burgerModel(1), 3.1, 1.8, 0.3),
-    put("pb1", burgerModel(1, [{ at: 2.0, big: 1 }, { at: 3.2, big: 0.9 }]), 2.85, 1.5, 0.3),
-    put("pb3", burgerModel(7), 4.3, 4.3, 0.4, { solid: { x: 4.3, y: 4.3, r: 0.35 } }),
-    put("pb5", burgerModel(4), 4.3, 1.4, 0.9, { h: -0.12, pitch: 0.35, roll: -0.25, solid: { x: 4.3, y: 1.4, r: 0.2 } }),
-    put("pb6", burgerModel(4, [{ at: 1, big: 1 }]), 1.5, 1.5, 0, { h: 1 + 0.1, roll: Math.PI }),
-  ];
 }
 
 // ---- putting one in place ----
