@@ -826,14 +826,12 @@ function pleaPlan(base: Omit<Plan, "rows" | "size" | "least" | "colour">, pick: 
   const [words, reply] = PLEAS[pick];
   const each = words.split(" ");
   const repeated = new Set(each).size < each.length;
-  // While Kiri looks them over, every way it can go wrong comes up more often.
-  const odds = PREVIEW ? 3 : 1;
-  const mirror = r(6) < MIRRORED * odds;
+  const mirror = r(6) < MIRRORED;
   const lettersOnly = mirror && r(7) < 0.5;
-  const bend = r(8) < BENT * odds ? (r(9) < 0.5 ? -1 : 1) * (0.6 + r(10) * 0.9) : 0;
-  const wiped = r(11) < WIPED * odds;
-  const runsOut = !repeated && !wiped && r(12) < RUN_OUT * odds;
-  const answered = !!reply && !wiped && r(13) < ANSWERED * odds;
+  const bend = r(8) < BENT ? (r(9) < 0.5 ? -1 : 1) * (0.6 + r(10) * 0.9) : 0;
+  const wiped = r(11) < WIPED;
+  const runsOut = !repeated && !wiped && r(12) < RUN_OUT;
+  const answered = !!reply && !wiped && r(13) < ANSWERED;
   // Where the blood gave out, if it did.
   const cut = 0.45 + r(15) * 0.3;
   const rows = textRows(words, repeated || bend ? 99 : 9 + Math.floor(r(2) * 6)).map((row) =>
@@ -1785,11 +1783,10 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   if (had !== undefined) return had;
   let tag: Tag | null = null;
   const pick = (k: number) => map.noise(lx * 2 + dir, ly * 2 + side, 500 + k);
-  const forced = PREVIEW ? previewFor(map).get(`${lx},${ly},${dir},${side}`) : undefined;
-  if (forced || pick(0) < (CHANCE * tuning.graffiti) / 100) {
+  if (pick(0) < (CHANCE * tuning.graffiti) / 100) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
-      const kind = forced ?? kindOf(pick(1));
+      const kind = kindOf(pick(1));
       const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : kind === "plea" ? PLEAS : GRAFFITI_TEXTS;
       const line = Math.floor(pick(2) * lines.length);
       const text = kind === "text" ? GRAFFITI_TEXTS[line] : "";
@@ -1813,40 +1810,6 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   }
   tags.set(key, tag);
   return tag;
-}
-
-/**
- * TEMPORARY, for Kiri to look over the blood: tallies and the lost's words on the stretches of wall nearest where
- * the visitor starts, going wrong (and answered) more often than they will.
- * Gone once she's happy.
- */
-const PREVIEW = false;
-const PREVIEW_KINDS: readonly Kind[] = ["tally", "tally", "tally", ...Array.from({ length: 15 }, () => "plea" as const)];
-const previews = new WeakMap<WorldMap, Map<string, Kind>>();
-
-function previewFor(map: WorldMap): Map<string, Kind> {
-  const had = previews.get(map);
-  if (had) return had;
-  const sides: [string, number][] = [];
-  for (let ly = -3; ly <= 4; ly++) {
-    for (let lx = -3; lx <= 4; lx++) {
-      for (let dir = 0; dir < 2; dir++) {
-        for (let side = 0; side < 2; side++) {
-          const [first, count] = openRun(map, lx, ly, dir, side);
-          if (count < 2) continue;
-          const mid = first + count / 2;
-          const x = dir === 0 ? lx * 5 + mid : lx * 5 + side;
-          const y = dir === 0 ? ly * 5 + side : ly * 5 + mid;
-          sides.push([`${lx},${ly},${dir},${side}`, Math.hypot(x - 2.5, y - 2.5)]);
-        }
-      }
-    }
-  }
-  sides.sort((a, b) => a[1] - b[1]);
-  const out = new Map<string, Kind>();
-  sides.slice(0, PREVIEW_KINDS.length).forEach(([key], i) => out.set(key, PREVIEW_KINDS[i]));
-  previews.set(map, out);
-  return out;
 }
 
 /** Every tag whose middle is within `radius` of (x, y). */
