@@ -38,6 +38,28 @@ export const GRAFFITI_TEXTS: readonly string[] = [
   "do not wake the hallway",
   "the walls are load bearing. so am i",
   "kara was here",
+  "i hid thursday behind this wall. dont tell it",
+  "i ate the map. now i am the map",
+  "im the ceiling on weekends",
+  "this wall was a door until it met me",
+  "kiri drew me upside down. i fixed the world instead",
+  "this side up",
+  "i taught the carpet to sit. now it wont get up",
+  "knock first. the door is changing",
+  "this is the third time this wall has been here",
+  "the ceiling has my number",
+  "i lost a hallway around here. if you see it dont tell it",
+  "the exit is upside down. so am i. we get along",
+  "you were here. you just havent been yet",
+  "if found please return to the hallway",
+  "humming lesson today. bring your teeth",
+  "xrer put a rule on this wall. i licked it off",
+  "koro said i should talk to someone. i talk to this wall",
+  "xbeb is jealous of this wall. its a very good wall",
+  "kere alphabetized the lights. i ate the b",
+  "its 4:20 in this corner",
+  "this is a dream. not yours",
+  "i keep the stairs in a box. they bite",
 ];
 
 /** The cult's slogans, off its poster. */
@@ -248,9 +270,13 @@ const GLYPHS: Record<string, GlyphDef> = {
   X: latin([[[0, 0], [4, 6]], [[4, 0], [0, 6]]]),
   Y: latin([[[0, 0], [2, 3], [4, 0]], [[2, 3], [2, 6]]]),
   Z: latin([[[0, 0], [4, 0], [0, 6], [4, 6]]]),
+  "0": latin([[[1.2, 0], [2.8, 0], [3.8, 1.5], [3.8, 4.5], [2.8, 6], [1.2, 6], [0.2, 4.5], [0.2, 1.5], [1.2, 0]]]),
+  "2": latin([[[0.2, 1.2], [1.2, 0], [3, 0], [4, 1.2], [3.8, 2.6], [0, 6], [4, 6]]]),
+  "4": latin([[[3, 6], [3, 0], [0, 4], [4, 4]]]),
   "5": latin([[[4, 0], [0.4, 0], [0.2, 2.6], [2.8, 2.4], [4, 3.6], [3.8, 5.2], [2.4, 6], [0, 5.4]]]),
   "6": latin([[[3.6, 0.2], [1.6, 0.6], [0.2, 3], [0.4, 5.2], [2, 6], [3.6, 5.4], [4, 4], [3, 2.8], [1.2, 3], [0.2, 4]]]),
   ".": latin([[[2, 5.5], [2.1, 6]]]),
+  ":": latin([[[2, 1.6], [2.1, 2.1]], [[2, 4.9], [2.1, 5.4]]]),
   "'": latin([[[2.2, 0], [1.8, 1.6]]]),
   "→": { w: 4.4, strokes: [[[0, 3], [4.4, 3]], [[2.6, 1.3], [4.4, 3], [2.6, 4.7]]] },
 
@@ -648,8 +674,11 @@ function planOf(
     eye: false,
   };
   switch (kind) {
-    case "text":
-      return { ...base, rows: textRows(text, 9 + Math.floor(r(2) * 8)), size: 0.13 + r(0) * 0.07, least: 0.08, colour: BLACK };
+    case "text": {
+      // Wrapped narrow or wide, but never so narrow a long line stacks too tall for the wall.
+      const width = Math.max(9 + Math.floor(r(2) * 8), Math.ceil(text.length / 4));
+      return { ...base, rows: textRows(text, width), size: 0.13 + r(0) * 0.07, least: 0.08, colour: BLACK };
+    }
     case "arrow":
       return {
         ...base,
