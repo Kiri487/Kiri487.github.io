@@ -559,7 +559,8 @@ export function createXnPlaces(world: XnWorld) {
     for (const junk of junkAround(world.map, x, y, radius)) {
       if (junk.perch) {
         const target = junk.partySeat ? "party" : junk.perch.ceiling ? "hung" : (junk.kind as PropTarget);
-        out.push({ target, x: junk.perch.x, y: junk.perch.y, junk, perch: junk.perch });
+        // Only what she has ways to be on: a perch on any other kind of thing is left alone.
+        if (target in PROP_POSES) out.push({ target, x: junk.perch.x, y: junk.perch.y, junk, perch: junk.perch });
       }
       if (junk.doorway) out.push({ target: "door", x: junk.x, y: junk.y, junk, door: junk.doorway });
       if (junk.plate) {
