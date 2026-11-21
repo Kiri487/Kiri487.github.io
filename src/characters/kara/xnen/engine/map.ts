@@ -242,17 +242,6 @@ const STAIRS = 0.006;
 const STAIRS_FROM_CORNER = 0.35;
 export const STAIRS_W = 0.45;
 
-/**
- * Preview, for Kiri: two lattice rooms by the spawn walled in, each with a doorway toward it and a stair in it,
- * blocked one way and the other. Comes out before the pull request.
- */
-const PREVIEW_STAIRS = true;
-const PREVIEW_ROOMS: Record<string, { open: number; side: number; from: number; block: "sign" | "chairs" }> = {
-  "1,0": { open: 2, side: 0, from: 0, block: "sign" },
-  "0,1": { open: 0, side: 3, from: 1, block: "chairs" },
-};
-const previewRoom = (lx: number, ly: number) => (PREVIEW_STAIRS ? PREVIEW_ROOMS[`${lx},${ly}`] : undefined);
-
 /** The kinds of special room. */
 /**
  * "burger" is a little room in a corner of a lattice room, not a block: see burgerPlan. The fitted kinds are whole
@@ -913,8 +902,6 @@ export class WorldMap {
 
   private hallKindOf(bx: number, by: number): HallKind | null {
     if (bx === 0 && by === 0) return null;
-    // Preview: none where the stairs round the spawn are.
-    if (PREVIEW_STAIRS && Math.abs(bx) + Math.abs(by) <= 1) return null;
     // Only a big room of plain lattice rooms: not a special room, nor in an area laid out to a plan, which has none.
     if (this.noise(bx, by, 9) >= BIG_ROOM || this.specialRoom(bx, by)) return null;
     if (this.layout(bx * 3, by * 3) !== LATTICE) return null;
@@ -1032,15 +1019,12 @@ export class WorldMap {
   }
 
   private stairsOf(lx: number, ly: number): StairsPlan | null {
-    const preview = previewRoom(lx, ly);
-    if (!preview) {
-      if (Math.abs(lx) + Math.abs(ly) <= 1 || this.noise(lx, ly, 48) >= STAIRS) return null;
-      if (!this.plainRoom(lx, ly) || this.deadEndRoom(lx, ly)?.thing || this.statueInRoom(lx, ly)) return null;
-    }
+    if (Math.abs(lx) + Math.abs(ly) <= 1 || this.noise(lx, ly, 48) >= STAIRS) return null;
+    if (!this.plainRoom(lx, ly) || this.deadEndRoom(lx, ly)?.thing || this.statueInRoom(lx, ly)) return null;
     const x0 = lx * 5;
     const y0 = ly * 5;
-    const first = preview ? preview.side : Math.floor(this.noise(lx, ly, 49) * 4);
-    const sides = preview ? [first] : [0, 1, 2, 3].map((k) => (first + k) % 4);
+    const first = Math.floor(this.noise(lx, ly, 49) * 4);
+    const sides = [0, 1, 2, 3].map((k) => (first + k) % 4);
     for (const side of sides) {
       const along = side < 2;
       // The wall's cells, all wall.
@@ -1050,13 +1034,13 @@ export class WorldMap {
         if (!this.wall(cx, cy)) whole = false;
       }
       if (!whole) continue;
-      const corners = preview ? [preview.from] : this.noise(lx, ly, 50) < 0.5 ? [0, 1] : [1, 0];
+      const corners = this.noise(lx, ly, 50) < 0.5 ? [0, 1] : [1, 0];
       for (const from of corners) {
         // The cell of the wall across its foot, next to this one.
         const [qx, qy] = along
           ? [from === 0 ? x0 : x0 + 5, side === 0 ? y0 + 1 : y0 + 4]
           : [side === 2 ? x0 + 1 : x0 + 4, from === 0 ? y0 : y0 + 5];
-        if (!preview && !this.wall(qx, qy)) continue;
+        if (!this.wall(qx, qy)) continue;
         const [nx, ny] = [[0, 1], [0, -1], [1, 0], [-1, 0]][side];
         const [ax, ay] = along ? [from === 0 ? 1 : -1, 0] : [0, from === 0 ? 1 : -1];
         // The corner on the wall's face it starts from.
@@ -1070,7 +1054,7 @@ export class WorldMap {
           ay,
           nx,
           ny,
-          block: preview ? preview.block : this.noise(lx, ly, 51) < 0.5 ? "sign" : "chairs",
+          block: this.noise(lx, ly, 51) < 0.5 ? "sign" : "chairs",
           cx: x0 + 1,
           cy: y0 + 1,
         };
@@ -1228,8 +1212,6 @@ export class WorldMap {
 
   /** Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), covers cell m (1–4). */
   private segment(lx: number, ly: number, dir: number, m: number): boolean {
-    const preview = this.previewRoomWall(lx, ly, dir, m);
-    if (preview !== null) return preview;
     const fitted = this.fittedWall(lx, ly, dir, m);
     if (fitted !== null) return fitted;
     // Two stretches by the spawn point are always open, so nobody starts boxed in.
@@ -1256,25 +1238,6 @@ export class WorldMap {
     }
     if (k < area.door + area.half) return m <= 2;
     return true;
-  }
-
-  /**
-   * Preview: whether the stretch of lattice covers cell m as a wall of one of the stair rooms round the spawn, always
-   * but for its doorway; null if it's none of theirs.
-   */
-  private previewRoomWall(lx: number, ly: number, dir: number, m: number): boolean | null {
-    if (!PREVIEW_STAIRS) return null;
-    // The room it's the north or west wall of (side 0 or 2), and the one it's the south or east wall of (1 or 3).
-    const rooms: [number, number, number][] =
-      dir === 0 ? [[lx, ly, 0], [lx, ly - 1, 1]] : [[lx, ly, 2], [lx - 1, ly, 3]];
-    let found = false;
-    for (const [rx, ry, side] of rooms) {
-      const room = previewRoom(rx, ry);
-      if (!room) continue;
-      found = true;
-      if (room.open === side && m === 2) return false;
-    }
-    return found ? true : null;
   }
 
   /** 1 where cell (x, y) is wall. */
