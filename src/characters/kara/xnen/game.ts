@@ -111,6 +111,15 @@ export interface GameParts {
   onLeave: (exit: Exit) => void;
   /** Dev builds: the new way XN walks, each time she turns up, for the dev panel to show. */
   onXnWalk?: (walk: XnWalk) => void;
+  /** Dev builds: how the frames are going, every half second or so. */
+  onFrameStats?: (stats: FrameStats) => void;
+}
+
+/** Over the last half second or so: frames a second, and the work of one frame (input, XN, drawing), in ms. */
+export interface FrameStats {
+  fps: number;
+  work: number;
+  worst: number;
 }
 
 export interface Game {
@@ -172,6 +181,8 @@ const FALL_END = -2.6;
 const PIT_FOOTING = 0.08;
 /** While falling, the view tips down this much, as a share of the picture's height. */
 const FALL_TIP = 0.25;
+/** Dev builds: how often the frame stats are reported, in seconds. */
+const STATS_EVERY = 0.5;
 /** Statues further than this aren't drawn. */
 const DRAW_RANGE = 28;
 /**
@@ -793,6 +804,23 @@ export function createGame(parts: GameParts): Game {
 
   let raf = 0;
   let last = -1;
+  /** Dev builds: frames, their work and the worst of it, and the seconds they took, since the stats were last sent. */
+  const stats = { frames: 0, work: 0, worst: 0, time: 0 };
+  /** Counts one frame's work, in ms, and sends the stats on once there's enough of them. */
+  const countFrame = (work: number, real: number) => {
+    const send = parts.onFrameStats;
+    if (!send) return;
+    stats.frames++;
+    stats.work += work;
+    stats.worst = Math.max(stats.worst, work);
+    stats.time += real;
+    if (stats.time < STATS_EVERY) return;
+    send({ fps: stats.frames / stats.time, work: stats.work / stats.frames, worst: stats.worst });
+    stats.frames = 0;
+    stats.work = 0;
+    stats.worst = 0;
+    stats.time = 0;
+  };
   /**
    * Something broke while running: an error boundary never sees errors thrown here, so the loop stops itself, lets
    * go of the mouse and leaves, which puts the visitor back on the desktop.
@@ -825,6 +853,7 @@ export function createGame(parts: GameParts): Game {
       return;
     }
     nextJitter = 0;
+    const started = parts.onFrameStats ? performance.now() : 0;
     if (mode === "play") update(dt, real, now);
     const fx = effects(dt);
     const cam = camera();
@@ -835,6 +864,7 @@ export function createGame(parts: GameParts): Game {
     light.step(dt, reduced, tuning.bright / 100);
     gather(cam, dt);
     renderer.render(cam, light, map, tuning, props, fx, reduced);
+    if (parts.onFrameStats) countFrame(performance.now() - started, real);
     const ending =
       mode === "rewind"
         ? REWIND_TIME + BURST_TIME + CUT_TIME
