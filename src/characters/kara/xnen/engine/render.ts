@@ -11,6 +11,7 @@ import {
   type PosterLevel,
   type PosterSpot,
 } from "./posters";
+import { drawPits, pitFieldsNear } from "./pits";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
 import { CARPET, CARPET_FLIP, CARPET_SIZE, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
@@ -40,6 +41,8 @@ export interface Camera {
   pitch: number;
   /** Walking bob, in pixels. */
   bob: number;
+  /** Eye height, if not EYE: lower while falling into a pit, below 0 once down in it. */
+  z?: number;
 }
 
 /** Tape trouble laid over the picture, for the transitions. */
@@ -191,6 +194,7 @@ export class Renderer {
     const ply = dx * plane;
     const focal = W / 2 / plane;
     const horizon = H / 2 + cam.pitch * H + cam.bob;
+    const z = cam.z ?? EYE;
     const fogK = (tuning.fog / 100) * 0.3;
     const [FR, FG, FB] = FOG;
     const [ER, EG, EB] = EMIT;
@@ -228,7 +232,7 @@ export class Renderer {
         if (isFloor !== floorPass) continue;
         if (p < 0) p = -p;
         if (p < 0.5) p = 0.5;
-        const rd = (EYE * focal) / p;
+        const rd = ((isFloor ? z : 1 - z) * focal) / p;
         let o = y * W * 4;
         let f = 1 - Math.exp(-rd * fogK);
         const far = (rd - 20) / 8;
@@ -414,7 +418,7 @@ export class Renderer {
       }
       if (perp < 0.02) perp = 0.02;
       const lineH = focal / perp;
-      const top = horizon - lineH * (1 - EYE);
+      const top = horizon - lineH * (1 - z);
       const span = lineH;
       let y0 = Math.ceil(top - 0.5);
       if (y0 < 0) y0 = 0;
@@ -531,10 +535,36 @@ export class Renderer {
       }
     }
 
-    rows(true);
+    // From down in a pit there's no floor at 0 to see: the pit's own floor and sides cover it all.
+    if (z > 0) rows(true);
+    // How far off each pixel is, for what's drawn over the place: only the pits have any, for XN's legs hanging into
+    // one to go behind its far side.
+    this.depth.fill(1e9);
+    drawPits(
+      {
+        pixels: d,
+        depth: this.depth,
+        width: W,
+        height: H,
+        wallDepth,
+        camX: px,
+        camY: py,
+        eye: z,
+        dirX: dx,
+        dirY: dy,
+        planeX: plx,
+        planeY: ply,
+        focal,
+        horizon,
+        fogK,
+        fog: FOG,
+        far: FAR,
+      },
+      pitFieldsNear(map, px, py, FAR),
+      light,
+    );
 
     if (props.length) {
-      this.depth.fill(1e9);
       const frame: StatueFrame = {
         pixels: d,
         width: W,
@@ -543,7 +573,7 @@ export class Renderer {
         depth: this.depth,
         camX: px,
         camY: py,
-        eye: EYE,
+        eye: z,
         dirX: dx,
         dirY: dy,
         focal,

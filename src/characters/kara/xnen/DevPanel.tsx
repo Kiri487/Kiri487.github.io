@@ -132,6 +132,7 @@ const PROP_TARGETS: readonly [PropTarget, string][] = [
   ["graffiti", "塗鴉"],
   ["portrait", "自畫像"],
   ["sign", "告示牌"],
+  ["pit", "坑邊"],
 ];
 
 const PROP_POSE_LABELS: Record<PropPose, string> = {

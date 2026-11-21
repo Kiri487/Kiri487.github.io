@@ -116,7 +116,17 @@ const PLEAS: readonly (readonly [string, string])[] = [
   ["i am not real anymore", ""],
   ["ha ha ha ha ha ha ha", ""],
   ["please", ""],
+  // From here on, only on the outside of a pit room's walls: warnings, from those who got that far.
+  ["dont look down", "i do"],
+  ["it has no bottom", "it has a top"],
+  ["the floor ends here", "it starts here"],
+  ["someone is still falling", "they wave"],
+  ["i never heard them land", "nobody lands"],
 ];
+/** Where the warnings by the pit rooms start in PLEAS. Everywhere else the lost write from the ones before. */
+const PIT_PLEAS = PLEAS.length - 5;
+/** How often a side of a stretch on the outside of a pit room's wall has a warning on it, at 100 %. */
+const PIT_WARNING = 0.3;
 /** How often XN has answered one. */
 const ANSWERED = 0.25;
 /**
@@ -1812,12 +1822,18 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   if (had !== undefined) return had;
   let tag: Tag | null = null;
   const pick = (k: number) => map.noise(lx * 2 + dir, ly * 2 + side, 500 + k);
-  if (pick(0) < (CHANCE * tuning.graffiti) / 100) {
+  // Outside a pit room, often a warning in blood; past that roll, whatever any wall might have.
+  const outside = map.pitOutside(lx, ly, dir, side);
+  const warns = outside ? (PIT_WARNING * tuning.graffiti) / 100 : 0;
+  const warning = pick(0) < warns;
+  if (warning || pick(0) - warns < (CHANCE * tuning.graffiti) / 100) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
-      const kind = kindOf(pick(1));
-      const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : kind === "plea" ? PLEAS : GRAFFITI_TEXTS;
-      const line = Math.floor(pick(2) * lines.length);
+      const kind = warning ? "plea" : kindOf(pick(1));
+      const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : GRAFFITI_TEXTS;
+      const warnings = PLEAS.length - PIT_PLEAS;
+      let line = Math.floor(pick(2) * (kind === "plea" ? PIT_PLEAS : lines.length));
+      if (warning) line = PIT_PLEAS + Math.floor(pick(2) * warnings);
       const text = kind === "text" ? GRAFFITI_TEXTS[line] : "";
       const seed = Math.floor(pick(3) * 0x7fffffff);
       const r = (k: number) => hash3(seed, k, 7717);

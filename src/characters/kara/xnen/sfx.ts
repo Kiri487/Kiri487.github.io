@@ -136,7 +136,7 @@ export function playRewindSfx(seconds: number) {
   });
 }
 
-/** ■ STOP: the mechanism clunking to a halt. */
+/** ■ STOP: the mechanism clunking to a halt. Losing the signal sounds the same. */
 export function playStopSfx() {
   whenAudible((c) => {
     const t = c.currentTime;

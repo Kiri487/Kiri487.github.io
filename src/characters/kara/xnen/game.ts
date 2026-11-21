@@ -17,7 +17,8 @@ import {
   type Junk,
 } from "./engine/junk";
 import { Lighting } from "./engine/lighting";
-import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
+import { LIGHT_DEAD, PIT_COUNT, PIT_PITCH, PIT_RIM, SPAWN, WorldMap, type Statue } from "./engine/map";
+import { pitFieldsNear } from "./engine/pits";
 import { PLAYER_RADIUS, Player } from "./engine/player";
 import { graffitiNear, inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
@@ -68,7 +69,17 @@ import {
  * in the ceiling; stand at a door, or sit or crouch facing it or with her back to it; stand, sit or
  * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign.
  */
-export type PropTarget = "chair" | "desk" | "cabinet" | "monitor" | "hung" | "door" | "graffiti" | "portrait" | "sign";
+export type PropTarget =
+  | "chair"
+  | "desk"
+  | "cabinet"
+  | "monitor"
+  | "hung"
+  | "door"
+  | "graffiti"
+  | "portrait"
+  | "sign"
+  | "pit";
 export type PropPose = "stand" | "crouch" | "perch" | "swing" | "sit" | "sitBack" | "crouchBack";
 
 /** Which poses go with which things. */
@@ -78,6 +89,7 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   cabinet: ["stand", "crouch", "perch", "swing"],
   monitor: ["stand", "crouch", "perch", "swing"],
   hung: ["stand", "crouch", "perch", "swing"],
+  pit: ["perch", "swing"],
   door: ["stand", "sit", "crouch", "sitBack", "crouchBack"],
   graffiti: ["stand", "sit", "crouch"],
   portrait: ["stand", "sit", "crouch"],
@@ -102,9 +114,12 @@ export interface XnPreview {
 }
 
 /** What the tape is doing, shown top left. */
-export type Mode = "play" | "pause" | "rewind" | "stop";
-/** How the visitor left: through a statue, or by stopping the tape. */
-export type Exit = "rewind" | "stop";
+export type Mode = "play" | "pause" | "rewind" | "stop" | "lost";
+/**
+ * How the visitor left: through a statue, by stopping the tape, or by losing the signal, which the place does to them
+ * (falling into a pit, for one).
+ */
+export type Exit = "rewind" | "stop" | "lost";
 
 export interface GameParts {
   stage: HTMLElement;
@@ -175,6 +190,9 @@ const REWIND_TIME = 1.45;
 const BURST_TIME = 0.35;
 const CUT_TIME = 0.2;
 const STOP_TIME = 0.35;
+/** Signal lost: the picture gone to snow, rolling and torn, for this long, then a quick fade onto the desktop. */
+const LOST_TIME = 0.9;
+const LOST_FADE = 0.2;
 /** The walk is remembered every this many seconds, for rewinding. */
 const TRAIL_STEP = 0.1;
 /** How much of the walk is remembered, and how much of it a rewind runs back over, in steps. */
@@ -182,6 +200,21 @@ const TRAIL_KEEP = 600;
 const REWIND_SPAN = 200;
 /** With reduced motion, how long REW or STOP stays up while the page fades. */
 const CALM_LEAVE_TIME = 0.5;
+/**
+ * Falling into a pit: how fast, in ceiling heights a second squared, and how far down the eye goes before the tape
+ * stops: the pits have no bottom, and by then it's all dark.
+ */
+const FALL_PULL = 3.6;
+const FALL_END = -2.6;
+/**
+ * How far the visitor's middle can be out over a pit before they fall: until then a foot is still on the rim. Under
+ * PLAYER_RADIUS, so they lean out over the dark a little first.
+ */
+const PIT_FOOTING = 0.08;
+/** While falling, the view tips down this much, as a share of the picture's height. */
+const FALL_TIP = 0.25;
+/** How many seats on the rims of each pit room near the visitor XN thinks of, when she's looking for something. */
+const XN_PIT_SEATS = 3;
 /** Statues further than this aren't drawn. */
 const DRAW_RANGE = 28;
 /**
@@ -424,6 +457,8 @@ export function createGame(parts: GameParts): Game {
   /** Seconds into the current transition. */
   let fxTime = 0;
   let enterLeft = reduced ? 0 : ENTER_TIME;
+  /** Falling into a pit: the eye's height and how fast it's going down. Null while on solid floor. */
+  let fall: { z: number; speed: number } | null = null;
   let bandPhase = 0;
   /** The rewind's burst has started (and made its sound). */
   let burst = false;
@@ -528,7 +563,7 @@ export function createGame(parts: GameParts): Game {
   };
 
   const leaveBy = (exit: Exit) => {
-    if (mode === "rewind" || mode === "stop") return;
+    if (mode === "rewind" || mode === "stop" || mode === "lost") return;
     showLine(null);
     fxTime = 0;
     bandPhase = 0;
@@ -576,6 +611,8 @@ export function createGame(parts: GameParts): Game {
   /** Room for XN's middle at (x, y): no wall within her reach. */
   const roomFor = (x: number, y: number) => {
     const r = XN_RADIUS;
+    // She keeps out of the pit rooms for now.
+    if (map.inPitRoom(Math.floor(x), Math.floor(y))) return false;
     return (
       !map.wall(Math.floor(x - r), Math.floor(y - r)) &&
       !map.wall(Math.floor(x + r), Math.floor(y - r)) &&
@@ -594,6 +631,7 @@ export function createGame(parts: GameParts): Game {
         if (!map.wall(cx + i, cy + j)) continue;
         for (const [nx, ny] of SIDES) {
           if (map.wall(cx + i + nx, cy + j + ny)) continue;
+          if (map.inPitRoom(cx + i + nx, cy + j + ny)) continue;
           faces.push({ x: cx + i + 0.5 + nx * 0.5, y: cy + j + 0.5 + ny * 0.5, nx, ny });
         }
       }
@@ -960,6 +998,21 @@ export function createGame(parts: GameParts): Game {
       const target = tag.kind === "portrait" ? "portrait" : "graffiti";
       out.push({ target, x: tag.centre.x, y: tag.centre.y, junk: null, look: tag.centre });
     }
+    // A few rims in each pit room near, to sit on with her legs over a pit: on a rim between two, facing either.
+    for (const field of pitFieldsNear(map, x, y, radius)) {
+      for (let k = 0; k < XN_PIT_SEATS; k++) {
+        const across = 1 + Math.floor(Math.random() * (PIT_COUNT - 1));
+        const along = Math.floor(Math.random() * PIT_COUNT);
+        const ahead = Math.random() < 0.5 ? 1 : -1;
+        const onX = Math.random() < 0.5;
+        const line = across * PIT_PITCH;
+        const mid = (along + 0.5) * PIT_PITCH;
+        const sx = field.x0 + (onX ? line : mid);
+        const sy = field.y0 + (onX ? mid : line);
+        const yaw = onX ? (ahead > 0 ? 0 : Math.PI) : ahead > 0 ? Math.PI / 2 : -Math.PI / 2;
+        out.push({ target: "pit", x: sx, y: sy, junk: null, perch: { x: sx, y: sy, z: 0, yaw, edge: PIT_RIM } });
+      }
+    }
     return out;
   };
 
@@ -1140,8 +1193,9 @@ export function createGame(parts: GameParts): Game {
     x: player.x,
     y: player.y,
     angle: player.angle,
-    pitch: player.pitch,
-    bob: player.bob,
+    pitch: fall ? player.pitch + FALL_TIP * Math.min(1, (EYE - fall.z) / (EYE - FALL_END)) : player.pitch,
+    bob: fall ? 0 : player.bob,
+    z: fall ? fall.z : EYE,
   });
 
   /** Where the camera is while rewinding: running back along the walk, faster and faster. */
@@ -1216,13 +1270,24 @@ export function createGame(parts: GameParts): Game {
       props.push({ mesh, model: junk.model, skin: junkSkin, clip: true });
     }
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
-      const eye: Point = [cam.x, cam.y, EYE];
+      const eye: Point = [cam.x, cam.y, cam.z ?? EYE];
       props.push({ mesh: xn.update(dt, eye, reduced), model: xn.figure.look, skin: xnSkin });
     }
   };
 
   /** dt is capped to keep the walk steady; `real` is the time that actually passed, which is what SAN counts. */
   const update = (dt: number, real: number, now: number) => {
+    // Falling into a pit: nothing to do but drop, and once it's all dark the tape stops.
+    if (fall) {
+      passSanTime(real);
+      fall.speed += FALL_PULL * dt;
+      fall.z -= fall.speed * dt;
+      if (fall.z <= FALL_END) {
+        fall.z = FALL_END;
+        leaveBy("lost");
+      }
+      return;
+    }
     const held = (code: string) => (keys.has(code) ? 1 : 0);
     const step = player.move(
       dt,
@@ -1236,6 +1301,16 @@ export function createGame(parts: GameParts): Game {
       tuning.bob && !reduced ? renderer.pictureHeight : 0,
     );
     if (step) playStepSfx();
+    if (map.pitAt(player.x, player.y, PIT_FOOTING)) {
+      // Over the edge. With reduced motion there's no drop to watch: the tape just stops.
+      showLine(null);
+      setPrompt(false);
+      keys.clear();
+      resetJoystick();
+      if (reduced) leaveBy("lost");
+      else fall = { z: EYE, speed: 0 };
+      return;
+    }
     // Time in here wears the visitor's SAN down, at the clock's pace however slowly the picture draws. Only while
     // playing: paused, hidden or leaving doesn't count.
     passSanTime(real);
@@ -1298,6 +1373,18 @@ export function createGame(parts: GameParts): Game {
         flash: Math.max(0, 1 - into / 0.08),
       };
     }
+    if (mode === "lost") {
+      if (reduced) return { ...CLEAN, snow: 1 };
+      // No picture at all: snow, slipping and rolling as the tracking hunts for a signal that isn't there.
+      if (fxTime > LOST_TIME) stage.style.opacity = String(Math.max(0, 1 - (fxTime - LOST_TIME) / LOST_FADE));
+      return {
+        ...CLEAN,
+        snow: 1,
+        tear: 0.6 + Math.random() * 0.4,
+        roll: Math.random() < 0.25 ? Math.random() * renderer.pictureHeight : 0,
+        bleed: 2,
+      };
+    }
     return { ...CLEAN, snow: reduced ? 0.6 : 1, tear: reduced ? 0 : 1 };
   };
 
@@ -1358,10 +1445,17 @@ export function createGame(parts: GameParts): Game {
     light.step(dt, reduced, tuning.bright / 100);
     gather(cam, dt);
     renderer.render(cam, light, map, tuning, props, fx, reduced);
-    const ending = mode === "rewind" ? REWIND_TIME + BURST_TIME + CUT_TIME : mode === "stop" ? STOP_TIME : 0;
+    const ending =
+      mode === "rewind"
+        ? REWIND_TIME + BURST_TIME + CUT_TIME
+        : mode === "stop"
+          ? STOP_TIME
+          : mode === "lost"
+            ? LOST_TIME + LOST_FADE
+            : 0;
     if (ending && fxTime >= (reduced ? CALM_LEAVE_TIME : ending)) {
       left = true;
-      parts.onLeave(mode === "rewind" ? "rewind" : "stop");
+      parts.onLeave(mode === "rewind" || mode === "lost" ? mode : "stop");
     }
   };
 

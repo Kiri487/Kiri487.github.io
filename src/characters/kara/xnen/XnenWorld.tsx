@@ -86,6 +86,8 @@ function ModeReadout({ mode }: { mode: Mode }) {
           <TapeSymbol kind="stop" /> STOP
         </>
       );
+    case "lost":
+      return <>NO SIGNAL</>;
   }
 }
 
@@ -103,7 +105,13 @@ const FIRST_PREVIEW: XnPreview = {
   auto: true,
 };
 
-const SPOKEN_MODE: Record<Mode, string> = { play: "Playing", pause: "Paused", rewind: "Rewinding", stop: "Stopped" };
+const SPOKEN_MODE: Record<Mode, string> = {
+  play: "Playing",
+  pause: "Paused",
+  rewind: "Rewinding",
+  stop: "Stopped",
+  lost: "Signal lost",
+};
 
 interface XnenWorldProps {
   onLeave: (exit: Exit) => void;
@@ -189,7 +197,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
     };
   }, []);
 
-  const leaving = mode === "rewind" || mode === "stop";
+  const leaving = mode === "rewind" || mode === "stop" || mode === "lost";
 
   return (
     <div
