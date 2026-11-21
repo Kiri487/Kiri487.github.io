@@ -1942,6 +1942,8 @@ function junkPoint(pose: Pose, X: number, Y: number, Z: number): [number, number
 
 /** junkPoint for many points of the one piece of junk: its turn worked out once. */
 function junkPoints(pose: Pose): (X: number, Y: number, Z: number) => [number, number, number] {
+  // All of the pose read now, where it is as well as how it's turned, so the two always go together.
+  const { x, y, h } = pose;
   const fx = Math.cos(pose.yaw);
   const fy = Math.sin(pose.yaw);
   const cr = Math.cos(pose.roll);
@@ -1953,7 +1955,7 @@ function junkPoints(pose: Pose): (X: number, Y: number, Z: number) => [number, n
     const y1 = X * sr + Y * cr;
     const y2 = y1 * cp - Z * sp;
     const z2 = y1 * sp + Z * cp;
-    return [pose.x + x1 * fy + z2 * fx, pose.y - x1 * fx + z2 * fy, pose.h + y2];
+    return [x + x1 * fy + z2 * fx, y - x1 * fx + z2 * fy, h + y2];
   };
 }
 
