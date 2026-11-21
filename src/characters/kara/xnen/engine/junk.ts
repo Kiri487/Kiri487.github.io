@@ -1,6 +1,17 @@
-import { CANDLE_SIGN_SIZE, type BurgerPlan, type CandleSign, type Statue, type WorldMap } from "./map";
+import {
+  campBed,
+  CANDLE_SIGN_SIZE,
+  meetingAlongX,
+  mountedWall,
+  FITTED_SIZE,
+  type BurgerPlan,
+  type CandleSign,
+  type FittedPlan,
+  type Statue,
+  type WorldMap,
+} from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
-import { heaviest, JUNK_WEIGHTS, type ZoneWeights } from "./zones";
+import { heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
 
 /*
  * Things that don't belong, half through the place as if nobody minded: Kara's old CRT monitor, still on, showing
@@ -78,12 +89,27 @@ function box(
   quad(out, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], side);
 }
 
+/**
+ * The bulging back of the monitor, from (x0, y0, z0) to (x1, y1, z1): its back plain, and round its top, sides and
+ * bottom slots running from front to back, the rows of the atlas going back the same way on all four, so each slot
+ * goes on round the corners into the next face.
+ */
+function ventedBack(out: number[], x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) {
+  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], PLASTIC);
+  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], PLASTIC);
+  // Each with its first corner at the front and its fourth at the back.
+  quad(out, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], VENTS);
+  quad(out, [x1, y0, z1], [x0, y0, z1], [x0, y0, z0], [x1, y0, z0], VENTS);
+  quad(out, [x1, y1, z1], [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], VENTS);
+  quad(out, [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [x0, y0, z0], VENTS);
+}
+
 function buildMonitor(): StatueModel {
   const tris: number[] = [];
   // The stand, the front with its bezel, the bulging back, and the screen just proud of the bezel.
   box(tris, -0.07, 0.07, 0, 0.03, -0.07, 0.12, PLASTIC, PLASTIC, PLASTIC);
   box(tris, -0.18, 0.18, 0.03, 0.33, 0.03, 0.14, BEZEL, PLASTIC, PLASTIC);
-  box(tris, -0.135, 0.135, 0.06, 0.3, -0.19, 0.03, PLASTIC, VENTS, VENTS);
+  ventedBack(tris, -0.135, 0.135, 0.06, 0.3, -0.19, 0.03);
   quad(tris, [-0.157, 0.053, 0.142], [0.157, 0.053, 0.142], [0.157, 0.307, 0.142], [-0.157, 0.307, 0.142], SCREEN);
   return { tris, atlasWidth: AW, atlasHeight: AH, stone: [190, 180, 146] };
 }
@@ -184,8 +210,11 @@ const ORDINARY: ChairShape = { width: 1, legs: 1, back: 1, flat: 1 };
 /** The whole chair scaled by this: an ordinary one's back comes up to just under eye height. */
 const CHAIR_SIZE = 0.72;
 
-/** A plain wooden chair with a back: four legs, rails between them, a seat, two posts, a top rail and two slats. */
-function buildChair(shape: ChairShape): StatueModel {
+/**
+ * A plain wooden chair with a back: four legs, rails between them, a seat, two posts, a top rail and two slats. An
+ * office one is the same chair in steel, its seat and a padded back in grey-blue fabric.
+ */
+function buildChair(shape: ChairShape, office = false): StatueModel {
   const tris: number[] = [];
   const hw = 0.15 * shape.width;
   const hd = 0.14;
@@ -195,18 +224,27 @@ function buildChair(shape: ChairShape): StatueModel {
   const top = seatTop + 0.32 * shape.back;
   const f = shape.flat;
   const k = CHAIR_SIZE;
-  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) =>
-    box(tris, x0 * k, x1 * k, y0 * f * k, y1 * f * k, z0 * k, z1 * k, WOOD, WOOD, WOOD);
+  const frame = office ? STEEL : WOOD;
+  const cover = office ? FABRIC : WOOD;
+  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, r = frame) =>
+    box(tris, x0 * k, x1 * k, y0 * f * k, y1 * f * k, z0 * k, z1 * k, r, r, r);
   // Legs; the back two carry on up as the backrest's posts.
   for (const sx of [-1, 1]) {
     const x0 = sx < 0 ? -hw : hw - L;
     part(x0, x0 + L, 0, legH, hd - L, hd);
-    part(x0, x0 + L, 0, top, -hd, -hd + L);
+    // An office chair's stop just short of the top of its padded back, so they're wholly inside it: a face of theirs
+    // lying on one of its faces flickers.
+    part(x0, x0 + L, 0, office ? top - 0.01 : top, -hd, -hd + L);
     // Rails along the sides, low down.
     part(x0 + 0.005, x0 + L - 0.005, legH * 0.3, legH * 0.3 + 0.02, -hd + L, hd - L);
   }
   part(-hw + L, hw - L, legH * 0.3, legH * 0.3 + 0.02, -hd + 0.005, -hd + L - 0.005);
-  part(-hw - 0.01, hw + 0.01, legH, seatTop, -hd - 0.005, hd + 0.01);
+  part(-hw - 0.01, hw + 0.01, legH, seatTop, -hd - 0.005, hd + 0.01, cover);
+  if (office) {
+    // One padded back, round the posts and a little proud of them every way.
+    part(-hw - 0.006, hw + 0.006, top - 0.21, top, -hd - 0.006, -hd + L + 0.006, cover);
+    return { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [84, 96, 118] };
+  }
   // The backrest: a top rail and two slats between the posts.
   part(-hw, hw, top - 0.05, top, -hd, -hd + 0.025);
   part(-hw + L, hw - L, top - 0.13, top - 0.1, -hd + 0.002, -hd + 0.022);
@@ -850,7 +888,10 @@ const SWITCH: Rect = { x: 0, y: 16, w: 20, h: 12 };
 /** A corner of the socket's plate, plain, for its edges. */
 const PLATE: Rect = { x: 32, y: 16, w: 2, h: 2 };
 const OFFICE_ATLAS_W = 64;
-const OFFICE_ATLAS_H = 36;
+/** An office desk's laminate top, and an office chair's fabric. */
+const LAMINATE: Rect = { x: 0, y: 36, w: 32, h: 16 };
+const FABRIC: Rect = { x: 32, y: 36, w: 32, h: 16 };
+const OFFICE_ATLAS_H = 52;
 
 /** One drawer's height, and the plinth under the bottom one. */
 const DRAWER_H = 0.1;
@@ -956,19 +997,21 @@ function deskShape(a: number, b: number, c: number): DeskShape {
 
 /**
  * A wooden desk to go with the chairs, standing on the floor, its length across and the side you'd sit at toward +z:
- * a top, square legs, a rail round under the top, and maybe a drawer in the front rail with a little knob.
+ * a top, square legs, a rail round under the top, and maybe a drawer in the front rail with a little knob. An office
+ * one has a laminate top on steel.
  */
-function buildDesk(shape: DeskShape): StatueModel {
+function buildDesk(shape: DeskShape, office = false): StatueModel {
   const tris: number[] = [];
   const hl = shape.length / 2;
   const hd = shape.depth / 2;
   const top = shape.height;
   const thick = 0.014;
   const L = Math.min(0.011, hd * 0.4);
-  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) =>
-    box(tris, x0, x1, y0, y1, z0, z1, WOOD, WOOD, WOOD);
+  const frame = office ? STEEL : WOOD;
+  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, r = frame) =>
+    box(tris, x0, x1, y0, y1, z0, z1, r, r, r);
   // The top, a little proud of the legs all round.
-  part(-hl, hl, top - thick, top, -hd, hd);
+  part(-hl, hl, top - thick, top, -hd, hd, office ? LAMINATE : WOOD);
   const under = top - thick;
   const inset = 0.008;
   for (let i = 0; i < shape.legs; i++) {
@@ -990,9 +1033,10 @@ function buildDesk(shape: DeskShape): StatueModel {
       const w = Math.min(0.16, shape.length * 0.4);
       part(-w / 2, w / 2, under - rail + 0.004, under - 0.004, z1, z1 + 0.004);
       const mid = under - rail / 2;
-      part(-0.006, 0.006, mid - 0.005, mid + 0.005, z1 + 0.004, z1 + 0.012);
+      part(-0.006, 0.006, mid - 0.005, mid + 0.005, z1 + 0.004, z1 + 0.012, office ? STEEL_DARK : WOOD);
     }
   }
+  if (office) return { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [198, 192, 176] };
   return { tris, atlasWidth: 32, atlasHeight: 32, stone: [120, 84, 50] };
 }
 
@@ -1018,7 +1062,7 @@ const SOCKETS = [
   { model: buildSocket(SWITCH, SOCKET_H / 2, SOCKET_HW * 2), h: SOCKET_HW * 2 },
 ];
 
-/** Steel, the drawer fronts, the laminate and the sockets, drawn. */
+/** Steel, the drawer fronts, the sockets, the laminate and the fabric, drawn. */
 export const OFFICE_SKIN: StatueSkin = (() => {
   const W = OFFICE_ATLAS_W;
   const data = new Uint8ClampedArray(W * OFFICE_ATLAS_H * 4);
@@ -1096,6 +1140,22 @@ export const OFFICE_SKIN: StatueSkin = (() => {
       }
       if ((x === 9 || x === 10) && y === 4) c = [110, 64, 40];
       put(SWITCH.x + x, SWITCH.y + y, c, m);
+    }
+  }
+  // Laminate: a pale grey-beige with a fine speckle, a darker edge band all round.
+  for (let y = 0; y < LAMINATE.h; y++) {
+    for (let x = 0; x < LAMINATE.w; x++) {
+      const edge = x === 0 || y === 0 || x === LAMINATE.w - 1 || y === LAMINATE.h - 1;
+      const m = edge ? 0.8 : 0.96 + 0.05 * grain(x, y + 600) - (grain(x + 7, y + 601) > 0.93 ? 0.08 : 0);
+      put(LAMINATE.x + x, LAMINATE.y + y, [198, 192, 176], m);
+    }
+  }
+  // Fabric: grey-blue, woven, so every other thread a shade darker each way, and worn in places.
+  for (let y = 0; y < FABRIC.h; y++) {
+    for (let x = 0; x < FABRIC.w; x++) {
+      const weave = (x + y) % 2 === 0 ? 1 : 0.9;
+      const worn = 0.94 + 0.1 * grain(Math.floor(x / 4), Math.floor(y / 4) + 700);
+      put(FABRIC.x + x, FABRIC.y + y, [84, 96, 118], weave * worn);
     }
   }
   return { data };
@@ -1475,6 +1535,11 @@ export type JunkKind =
   | "desk"
   | "socket"
   | "burger"
+  | "bedding"
+  | "can"
+  | "kitchen"
+  | "board"
+  | "storage"
   | "candle"
   | "flame";
 
@@ -1503,8 +1568,8 @@ export interface Junk {
   partySeat?: boolean;
   /** It lights itself (a candle's flame), whatever the light where it is. */
   glow?: boolean;
-  /** How far its furthest part is from (x, y), when that's well off it (a candle sign, laid out round its middle). */
-  reach?: number;
+  /** A desk or chair of the office kind, steel and laminate and fabric, not wood: it's drawn with the office's atlas. */
+  office?: boolean;
 }
 
 /**
@@ -1613,6 +1678,7 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
     }
   }
   out.push(...partiesAround(map, x, y, radius));
+  out.push(...fittedAround(map, x, y, radius));
   out.push(...candleSignsAround(map, x, y, radius));
   return out;
 }
@@ -1659,6 +1725,10 @@ function spotFor(
   return spot && roll(0) < chance * weights[map.zoneAt(spot.cx, spot.cy)] ? spot : null;
 }
 
+/** Whether a desk or chair at the spot is an office one, as likely as its zone says (zones.ts). */
+const officeAt = (map: WorldMap, spot: Spot, roll: (k: number) => number) =>
+  roll(90) < OFFICE_FURNITURE[map.zoneAt(spot.cx, spot.cy)];
+
 function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const found: Junk[] = [];
   const monitorRoll = (k: number) => map.noise(bx * 31 + k, by, 700);
@@ -1666,7 +1736,7 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (monitorSpot) found.push(placeMonitor(`m${bx},${by}`, monitorSpot, monitorRoll));
   const chairRoll = (k: number) => map.noise(bx * 31 + k, by, 710);
   const chairSpot = spotFor(map, bx, by, chairRoll, CHAIR_CHANCE, JUNK_WEIGHTS.chair);
-  if (chairSpot) found.push(placeChair(`c${bx},${by}`, chairSpot, chairRoll));
+  if (chairSpot) found.push(placeChair(`c${bx},${by}`, chairSpot, chairRoll, officeAt(map, chairSpot, chairRoll)));
   const signRoll = (k: number) => map.noise(bx * 31 + k, by, 720);
   const signSpot = spotFor(map, bx, by, signRoll, SIGN_CHANCE, JUNK_WEIGHTS.sign);
   if (signSpot) found.push(placeSign(`s${bx},${by}`, signSpot, signRoll));
@@ -1684,7 +1754,7 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (cabinetSpot) found.push(placeCabinet(`f${bx},${by}`, cabinetSpot, cabinetRoll));
   const deskRoll = (k: number) => map.noise(bx * 31 + k, by, 770);
   const deskSpot = spotFor(map, bx, by, deskRoll, DESK_CHANCE, JUNK_WEIGHTS.desk);
-  if (deskSpot) found.push(placeDesk(`t${bx},${by}`, deskSpot, deskRoll));
+  if (deskSpot) found.push(placeDesk(`t${bx},${by}`, deskSpot, deskRoll, officeAt(map, deskSpot, deskRoll)));
   for (const salt of [780, 790]) {
     const socketRoll = (k: number) => map.noise(bx * 31 + k, by, salt);
     const spot = spotFor(map, bx, by, socketRoll, SOCKET_CHANCE, JUNK_WEIGHTS.socket);
@@ -1858,9 +1928,9 @@ const CHAIR_REACH = 0.35;
  * Chairs: into a wall at any angle, sunk aslant into the carpet, upside down with their legs in the ceiling, or just
  * standing there, pushed up to a wall and facing it.
  */
-function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk {
+function placeChair(key: string, spot: Spot, roll: (k: number) => number, office: boolean): Junk {
   const shape = chairShape(roll(70), roll(71));
-  const base = { key, kind: "chair" as const, model: buildChair(shape) };
+  const base = { key, kind: "chair" as const, model: buildChair(shape, office), office };
   const tall = chairHeight(shape);
   const seat = chairSeat(shape);
   const how = roll(40);
@@ -2256,7 +2326,7 @@ function placeCabinet(key: string, spot: Spot, roll: (k: number) => number): Jun
 }
 
 /** Desks: pushed up to a wall to be worked at, aslant in one, standing about, sunk in the carpet, or in the ceiling. */
-function placeDesk(key: string, spot: Spot, roll: (k: number) => number): Junk {
+function placeDesk(key: string, spot: Spot, roll: (k: number) => number, office: boolean): Junk {
   const shape = deskShape(roll(70), roll(71), roll(72));
   const hl = shape.length / 2;
   // In the way from end to end, as deep as it is.
@@ -2266,7 +2336,7 @@ function placeDesk(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const placed = placeFurniture(spot, roll, shape.height, reach, shape.depth / 2 + 0.005, inWay);
   // Not the ones narrow as a plank.
   const perch = shape.depth >= 0.1 ? perchOn(placed, shape.height, shape.depth / 2, 0.1) : null;
-  return { key, kind: "desk", model: buildDesk(shape), ...placed, perch };
+  return { key, kind: "desk", model: buildDesk(shape, office), ...placed, perch, office };
 }
 
 /**
@@ -2866,6 +2936,1610 @@ function partiesAround(map: WorldMap, x: number, y: number, radius: number): Jun
   return out;
 }
 
+// ---- fitted rooms ----
+
+/*
+ * A fitted room is a lattice room walled in, with a door or two, fitted out for a use (map.ts says which and where).
+ * Its furniture stands where it belongs, mostly back to a wall in sets, as if somebody worked there until not long
+ * ago; now and then one thing is wrong.
+ *
+ * A workroom: one desk against the wall facing the way in, a monitor on it and a chair pulled up to it, its back to
+ * whoever comes in; a row of filing cabinets along a wall beside it; a socket behind the desk and a light switch by
+ * the door; sometimes a chair against a wall for a visitor. Now and then the chair has been turned round to face the
+ * door, the monitor turned to the wall, or the chair taken away from the desk and put in a corner, facing into it.
+ */
+
+/** Inward from each side of a fitted room: north, south, west, east. */
+const INWARD = [
+  [0, 1],
+  [0, -1],
+  [1, 0],
+  [-1, 0],
+] as const;
+
+/** A point `out` into fitted room `plan` from the inside face of its wall on side `side`, `t` along that wall. */
+function onWall(plan: FittedPlan, side: number, t: number, out: number): [number, number] {
+  const { x0, y0 } = plan;
+  if (side === 0) return [x0 + t, y0 + out];
+  if (side === 1) return [x0 + t, y0 + plan.h - out];
+  if (side === 2) return [x0 + out, y0 + t];
+  return [x0 + plan.w - out, y0 + t];
+}
+
+/** The way out of the wall on side `side`, into the room. */
+const inward = (side: number) => Math.atan2(INWARD[side][1], INWARD[side][0]);
+
+/** The side across the room from each side. */
+const ACROSS = [1, 0, 3, 2] as const;
+
+/** The workroom's desk: bigger than the ones lying about, and higher than the chair's seat, as a desk should be. */
+const WORK_DESK: DeskShape = { length: 0.75, depth: 0.36, height: 0.34, legs: 2, drawer: true };
+/** How far the chair stands out from the desk's front, and how far it's turned off square, at most. */
+const WORK_CHAIR_OUT = 0.2;
+const WORK_CHAIR_TURN = 0.25;
+/** How likely the chair is turned round to face the door, the monitor turned to the wall, the chair in a corner. */
+const WORK_CHAIR_TURNED = 0.15;
+const WORK_MONITOR_AWAY = 0.1;
+const WORK_CHAIR_CORNER = 0.08;
+/** How many filing cabinets in the row, at least and at most; how likely a visitor's chair is. */
+const WORK_CABINETS = [1, 3] as const;
+const WORK_VISITOR = 0.35;
+/** The light switch by the door: how far along the wall from the door's middle, and how high. */
+const SWITCH_ALONG = 0.75;
+const SWITCH_H = 0.42;
+/** Kept clear in front of each door: how far into the room its middle is, and how far round that. */
+const DOOR_CLEAR_OUT = 0.45;
+const DOOR_CLEAR = 0.6;
+
+/** Everything in workroom `plan` in lattice room (lx, ly), the same every time for this map. */
+function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 41 + k, ly, 950);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const turned = roll(1) < WORK_CHAIR_TURNED;
+  const away = roll(2) < WORK_MONITOR_AWAY;
+  const corner = !turned && roll(3) < WORK_CHAIR_CORNER;
+  const visitor = roll(4) < WORK_VISITOR;
+  const [least, most] = WORK_CABINETS;
+  const cabinets = least + Math.floor(roll(5) * (most - least + 1));
+  // Its desk and chairs all one kind, office or wooden, as likely as its zone says.
+  const office = roll(6) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+
+  // What's taken, as circles; the doors kept clear.
+  const taken: { x: number; y: number; r: number }[] = [];
+  const doorSides = new Set(plan.doors.map(([side]) => side));
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number) =>
+    x - r > plan.x0 &&
+    y - r > plan.y0 &&
+    x + r < plan.x0 + FITTED_SIZE &&
+    y + r < plan.y0 + FITTED_SIZE &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const [doorSide, doorCell] = plan.doors[0];
+  const door = onWall(plan, doorSide, doorCell - 0.5, 0.5);
+
+  // The desk, against the wall across from the way in; or, if there's a door there too, against another.
+  const sides = [ACROSS[doorSide], ...[0, 1, 2, 3].filter((s) => s !== ACROSS[doorSide])];
+  const deskSide = sides.find((s) => !doorSides.has(s)) ?? ACROSS[doorSide];
+  const hl = WORK_DESK.length / 2;
+  const hd = WORK_DESK.depth / 2;
+  const deskT = 1 + roll(10) * 2;
+  const [tx, ty] = onWall(plan, deskSide, deskT, hd + 0.005);
+  const face = inward(deskSide);
+  const [fx, fy] = INWARD[deskSide];
+  // Along the wall.
+  const ax = -fy;
+  const ay = fx;
+  const desk = { x: tx, y: ty, h: 0, yaw: face, pitch: 0, roll: 0 };
+  out.push({
+    key: key("desk"),
+    kind: "desk",
+    model: buildDesk(WORK_DESK, office),
+    office,
+    ...desk,
+    solid: slab(tx, ty, ax * hl, ay * hl, hd + 0.01),
+    perch: perchOn(desk, WORK_DESK.height, hd, 0.1),
+  });
+  for (const k of [-1, 0, 1]) taken.push({ x: tx + ax * hl * 0.7 * k, y: ty + ay * hl * 0.7 * k, r: hd + 0.02 });
+
+  // The monitor on it, its back to the wall; or turned round, its screen to the wall.
+  const mt = deskT + (roll(11) - 0.5) * 0.2;
+  const [mx, my] = onWall(plan, deskSide, mt, MONITOR_DEPTH / 2 + 0.01);
+  const monitorYaw = (away ? face + Math.PI : face) + (roll(12) - 0.5) * 0.2;
+  const monitor = {
+    x: mx - Math.cos(monitorYaw) * MONITOR_MIDDLE,
+    y: my - Math.sin(monitorYaw) * MONITOR_MIDDLE,
+    h: WORK_DESK.height,
+    yaw: monitorYaw,
+    pitch: 0,
+    roll: 0,
+  };
+  out.push({
+    key: key("monitor"),
+    kind: "monitor",
+    model: MONITOR,
+    ...monitor,
+    solid: null,
+    perch: perchOn(monitor, MONITOR_TALL, 0.17, 0.42, false, -0.03),
+  });
+
+  // The chair: pulled up to the desk, facing it; turned round to face the door; or in a corner, facing into it.
+  const chair = buildChair(ORDINARY, office);
+  const seat = chairSeat(ORDINARY);
+  const putChair = (name: string, x: number, y: number, yaw: number) => {
+    const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+    out.push({
+      key: key(name),
+      kind: "chair",
+      model: chair,
+      office,
+      ...pose,
+      solid: { x, y, r: 0.2 },
+      perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),
+    });
+    taken.push({ x, y, r: 0.22 });
+  };
+  if (corner) {
+    // The corner furthest from the way in, away from the desk if it can be.
+    const corners: [number, number][] = [
+      [plan.x0 + 0.3, plan.y0 + 0.3],
+      [plan.x0 + FITTED_SIZE - 0.3, plan.y0 + 0.3],
+      [plan.x0 + 0.3, plan.y0 + FITTED_SIZE - 0.3],
+      [plan.x0 + FITTED_SIZE - 0.3, plan.y0 + FITTED_SIZE - 0.3],
+    ];
+    corners.sort((a, b) => Math.hypot(b[0] - door[0], b[1] - door[1]) - Math.hypot(a[0] - door[0], a[1] - door[1]));
+    const spot = corners.find(([x, y]) => free(x, y, 0.22)) ?? corners[0];
+    const cx = spot[0] < plan.x0 + 2 ? plan.x0 : plan.x0 + FITTED_SIZE;
+    const cy = spot[1] < plan.y0 + 2 ? plan.y0 : plan.y0 + FITTED_SIZE;
+    putChair("chair", spot[0], spot[1], Math.atan2(cy - spot[1], cx - spot[0]));
+  } else {
+    const along = (roll(13) - 0.5) * 0.2;
+    const [cx, cy] = onWall(plan, deskSide, deskT + along, WORK_DESK.depth + WORK_CHAIR_OUT);
+    const yaw = turned
+      ? Math.atan2(door[1] - cy, door[0] - cx) + (roll(14) - 0.5) * 0.2
+      : face + Math.PI + (roll(14) - 0.5) * 2 * WORK_CHAIR_TURN;
+    putChair("chair", cx, cy, yaw);
+  }
+
+  // Sockets: one low on the wall beside the desk, and the light switch by the way in.
+  const socket = (name: string, model: StatueModel, side: number, t: number, h: number) => {
+    const [x, y] = onWall(plan, side, t, 0);
+    out.push({ key: key(name), kind: "socket", model, x, y, h, yaw: inward(side), pitch: 0, roll: 0, solid: null });
+  };
+  const socketT = deskT + (roll(21) < 0.5 ? -1 : 1) * (hl + 0.15);
+  socket("socket", SOCKETS[Math.floor(roll(20) * 2)].model, deskSide, socketT, 0.07);
+  const switchT = doorCell - 0.5 + (roll(22) < 0.5 ? -1 : 1) * SWITCH_ALONG;
+  socket("switch", SOCKETS[2].model, doorSide, switchT, SWITCH_H);
+
+  // The filing cabinets, in a row back to a wall beside the desk's, from the corner they share; or wherever the row
+  // fits.
+  const cabinetSides = [0, 1, 2, 3].filter((s) => s !== deskSide && s !== ACROSS[deskSide]);
+  if (roll(30) < 0.5) cabinetSides.reverse();
+  cabinetSides.push(ACROSS[deskSide], deskSide);
+  const shape = cabinetShape(roll(31) * 0.5, 0, roll(32));
+  const cw = shape.width + 0.01;
+  const chd = shape.depth / 2;
+  for (const side of cabinetSides) {
+    // From the end by the desk's wall, or from the far end.
+    const nearDesk = side === 0 || side === 1 ? (deskSide === 3 ? FITTED_SIZE : 0) : deskSide === 1 ? FITTED_SIZE : 0;
+    const starts = [nearDesk, FITTED_SIZE - nearDesk];
+    let placed = false;
+    for (const start of starts) {
+      const step = start === 0 ? 1 : -1;
+      const first = start + step * (0.1 + cw / 2);
+      const spots = Array.from({ length: cabinets }, (_, i) => onWall(plan, side, first + step * cw * i, chd + 0.005));
+      if (!spots.every(([x, y]) => free(x, y, Math.max(cw, shape.depth) / 2))) continue;
+      const yaw = inward(side);
+      const [sx, sy] = INWARD[side];
+      spots.forEach(([x, y], i) => {
+        const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+        const one = i === 0 ? shape : { ...shape, pulled: shape.pulled.map(() => 0) };
+        out.push({
+          key: key(`cabinet${i}`),
+          kind: "cabinet",
+          model: buildCabinet(one),
+          ...pose,
+          solid: slab(x, y, sx * chd, sy * chd, shape.width / 2 + 0.01),
+          perch: perchOn(pose, cabinetHeight(one), chd, 0.1),
+        });
+        taken.push({ x, y, r: Math.max(cw, shape.depth) / 2 });
+      });
+      placed = true;
+      break;
+    }
+    if (placed) break;
+  }
+
+  // A visitor's chair, back to a wall, facing the desk.
+  if (visitor) {
+    for (let k = 0; k < 12; k++) {
+      const side = [0, 1, 2, 3].filter((s) => s !== deskSide)[Math.floor(roll(40 + k) * 3)];
+      const [x, y] = onWall(plan, side, 0.4 + roll(52 + k) * 3.2, 0.24);
+      if (!free(x, y, 0.22)) continue;
+      putChair("visitor", x, y, Math.atan2(ty - y, tx - x) + (roll(64 + k) - 0.5) * 0.3);
+      break;
+    }
+  }
+  return out;
+}
+
+/** The fitted rooms' contents, by room and map: laid out once. */
+const fittings = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Everything in the fitted rooms within `radius` of (x, y). */
+function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = fittings.get(map);
+  if (!known) {
+    known = new Map();
+    fittings.set(map, known);
+  }
+  const out: Junk[] = [];
+  const seen = new Set<FittedPlan>();
+  for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
+    for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
+      const plan = map.fittedPlan(lx, ly);
+      // A long room's halves are the one plan: furnished once, by its first lattice room.
+      if (!plan || seen.has(plan)) continue;
+      seen.add(plan);
+      const [bx, by] = [(plan.x0 - 1) / 5, (plan.y0 - 1) / 5];
+      const key = `${bx},${by}`;
+      let found = known.get(key);
+      if (!found) {
+        const furnish = { workroom: workroomIn, camp: campIn, pantry: pantryIn, meeting: meetingIn, storage: storageIn }[
+          plan.kind
+        ];
+        found = furnish(map, bx, by, plan);
+        known.set(key, found);
+      }
+      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+    }
+  }
+  return out;
+}
+
+// ---- the camp ----
+
+/*
+ * A camp, where one of the lost lived for a while, and isn't any more: a bare mattress on the floor in a corner, a
+ * blanket thrown back off it and a pillow at its head; empty tins everywhere round it, some stood up, some on their
+ * sides, and sometimes a careful pyramid of them against a wall; sometimes a small cabinet at the bed's head with a
+ * tin on it, a chair by the bed turned to the wall with the count on it (graffiti.ts), and, where there's a second
+ * door, a desk turned over and pushed across it, so there's only one way in.
+ */
+
+/** The camp's atlas: mattress ticking, the blanket, the pillow, a tin's label, its bare metal. */
+const TICKING: Rect = { x: 0, y: 0, w: 32, h: 16 };
+const BLANKET: Rect = { x: 32, y: 0, w: 32, h: 16 };
+const PILLOW: Rect = { x: 0, y: 16, w: 16, h: 16 };
+const LABEL: Rect = { x: 16, y: 16, w: 16, h: 16 };
+const TIN: Rect = { x: 32, y: 16, w: 8, h: 8 };
+const CAMP_ATLAS_W = 64;
+const CAMP_ATLAS_H = 32;
+
+export const CAMP_SKIN: StatueSkin = (() => {
+  const W = CAMP_ATLAS_W;
+  const data = new Uint8ClampedArray(W * CAMP_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const noise = (x: number, y: number) => 0.92 + 0.1 * grain(x, y + 800);
+  // Ticking: off-white with thin blue-grey stripes along it, and brown stains spreading where someone lay.
+  for (let y = 0; y < TICKING.h; y++) {
+    for (let x = 0; x < TICKING.w; x++) {
+      let c = y % 4 === 1 ? [120, 130, 150] : [214, 206, 186];
+      const stain = Math.hypot((x - 11) / 7, (y - 8) / 5) + 0.3 * grain(x, y + 801);
+      if (stain < 1) c = c.map((v, i) => v * (0.7 + 0.25 * stain) * [1, 0.92, 0.8][i]);
+      put(TICKING.x + x, TICKING.y + y, c, noise(x, y));
+    }
+  }
+  // The blanket: a dull army green wool, a darker stripe near each end.
+  for (let y = 0; y < BLANKET.h; y++) {
+    for (let x = 0; x < BLANKET.w; x++) {
+      const band = x === 3 || x === 4 || x === BLANKET.w - 5 || x === BLANKET.w - 4;
+      put(BLANKET.x + x, BLANKET.y + y, [92, 98, 66], (band ? 0.72 : 1) * (0.9 + 0.12 * grain(x, y + 802)));
+    }
+  }
+  // The pillow: a grey-white case gone yellow in the middle.
+  for (let y = 0; y < PILLOW.h; y++) {
+    for (let x = 0; x < PILLOW.w; x++) {
+      const yellow = Math.hypot(x - 8, y - 8) < 4;
+      put(PILLOW.x + x, PILLOW.y + y, yellow ? [200, 188, 150] : [204, 204, 198], noise(x, y + 30));
+    }
+  }
+  // A tin's label: red, a white band round the middle with a few dark marks for the writing; rust at the rims.
+  for (let y = 0; y < LABEL.h; y++) {
+    for (let x = 0; x < LABEL.w; x++) {
+      let c = [168, 40, 32];
+      if (y >= 6 && y <= 9) c = [228, 222, 204];
+      if (y === 7 && x % 3 !== 0 && x > 2 && x < 13) c = [60, 40, 36];
+      if (y === 0 || y === LABEL.h - 1) c = [120, 84, 56];
+      put(LABEL.x + x, LABEL.y + y, c, noise(x, y + 60));
+    }
+  }
+  for (let y = 0; y < TIN.h; y++) {
+    for (let x = 0; x < TIN.w; x++) put(TIN.x + x, TIN.y + y, [170, 172, 168], noise(x, y + 90));
+  }
+  return { data };
+})();
+
+/** A box painted all round with one rect of the camp's atlas. */
+function campBox(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, rect: Rect) {
+  const tris: number[] = [];
+  box(tris, x0, x1, y0, y1, z0, z1, rect, rect, rect);
+  return tris;
+}
+
+/** The mattress: its length, width (across, along z) and thickness. */
+const MATTRESS = [0.95, 0.45, 0.11] as const;
+/** The blanket: length, width, thickness; and the part of it folded back over itself. */
+const BLANKET_SIZE = [0.6, 0.47, 0.02] as const;
+const BLANKET_FOLD = 0.16;
+const PILLOW_SIZE = [0.13, 0.22, 0.045] as const;
+/** A tin's radius and height. */
+const TIN_R = 0.024;
+const TIN_H = 0.06;
+
+const campModel = (tris: number[], stone: readonly [number, number, number]): StatueModel => ({
+  tris,
+  atlasWidth: CAMP_ATLAS_W,
+  atlasHeight: CAMP_ATLAS_H,
+  stone,
+});
+
+const MATTRESS_MODEL = campModel(
+  campBox(-MATTRESS[0] / 2, MATTRESS[0] / 2, 0, MATTRESS[2], -MATTRESS[1] / 2, MATTRESS[1] / 2, TICKING),
+  [214, 206, 186],
+);
+const BLANKET_MODEL = (() => {
+  const [l, w, t] = BLANKET_SIZE;
+  const tris = campBox(-l / 2, l / 2, 0, t, -w / 2, w / 2, BLANKET);
+  // Its end folded back on top of it, at the head end.
+  tris.push(...campBox(-l / 2, -l / 2 + BLANKET_FOLD, t, t * 2, -w / 2, w / 2, BLANKET));
+  return campModel(tris, [92, 98, 66]);
+})();
+const PILLOW_MODEL = campModel(
+  campBox(-PILLOW_SIZE[0] / 2, PILLOW_SIZE[0] / 2, 0, PILLOW_SIZE[2], -PILLOW_SIZE[1] / 2, PILLOW_SIZE[1] / 2, PILLOW),
+  [204, 204, 198],
+);
+/**
+ * An open cup of eight sides, its foot at 0 and its mouth at `h`, hollow so it can be seen into: `side` round the
+ * outside, `inside` on its inner wall and floor, `rim` round its lip and under its foot; its wall `wall` thick and
+ * its floor `floor` thick.
+ */
+function hollowCup(
+  out: number[],
+  r: number,
+  h: number,
+  wall: number,
+  floor: number,
+  side: Rect,
+  inside: Rect,
+  rim: Rect,
+) {
+  const n = 8;
+  const ri = r - wall;
+  const at = (k: number, radius: number, y: number): V3 => {
+    const a = (k / n) * Math.PI * 2;
+    return [Math.cos(a) * radius, y, Math.sin(a) * radius];
+  };
+  for (let k = 0; k < n; k++) {
+    const u = { x: side.x + (k * side.w) / n, y: side.y, w: side.w / n, h: side.h };
+    quad(out, at(k + 1, r, 0), at(k, r, 0), at(k, r, h), at(k + 1, r, h), u);
+    // The inner wall, facing in; the lip; the floor inside; the foot. Fans from the middle are quads with their
+    // first and last corners the same.
+    quad(out, at(k, ri, floor), at(k + 1, ri, floor), at(k + 1, ri, h), at(k, ri, h), inside);
+    quad(out, at(k + 1, ri, h), at(k + 1, r, h), at(k, r, h), at(k, ri, h), rim);
+    quad(out, [0, floor, 0], at(k + 1, ri, floor), at(k, ri, floor), [0, floor, 0], inside);
+    quad(out, [0, 0, 0], at(k, r, 0), at(k + 1, r, 0), [0, 0, 0], rim);
+  }
+}
+
+/** A tin, opened and empty: its label round it, bare metal inside. */
+const TIN_MODEL = (() => {
+  const tris: number[] = [];
+  hollowCup(tris, TIN_R, TIN_H, 0.0015, 0.003, LABEL, TIN, TIN);
+  return campModel(tris, [168, 40, 32]);
+})();
+
+/** How many tins lie about, at least and at most; how likely a pyramid of them, a cabinet, a chair, a barricade. */
+const CAMP_TINS = [8, 14] as const;
+const CAMP_PYRAMID = 0.5;
+const CAMP_STAND = 0.5;
+const CAMP_CHAIR = 0.4;
+const CAMP_BARRICADE = 0.7;
+/** How many tins lie on their sides. */
+const TIN_FALLEN = 0.4;
+
+/** Everything in camp `plan` in lattice room (lx, ly), the same every time for this map. */
+function campIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 43 + k, ly, 960);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const pyramid = roll(1) < CAMP_PYRAMID;
+  const stand = roll(2) < CAMP_STAND;
+  const withChair = roll(3) < CAMP_CHAIR;
+  const barricade = plan.doors.length > 1 && roll(4) < CAMP_BARRICADE;
+  const office = roll(6) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  plan.doors.forEach(([side, cell], i) => {
+    // The barricaded door needn't be kept clear: the barricade's in it.
+    if (barricade && i === 1) return;
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  });
+  // Clear of everything else by r, and of the walls by `wall` (less, for what's backed up to one).
+  const free = (x: number, y: number, r: number, wall = r) =>
+    x - wall > plan.x0 &&
+    y - wall > plan.y0 &&
+    x + wall < plan.x0 + FITTED_SIZE &&
+    y + wall < plan.y0 + FITTED_SIZE &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const put = (
+    name: string,
+    kind: JunkKind,
+    model: StatueModel,
+    pose: Pose,
+    solid: Solid | null,
+    perch: Perch | null = null,
+  ) => {
+    out.push({ key: key(name), kind, model, ...pose, solid, perch });
+  };
+
+  // The bed: from its corner, `ux` along the wall it lies on, `uy` out from that wall.
+  const bed = campBed(plan, (k) => map.noise(plan.x0, plan.y0, 940 + k));
+  const west = bed.corner % 2 === 0;
+  const north = bed.corner < 2;
+  const cx = west ? plan.x0 : plan.x0 + FITTED_SIZE;
+  const cy = north ? plan.y0 : plan.y0 + FITTED_SIZE;
+  const [ux, uy] = bed.alongX ? [west ? 1 : -1, 0] : [0, north ? 1 : -1];
+  const [vx, vy] = bed.alongX ? [0, north ? 1 : -1] : [west ? 1 : -1, 0];
+  // A point a along the wall from the corner and b out from it.
+  const at = (a: number, b: number): [number, number] => [cx + ux * a + vx * b, cy + uy * a + vy * b];
+  const outward = Math.atan2(vy, vx);
+  const [ml, mw, mt] = MATTRESS;
+  const [bx, by] = at(0.03 + ml / 2, 0.03 + mw / 2);
+  const mattress = { x: bx, y: by, h: 0, yaw: outward + (roll(10) - 0.5) * 0.06, pitch: 0, roll: 0 };
+  const bedSolid = slab(bx, by, ux * (ml / 2), uy * (ml / 2), mw / 2);
+  // XN sits on it (xnPlaces.ts): its perch is its middle, facing out into the room.
+  put("mattress", "bedding", MATTRESS_MODEL, mattress, bedSolid, perchOn(mattress, mt, mw / 2, 0.1));
+  for (const k of [-1, 0, 1]) taken.push({ x: bx + ux * k * 0.33, y: by + uy * k * 0.33, r: mw / 2 + 0.02 });
+  // The blanket over its foot end, thrown back askew; its folded end toward the head.
+  const along = 0.03 + ml - BLANKET_SIZE[0] / 2 + (roll(11) - 0.5) * 0.1;
+  const [kx, ky] = at(along, 0.03 + mw / 2 + (roll(12) - 0.5) * 0.06);
+  // The blanket's own length runs along x, which a yaw turns to (sin, −cos): this one from the head to the foot.
+  const toFoot = Math.atan2(ux, -uy);
+  const blanket = { x: kx, y: ky, h: mt, yaw: toFoot + (roll(13) - 0.5) * 0.3, pitch: 0, roll: 0 };
+  put("blanket", "bedding", BLANKET_MODEL, blanket, null);
+  // The pillow at its head, crooked.
+  const [px, py] = at(0.03 + 0.1, 0.03 + mw / 2 + (roll(14) - 0.5) * 0.08);
+  const pillow = { x: px, y: py, h: mt, yaw: outward + (roll(15) - 0.5) * 0.5, pitch: 0, roll: 0 };
+  put("pillow", "bedding", PILLOW_MODEL, pillow, null);
+
+  // A tin, standing or on its side.
+  let tins = 0;
+  const tin = (x: number, y: number, h: number, r: (k: number) => number, fallen = r(0) < TIN_FALLEN) => {
+    const pose = { x, y, h: fallen ? h + TIN_R : h, yaw: r(1) * Math.PI * 2, pitch: fallen ? Math.PI / 2 : 0, roll: 0 };
+    put(`tin${tins++}`, "can", TIN_MODEL, pose, null);
+  };
+
+  // A small cabinet at the bed's head, against the wall there, a tin on top.
+  if (stand) {
+    const shape: CabinetShape = { drawers: 2, width: 0.2, depth: 0.2, pulled: [0, roll(20) < 0.3 ? 0.06 : 0] };
+    const [sx, sy] = at(0.005 + shape.depth / 2, 0.03 + mw + 0.06 + shape.width / 2);
+    const yaw = Math.atan2(uy, ux);
+    if (free(sx, sy, 0.13, 0.1)) {
+      const pose = { x: sx, y: sy, h: 0, yaw, pitch: 0, roll: 0 };
+      const solid = slab(sx, sy, ux * 0.1, uy * 0.1, 0.11);
+      put("stand", "cabinet", buildCabinet(shape), pose, solid, perchOn(pose, cabinetHeight(shape), 0.1, 0.1));
+      taken.push({ x: sx, y: sy, r: 0.14 });
+      tin(sx, sy, cabinetHeight(shape), (k) => roll(21 + k), false);
+    }
+  }
+
+  // A chair by the foot of the bed, turned to the wall it lies along, where the count is.
+  if (withChair) {
+    const [hx, hy] = at(0.03 + ml + 0.35, 0.32);
+    if (free(hx, hy, 0.22)) {
+      const chair = { x: hx, y: hy, h: 0, yaw: Math.atan2(-vy, -vx) + (roll(25) - 0.5) * 0.3, pitch: 0, roll: 0 };
+      out.push({
+        key: key("chair"),
+        kind: "chair",
+        model: buildChair(ORDINARY, office),
+        office,
+        ...chair,
+        solid: { x: hx, y: hy, r: 0.2 },
+        perch: perchOn(chair, chairSeat(ORDINARY), CHAIR_EDGE, 0.1),
+      });
+      taken.push({ x: hx, y: hy, r: 0.22 });
+    }
+  }
+
+  // The second door barricaded: a desk tipped over onto its back and pushed up to the doorway, its legs to it, its
+  // top standing across it.
+  if (barricade) {
+    const [side, cell] = plan.doors[1];
+    const shape = WORK_DESK;
+    const hl = shape.length / 2;
+    const into = inward(side);
+    const [dx, dy] = onWall(plan, side, cell - 0.5, 0.01);
+    const [fx, fy] = INWARD[side];
+    // Tipped back about its own width-wise axis: up becomes out of the door, into the room.
+    const pose = { x: dx, y: dy, h: shape.depth / 2, yaw: into + (roll(30) - 0.5) * 0.12, pitch: Math.PI / 2, roll: 0 };
+    const [tx, ty] = [dx + fx * shape.height, dy + fy * shape.height];
+    out.push({
+      key: key("barricade"),
+      kind: "desk",
+      model: buildDesk(shape, office),
+      office,
+      ...pose,
+      solid: slab(dx + fx * shape.height * 0.5, dy + fy * shape.height * 0.5, -fy * hl, fx * hl, shape.height * 0.5 + 0.02),
+    });
+    taken.push({ x: tx, y: ty, r: 0.45 });
+  }
+
+  // A pyramid of tins against a wall, a row of four, three, two, one; wherever there's room for it.
+  if (pyramid) {
+    const step = TIN_R * 2 + 0.004;
+    for (let k = 0; k < 10; k++) {
+      const side = Math.floor(roll(40 + k) * 4);
+      const t = 0.4 + roll(50 + k) * 3.2;
+      const [mx, my] = onWall(plan, side, t, TIN_R + 0.01);
+      if (!free(mx, my, step * 2.2, TIN_R)) continue;
+      const [fx, fy] = INWARD[side];
+      for (let level = 0; level < 4; level++) {
+        for (let i = 0; i < 4 - level; i++) {
+          const a = (i - (3 - level) / 2) * step;
+          tin(mx - fy * a, my + fx * a, level * TIN_H, (j) => roll(60 + level * 4 + i + j * 7), false);
+        }
+      }
+      out[out.length - 10].solid = slab(mx, my, -fy * step * 2, fx * step * 2, TIN_R + 0.01);
+      taken.push({ x: mx, y: my, r: step * 2.2 });
+      break;
+    }
+  }
+
+  // Empty tins about the bed, thinning out away from it.
+  const [least, most] = CAMP_TINS;
+  const count = least + Math.floor(roll(80) * (most - least + 1));
+  let strewn = 0;
+  for (let k = 0; k < count * 3 && strewn < count; k++) {
+    const r = (j: number) => roll(100 + k * 5 + j);
+    const a = 0.03 + r(0) * (ml + 0.4);
+    const b = 0.03 + mw + 0.04 + r(1) * r(1) * 0.9;
+    const [x, y] = at(a, b);
+    if (!free(x, y, TIN_R + 0.01)) continue;
+    tin(x, y, 0, (j) => r(2 + j));
+    taken.push({ x, y, r: TIN_R + 0.01 });
+    strewn++;
+  }
+  return out;
+}
+
+// ---- the pantry ----
+
+/*
+ * A pantry, the little kitchen off an office corridor: a run of base cupboards along one wall with a worktop, a sink
+ * let into it and a tap, wall cupboards over it, a microwave on it; a fridge in the corner at its end; a water cooler
+ * against another wall; a small table with two chairs; mugs left about. Sometimes the chairs are up on the table
+ * upside down, as if someone closed up for the night; sometimes a wet floor sign by the sink; sometimes thirteen mugs
+ * in a row along the worktop's edge, all their handles the same way; now and then the fridge turned to the wall.
+ */
+
+/** The pantry's atlas: cupboard doors, the worktop, the sink, bright steel, the fridge, white sides, the microwave's
+ * front, the water cooler, its bottle, a mug. */
+const CUPBOARD: Rect = { x: 0, y: 0, w: 32, h: 16 };
+const WORKTOP: Rect = { x: 32, y: 0, w: 32, h: 16 };
+const SINK: Rect = { x: 0, y: 16, w: 16, h: 16 };
+const CHROME: Rect = { x: 16, y: 16, w: 8, h: 8 };
+const FRIDGE: Rect = { x: 32, y: 16, w: 16, h: 32 };
+const WHITE: Rect = { x: 48, y: 16, w: 8, h: 8 };
+const MICROWAVE: Rect = { x: 0, y: 32, w: 16, h: 8 };
+/** The water cooler's drip tray grille, the inside of its recess, and its two taps. */
+const GRILLE: Rect = { x: 16, y: 32, w: 8, h: 8 };
+const RECESS: Rect = { x: 16, y: 40, w: 4, h: 8 };
+const TAP_HOT: Rect = { x: 20, y: 40, w: 2, h: 8 };
+const TAP_COLD: Rect = { x: 22, y: 40, w: 2, h: 8 };
+const BOTTLE: Rect = { x: 24, y: 32, w: 8, h: 16 };
+const MUG: Rect = { x: 56, y: 16, w: 8, h: 8 };
+const KITCHEN_ATLAS_W = 64;
+const KITCHEN_ATLAS_H = 48;
+
+export const KITCHEN_SKIN: StatueSkin = (() => {
+  const W = KITCHEN_ATLAS_W;
+  const data = new Uint8ClampedArray(W * KITCHEN_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const noise = (x: number, y: number) => 0.94 + 0.08 * grain(x, y + 900);
+  // `shade` darkens or lightens each pixel; by default, none.
+  const fill = (r: Rect, colour: (x: number, y: number) => readonly number[], shade?: (x: number, y: number) => number) => {
+    for (let y = 0; y < r.h; y++) {
+      for (let x = 0; x < r.w; x++) put(r.x + x, r.y + y, colour(x, y), (shade?.(x, y) ?? 1) * noise(x + r.x, y + r.y));
+    }
+  };
+  const CREAM = [222, 216, 196];
+  // Two cupboard doors: cream, a dark gap between them and round the edge, a short bar handle each by the gap.
+  fill(CUPBOARD, (x, y) => {
+    if (x === 0 || x === 15 || x === 16 || x === 31 || y === 0 || y === 15) return [96, 92, 82];
+    if ((x === 13 || x === 18) && y >= 3 && y <= 6) return [150, 152, 150];
+    return CREAM;
+  });
+  // The worktop: grey laminate with a fine dark speckle.
+  fill(WORKTOP, (x, y) => (grain(x, y + 910) > 0.9 ? [92, 92, 90] : [168, 166, 160]));
+  // The sink: a steel basin in a rim, darker toward the drain in the middle.
+  fill(SINK, (x, y) => {
+    const rim = x <= 1 || y <= 1 || x >= 14 || y >= 14;
+    if (rim) return [186, 188, 188];
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    return d < 1.5 ? [40, 40, 42] : [120 + d * 6, 122 + d * 6, 124 + d * 6];
+  });
+  fill(CHROME, () => [200, 204, 206]);
+  // The fridge's door: white, the freezer's door at the top, a long handle down each.
+  fill(FRIDGE, (x, y) => {
+    if (y === 9 || x === 0 || x === 15 || y === 0 || y === 31) return [150, 150, 146];
+    if (x === 2 && ((y >= 2 && y <= 7) || (y >= 12 && y <= 22))) return [120, 120, 118];
+    return [232, 232, 226];
+  });
+  fill(WHITE, () => [226, 226, 220]);
+  // The microwave: a dark window on the left, a panel of buttons on the right.
+  fill(MICROWAVE, (x, y) => {
+    if (x >= 1 && x <= 10 && y >= 1 && y <= 6) return [34, 36, 34];
+    if (x >= 12 && x <= 14 && y % 2 === 1) return [70, 70, 70];
+    return [214, 212, 204];
+  });
+  // The water cooler: a dark grey grille over its drip tray, a paler grey inside its recess, a red tap and a blue.
+  fill(GRILLE, (x) => (x % 2 === 0 ? [40, 42, 44] : [96, 98, 100]));
+  fill(RECESS, () => [150, 152, 150]);
+  fill(TAP_HOT, () => [190, 40, 34]);
+  fill(TAP_COLD, () => [40, 80, 190]);
+  // Its bottle: pale clear blue, darker where it's thicker at the sides, a band of label.
+  fill(
+    BOTTLE,
+    (_x, y) => (y >= 6 && y <= 8 ? [220, 232, 240] : [120, 170, 210]),
+    (x) => 1 - 0.12 * Math.abs(x - 3.5) / 3.5,
+  );
+  // A mug: white, a ring of colour round its rim.
+  fill(MUG, (_x, y) => (y <= 1 ? [180, 60, 50] : [236, 234, 228]));
+  return { data };
+})();
+
+/** A box as `box` makes it, but its top painted with `top`. */
+function topBox(
+  out: number[],
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+  z0: number,
+  z1: number,
+  front: Rect,
+  side: Rect,
+  top: Rect,
+) {
+  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], front);
+  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], side);
+  quad(out, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], side);
+  quad(out, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], side);
+  quad(out, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], top);
+  quad(out, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], side);
+}
+
+/** An upright cylinder of eight sides, its foot at 0: `side` round it, `top` on its lid and its foot. */
+function cylinder(out: number[], r: number, y0: number, y1: number, side: Rect, top: Rect) {
+  const n = 8;
+  const at = (k: number): [number, number] => {
+    const a = (k / n) * Math.PI * 2;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  };
+  for (let k = 0; k < n; k++) {
+    const [ax, az] = at(k);
+    const [bx, bz] = at(k + 1);
+    const u = { x: side.x + (k * side.w) / n, y: side.y, w: side.w / n, h: side.h };
+    quad(out, [bx, y0, bz], [ax, y0, az], [ax, y1, az], [bx, y1, bz], u);
+    quad(out, [0, y1, 0], [bx, y1, bz], [ax, y1, az], [0, y1, 0], top);
+    quad(out, [0, y0, 0], [ax, y0, az], [bx, y0, bz], [0, y0, 0], top);
+  }
+}
+
+const kitchenModel = (tris: number[], stone: readonly [number, number, number]): StatueModel => ({
+  tris,
+  atlasWidth: KITCHEN_ATLAS_W,
+  atlasHeight: KITCHEN_ATLAS_H,
+  stone,
+});
+
+/** A unit of the counter: how long, deep and high; the worktop's thickness and how far it overhangs the doors. */
+const UNIT = 0.5;
+const COUNTER_D = 0.3;
+const COUNTER_H = 0.36;
+const WORKTOP_T = 0.025;
+const WORKTOP_OVER = 0.015;
+/** The sink's basin: half its width, how far its mouth is from the worktop's back and front edges, how deep it is. */
+const SINK_HALF = 0.16;
+const SINK_BACK = 0.06;
+const SINK_FRONT = 0.035;
+const SINK_DEEP = 0.09;
+/** Wall cupboards: from how high to how high, and how deep. */
+const WALL_UNIT_Y = [0.6, 0.84] as const;
+const WALL_UNIT_D = 0.15;
+
+/** One unit of the counter, its back at z = −COUNTER_D / 2: cupboards under a length of worktop, or the sink. */
+function counterUnit(sink: boolean): StatueModel {
+  const tris: number[] = [];
+  const hl = UNIT / 2;
+  const hd = COUNTER_D / 2;
+  const under = COUNTER_H - WORKTOP_T;
+  const x0 = -hl + 0.002;
+  const x1 = hl - 0.002;
+  const z1 = hd - WORKTOP_OVER;
+  if (!sink) {
+    box(tris, x0, x1, 0, under, -hd, z1, CUPBOARD, WHITE, WHITE);
+    topBox(tris, -hl, hl, under, COUNTER_H, -hd, hd, WORKTOP, WORKTOP, WORKTOP);
+  } else {
+    // The cupboards, with no top: the basin sinks down into them.
+    quad(tris, [x0, 0, z1], [x1, 0, z1], [x1, under, z1], [x0, under, z1], CUPBOARD);
+    quad(tris, [x1, 0, -hd], [x0, 0, -hd], [x0, under, -hd], [x1, under, -hd], WHITE);
+    quad(tris, [x1, 0, z1], [x1, 0, -hd], [x1, under, -hd], [x1, under, z1], WHITE);
+    quad(tris, [x0, 0, -hd], [x0, 0, z1], [x0, under, z1], [x0, under, -hd], WHITE);
+    quad(tris, [x0, 0, -hd], [x1, 0, -hd], [x1, 0, z1], [x0, 0, z1], WHITE);
+    // The worktop round the basin's mouth: a strip behind it (for the tap), one in front, one either side.
+    const [bw, b0, b1] = [SINK_HALF, -hd + SINK_BACK, hd - SINK_FRONT];
+    const top = (xa: number, xb: number, za: number, zb: number) =>
+      topBox(tris, xa, xb, under, COUNTER_H, za, zb, WORKTOP, WORKTOP, WORKTOP);
+    top(-hl, hl, -hd, b0);
+    top(-hl, hl, b1, hd);
+    top(-hl, -bw, b0, b1);
+    top(bw, hl, b0, b1);
+    // The basin under the mouth, its walls facing in, down to its floor with the drain in it. Its walls stop at the
+    // worktop's underside; the worktop's own edges go on up from there.
+    const yb = COUNTER_H - SINK_DEEP;
+    quad(tris, [-bw, yb, b0], [bw, yb, b0], [bw, under, b0], [-bw, under, b0], CHROME);
+    quad(tris, [bw, yb, b1], [-bw, yb, b1], [-bw, under, b1], [bw, under, b1], CHROME);
+    quad(tris, [-bw, yb, b1], [-bw, yb, b0], [-bw, under, b0], [-bw, under, b1], CHROME);
+    quad(tris, [bw, yb, b0], [bw, yb, b1], [bw, under, b1], [bw, under, b0], CHROME);
+    quad(tris, [-bw, yb, b1], [bw, yb, b1], [bw, yb, b0], [-bw, yb, b0], SINK);
+  }
+  if (sink) {
+    // The tap at the back: a post, and a spout out over the basin.
+    box(tris, -0.008, 0.008, COUNTER_H, COUNTER_H + 0.08, -hd + 0.02, -hd + 0.036, CHROME, CHROME, CHROME);
+    box(tris, -0.006, 0.006, COUNTER_H + 0.066, COUNTER_H + 0.078, -hd + 0.036, -hd + 0.1, CHROME, CHROME, CHROME);
+  }
+  return kitchenModel(tris, [222, 216, 196]);
+}
+const COUNTER_UNIT = counterUnit(false);
+const SINK_UNIT = counterUnit(true);
+const WALL_UNIT = (() => {
+  const tris: number[] = [];
+  box(tris, -UNIT / 2 + 0.002, UNIT / 2 - 0.002, WALL_UNIT_Y[0], WALL_UNIT_Y[1], -WALL_UNIT_D / 2, WALL_UNIT_D / 2, CUPBOARD, WHITE, WHITE);
+  return kitchenModel(tris, [222, 216, 196]);
+})();
+/** The fridge: width, depth, height. */
+const FRIDGE_SIZE = [0.32, 0.3, 0.86] as const;
+const FRIDGE_MODEL = (() => {
+  const [w, d, h] = FRIDGE_SIZE;
+  const tris: number[] = [];
+  box(tris, -w / 2, w / 2, 0, h, -d / 2, d / 2, FRIDGE, WHITE, WHITE);
+  return kitchenModel(tris, [232, 232, 226]);
+})();
+const MICROWAVE_SIZE = [0.2, 0.12, 0.14] as const;
+const MICROWAVE_MODEL = (() => {
+  const [w, h, d] = MICROWAVE_SIZE;
+  const tris: number[] = [];
+  box(tris, -w / 2, w / 2, 0, h, -d / 2, d / 2, MICROWAVE, WHITE, WHITE);
+  return kitchenModel(tris, [214, 212, 204]);
+})();
+/** The water cooler: its body's width and height, its bottle's radius and height. */
+const COOLER_W = 0.16;
+const COOLER_H = 0.46;
+const BOTTLE_R = 0.065;
+const BOTTLE_H = 0.2;
+/** The recess in its front the taps are in: from how high to how high, half its width, and how deep. */
+const COOLER_RECESS = [0.25, 0.36] as const;
+const COOLER_RECESS_HALF = 0.055;
+const COOLER_RECESS_DEEP = 0.06;
+const COOLER_MODEL = (() => {
+  const tris: number[] = [];
+  const h = COOLER_W / 2;
+  const [r0, r1] = COOLER_RECESS;
+  const a = COOLER_RECESS_HALF;
+  const back = h - COOLER_RECESS_DEEP;
+  const white = (x0: number, x1: number, y0: number, y1: number) => box(tris, x0, x1, y0, y1, -h, h, WHITE, WHITE, WHITE);
+  // Below the recess and above it, whole; beside it, a post either side; behind it, its back. Its floor is the top of
+  // the part below, its roof the underside of the part above.
+  white(-h, h, 0, r0);
+  white(-h, h, r1, COOLER_H);
+  white(-h, -a, r0, r1);
+  white(a, h, r0, r1);
+  box(tris, -a, a, r0, r1, -h, back, RECESS, RECESS, RECESS);
+  // The drip tray's grille on its floor, and the two taps hanging from its roof.
+  topBox(tris, -a + 0.004, a - 0.004, r0, r0 + 0.008, back + 0.004, h - 0.004, WHITE, WHITE, GRILLE);
+  for (const [x, tap] of [[-0.024, TAP_HOT], [0.024, TAP_COLD]] as const) {
+    box(tris, x - 0.008, x + 0.008, r1 - 0.03, r1, back + 0.012, back + 0.03, tap, tap, tap);
+  }
+  cylinder(tris, BOTTLE_R, COOLER_H, COOLER_H + BOTTLE_H, BOTTLE, BOTTLE);
+  return kitchenModel(tris, [226, 226, 220]);
+})();
+/** A mug: radius and height; its handle is toward −x. */
+const MUG_R = 0.018;
+const MUG_H = 0.036;
+const MUG_MODEL = (() => {
+  const tris: number[] = [];
+  hollowCup(tris, MUG_R, MUG_H, 0.003, 0.005, MUG, WHITE, WHITE);
+  // The handle, a loop: an arm out at the top and at the bottom, and the grip down between them, a hole inside.
+  const part = (x0: number, x1: number, y0: number, y1: number) =>
+    box(tris, x0, x1, y0, y1, -0.003, 0.003, WHITE, WHITE, WHITE);
+  const reach = -MUG_R - 0.012;
+  part(reach, -MUG_R + 0.002, MUG_H - 0.01, MUG_H - 0.004);
+  part(reach, -MUG_R + 0.002, 0.008, 0.014);
+  part(reach, reach + 0.005, 0.014, MUG_H - 0.01);
+  return kitchenModel(tris, [236, 234, 228]);
+})();
+/** The table: small and square, and its height. */
+const PANTRY_TABLE: DeskShape = { length: 0.42, depth: 0.42, height: 0.3, legs: 2, drawer: false };
+
+/** How many units of counter, at least and at most; how likely each extra. */
+const PANTRY_UNITS = [3, 4] as const;
+const PANTRY_WALL_UNITS = 0.7;
+const PANTRY_COOLER = 0.6;
+const PANTRY_TABLE_CHANCE = 0.8;
+const PANTRY_CHAIRS_UP = 0.2;
+const PANTRY_WET = 0.35;
+const PANTRY_MUG_ROW = 0.25;
+const PANTRY_FRIDGE_AWAY = 0.12;
+/** How many mugs in the row, all handles one way. */
+const MUG_ROW = 13;
+
+/** Everything in pantry `plan` in lattice room (lx, ly), the same every time for this map. */
+function pantryIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 47 + k, ly, 970);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const wallUnits = roll(1) < PANTRY_WALL_UNITS;
+  const cooler = roll(2) < PANTRY_COOLER;
+  const table = roll(3) < PANTRY_TABLE_CHANCE;
+  const chairsUp = table && roll(4) < PANTRY_CHAIRS_UP;
+  const wet = roll(5) < PANTRY_WET;
+  const mugRow = roll(6) < PANTRY_MUG_ROW;
+  const fridgeAway = roll(7) < PANTRY_FRIDGE_AWAY;
+  const office = roll(8) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number, wall = r) =>
+    x - wall > plan.x0 &&
+    y - wall > plan.y0 &&
+    x + wall < plan.x0 + FITTED_SIZE &&
+    y + wall < plan.y0 + FITTED_SIZE &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const put = (name: string, kind: JunkKind, model: StatueModel, pose: Pose, solid: Solid | null = null) => {
+    out.push({ key: key(name), kind, model, ...pose, solid });
+  };
+  const level = (x: number, y: number, h: number, yaw: number): Pose => ({ x, y, h, yaw, pitch: 0, roll: 0 });
+
+  // The counter, along the wall across from the way in (or another without a door), from one of its corners: the
+  // fridge in the corner, then the units.
+  const side = mountedWall(plan, (k) => map.noise(plan.x0, plan.y0, 945 + k));
+  const into = inward(side);
+  const [fx, fy] = INWARD[side];
+  // Along the wall, from the corner it starts in.
+  const fromEnd = roll(10) < 0.5;
+  const t = (along: number) => (fromEnd ? FITTED_SIZE - along : along);
+  const [least, most] = PANTRY_UNITS;
+  const units = least + Math.floor(roll(11) * (most - least + 1));
+  const [w, d] = FRIDGE_SIZE;
+  const [frx, fry] = onWall(plan, side, t(0.02 + w / 2), d / 2 + 0.01);
+  const fridgeYaw = fridgeAway ? into + Math.PI : into;
+  put("fridge", "kitchen", FRIDGE_MODEL, level(frx, fry, 0, fridgeYaw), slab(frx, fry, fx * (d / 2), fy * (d / 2), w / 2));
+  taken.push({ x: frx, y: fry, r: w / 2 + 0.02 });
+  const sinkAt = Math.floor(roll(12) * units);
+  const microwaveAt = (sinkAt + 1 + Math.floor(roll(13) * (units - 1))) % units;
+  const start = 0.02 + w + 0.02;
+  const [ax, ay] = [-fy, fx];
+  for (let i = 0; i < units; i++) {
+    const [ux, uy] = onWall(plan, side, t(start + UNIT * (i + 0.5)), COUNTER_D / 2 + 0.005);
+    const unit = level(ux, uy, 0, into);
+    out.push({
+      key: key(`unit${i}`),
+      kind: "kitchen",
+      model: i === sinkAt ? SINK_UNIT : COUNTER_UNIT,
+      ...unit,
+      solid: slab(ux, uy, ax * (UNIT / 2), ay * (UNIT / 2), COUNTER_D / 2),
+      // XN can sit on the worktop (as on a desk), not by the tap.
+      perch: i === sinkAt ? null : perchOn(unit, COUNTER_H, COUNTER_D / 2, 0.1),
+    });
+    taken.push({ x: ux, y: uy, r: COUNTER_D / 2 + 0.03 }, { x: ux + ax * 0.2, y: uy + ay * 0.2, r: COUNTER_D / 2 });
+    taken.push({ x: ux - ax * 0.2, y: uy - ay * 0.2, r: COUNTER_D / 2 });
+    if (wallUnits) {
+      const [wx, wy] = onWall(plan, side, t(start + UNIT * (i + 0.5)), WALL_UNIT_D / 2 + 0.005);
+      put(`wallUnit${i}`, "kitchen", WALL_UNIT, level(wx, wy, 0, into));
+    }
+    if (i === microwaveAt) {
+      const [mx, my] = onWall(plan, side, t(start + UNIT * (i + 0.5) + (roll(14) - 0.5) * 0.15), MICROWAVE_SIZE[2] / 2 + 0.04);
+      put("microwave", "kitchen", MICROWAVE_MODEL, level(mx, my, COUNTER_H, into + (roll(15) - 0.5) * 0.15));
+    }
+  }
+  // The worktop that isn't the sink, as one length: d along it is this far along the wall, the sink skipped.
+  const dry = UNIT * (units - 1);
+  const onDry = (d: number) => start + d + (d >= UNIT * sinkAt ? UNIT : 0);
+
+  // Mugs: a row of thirteen along the worktop's front edge, handles all one way, past the sink if it's in the way;
+  // or a couple left on it, toward its front, clear of the microwave.
+  if (mugRow) {
+    const gap = Math.min(0.06, (dry - 0.1) / MUG_ROW);
+    const handle = into + Math.PI / 2;
+    for (let i = 0; i < MUG_ROW; i++) {
+      const [mx, my] = onWall(plan, side, t(onDry(0.05 + gap * (i + 0.5))), COUNTER_D - 0.04);
+      put(`row${i}`, "kitchen", MUG_MODEL, level(mx, my, COUNTER_H, handle));
+    }
+  } else {
+    for (let i = 0; i < 2; i++) {
+      const [mx, my] = onWall(plan, side, t(onDry(0.05 + roll(20 + i) * (dry - 0.1))), 0.21 + roll(22 + i) * 0.05);
+      put(`mug${i}`, "kitchen", MUG_MODEL, level(mx, my, COUNTER_H, roll(24 + i) * Math.PI * 2));
+    }
+  }
+
+  // A wet floor sign out in front of the sink.
+  if (wet) {
+    const [sx, sy] = onWall(plan, side, t(start + UNIT * (sinkAt + 0.5) + (roll(30) - 0.5) * 0.3), COUNTER_D + 0.35);
+    if (free(sx, sy, 0.12)) {
+      put("wet", "wetFloor", WET_FLOOR, level(sx, sy, 0, roll(31) * Math.PI * 2), { x: sx, y: sy, r: 0.1 });
+      taken.push({ x: sx, y: sy, r: 0.12 });
+    }
+  }
+
+  // The water cooler against another wall, near one of its ends.
+  if (cooler) {
+    for (let k = 0; k < 8; k++) {
+      const wall = [0, 1, 2, 3].filter((s) => s !== side)[Math.floor(roll(40 + k) * 3)];
+      const along = roll(48 + k) < 0.5 ? 0.3 : FITTED_SIZE - 0.3;
+      const [cx, cy] = onWall(plan, wall, along, COOLER_W / 2 + 0.02);
+      if (!free(cx, cy, 0.14, 0.09)) continue;
+      put("cooler", "kitchen", COOLER_MODEL, level(cx, cy, 0, inward(wall)), { x: cx, y: cy, r: 0.11 });
+      taken.push({ x: cx, y: cy, r: 0.14 });
+      break;
+    }
+  }
+
+  // The table and its two chairs, out in the room, square to the walls; or the chairs upside down on it.
+  if (table) {
+    const chair = buildChair(ORDINARY, office);
+    const seat = chairSeat(ORDINARY);
+    const hd = PANTRY_TABLE.depth / 2;
+    for (let k = 0; k < 10; k++) {
+      const [tx, ty] = onWall(plan, side, 1 + roll(60 + k) * 2, 1.9 + roll(70 + k) * 0.8);
+      if (!free(tx, ty, 0.5)) continue;
+      const yaw = into + (roll(80) - 0.5) * 0.1;
+      const tablePose = level(tx, ty, 0, yaw);
+      out.push({
+        key: key("table"),
+        kind: "desk",
+        model: buildDesk(PANTRY_TABLE, office),
+        office,
+        ...tablePose,
+        solid: { x: tx, y: ty, r: hd + 0.02 },
+        perch: perchOn(tablePose, PANTRY_TABLE.height, hd, 0.1),
+      });
+      taken.push({ x: tx, y: ty, r: 0.5 });
+      // Either side of it, along the counter's wall.
+      for (const s of [-1, 1]) {
+        const ex = Math.sin(yaw) * s;
+        const ey = -Math.cos(yaw) * s;
+        if (chairsUp) {
+          // Seat down on the table, legs up, its back over the edge.
+          const cx = tx + ex * (hd - 0.09);
+          const cy = ty + ey * (hd - 0.09);
+          const up = { x: cx, y: cy, h: PANTRY_TABLE.height + seat, yaw: Math.atan2(-ey, -ex), pitch: 0, roll: Math.PI };
+          out.push({ key: key(`chair${s}`), kind: "chair", model: chair, office, ...up, solid: null });
+        } else {
+          const cx = tx + ex * (hd + 0.2);
+          const cy = ty + ey * (hd + 0.2);
+          const pose = level(cx, cy, 0, Math.atan2(-ey, -ex) + (roll(81 + s) - 0.5) * 0.4);
+          out.push({
+            key: key(`chair${s}`),
+            kind: "chair",
+            model: chair,
+            office,
+            ...pose,
+            solid: { x: cx, y: cy, r: 0.2 },
+            perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),
+          });
+        }
+      }
+      put("tableMug", "kitchen", MUG_MODEL, level(tx + (roll(85) - 0.5) * 0.2, ty + (roll(86) - 0.5) * 0.2, PANTRY_TABLE.height, roll(87) * 6.3));
+      break;
+    }
+  }
+  return out;
+}
+
+// ---- the meeting room ----
+
+/*
+ * A meeting room, sometimes a long one: a long table down the middle with chairs both sides and one at each end, a
+ * whiteboard wiped clean on an end wall, mugs left at a few places. Now and then every
+ * chair has been turned to face the door, or one is standing on the table; often a chair or two is missing.
+ */
+
+/** The meeting room's atlas: the whiteboard, its aluminium frame. */
+const BOARD: Rect = { x: 0, y: 0, w: 64, h: 32 };
+const BOARD_FRAME: Rect = { x: 0, y: 32, w: 8, h: 8 };
+const MEETING_ATLAS_W = 64;
+const MEETING_ATLAS_H = 40;
+
+export const MEETING_SKIN: StatueSkin = (() => {
+  const W = MEETING_ATLAS_W;
+  const data = new Uint8ClampedArray(W * MEETING_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[]) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0];
+    data[o + 1] = c[1];
+    data[o + 2] = c[2];
+    data[o + 3] = 255;
+  };
+  // Wiped clean: white, but for the faintest grain.
+  for (let y = 0; y < BOARD.h; y++) {
+    for (let x = 0; x < BOARD.w; x++) {
+      const m = 0.97 + 0.04 * grain(x, y + 1000);
+      put(BOARD.x + x, BOARD.y + y, [236 * m, 238 * m, 236 * m]);
+    }
+  }
+  for (let y = 0; y < BOARD_FRAME.h; y++) {
+    for (let x = 0; x < BOARD_FRAME.w; x++) put(BOARD_FRAME.x + x, BOARD_FRAME.y + y, [168, 170, 172]);
+  }
+  return { data };
+})();
+
+/** The whiteboard: from how high to how high, how wide at most, how thick; and its tray for the markers. */
+const BOARD_Y = [0.38, 0.82] as const;
+const BOARD_W = 1.4;
+const BOARD_T = 0.02;
+const BOARD_RIM = 0.015;
+
+/** A whiteboard `width` wide, its back against the wall at z = 0, its face toward +z. */
+function buildBoard(width: number): StatueModel {
+  const tris: number[] = [];
+  const hw = width / 2;
+  const [y0, y1] = BOARD_Y;
+  box(tris, -hw, hw, y0, y1, 0, BOARD_T, BOARD, BOARD_FRAME, BOARD_FRAME);
+  // The frame round its face, and the tray along its foot.
+  const rim = (x0: number, x1: number, ya: number, yb: number, z1: number) =>
+    box(tris, x0, x1, ya, yb, BOARD_T, z1, BOARD_FRAME, BOARD_FRAME, BOARD_FRAME);
+  rim(-hw, hw, y1 - BOARD_RIM, y1, BOARD_T + 0.006);
+  rim(-hw, hw, y0, y0 + BOARD_RIM, BOARD_T + 0.006);
+  rim(-hw, -hw + BOARD_RIM, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
+  rim(hw - BOARD_RIM, hw, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
+  rim(-hw * 0.6, hw * 0.6, y0 - 0.012, y0, BOARD_T + 0.04);
+  return { tris, atlasWidth: MEETING_ATLAS_W, atlasHeight: MEETING_ATLAS_H, stone: [236, 238, 236] };
+}
+
+/** The table: its height, its depth in a room of one lattice room and in a long one, and how long it is at most. */
+const MEETING_TABLE_H = 0.32;
+const MEETING_TABLE_D = [0.55, 0.65] as const;
+const MEETING_TABLE_MOST = 5;
+/** How much of the room's length is left round the table's ends. */
+const MEETING_TABLE_ROOM = 2.2;
+/** Chairs: how far apart along the sides, how far out from the table's edge, and pulled out up to this much more. */
+const MEETING_SEAT_GAP = 0.45;
+const MEETING_SEAT_OUT = 0.17;
+const MEETING_PULLED = 0.12;
+/** How likely: every chair turned to the door, one standing on the table, a chair or two missing, a mug at a place. */
+const MEETING_FACING_DOOR = 0.08;
+const MEETING_ON_TABLE = 0.1;
+const MEETING_MISSING = 0.3;
+const MEETING_MUG = 0.3;
+
+/** Everything in meeting room `plan` in lattice room (lx, ly), the same every time for this map. */
+function meetingIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 53 + k, ly, 980);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const facingDoor = roll(1) < MEETING_FACING_DOOR;
+  const onTable = roll(2) < MEETING_ON_TABLE;
+  const missing = roll(3) < MEETING_MISSING;
+  const office = roll(4) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number) =>
+    x - r > plan.x0 &&
+    y - r > plan.y0 &&
+    x + r < plan.x0 + plan.w &&
+    y + r < plan.y0 + plan.h &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const [doorSide, doorCell] = plan.doors[0];
+  const door = onWall(plan, doorSide, doorCell - 0.5, 0.5);
+
+  // The table down the middle, the long way (either way, in a square room).
+  const shared = (k: number) => map.noise(plan.x0, plan.y0, 945 + k);
+  const alongX = meetingAlongX(plan, shared);
+  const long = alongX ? plan.w : plan.h;
+  const [ax, ay] = alongX ? [1, 0] : [0, 1];
+  const [px, py] = [-ay, ax];
+  const length = Math.min(MEETING_TABLE_MOST, long - MEETING_TABLE_ROOM);
+  const depth = MEETING_TABLE_D[long > FITTED_SIZE ? 1 : 0];
+  const shape: DeskShape = {
+    length,
+    depth,
+    height: MEETING_TABLE_H,
+    legs: 2 + Math.floor(length / 0.9),
+    drawer: false,
+  };
+  const cx = plan.x0 + plan.w / 2 + (roll(11) - 0.5) * 0.1;
+  const cy = plan.y0 + plan.h / 2 + (roll(12) - 0.5) * 0.1;
+  // The desk's length runs along its own x, which a yaw turns to (sin, −cos).
+  const tablePose = { x: cx, y: cy, h: 0, yaw: Math.atan2(ax, -ay), pitch: 0, roll: 0 };
+  out.push({
+    key: key("table"),
+    kind: "desk",
+    model: buildDesk(shape, office),
+    office,
+    ...tablePose,
+    solid: slab(cx, cy, ax * (length / 2), ay * (length / 2), depth / 2 + 0.01),
+    perch: perchOn(tablePose, MEETING_TABLE_H, depth / 2, 0.1),
+  });
+  for (let d = -length / 2; d <= length / 2; d += 0.3) taken.push({ x: cx + ax * d, y: cy + ay * d, r: depth / 2 + 0.02 });
+
+  // The chairs: down both sides, and one at each end, facing the table, pulled out a little or more; or all turned
+  // to face the door. A chair or two missing, here and there.
+  const chair = buildChair(ORDINARY, office);
+  const seat = chairSeat(ORDINARY);
+  // Each place: where the chair goes, the way to the table, and where a mug left there would be.
+  const places: [number, number, number, number, number][] = [];
+  const perSide = Math.max(1, Math.floor((length - 0.1) / MEETING_SEAT_GAP));
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < perSide; i++) {
+      const d = (i - (perSide - 1) / 2) * MEETING_SEAT_GAP;
+      const outBy = depth / 2 + MEETING_SEAT_OUT + roll(20 + i * 2 + (s > 0 ? 1 : 0)) * MEETING_PULLED;
+      const mug = depth / 2 - 0.07;
+      places.push([
+        cx + ax * d + px * s * outBy,
+        cy + ay * d + py * s * outBy,
+        Math.atan2(-py * s, -px * s),
+        cx + ax * d + px * s * mug,
+        cy + ay * d + py * s * mug,
+      ]);
+    }
+  }
+  for (const s of [-1, 1]) {
+    const outBy = length / 2 + 0.22 + roll(60 + (s > 0 ? 1 : 0)) * MEETING_PULLED;
+    const mug = length / 2 - 0.07;
+    places.push([cx + ax * s * outBy, cy + ay * s * outBy, Math.atan2(-ay * s, -ax * s), cx + ax * s * mug, cy + ay * s * mug]);
+  }
+  const gone = new Set<number>(missing ? [Math.floor(roll(64) * places.length), Math.floor(roll(65) * places.length)] : []);
+  places.forEach(([x, y, toTable, mx, my], i) => {
+    if (gone.has(i) || !free(x, y, 0.2)) return;
+    const yaw = facingDoor ? Math.atan2(door[1] - y, door[0] - x) : toTable + (roll(70 + i) - 0.5) * 0.4;
+    const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+    out.push({
+      key: key(`chair${i}`),
+      kind: "chair",
+      model: chair,
+      office,
+      ...pose,
+      solid: { x, y, r: 0.2 },
+      perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),
+    });
+    taken.push({ x, y, r: 0.22 });
+    // A mug left on the table in front of it.
+    if (roll(120 + i) < MEETING_MUG) {
+      const mug = { x: mx, y: my, h: MEETING_TABLE_H, yaw: roll(180 + i) * Math.PI * 2, pitch: 0, roll: 0 };
+      out.push({ key: key(`mug${i}`), kind: "kitchen", model: MUG_MODEL, ...mug, solid: null });
+    }
+  });
+
+  // One standing on the table.
+  if (onTable) {
+    const d = (roll(80) - 0.5) * (length - 0.4);
+    const pose = { x: cx + ax * d, y: cy + ay * d, h: MEETING_TABLE_H, yaw: roll(81) * Math.PI * 2, pitch: 0, roll: 0 };
+    out.push({ key: key("onTable"), kind: "chair", model: chair, office, ...pose, solid: null });
+  }
+
+  // The whiteboard: on an end wall with no door, or else any wall with none (map.ts).
+  const boardSide = mountedWall(plan, shared);
+  if (boardSide >= 0) {
+    const wallLong = boardSide < 2 ? plan.w : plan.h;
+    const width = Math.min(BOARD_W, wallLong - 0.6);
+    const [bx, by] = onWall(plan, boardSide, wallLong / 2 + (roll(90) - 0.5) * 0.3, 0);
+    const pose = { x: bx, y: by, h: 0, yaw: inward(boardSide), pitch: 0, roll: 0 };
+    out.push({ key: key("board"), kind: "board", model: buildBoard(width), ...pose, solid: null });
+  }
+  return out;
+}
+
+// ---- the storeroom ----
+
+/*
+ * A storeroom: steel shelving all round the walls, but where the doors are, and sometimes a double row back to back
+ * down the middle; cardboard boxes on the shelves, a few gaps, and stacks of them on the floor, some opened and left
+ * open; sometimes a stepladder leant against a wall. Its lights are mostly out or failing (map.ts). Now and then the
+ * boxes are piled up to the ceiling in a corner, or one shelf's boxes have all come down onto the floor in front of
+ * it.
+ */
+
+/** The storeroom's atlas: cardboard, its top with the tape across, its inside, a label, the shelves' steel. */
+const CARD: Rect = { x: 0, y: 0, w: 16, h: 16 };
+const CARD_TOP: Rect = { x: 16, y: 0, w: 16, h: 16 };
+const CARD_IN: Rect = { x: 32, y: 0, w: 16, h: 16 };
+/** Twice as fine as the rest, for the handwriting on the label. */
+const CARD_LABEL: Rect = { x: 32, y: 16, w: 32, h: 32 };
+const SHELF_POST: Rect = { x: 0, y: 16, w: 8, h: 32 };
+const SHELF_STEEL: Rect = { x: 8, y: 16, w: 16, h: 8 };
+const STORAGE_ATLAS_W = 64;
+const STORAGE_ATLAS_H = 48;
+
+export const STORAGE_SKIN: StatueSkin = (() => {
+  const W = STORAGE_ATLAS_W;
+  const data = new Uint8ClampedArray(W * STORAGE_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const BROWN = [176, 136, 88];
+  const noise = (x: number, y: number) => 0.92 + 0.1 * grain(x, y + 1300);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      // Cardboard: brown, a darker edge where the flaps fold.
+      put(CARD.x + x, CARD.y + y, BROWN, (y === 0 || y === 15 ? 0.8 : 1) * noise(x, y));
+      // The top: the two flaps meeting down the middle under a band of tape.
+      const tape = x >= 6 && x <= 9;
+      put(CARD_TOP.x + x, CARD_TOP.y + y, tape ? [196, 170, 120] : BROWN, (x === 7 || x === 8 ? 0.85 : 1) * noise(x + 20, y));
+      // Inside: darker, in shadow.
+      put(CARD_IN.x + x, CARD_IN.y + y, BROWN, 0.62 * noise(x + 40, y));
+    }
+  }
+  // A side with a white label on it, scrawled on in marker: three lines of quick, thin, wobbly handwriting, too
+  // small to read, the last line short.
+  const L = CARD_LABEL;
+  const PAPER = [226, 224, 214];
+  const INK = [88, 92, 120];
+  for (let y = 0; y < L.h; y++) {
+    for (let x = 0; x < L.w; x++) {
+      const paper = x >= 6 && x <= 25 && y >= 9 && y <= 22;
+      put(L.x + x, L.y + y, paper ? PAPER : BROWN, noise(x + 60, y + 20));
+    }
+  }
+  [12, 16, 20].forEach((base, line) => {
+    const end = line === 2 ? 15 + Math.floor(grain(line, 1320) * 5) : 22 + Math.floor(grain(line, 1321) * 3);
+    let x = 8 + Math.floor(grain(line, 1322) * 2);
+    let word = 0;
+    while (x < end) {
+      const len = 2 + Math.floor(grain(word, line + 1323) * 4);
+      for (let i = 0; i < len && x < end; i++, x++) {
+        const y = base + Math.round(Math.sin(x * 1.7 + line * 2.3) * 0.7 + (grain(x, line + 1330) - 0.5) * 1.4);
+        put(L.x + x, L.y + y, INK);
+        // Now and then a letter reaching up or down.
+        if (grain(x, line + 1340) > 0.8) put(L.x + x, L.y + y + (grain(x, line + 1341) < 0.5 ? -1 : 1), INK);
+      }
+      x += 1 + Math.floor(grain(word, line + 1350) * 2);
+      word++;
+    }
+  });
+  // The shelving's uprights: grey steel angle with a row of slots up it; its shelves plain grey.
+  for (let y = 0; y < SHELF_POST.h; y++) {
+    for (let x = 0; x < SHELF_POST.w; x++) {
+      const slot = x >= 3 && x <= 4 && y % 4 < 2;
+      put(SHELF_POST.x + x, SHELF_POST.y + y, slot ? [50, 52, 54] : [140, 144, 146], noise(x, y + 80));
+    }
+  }
+  for (let y = 0; y < SHELF_STEEL.h; y++) {
+    for (let x = 0; x < SHELF_STEEL.w; x++) {
+      put(SHELF_STEEL.x + x, SHELF_STEEL.y + y, [150, 154, 156], (y === 0 ? 0.8 : 1) * noise(x, y + 100));
+    }
+  }
+  return { data };
+})();
+
+const storageModel = (tris: number[], stone: readonly [number, number, number]): StatueModel => ({
+  tris,
+  atlasWidth: STORAGE_ATLAS_W,
+  atlasHeight: STORAGE_ATLAS_H,
+  stone,
+});
+
+/** A shelving unit: how long, how deep, its uprights' width, and the height of each shelf from the floor. */
+const SHELF_L = 0.9;
+const SHELF_D = 0.26;
+const SHELF_POST_W = 0.018;
+const SHELF_LEVELS = [0.03, 0.3, 0.57, 0.84] as const;
+const SHELF_T = 0.012;
+/** A shelving unit, its back at z = −SHELF_D / 2 and its front toward +z. */
+const SHELF_MODEL = (() => {
+  const tris: number[] = [];
+  const hl = SHELF_L / 2;
+  const hd = SHELF_D / 2;
+  const top = SHELF_LEVELS[SHELF_LEVELS.length - 1] + SHELF_T;
+  for (const x of [-hl, hl - SHELF_POST_W]) {
+    for (const z of [-hd, hd - SHELF_POST_W]) {
+      box(tris, x, x + SHELF_POST_W, 0, top, z, z + SHELF_POST_W, SHELF_POST, SHELF_POST, SHELF_POST);
+    }
+  }
+  // The shelves sit between the uprights, so no face of one lies on a face of a post.
+  for (const y of SHELF_LEVELS) {
+    box(tris, -hl + SHELF_POST_W, hl - SHELF_POST_W, y, y + SHELF_T, -hd + 0.002, hd - 0.002, SHELF_STEEL, SHELF_STEEL, SHELF_STEEL);
+  }
+  return storageModel(tris, [150, 154, 156]);
+})();
+
+/** The boxes' sizes: width, depth, height. Each fits on a shelf. */
+const BOX_SIZES: readonly (readonly [number, number, number])[] = [
+  [0.22, 0.16, 0.14],
+  [0.18, 0.18, 0.18],
+  [0.3, 0.2, 0.12],
+  [0.14, 0.1, 0.1],
+  [0.26, 0.2, 0.2],
+];
+/** An opened box's walls, and how far its flaps lie out flat. */
+const BOX_WALL = 0.004;
+
+/**
+ * A cardboard box, its foot at 0: shut and taped, with or without a label on its front; or opened, hollow, its four
+ * flaps folded out flat round its mouth.
+ */
+function buildBox([w, d, h]: readonly [number, number, number], open: boolean, label: boolean): StatueModel {
+  const tris: number[] = [];
+  const hw = w / 2;
+  const hd = d / 2;
+  if (!open) {
+    topBox(tris, -hw, hw, 0, h, -hd, hd, label ? CARD_LABEL : CARD, CARD, CARD_TOP);
+    return storageModel(tris, [176, 136, 88]);
+  }
+  const t = BOX_WALL;
+  // Its floor, and its four walls standing on it, the front and back between the sides.
+  topBox(tris, -hw, hw, 0, t, -hd, hd, CARD, CARD, CARD_IN);
+  box(tris, -hw, -hw + t, t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, hw - t, hw, t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, -hw + t, hw - t, t, h, hd - t, hd, label ? CARD_LABEL : CARD, CARD_IN, CARD);
+  box(tris, -hw + t, hw - t, t, h, -hd, -hd + t, CARD, CARD_IN, CARD);
+  // The flaps, flat out from the top of each wall.
+  box(tris, -hw - hd, -hw, h - t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, hw, hw + hd, h - t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, -hw, hw, h - t, h, hd, hd + hd, CARD, CARD, CARD);
+  box(tris, -hw, hw, h - t, h, -hd - hd, -hd, CARD, CARD, CARD);
+  return storageModel(tris, [176, 136, 88]);
+}
+const BOXES = new Map<string, StatueModel>();
+/** One model for each size, opened or not, labelled or not. */
+function boxModel(size: number, open: boolean, label: boolean): StatueModel {
+  const key = `${size}${open ? "o" : ""}${label ? "l" : ""}`;
+  let model = BOXES.get(key);
+  if (!model) {
+    model = buildBox(BOX_SIZES[size], open, label);
+    BOXES.set(key, model);
+  }
+  return model;
+}
+
+/** A stepladder's height, its rails' spread, and the gap between its rungs. */
+const LADDER_H = 0.95;
+const LADDER_HALF = 0.12;
+const LADDER_RUNG = 0.16;
+/** A ladder of two rails and rungs between them, upright, its foot at 0. */
+const LADDER_MODEL = (() => {
+  const tris: number[] = [];
+  for (const x of [-LADDER_HALF, LADDER_HALF - 0.02]) box(tris, x, x + 0.02, 0, LADDER_H, -0.012, 0.012, SHELF_POST, SHELF_POST, SHELF_POST);
+  for (let y = LADDER_RUNG; y < LADDER_H - 0.05; y += LADDER_RUNG) {
+    box(tris, -LADDER_HALF + 0.02, LADDER_HALF - 0.02, y, y + 0.012, -0.015, 0.015, SHELF_STEEL, SHELF_STEEL, SHELF_STEEL);
+  }
+  return storageModel(tris, [140, 144, 146]);
+})();
+/** How far its foot stands out from the wall it leans on. */
+const LADDER_OUT = 0.3;
+
+/** How likely: a shelf filled where a box could go; a double row down the middle; a ladder; a pile to the ceiling. */
+const STORE_FILLED = 0.6;
+const STORE_MIDDLE = 0.5;
+const STORE_LADDER = 0.4;
+const STORE_PILE = 0.15;
+const STORE_SPILLED = 0.15;
+/** How likely a box is opened, and labelled; stacks on the floor: how many, and how many boxes high, at most. */
+const BOX_OPEN = 0.25;
+const BOX_LABELLED = 0.4;
+const STORE_STACKS = [2, 4] as const;
+const STACK_MOST = 4;
+
+/** Everything in storeroom `plan` in lattice room (lx, ly), the same every time for this map. */
+function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 59 + k, ly, 990);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const middle = roll(1) < STORE_MIDDLE;
+  const ladder = roll(2) < STORE_LADDER;
+  const pile = roll(3) < STORE_PILE;
+  const spilled = roll(4) < STORE_SPILLED;
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number, wall = r) =>
+    x - wall > plan.x0 &&
+    y - wall > plan.y0 &&
+    x + wall < plan.x0 + plan.w &&
+    y + wall < plan.y0 + plan.h &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  let n = 0;
+  const put = (name: string, model: StatueModel, pose: Pose, solid: Solid | null = null) => {
+    out.push({ key: key(`${name}${n++}`), kind: "storage", model, ...pose, solid });
+  };
+  // Boxes in a row along a shelf at height h, its middle at (x, y), along (ax, ay), facing `yaw`; most places filled.
+  const shelfBoxes = (x: number, y: number, h: number, ax: number, ay: number, yaw: number, k: number) => {
+    let at = -SHELF_L / 2 + SHELF_POST_W + 0.01;
+    for (let i = 0; i < 4; i++) {
+      const r = (j: number) => roll(k + i * 5 + j);
+      const size = Math.floor(r(0) * BOX_SIZES.length);
+      const [w] = BOX_SIZES[size];
+      if (at + w > SHELF_L / 2 - SHELF_POST_W - 0.01) break;
+      if (r(1) < STORE_FILLED) {
+        const mid = at + w / 2;
+        const pose = { x: x + ax * mid, y: y + ay * mid, h, yaw: yaw + (r(2) - 0.5) * 0.15, pitch: 0, roll: 0 };
+        put("box", boxModel(size, r(3) < BOX_OPEN * 0.4, r(4) < BOX_LABELLED), pose);
+      }
+      at += w + 0.02;
+    }
+  };
+  // A shelving unit at (x, y) facing `yaw`, along (ax, ay), its shelves filled, or its boxes all come down in front.
+  let units = 0;
+  const shelf = (x: number, y: number, yaw: number, ax: number, ay: number) => {
+    const k = 100 + units * 40;
+    const down = spilled && units === 0;
+    units++;
+    put("shelf", SHELF_MODEL, { x, y, h: 0, yaw, pitch: 0, roll: 0 }, slab(x, y, ax * (SHELF_L / 2), ay * (SHELF_L / 2), SHELF_D / 2));
+    taken.push(
+      { x, y, r: SHELF_D / 2 + 0.02 },
+      { x: x + ax * 0.3, y: y + ay * 0.3, r: SHELF_D / 2 + 0.02 },
+      { x: x - ax * 0.3, y: y - ay * 0.3, r: SHELF_D / 2 + 0.02 },
+    );
+    SHELF_LEVELS.forEach((level, i) => {
+      // The bottom shelf too, but not the top, under the ceiling.
+      if (i === SHELF_LEVELS.length - 1 || down) return;
+      shelfBoxes(x, y, level + SHELF_T, ax, ay, yaw, k + i * 10);
+    });
+    if (down) {
+      // Fallen off onto the floor in front, every which way.
+      const fx = Math.cos(yaw);
+      const fy = Math.sin(yaw);
+      for (let i = 0; i < 7; i++) {
+        const r = (j: number) => roll(900 + i * 6 + j);
+        const size = Math.floor(r(0) * BOX_SIZES.length);
+        const along = (r(1) - 0.5) * SHELF_L;
+        const outBy = SHELF_D / 2 + 0.1 + r(2) * 0.4;
+        const tipped = r(3) < 0.5;
+        // Tipped onto its front, it lies on it: half its depth up.
+        const pose = {
+          x: x + ax * along + fx * outBy,
+          y: y + ay * along + fy * outBy,
+          h: tipped ? BOX_SIZES[size][1] / 2 : 0,
+          yaw: r(4) * Math.PI * 2,
+          pitch: tipped ? Math.PI / 2 : 0,
+          roll: 0,
+        };
+        put("box", boxModel(size, r(5) < BOX_OPEN, false), pose);
+      }
+    }
+  };
+
+  // Shelving all along the walls, unit by unit, but where a door is; the north and south walls' run the whole way,
+  // the west and east walls' stop short of them.
+  for (let side = 0; side < 4; side++) {
+    const len = side < 2 ? plan.w : plan.h;
+    const yaw = inward(side);
+    const [fx, fy] = INWARD[side];
+    const [ax, ay] = [-fy, fx];
+    const start = side < 2 ? 0.02 : SHELF_D + 0.04;
+    const end = side < 2 ? len - 0.02 : len - SHELF_D - 0.04;
+    for (let t = start; t + SHELF_L <= end + 1e-6; t += SHELF_L + 0.02) {
+      const [x, y] = onWall(plan, side, t + SHELF_L / 2, SHELF_D / 2 + 0.01);
+      // Clear of the doors: the whole unit, not only its middle.
+      const clear = [-0.3, 0, 0.3].every((d) => free(x + ax * d, y + ay * d, SHELF_D / 2, 0));
+      if (clear) shelf(x, y, yaw, ax, ay);
+    }
+  }
+
+  // A double row back to back down the middle, the long way across the doors' line, with aisles either side.
+  if (middle) {
+    const alongX = roll(20) < 0.5;
+    const [ax, ay] = alongX ? [1, 0] : [0, 1];
+    const [px, py] = [-ay, ax];
+    const cx = plan.x0 + plan.w / 2;
+    const cy = plan.y0 + plan.h / 2;
+    const count = Math.max(1, Math.floor((Math.min(plan.w, plan.h) - 2 * (SHELF_D + 0.9)) / SHELF_L) + 1);
+    for (let i = 0; i < count; i++) {
+      const d = (i - (count - 1) / 2) * (SHELF_L + 0.02);
+      for (const s of [-1, 1]) {
+        const x = cx + ax * d + px * s * (SHELF_D / 2 + 0.01);
+        const y = cy + ay * d + py * s * (SHELF_D / 2 + 0.01);
+        if ([-0.3, 0, 0.3].every((e) => free(x + ax * e, y + ay * e, SHELF_D / 2))) {
+          shelf(x, y, Math.atan2(py * s, px * s), ax, ay);
+        }
+      }
+    }
+  }
+
+  // Stacks of boxes on the floor, wherever there's room, a little askew one on another; the top one sometimes open.
+  const stack = (x: number, y: number, high: number, k: number) => {
+    let h = 0;
+    for (let i = 0; i < high; i++) {
+      const r = (j: number) => roll(k + i * 5 + j);
+      const size = Math.min(BOX_SIZES.length - 1, Math.floor(r(0) * BOX_SIZES.length));
+      const top = i === high - 1;
+      const pose = { x: x + (r(1) - 0.5) * 0.03, y: y + (r(2) - 0.5) * 0.03, h, yaw: r(3) * 0.5, pitch: 0, roll: 0 };
+      put("box", boxModel(size, top && r(4) < BOX_OPEN, r(5) < BOX_LABELLED), pose, i === 0 ? { x, y, r: 0.16 } : null);
+      h += BOX_SIZES[size][2];
+      if (h > 0.9) break;
+    }
+  };
+  const [least, most] = STORE_STACKS;
+  const stacks = least + Math.floor(roll(30) * (most - least + 1));
+  let placed = 0;
+  for (let k = 0; k < 30 && placed < stacks; k++) {
+    const x = plan.x0 + 0.4 + roll(31 + k) * (plan.w - 0.8);
+    const y = plan.y0 + 0.4 + roll(61 + k) * (plan.h - 0.8);
+    if (!free(x, y, 0.2)) continue;
+    stack(x, y, 1 + Math.floor(roll(91 + k) * STACK_MOST), 300 + placed * 30);
+    taken.push({ x, y, r: 0.2 });
+    placed++;
+  }
+
+  // Piled to the ceiling in a corner: a column of the biggest boxes.
+  if (pile) {
+    const corners: [number, number][] = [
+      [plan.x0 + 0.5, plan.y0 + 0.5],
+      [plan.x0 + plan.w - 0.5, plan.y0 + 0.5],
+      [plan.x0 + 0.5, plan.y0 + plan.h - 0.5],
+      [plan.x0 + plan.w - 0.5, plan.y0 + plan.h - 0.5],
+    ];
+    const spot = corners.find(([x, y]) => free(x, y, 0.18)) ?? null;
+    if (spot) {
+      let h = 0;
+      for (let i = 0; h + BOX_SIZES[4][2] <= 1; i++) {
+        const pose = { x: spot[0] + (roll(500 + i) - 0.5) * 0.02, y: spot[1], h, yaw: (roll(520 + i) - 0.5) * 0.2, pitch: 0, roll: 0 };
+        put("box", boxModel(4, false, roll(540 + i) < BOX_LABELLED), pose, i === 0 ? { x: spot[0], y: spot[1], r: 0.18 } : null);
+        h += BOX_SIZES[4][2];
+      }
+      taken.push({ x: spot[0], y: spot[1], r: 0.2 });
+    }
+  }
+
+  // A stepladder leant against a wall, or against the shelving along it: its foot out from it, its top against it.
+  if (ladder) {
+    for (let k = 0; k < 12; k++) {
+      const side = Math.floor(roll(600 + k) * 4);
+      const len = side < 2 ? plan.w : plan.h;
+      const t = 0.4 + roll(620 + k) * (len - 0.8);
+      const [wx, wy] = onWall(plan, side, t, 0.05);
+      const against = free(wx, wy, 0.04, 0) ? 0 : SHELF_D + 0.02;
+      const [x, y] = onWall(plan, side, t, against + LADDER_OUT);
+      if (!free(x, y, 0.15)) continue;
+      const tilt = Math.asin(LADDER_OUT / LADDER_H);
+      put("ladder", LADDER_MODEL, { x, y, h: 0, yaw: inward(side), pitch: -tilt, roll: 0 }, { x, y, r: 0.14 });
+      break;
+    }
+  }
+  return out;
+}
+
 // ---- the candle sign ----
 
 /*
@@ -2939,8 +4613,7 @@ function flame(out: number[], x: number, y: number, z: number) {
 
 /**
  * A candle sign: its candles as one model round the sign's middle with yaw 0 (its z is the place's x, its x
- * the place's −y), and their flames as another. Each has a reach, how far the furthest candle is from the middle, so
- * none of them is left out while it's in view.
+ * the place's −y), and their flames as another.
  */
 function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, sign: CandleSign): Junk[] {
   const roll = (k: number) => map.noise(seedX * 13 + k, seedY, 960);
@@ -2948,7 +4621,6 @@ function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, si
   const { x, y, dirX, dirY } = sign;
   const wax: number[] = [];
   const flames: number[] = [];
-  let reach = 0;
   SIGN_CANDLES.forEach(([across, down], i) => {
     const r = (k: number) => roll(100 + i * 4 + k);
     const tall = CANDLE_TALL[0] + r(3) * (CANDLE_TALL[1] - CANDLE_TALL[0]);
@@ -2959,11 +4631,10 @@ function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, si
     const cy = (dirX * across + dirY * down) * CANDLE_SIGN_SIZE;
     const X = -cy + (r(1) - 0.5) * 0.03;
     const Z = cx + (r(2) - 0.5) * 0.03;
-    reach = Math.max(reach, Math.hypot(X, Z));
     box(wax, X - CANDLE_HW, X + CANDLE_HW, 0, high, Z - CANDLE_HW, Z + CANDLE_HW, WAX, WAX, WAX);
     if (!burnt) flame(flames, X, high, Z);
   });
-  const at = { x, y, h: 0, yaw: 0, pitch: 0, roll: 0, solid: null, reach: reach + 0.1 };
+  const at = { x, y, h: 0, yaw: 0, pitch: 0, roll: 0, solid: null };
   return [
     { key, kind: "candle", model: model(wax), ...at },
     { key: `${key}.flames`, kind: "flame", model: model(flames), ...at, glow: true },
@@ -3018,6 +4689,10 @@ export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
   const normals = new Float32Array(count * 3);
   const centres = new Float32Array(count * 3);
   const flags = new Uint8Array(count);
+  // How far its furthest corner is from where it stands. The drawing leaves out whatever stands well behind the eye,
+  // going by where it stands: a long table standing behind, or a candle sign laid out round its middle, would go with
+  // its far end still in view.
+  let reach = 0;
   for (let i = 0; i < count; i++) {
     const o = i * 16;
     const q = i * 15;
@@ -3028,6 +4703,7 @@ export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
       corners[q + k * 5 + 2] = junk.h + Y;
       corners[q + k * 5 + 3] = src[o + k * 5 + 3];
       corners[q + k * 5 + 4] = src[o + k * 5 + 4];
+      reach = Math.max(reach, Math.hypot(X * rx + Z * fx, X * ry + Z * fy));
     }
     const ax = src[o + 5] - src[o];
     const ay = src[o + 6] - src[o + 1];
@@ -3045,5 +4721,5 @@ export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
     centres[i * 3 + 2] = (corners[q + 2] + corners[q + 7] + corners[q + 12]) / 3;
     flags[i] = src[o + 15];
   }
-  return { x: junk.x, y: junk.y, count, corners, normals, centres, flags, reach: junk.reach };
+  return { x: junk.x, y: junk.y, count, corners, normals, centres, flags, reach };
 }

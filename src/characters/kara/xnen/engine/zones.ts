@@ -39,6 +39,21 @@ export const CELLS_WEIGHTS: ZoneWeights = [1, 0.5, 2.5, 1.5, 2];
 export const PIT_ROOM_WEIGHTS: ZoneWeights = [1.7, 0, 0, 0, 0];
 export const BURGER_ROOM_WEIGHTS: ZoneWeights = [1, 1, 1, 1, 1];
 
+/**
+ * Rooms fitted out for a use (map.ts, junk.ts): a whole lattice room walled in, with a door or two, its furniture
+ * where it belongs. Each kind keeps mostly to its zone; the yellow has a few of every kind. A workroom: one desk and
+ * whoever sat at it, mostly in the office wing.
+ */
+export const WORKROOM_WEIGHTS: ZoneWeights = [0.25, 0.3, 2, 0.3, 0.2];
+/** A camp, where one of the lost lived for a while: mostly in the old house, where it's most like home. */
+export const CAMP_WEIGHTS: ZoneWeights = [0.25, 3, 0.2, 0.6, 0.2];
+/** A pantry, a little kitchen: mostly by the tiles, now and then off the office wing. */
+export const PANTRY_WEIGHTS: ZoneWeights = [0.25, 0.3, 0.6, 0.3, 3];
+/** A storeroom: in the unfinished plasterboard most. */
+export const STORAGE_WEIGHTS: ZoneWeights = [0.25, 0.3, 0.3, 3, 0.3];
+/** A meeting room: the office wing's. */
+export const MEETING_WEIGHTS: ZoneWeights = [0.25, 0.2, 2, 0.3, 0.2];
+
 /** The junk lying about (junk.ts), by kind. */
 export const JUNK_WEIGHTS = {
   monitor: [1, 0.3, 2, 0.5, 0.2],
@@ -52,6 +67,12 @@ export const JUNK_WEIGHTS = {
   socket: [1, 1, 1, 1, 1],
   burger: [1, 1, 1, 1, 1],
 } as const satisfies Record<string, ZoneWeights>;
+
+/**
+ * How many of the desks and chairs (lying about, or in a fitted room) are the office kind, steel and laminate and
+ * fabric, not wood: a share, not a weight, mostly in the office wing.
+ */
+export const OFFICE_FURNITURE: ZoneWeights = [0.15, 0.05, 0.85, 0.3, 0.2];
 
 /** Writing on the walls (graffiti.ts): most on bare plasterboard. The warnings outside pit rooms aren't weighed. */
 export const GRAFFITI_WEIGHTS: ZoneWeights = [1, 0.5, 0.5, 2, 1];

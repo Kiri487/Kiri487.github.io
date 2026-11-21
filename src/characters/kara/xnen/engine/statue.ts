@@ -28,7 +28,7 @@ export interface StatueSkin {
 export interface StatueMesh {
   x: number;
   y: number;
-  /** How far its furthest part is from (x, y), if it's well off it: it's drawn while any of it may be in view. */
+  /** How far its furthest part is from (x, y): it's drawn while any of it may be in view, not only its middle. */
   reach?: number;
   count: number;
   /** World x, y, z and atlas u, v for each corner: 15 numbers per triangle. */

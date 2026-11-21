@@ -4,15 +4,19 @@ import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
 import {
   BURGER_SKIN,
+  CAMP_SKIN,
   CANDLE_SKIN,
   DOOR_SKIN,
   heldBurger,
+  KITCHEN_SKIN,
+  MEETING_SKIN,
   junkAround,
   monitorSkin,
   OFFICE_SKIN,
   placeJunk,
   SAFETY_SKIN,
   SIGN_SKIN,
+  STORAGE_SKIN,
   WOOD_SKIN,
   type Junk,
 } from "./engine/junk";
@@ -669,7 +673,7 @@ export function createGame(parts: GameParts): Game {
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
       // A monitor waits for its screen's picture.
-      const junkSkin = {
+      const junkSkin = junk.office ? OFFICE_SKIN : {
         monitor,
         chair: WOOD_SKIN,
         sign: SIGN_SKIN,
@@ -680,6 +684,11 @@ export function createGame(parts: GameParts): Game {
         desk: WOOD_SKIN,
         socket: OFFICE_SKIN,
         burger: BURGER_SKIN,
+        bedding: CAMP_SKIN,
+        can: CAMP_SKIN,
+        kitchen: KITCHEN_SKIN,
+        board: MEETING_SKIN,
+        storage: STORAGE_SKIN,
         candle: CANDLE_SKIN,
         flame: CANDLE_SKIN,
       }[junk.kind];
