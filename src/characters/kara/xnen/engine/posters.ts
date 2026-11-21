@@ -3,6 +3,7 @@ import { cellHasHole } from "./decay";
 import { hash3 } from "./hash";
 import type { WorldMap } from "./map";
 import type { Tuning } from "./tuning";
+import { heaviest, POSTER_WEIGHTS } from "./zones";
 
 /*
  * The Weed Cat Cult's posters (Kiri's picture), stuck up here and there on the walls and ceiling. They're rare, but
@@ -268,15 +269,29 @@ export interface PosterSpot {
   reach: number;
 }
 
-/** Whether posters went up here: rare anywhere, likelier near a statue. `share` scales both, for the ceiling. */
-function chosen(dice: number, map: WorldMap, cx: number, cy: number, tuning: Tuning, share: number): boolean {
+/**
+ * Whether posters went up here: rare anywhere, more or less so by the zone they'd be seen from (zones.ts), likelier
+ * near a statue. `share` scales both, for the ceiling.
+ */
+function chosen(
+  dice: number,
+  map: WorldMap,
+  cx: number,
+  cy: number,
+  tuning: Tuning,
+  share: number,
+  zone: () => number,
+): boolean {
   const rare = (RARE * share * tuning.posters) / 100;
   const near = (NEAR * share * tuning.posterNear) / 100;
-  // Most places have none whatever the statues: no need to look for one.
-  if (dice >= rare + near) return false;
-  if (dice < rare) return true;
+  // Most places have none whatever the zone and the statues: no need to look for either.
+  if (dice >= rare * heaviest(POSTER_WEIGHTS) + near) return false;
+  // Put up anywhere, weighed by the zone; near a statue, wherever it is.
+  const anywhere = rare * POSTER_WEIGHTS[zone()];
+  if (dice < anywhere) return true;
+  if (dice >= anywhere + near) return false;
   const d = nearestStatue(map, cx + 0.5, cy + 0.5);
-  return dice < rare + near * clamp01((NEAR_GONE - d) / (NEAR_GONE - NEAR_FULL));
+  return dice < anywhere + near * clamp01((NEAR_GONE - d) / (NEAR_GONE - NEAR_FULL));
 }
 
 /** How many went up together: mostly one, now and then a few. */
@@ -331,7 +346,8 @@ const WALL_SPREAD = 2;
  */
 function putOnWall(map: WorldMap, ox: number, oy: number, face: number, tuning: Tuning, aspect: number): Put[] | null {
   const fx = ox * 4 + face;
-  if (!chosen(map.noise(fx, oy, 300), map, ox, oy, tuning, 1)) return null;
+  const zone = () => map.zoneAt(ox + FACE_OUT[face][0], oy + FACE_OUT[face][1]);
+  if (!chosen(map.noise(fx, oy, 300), map, ox, oy, tuning, 1, zone)) return null;
   if (!faceOpen(map, ox, oy, face)) return null;
   const alongX = face >= 2;
   const base = alongX ? ox : oy;
@@ -412,7 +428,7 @@ const plainTile = (map: WorldMap, x: number, y: number) =>
 
 /** The posters that went up on the ceiling starting at tile (ox, oy), or null. Only where they fit on plain tiles. */
 function putOnCeiling(map: WorldMap, ox: number, oy: number, tuning: Tuning, aspect: number): Put[] | null {
-  if (!chosen(map.noise(ox, oy, 400), map, ox, oy, tuning, CEILING_SHARE)) return null;
+  if (!chosen(map.noise(ox, oy, 400), map, ox, oy, tuning, CEILING_SHARE, () => map.zoneAt(ox, oy))) return null;
   const reach = reachOf(aspect);
   const roll = (k: number) => map.noise(ox, oy, 410 + k);
   const count = bunchOf(roll(0));

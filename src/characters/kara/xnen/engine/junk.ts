@@ -1,5 +1,6 @@
 import { CANDLE_SIGN_SIZE, type BurgerPlan, type CandleSign, type Statue, type WorldMap } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
+import { heaviest, JUNK_WEIGHTS, type ZoneWeights } from "./zones";
 
 /*
  * Things that don't belong, half through the place as if nobody minded: Kara's old CRT monitor, still on, showing
@@ -1561,7 +1562,7 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
 const BLOCK = 12;
 /**
  * How many blocks have a monitor, a chair, a sign, a door, an exit sign, a wet floor sign, a filing cabinet, a desk;
- * and for each of two tries, how many have sockets.
+ * and for each of two tries, how many have sockets. In the yellow; the other zones weigh them (zones.ts).
  */
 const MONITOR_CHANCE = 0.09;
 const CHAIR_CHANCE = 0.18;
@@ -1641,59 +1642,57 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
   return null;
 }
 
+/**
+ * Where in block (bx, by) the junk this die is for lies, or null if the block has none: the die against its chance,
+ * weighed by the zone of the spot it picked (zones.ts).
+ */
+function spotFor(
+  map: WorldMap,
+  bx: number,
+  by: number,
+  roll: (k: number) => number,
+  chance: number,
+  weights: ZoneWeights,
+): Spot | null {
+  if (roll(0) >= chance * heaviest(weights)) return null;
+  const spot = spotIn(map, bx, by, roll);
+  return spot && roll(0) < chance * weights[map.zoneAt(spot.cx, spot.cy)] ? spot : null;
+}
+
 function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const found: Junk[] = [];
   const monitorRoll = (k: number) => map.noise(bx * 31 + k, by, 700);
-  if (monitorRoll(0) < MONITOR_CHANCE) {
-    const spot = spotIn(map, bx, by, monitorRoll);
-    if (spot) found.push(placeMonitor(`m${bx},${by}`, spot, monitorRoll));
-  }
+  const monitorSpot = spotFor(map, bx, by, monitorRoll, MONITOR_CHANCE, JUNK_WEIGHTS.monitor);
+  if (monitorSpot) found.push(placeMonitor(`m${bx},${by}`, monitorSpot, monitorRoll));
   const chairRoll = (k: number) => map.noise(bx * 31 + k, by, 710);
-  if (chairRoll(0) < CHAIR_CHANCE) {
-    const spot = spotIn(map, bx, by, chairRoll);
-    if (spot) found.push(placeChair(`c${bx},${by}`, spot, chairRoll));
-  }
+  const chairSpot = spotFor(map, bx, by, chairRoll, CHAIR_CHANCE, JUNK_WEIGHTS.chair);
+  if (chairSpot) found.push(placeChair(`c${bx},${by}`, chairSpot, chairRoll));
   const signRoll = (k: number) => map.noise(bx * 31 + k, by, 720);
-  if (signRoll(0) < SIGN_CHANCE) {
-    const spot = spotIn(map, bx, by, signRoll);
-    if (spot) found.push(placeSign(`s${bx},${by}`, spot, signRoll));
-  }
+  const signSpot = spotFor(map, bx, by, signRoll, SIGN_CHANCE, JUNK_WEIGHTS.sign);
+  if (signSpot) found.push(placeSign(`s${bx},${by}`, signSpot, signRoll));
   const doorRoll = (k: number) => map.noise(bx * 31 + k, by, 730);
-  if (doorRoll(0) < DOOR_CHANCE) {
-    const spot = spotIn(map, bx, by, doorRoll);
-    if (spot) found.push(placeDoor(`d${bx},${by}`, spot, doorRoll));
-  }
+  const doorSpot = spotFor(map, bx, by, doorRoll, DOOR_CHANCE, JUNK_WEIGHTS.door);
+  if (doorSpot) found.push(placeDoor(`d${bx},${by}`, doorSpot, doorRoll));
   const exitRoll = (k: number) => map.noise(bx * 31 + k, by, 740);
-  if (exitRoll(0) < EXIT_CHANCE) {
-    const spot = spotIn(map, bx, by, exitRoll);
-    if (spot) found.push(placeExit(`e${bx},${by}`, spot, exitRoll));
-  }
+  const exitSpot = spotFor(map, bx, by, exitRoll, EXIT_CHANCE, JUNK_WEIGHTS.exit);
+  if (exitSpot) found.push(placeExit(`e${bx},${by}`, exitSpot, exitRoll));
   const wetRoll = (k: number) => map.noise(bx * 31 + k, by, 750);
-  if (wetRoll(0) < WET_CHANCE) {
-    const spot = spotIn(map, bx, by, wetRoll);
-    if (spot) found.push(placeWetFloor(`w${bx},${by}`, spot, wetRoll));
-  }
+  const wetSpot = spotFor(map, bx, by, wetRoll, WET_CHANCE, JUNK_WEIGHTS.wet);
+  if (wetSpot) found.push(placeWetFloor(`w${bx},${by}`, wetSpot, wetRoll));
   const cabinetRoll = (k: number) => map.noise(bx * 31 + k, by, 760);
-  if (cabinetRoll(0) < CABINET_CHANCE) {
-    const spot = spotIn(map, bx, by, cabinetRoll);
-    if (spot) found.push(placeCabinet(`f${bx},${by}`, spot, cabinetRoll));
-  }
+  const cabinetSpot = spotFor(map, bx, by, cabinetRoll, CABINET_CHANCE, JUNK_WEIGHTS.cabinet);
+  if (cabinetSpot) found.push(placeCabinet(`f${bx},${by}`, cabinetSpot, cabinetRoll));
   const deskRoll = (k: number) => map.noise(bx * 31 + k, by, 770);
-  if (deskRoll(0) < DESK_CHANCE) {
-    const spot = spotIn(map, bx, by, deskRoll);
-    if (spot) found.push(placeDesk(`t${bx},${by}`, spot, deskRoll));
-  }
+  const deskSpot = spotFor(map, bx, by, deskRoll, DESK_CHANCE, JUNK_WEIGHTS.desk);
+  if (deskSpot) found.push(placeDesk(`t${bx},${by}`, deskSpot, deskRoll));
   for (const salt of [780, 790]) {
     const socketRoll = (k: number) => map.noise(bx * 31 + k, by, salt);
-    if (socketRoll(0) >= SOCKET_CHANCE) continue;
-    const spot = spotIn(map, bx, by, socketRoll);
+    const spot = spotFor(map, bx, by, socketRoll, SOCKET_CHANCE, JUNK_WEIGHTS.socket);
     if (spot) found.push(...placeSockets(`o${salt}.${bx},${by}`, spot, socketRoll));
   }
   const burgerRoll = (k: number) => map.noise(bx * 31 + k, by, 800);
-  if (burgerRoll(0) < BURGER_CHANCE) {
-    const spot = spotIn(map, bx, by, burgerRoll);
-    if (spot) found.push(...placeBurgers(`b${bx},${by}`, spot, burgerRoll));
-  }
+  const burgerSpot = spotFor(map, bx, by, burgerRoll, BURGER_CHANCE, JUNK_WEIGHTS.burger);
+  if (burgerSpot) found.push(...placeBurgers(`b${bx},${by}`, burgerSpot, burgerRoll));
   return found;
 }
 

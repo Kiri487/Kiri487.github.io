@@ -228,7 +228,7 @@ function tilesPixel(variant: number) {
 }
 
 /**
- * Each zone's wallpaper (map.ts), in three variants: mostly the first, sometimes the second, now and then the third.
+ * Each zone's wallpaper (zones.ts), in three variants: mostly the first, sometimes the second, now and then the third.
  * Indexed by zone, then variant.
  */
 export const WALL_TEXTURES = [wallPixel, housePixel, officePixel, drywallPixel, tilesPixel].map((pixel) =>
@@ -307,7 +307,7 @@ const LINO_FLOOR = makeFloor(128, (x, y) => {
   return dark ? [92 * m, 94 * m, 90 * m] : [190 * m, 182 * m, 156 * m];
 });
 
-/** Each zone's floor, all the carpet's size, indexed by zone (map.ts). */
+/** Each zone's floor, all the carpet's size, indexed by zone (zones.ts). */
 export const FLOORS = [CARPET, HOUSE_FLOOR, OFFICE_FLOOR, CONCRETE_FLOOR, LINO_FLOOR];
 /** Whether each zone's floor is mirrored like the carpet (CARPET_FLIP): not a pattern, which would jump where it flips. */
 export const FLOOR_FLIPS = [true, true, false, true, false];
