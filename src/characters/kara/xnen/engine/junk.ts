@@ -1669,6 +1669,10 @@ const BURGER_STACKED = 0.1;
 const BURGER_FALLEN = 0.1;
 const BURGER_PYRAMID = 0.07;
 const BURGER_BITTEN = 0.3;
+/** How many blocks have boxes, mugs, empty tins lying about. */
+const BOX_CHANCE = 0.12;
+const MUG_CHANCE = 0.1;
+const TIN_CHANCE = 0.08;
 
 const OUT = [
   [-1, 0],
@@ -1780,10 +1784,12 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (wetSpot) found.push(placeWetFloor(`w${bx},${by}`, wetSpot, wetRoll));
   const cabinetRoll = (k: number) => map.noise(bx * 31 + k, by, 760);
   const cabinetSpot = spotFor(map, bx, by, cabinetRoll, CABINET_CHANCE, JUNK_WEIGHTS.cabinet);
-  if (cabinetSpot) found.push(placeCabinet(`f${bx},${by}`, cabinetSpot, cabinetRoll));
+  const cabinet = cabinetSpot ? placeCabinet(`f${bx},${by}`, cabinetSpot, cabinetRoll) : null;
+  if (cabinet) found.push(cabinet);
   const deskRoll = (k: number) => map.noise(bx * 31 + k, by, 770);
   const deskSpot = spotFor(map, bx, by, deskRoll, DESK_CHANCE, JUNK_WEIGHTS.desk);
-  if (deskSpot) found.push(placeDesk(`t${bx},${by}`, deskSpot, deskRoll, officeAt(map, deskSpot, deskRoll)));
+  const desk = deskSpot ? placeDesk(`t${bx},${by}`, deskSpot, deskRoll, officeAt(map, deskSpot, deskRoll)) : null;
+  if (desk) found.push(desk);
   for (const salt of [780, 790]) {
     const socketRoll = (k: number) => map.noise(bx * 31 + k, by, salt);
     const spot = spotFor(map, bx, by, socketRoll, SOCKET_CHANCE, JUNK_WEIGHTS.socket);
@@ -1792,7 +1798,34 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const burgerRoll = (k: number) => map.noise(bx * 31 + k, by, 800);
   const burgerSpot = spotFor(map, bx, by, burgerRoll, BURGER_CHANCE, JUNK_WEIGHTS.burger);
   if (burgerSpot) found.push(...placeBurgers(`b${bx},${by}`, burgerSpot, burgerRoll));
+  const boxRoll = (k: number) => map.noise(bx * 31 + k, by, 810);
+  const boxSpot = spotFor(map, bx, by, boxRoll, BOX_CHANCE, JUNK_WEIGHTS.box);
+  if (boxSpot) found.push(...clearOf(found, placeBoxes(`k${bx},${by}`, boxSpot, boxRoll)));
+  // A mug can be left on the block's desk or cabinet, if it's standing up straight on the floor.
+  const tops: Top[] = [];
+  if (desk?.perch && !desk.pitch && !desk.roll && !desk.h) tops.push({ perch: desk.perch, half: 0.17 });
+  if (cabinet?.perch && !cabinet.pitch && !cabinet.roll && !cabinet.h) tops.push({ perch: cabinet.perch, half: 0.06 });
+  const mugRoll = (k: number) => map.noise(bx * 31 + k, by, 820);
+  const mugSpot = spotFor(map, bx, by, mugRoll, MUG_CHANCE, JUNK_WEIGHTS.mug);
+  if (mugSpot) found.push(...clearOf(found, placeMugs(`g${bx},${by}`, mugSpot, mugRoll, tops)));
+  const tinRoll = (k: number) => map.noise(bx * 31 + k, by, 830);
+  const tinSpot = spotFor(map, bx, by, tinRoll, TIN_CHANCE, JUNK_WEIGHTS.tin);
+  if (tinSpot) found.push(...clearOf(found, placeTins(`n${bx},${by}`, tinSpot, tinRoll)));
+  if (PREVIEW_LOOSE && bx === 0 && by === 0) found.push(...previewLoose(map));
   return found;
+}
+
+/**
+ * The small things put down after the rest (boxes, mugs, tins), or none of them if any on the floor is in something
+ * else's way: what's up on something (a mug on a desk, a box on a box) is let be.
+ */
+function clearOf(found: readonly Junk[], things: Junk[]): Junk[] {
+  const blocked = things.some((t) => {
+    if (t.h > 0.05) return false;
+    const r = t.solid?.r ?? 0.03;
+    return found.some((f) => f.solid && !f.solid.overhead && solidDistance(f.solid, t.x, t.y) < f.solid.r + r);
+  });
+  return blocked ? [] : things;
 }
 
 /**
@@ -5433,6 +5466,224 @@ function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
     }
   }
   return out;
+}
+
+// ---- boxes, mugs and tins lying about ----
+
+/*
+ * The storeroom's boxes, the pantry's mugs and the camp's tins, out in the halls with the rest of the junk: boxes
+ * mostly in the bare plasterboard, mugs where the offices and kitchens are, tins in the old house (zones.ts).
+ */
+
+/** Where in the spot's cell something small goes, from two dice: well inside it. */
+const inCell = (spot: Spot, a: number, b: number): [number, number] => [
+  spot.cx + 0.25 + a * 0.5,
+  spot.cy + 0.25 + b * 0.5,
+];
+
+/** How likely: boxes stacked against a wall, a few strewn about, one on its own (the rest sunk in the carpet). */
+const LOOSE_BOX_STACK = 0.4;
+const LOOSE_BOX_STREWN = 0.7;
+const LOOSE_BOX_ALONE = 0.88;
+
+/** Boxes: a stack or two against a wall, a few strewn about and knocked over, one on its own, or one sunk in. */
+function placeBoxes(key: string, spot: Spot, roll: (k: number) => number): Junk[] {
+  const out: Junk[] = [];
+  const put = (pose: Pose, size: number, open: boolean, label: boolean, solid: Solid | null) =>
+    out.push({ key: `${key}.${out.length}`, kind: "storage", model: boxModel(size, open, label), ...pose, solid });
+  const reach = (size: number) => Math.max(BOX_SIZES[size][0], BOX_SIZES[size][1]) / 2 + 0.01;
+  const how = roll(40);
+  if (how < LOOSE_BOX_STACK && spot.wall) {
+    const [ox, oy] = spot.wall;
+    const stacks = roll(41) < 0.5 ? 1 : 2;
+    for (let s = 0; s < stacks; s++) {
+      const [fx, fy] = wallFace(spot, spot.wall, 0.3 + s * 0.35 + roll(42) * 0.05);
+      const x = fx - ox * 0.14;
+      const y = fy - oy * 0.14;
+      const high = 2 + Math.floor(roll(43 + s) * 3);
+      let h = 0;
+      for (let i = 0; i < high; i++) {
+        const r = (j: number) => roll(100 + s * 40 + i * 6 + j);
+        const size = Math.floor(r(0) * BOX_SIZES.length);
+        const top = i === high - 1;
+        const pose = { x: x + (r(1) - 0.5) * 0.03, y: y + (r(2) - 0.5) * 0.03, h, yaw: Math.atan2(-oy, -ox) + (r(3) - 0.5) * 0.4, pitch: 0, roll: 0 };
+        put(pose, size, top && r(4) < BOX_OPEN, r(5) < BOX_LABELLED, i === 0 ? { x, y, r: 0.15 } : null);
+        h += BOX_SIZES[size][2];
+      }
+    }
+    return out;
+  }
+  if (how < LOOSE_BOX_STREWN) {
+    // Knocked about: some on their sides, one opened.
+    const count = 2 + Math.floor(roll(41) * 3);
+    for (let i = 0; i < count; i++) {
+      const r = (j: number) => roll(100 + i * 6 + j);
+      const size = Math.floor(r(0) * BOX_SIZES.length);
+      const [x, y] = inCell(spot, r(1), r(2));
+      // Tipped onto its front, it lies on it: half its depth up.
+      const tipped = r(3) < 0.4;
+      const pose = { x, y, h: tipped ? BOX_SIZES[size][1] / 2 : 0, yaw: r(4) * Math.PI * 2, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
+      put(pose, size, i === 0 && !tipped && r(5) < 0.5, r(5) < BOX_LABELLED, { x, y, r: reach(size) });
+    }
+    return out;
+  }
+  const size = Math.floor(roll(41) * BOX_SIZES.length);
+  const [x, y] = inCell(spot, roll(50), roll(51));
+  const yaw = roll(52) * Math.PI * 2;
+  if (how < LOOSE_BOX_ALONE) {
+    put({ x, y, h: 0, yaw, pitch: 0, roll: 0 }, size, roll(53) < BOX_OPEN, roll(54) < BOX_LABELLED, { x, y, r: reach(size) });
+    return out;
+  }
+  // Sunk into the carpet, aslant, as if it had been dropped from a height into water.
+  const tall = BOX_SIZES[size][2];
+  const sunk = buried(tall, roll(53));
+  const pose = { x, y, h: -sunk, yaw, pitch: (roll(55) - 0.5) * 1, roll: (roll(56) - 0.5) * 1 };
+  put(pose, size, false, roll(54) < BOX_LABELLED, solidAbove(pose, tall - sunk, reach(size)));
+  return out;
+}
+
+/** The top of an upright desk or cabinet nearby, a mug could be left on: where, and how far along it either way. */
+interface Top {
+  perch: Perch;
+  half: number;
+}
+
+/** How likely: a mug left on a desk or cabinet (if the block has one standing), one on the floor; a row on the floor. */
+const LOOSE_MUG_TOP = 0.4;
+const LOOSE_MUG_FLOOR = 0.75;
+/** How many of the mugs on the floor have fallen over; how many in a row, at least and at most, and how far apart. */
+const LOOSE_MUG_FALLEN = 0.35;
+const LOOSE_MUG_ROW = [5, 13] as const;
+const LOOSE_MUG_GAP = 0.06;
+
+/** Mugs: one left on a desk or cabinet, one on the floor, or a row of them along the skirting, handles all one way. */
+function placeMugs(key: string, spot: Spot, roll: (k: number) => number, tops: readonly Top[]): Junk[] {
+  const mug = (name: string, pose: Pose): Junk => ({ key: `${key}.${name}`, kind: "kitchen", model: MUG_MODEL, ...pose, solid: null });
+  const how = roll(40);
+  if (how < LOOSE_MUG_TOP && tops.length) {
+    const { perch, half } = tops[Math.floor(roll(41) * tops.length)];
+    const fx = Math.cos(perch.yaw);
+    const fy = Math.sin(perch.yaw);
+    const a = (roll(42) - 0.5) * 2 * Math.max(0, half - MUG_R - 0.02);
+    const b = (roll(43) - 0.5) * 2 * Math.max(0, perch.edge - MUG_R - 0.02);
+    const x = perch.x + fy * a + fx * b;
+    const y = perch.y - fx * a + fy * b;
+    return [mug("top", { x, y, h: perch.z, yaw: roll(44) * Math.PI * 2, pitch: 0, roll: 0 })];
+  }
+  if (how >= LOOSE_MUG_FLOOR && spot.wall) {
+    // Lined up along the skirting, a hand's breadth out, every handle the same way.
+    const [ox, oy] = spot.wall;
+    const count = LOOSE_MUG_ROW[0] + Math.floor(roll(41) * (LOOSE_MUG_ROW[1] - LOOSE_MUG_ROW[0] + 1));
+    const [fx, fy] = wallFace(spot, spot.wall, 0.5);
+    const [ax, ay] = [-oy, ox];
+    const handle = roll(42) * Math.PI * 2;
+    return Array.from({ length: count }, (_, i) => {
+      const d = (i - (count - 1) / 2) * LOOSE_MUG_GAP;
+      return mug(`row${i}`, { x: fx - ox * 0.06 + ax * d, y: fy - oy * 0.06 + ay * d, h: 0, yaw: handle, pitch: 0, roll: 0 });
+    });
+  }
+  const [x, y] = inCell(spot, roll(50), roll(51));
+  const fallen = roll(52) < LOOSE_MUG_FALLEN;
+  return [mug("floor", { x, y, h: fallen ? MUG_R : 0, yaw: roll(53) * Math.PI * 2, pitch: fallen ? Math.PI / 2 : 0, roll: 0 })];
+}
+
+/** How likely: a few tins strewn about, one on its own; the rest a little pyramid against a wall. */
+const LOOSE_TIN_STREWN = 0.45;
+const LOOSE_TIN_ALONE = 0.75;
+
+/** Empty tins: a few strewn about, some on their sides; one on its own; or a pyramid of six against a wall. */
+function placeTins(key: string, spot: Spot, roll: (k: number) => number): Junk[] {
+  const out: Junk[] = [];
+  const tin = (x: number, y: number, h: number, yaw: number, fallen: boolean) =>
+    out.push({
+      key: `${key}.${out.length}`,
+      kind: "can",
+      model: TIN_MODEL,
+      x,
+      y,
+      h: fallen ? h + TIN_R : h,
+      yaw,
+      pitch: fallen ? Math.PI / 2 : 0,
+      roll: 0,
+      solid: null,
+    });
+  const how = roll(40);
+  if (how < LOOSE_TIN_STREWN || (how >= LOOSE_TIN_ALONE && !spot.wall)) {
+    const count = 3 + Math.floor(roll(41) * 4);
+    const [cx, cy] = inCell(spot, roll(50), roll(51));
+    for (let i = 0; i < count; i++) {
+      const r = (j: number) => roll(100 + i * 4 + j);
+      const a = r(0) * Math.PI * 2;
+      const d = 0.04 + r(1) * 0.22;
+      tin(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0, r(2) * Math.PI * 2, r(3) < TIN_FALLEN);
+    }
+    return out;
+  }
+  if (how < LOOSE_TIN_ALONE || !spot.wall) {
+    const [x, y] = inCell(spot, roll(50), roll(51));
+    tin(x, y, 0, roll(52) * Math.PI * 2, roll(53) < 0.5);
+    return out;
+  }
+  // Three, two and one, each row on the one below, against the skirting.
+  const [ox, oy] = spot.wall;
+  const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(41) * 0.4);
+  const [ax, ay] = [-oy, ox];
+  const gap = TIN_R * 2 + 0.004;
+  for (let row = 0; row < 3; row++) {
+    for (let i = 0; i < 3 - row; i++) {
+      const d = (i - (2 - row) / 2) * gap;
+      const off = TIN_R + 0.01;
+      tin(fx - ox * off + ax * d, fy - oy * off + ay * d, row * TIN_H, roll(60 + row * 3 + i) * Math.PI * 2, false);
+    }
+  }
+  return out;
+}
+
+/**
+ * TEMPORARY, for Kiri to look over: every way the boxes, mugs and tins can lie, each in one of the open cells with a
+ * wall beside it nearest the spawn (the spawn's own room has none), nearest first. Gone once she's happy.
+ */
+const PREVIEW_LOOSE = true;
+
+function previewLoose(map: WorldMap): Junk[] {
+  const at = (rolls: Record<number, number>) => (k: number) => rolls[k] ?? 0.5;
+  const cells: Spot[] = [];
+  for (let cy = -4; cy <= 9; cy++) {
+    for (let cx = -4; cx <= 9; cx++) {
+      // Only where junk could be: not over a pit room's pits, nor in any other room that keeps it out.
+      if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy) || map.bareHall(cx, cy)) continue;
+      const wall = OUT.find(([ox, oy]) => map.wall(cx + ox, cy + oy));
+      if (wall) cells.push({ cx, cy, wall });
+    }
+  }
+  cells.sort((p, q) => Math.hypot(p.cx - 2, p.cy - 2) - Math.hypot(q.cx - 2, q.cy - 2));
+  // Two cells apart at least, so a row of mugs keeps to itself.
+  const picked: Spot[] = [];
+  for (const c of cells) if (picked.every((p) => Math.hypot(p.cx - c.cx, p.cy - c.cy) >= 2)) picked.push(c);
+  const ways: ((spot: Spot, key: string) => Junk[])[] = [
+    // Boxes: two stacks against the wall, strewn, one on its own, one sunk.
+    (spot, key) => placeBoxes(key, spot, at({ 40: 0.1, 41: 0.7 })),
+    (spot, key) => placeBoxes(key, spot, at({ 40: 0.5, 41: 0.9 })),
+    (spot, key) => placeBoxes(key, spot, at({ 40: 0.8, 53: 0.1 })),
+    (spot, key) => placeBoxes(key, spot, at({ 40: 0.95 })),
+    // Mugs: on a desk, on a cabinet, on the floor standing and fallen, a row of thirteen.
+    (spot, key) => {
+      const desk = placeDesk(`${key}d`, spot, at({ 40: 0.55, 52: 0.1, 53: 0, 70: 0.1 }), false);
+      return [desk, ...placeMugs(key, spot, at({ 40: 0.1 }), desk.perch ? [{ perch: desk.perch, half: 0.17 }] : [])];
+    },
+    (spot, key) => {
+      const cabinet = placeCabinet(`${key}c`, spot, at({ 40: 0.55, 52: 0.1, 53: 0, 70: 0.1, 72: 0.9 }));
+      return [cabinet, ...placeMugs(key, spot, at({ 40: 0.1 }), cabinet.perch ? [{ perch: cabinet.perch, half: 0.06 }] : [])];
+    },
+    (spot, key) => placeMugs(key, spot, at({ 40: 0.5, 52: 0.9 }), []),
+    (spot, key) => placeMugs(key, spot, at({ 40: 0.5, 52: 0.1 }), []),
+    (spot, key) => placeMugs(key, spot, at({ 40: 0.9, 41: 0.99 }), []),
+    // Tins: strewn, one on its own, a pyramid.
+    (spot, key) => placeTins(key, spot, at({ 40: 0.2, 41: 0.99 })),
+    (spot, key) => placeTins(key, spot, at({ 40: 0.6, 53: 0.9 })),
+    (spot, key) => placeTins(key, spot, at({ 40: 0.9 })),
+  ];
+  return ways.flatMap((way, i) => (picked[i] ? way(picked[i], `pv${i}`) : []));
 }
 
 // ---- the candle sign ----

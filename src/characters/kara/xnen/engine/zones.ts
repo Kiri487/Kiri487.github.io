@@ -63,7 +63,10 @@ export const PILLAR_HALL_WEIGHTS: ZoneWeights = [1.3, 0.6, 0.8, 1.5, 0.8];
 export const CUBICLE_HALL_WEIGHTS: ZoneWeights = [0.6, 0.2, 3, 0.8, 0.3];
 export const LAMP_HALL_WEIGHTS: ZoneWeights = [1, 1.5, 0.7, 1, 1];
 
-/** The junk lying about (junk.ts), by kind. */
+/**
+ * The junk lying about (junk.ts), by kind. Boxes left by whoever never finished the plasterboard; mugs where people
+ * worked and made their tea; empty tins where someone lived, in the old house.
+ */
 export const JUNK_WEIGHTS = {
   monitor: [1, 0.3, 2, 0.5, 0.2],
   chair: [1, 1, 1, 1, 1],
@@ -75,6 +78,9 @@ export const JUNK_WEIGHTS = {
   desk: [1, 0.3, 2, 0.5, 0.2],
   socket: [1, 1, 1, 1, 1],
   burger: [1, 1, 1, 1, 1],
+  box: [1, 0.5, 0.7, 3, 0.5],
+  mug: [1, 0.4, 2.5, 0.5, 2],
+  tin: [1, 2.5, 0.3, 1, 0.3],
 } as const satisfies Record<string, ZoneWeights>;
 
 /**
