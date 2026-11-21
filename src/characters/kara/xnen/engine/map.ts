@@ -188,7 +188,7 @@ export type DeadEndThing = "door" | "chair" | "vending";
 /**
  * The end of a dead end, with something at it: the middle of the face of wall at the far end, the way out of it into
  * the open, and how far either way of the middle there's wall to put things along. A cell (cx, cy) by it and `side`
- * give its things their own dice. `force` is the preview's say in what exactly it is.
+ * give its things their own dice.
  */
 export interface DeadEnd {
   x: number;
@@ -202,7 +202,6 @@ export interface DeadEnd {
   thing: DeadEndThing | null;
   /** A room's: only its light nearest the far wall still works. */
   lampOnly: boolean;
-  force?: string;
 }
 /**
  * How likely a lattice room with only the one way in is to have something at its far end; what, in turn from one die
@@ -218,20 +217,6 @@ const DEAD_END_KINDS: readonly [DeadEndThing | null, number][] = [
 const DEAD_END_LAMP_ONLY = 0.5;
 /** How likely each side of a corridor walled across is to have something against the wall. */
 const CORRIDOR_END = 0.5;
-
-/**
- * Preview, for Kiri: three lattice rooms round the spawn walled in, each with a doorway toward it, and one north-east
- * of it with its doorway on the room north of the spawn, one of each dead end in them. Comes out before the pull
- * request.
- */
-const PREVIEW_DEAD_ENDS = true;
-const PREVIEW_ENDS: Record<string, { open: number; thing: DeadEndThing | null; lampOnly: boolean; force?: string }> = {
-  "1,0": { open: 2, thing: "door", lampOnly: true, force: "fire" },
-  "0,1": { open: 0, thing: "chair", lampOnly: false },
-  "-1,0": { open: 3, thing: "vending", lampOnly: false, force: "snack" },
-  "1,-1": { open: 2, thing: "vending", lampOnly: true, force: "pair" },
-};
-const previewEnd = (lx: number, ly: number) => (PREVIEW_DEAD_ENDS ? PREVIEW_ENDS[`${lx},${ly}`] : undefined);
 
 /** The kinds of special room. */
 /**
@@ -891,8 +876,6 @@ export class WorldMap {
 
   private hallKindOf(bx: number, by: number): HallKind | null {
     if (bx === 0 && by === 0) return null;
-    // Preview: none where the dead ends round the spawn are.
-    if (PREVIEW_DEAD_ENDS && Math.abs(bx) + Math.abs(by) <= 1) return null;
     // Only a big room of plain lattice rooms: not a special room, nor in an area laid out to a plan, which has none.
     if (this.noise(bx, by, 9) >= BIG_ROOM || this.specialRoom(bx, by)) return null;
     if (this.layout(bx * 3, by * 3) !== LATTICE) return null;
@@ -936,15 +919,12 @@ export class WorldMap {
   }
 
   private deadEndRoomOf(lx: number, ly: number): DeadEnd | null {
-    const preview = previewEnd(lx, ly);
-    if (!preview) {
-      if (Math.abs(lx) + Math.abs(ly) <= 1 || this.noise(lx, ly, 77) >= DEAD_END) return null;
-      if (this.layout(lx, ly) !== LATTICE) return null;
-      const bx = Math.floor(lx / 3);
-      const by = Math.floor(ly / 3);
-      if (this.specialRoom(bx, by) || this.hallKind(bx, by)) return null;
-      if (this.fittedPlan(lx, ly) || this.burgerPlan(lx, ly)) return null;
-    }
+    if (Math.abs(lx) + Math.abs(ly) <= 1 || this.noise(lx, ly, 77) >= DEAD_END) return null;
+    if (this.layout(lx, ly) !== LATTICE) return null;
+    const bx = Math.floor(lx / 3);
+    const by = Math.floor(ly / 3);
+    if (this.specialRoom(bx, by) || this.hallKind(bx, by)) return null;
+    if (this.fittedPlan(lx, ly) || this.burgerPlan(lx, ly)) return null;
     const x0 = lx * 5;
     const y0 = ly * 5;
     // The openings in its walls, as runs of open cells along each side.
@@ -967,21 +947,15 @@ export class WorldMap {
     const statue = this.statueIn(Math.floor((x0 + 2.5) / this.region), Math.floor((y0 + 2.5) / this.region));
     if (statue && statue.cx > x0 && statue.cx < x0 + 5 && statue.cy > y0 && statue.cy < y0 + 5) return null;
     let thing: DeadEndThing | null = null;
-    let lampOnly: boolean;
-    if (preview) {
-      thing = preview.thing;
-      lampOnly = preview.lampOnly;
-    } else {
-      let die = this.noise(lx, ly, 78);
-      for (const [kind, share] of DEAD_END_KINDS) {
-        if (die < share) {
-          thing = kind;
-          break;
-        }
-        die -= share;
+    let die = this.noise(lx, ly, 78);
+    for (const [kind, share] of DEAD_END_KINDS) {
+      if (die < share) {
+        thing = kind;
+        break;
       }
-      lampOnly = !thing || this.noise(lx, ly, 79) < DEAD_END_LAMP_ONLY;
+      die -= share;
     }
+    const lampOnly = !thing || this.noise(lx, ly, 79) < DEAD_END_LAMP_ONLY;
     // The far wall's inside face, its middle, and the way into the room.
     const far = ACROSS_SIDE[open];
     const [x, y, nx, ny] = [
@@ -990,7 +964,7 @@ export class WorldMap {
       [x0 + 1, y0 + 3, 1, 0],
       [x0 + 5, y0 + 3, -1, 0],
     ][far];
-    return { x, y, nx, ny, half: 2, cx: x0 + 1, cy: y0 + 1, side: far, thing, lampOnly, force: preview?.force };
+    return { x, y, nx, ny, half: 2, cx: x0 + 1, cy: y0 + 1, side: far, thing, lampOnly };
   }
 
   /**
@@ -1142,8 +1116,6 @@ export class WorldMap {
 
   /** Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), covers cell m (1–4). */
   private segment(lx: number, ly: number, dir: number, m: number): boolean {
-    const preview = this.previewEndWall(lx, ly, dir, m);
-    if (preview !== null) return preview;
     const fitted = this.fittedWall(lx, ly, dir, m);
     if (fitted !== null) return fitted;
     // Two stretches by the spawn point are always open, so nobody starts boxed in.
@@ -1170,25 +1142,6 @@ export class WorldMap {
     }
     if (k < area.door + area.half) return m <= 2;
     return true;
-  }
-
-  /**
-   * Preview: whether the stretch of lattice covers cell m as a wall of one of the dead end rooms round the spawn,
-   * always but for its doorway; null if it's none of theirs.
-   */
-  private previewEndWall(lx: number, ly: number, dir: number, m: number): boolean | null {
-    if (!PREVIEW_DEAD_ENDS) return null;
-    // The room it's the north or west wall of (side 0 or 2), and the one it's the south or east wall of (1 or 3).
-    const rooms: [number, number, number][] =
-      dir === 0 ? [[lx, ly, 0], [lx, ly - 1, 1]] : [[lx, ly, 2], [lx - 1, ly, 3]];
-    let found = false;
-    for (const [rx, ry, side] of rooms) {
-      const end = previewEnd(rx, ry);
-      if (!end) continue;
-      found = true;
-      if (end.open === side && m === 2) return false;
-    }
-    return found ? true : null;
   }
 
   /** 1 where cell (x, y) is wall. */

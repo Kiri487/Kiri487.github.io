@@ -3725,7 +3725,7 @@ function deadEndIn(map: WorldMap, end: DeadEnd): Junk[] {
   const fy = end.y + ay * shift;
   const facing = Math.atan2(ny, nx);
   if (end.thing === "door") {
-    const fire = end.force ? end.force === "fire" : roll(2) < 0.5;
+    const fire = roll(2) < 0.5;
     const x = fx + nx * FRAME_DEPTH;
     const y = fy + ny * FRAME_DEPTH;
     const reach = DOOR_W / 2 + FRAME;
@@ -3765,12 +3765,12 @@ function deadEndIn(map: WorldMap, end: DeadEnd): Junk[] {
   }
   if (end.thing !== "vending") return [];
   // Back to the wall: one, or the two side by side, either way round.
-  const pair = end.force ? end.force === "pair" : roll(5) < VEND_PAIR;
+  const pair = roll(5) < VEND_PAIR;
   const kinds: Vending[] = pair
     ? roll(6) < 0.5
       ? ["snack", "drink"]
       : ["drink", "snack"]
-    : [(end.force ? end.force === "drink" : roll(7) < VEND_DRINK) ? "drink" : "snack"];
+    : [roll(7) < VEND_DRINK ? "drink" : "snack"];
   const width = kinds.reduce((sum, k) => sum + VEND_W[k], 0) + (kinds.length - 1) * 0.01;
   let along = (pair ? 0 : shift) - width / 2;
   return kinds.map((kind, i) => {
