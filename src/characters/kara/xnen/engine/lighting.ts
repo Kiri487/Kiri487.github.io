@@ -28,6 +28,8 @@ export class Lighting {
   readonly glow = new Float32Array(5);
   /** 1 for each cell under warmer light, inside a burger room (not its walls or doorway), like a fast-food place's. */
   readonly warm = new Uint8Array(WN * WN);
+  /** The zone each cell is in (map.zoneAt): what its floor, and the faces of wall looking into it, are done up as. */
+  readonly zone = new Uint8Array(WN * WN);
 
   private readonly steady = new Float32Array(WN * WN);
   private readonly groupA = new Float32Array(WN * WN);
@@ -64,6 +66,7 @@ export class Lighting {
       for (let i = 0; i < WN; i++) {
         wall[i + j * WN] = map.wall(this.x0 + i, this.y0 + j);
         this.warm[i + j * WN] = map.burgerInside(this.x0 + i, this.y0 + j) ? 1 : 0;
+        this.zone[i + j * WN] = map.zoneAt(this.x0 + i, this.y0 + j);
       }
     }
     steady.fill(0);
@@ -123,6 +126,13 @@ export class Lighting {
     const i = cx - this.x0;
     const j = cy - this.y0;
     return i >= 0 && j >= 0 && i < WN && j < WN ? this.wall[i + j * WN] : map.wall(cx, cy);
+  }
+
+  /** The zone cell (cx, cy) is in, from the window when it's in it. */
+  zoneAt(cx: number, cy: number, map: WorldMap): number {
+    const i = cx - this.x0;
+    const j = cy - this.y0;
+    return i >= 0 && j >= 0 && i < WN && j < WN ? this.zone[i + j * WN] : map.zoneAt(cx, cy);
   }
 
   /** Moves the flicker on and mixes this frame's light. With reduced motion the flickering lights just stay dim. */

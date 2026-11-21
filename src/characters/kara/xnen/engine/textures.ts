@@ -111,7 +111,129 @@ function wallPixel(variant: number) {
   };
 }
 
-export const WALL_TEXTURES = [0, 1, 2].map((variant) => makeTexture(64, wallPixel(variant)));
+/** Faded striped wallpaper above a dado rail, dark wood panelling below. */
+function housePixel(variant: number) {
+  return (x: number, y: number): Rgb => {
+    const u = x / 64;
+    const v = y / 64;
+    const g = layered(u, v, 4, 200 + variant * 7);
+    if (y < 34) {
+      // Wide dusty-rose bands, a thin line either side of each.
+      const sx = x % 16;
+      let base: Rgb = sx < 6 ? [164, 128, 112] : [184, 162, 132];
+      if (sx === 7 || sx === 15) base = [150, 120, 100];
+      let m = (0.93 + 0.1 * grain(x, y, 201)) * (0.84 + 0.28 * g);
+      if (y < 1) m *= 0.75;
+      // Variant 1 has damp coming down from the top, variant 2 a strip of paper peeled off, plaster under it.
+      if (variant === 1) m *= 1 - 0.3 * smoothstep(0.52, 0.66, layered(u, v * 0.6, 2, 205)) * (1 - v * 1.6);
+      if (variant === 2 && x >= 20 && x < 31 + Math.floor(grain(0, y, 206) * 3) && y > 6 + grain(x, 0, 207) * 4) {
+        base = [176, 170, 150];
+        m *= 0.9;
+      }
+      return [base[0] * m, base[1] * m, base[2] * m];
+    }
+    // The rail, then boards with grooves between them, the grain running down them.
+    let m = (0.86 + 0.14 * valueNoise(u * 4, v * 0.25, 16, 210 + (x >> 4))) * (0.92 + 0.12 * grain(x, y, 211));
+    if (y < 37) m *= y === 34 ? 0.6 : 1.12;
+    else if (x % 16 === 0) m *= 0.5;
+    else if (x % 16 === 1) m *= 1.1;
+    if (y >= 60) m *= 0.7;
+    m *= 1 - 0.25 * Math.max(0, (v - 0.6) / 0.4) * (0.4 + g);
+    return [104 * m, 70 * m, 44 * m];
+  };
+}
+
+/** Off-white paint over plasterboard, scuffed about knee and hand height, over a black rubber skirting. */
+function officePixel(variant: number) {
+  return (x: number, y: number): Rgb => {
+    const u = x / 64;
+    const v = y / 64;
+    if (y >= 58) {
+      const m = (y === 58 ? 0.7 : 1) * (0.9 + 0.12 * grain(x, y, 220));
+      return [46 * m, 46 * m, 48 * m];
+    }
+    const g = layered(u, v, 4, 221 + variant * 7);
+    let m = (0.95 + 0.06 * grain(x, y, 222)) * (0.88 + 0.2 * g);
+    if (y < 1) m *= 0.75;
+    m *= 1 - 0.22 * Math.max(0, (v - 0.6) / 0.4) * (0.4 + g);
+    // Variant 1 has grey scuffs where chairs and bags have rubbed, variant 2 a brown water stain from the ceiling.
+    if (variant === 1) {
+      const band = Math.max(0, 1 - Math.abs(v - 0.64) / 0.1);
+      m *= 1 - 0.18 * band * smoothstep(0.45, 0.65, valueNoise(u, v * 6, 8, 225));
+    }
+    if (variant === 2) {
+      const stain = smoothstep(0.48, 0.6, layered(u, v * 0.5, 2, 226)) * (1 - smoothstep(0, 0.7, v));
+      return [192 * m * (1 - stain * 0.12), 192 * m * (1 - stain * 0.2), 184 * m * (1 - stain * 0.4)];
+    }
+    return [192 * m, 192 * m, 184 * m];
+  };
+}
+
+/**
+ * Plasterboard never painted: a taped seam, a row of screws, a builder's pencil line. It has only two looks: variant 2
+ * is the plain one again.
+ */
+function drywallPixel(variant: number) {
+  return (x: number, y: number): Rgb => {
+    const u = x / 64;
+    const v = y / 64;
+    const g = layered(u, v, 4, 233);
+    let m = (0.94 + 0.08 * grain(x, y, 234)) * (0.86 + 0.2 * g);
+    let base: Rgb = [196, 192, 182];
+    // The seam where two boards meet, filled and taped, in whiter mud.
+    if (x < 5 || x >= 61) {
+      base = [212, 210, 202];
+      if (x === 0) m *= 0.85;
+    }
+    // Variant 1 has blotches of mud over the screws and the seams, sanded or not.
+    if (variant === 1 && layered(u, v, 3, 235) > 0.58) base = [214, 212, 206];
+    // Screws, a row down each board, filled over in variant 1.
+    if ((x === 20 || x === 44) && y % 14 === 6) m *= variant === 1 ? 0.85 : 0.55;
+    // A builder's pencil line.
+    if (y === 22 && x > 8 && x < 50 && grain(x, 0, 236) > 0.15) m *= 0.75;
+    m *= 1 - 0.3 * Math.max(0, (v - 0.7) / 0.3) * (0.5 + g);
+    if (y < 1) m *= 0.75;
+    return [base[0] * m, base[1] * m, base[2] * m];
+  };
+}
+
+/** White tiles all the way up, the grout between them grubby, the bottom row darker. */
+function tilesPixel(variant: number) {
+  return (x: number, y: number): Rgb => {
+    const u = x / 64;
+    const v = y / 64;
+    const tx = x >> 4;
+    const ty = y >> 4;
+    const g = layered(u, v, 4, 240 + variant * 7);
+    if (x % 16 === 0 || y % 16 === 0) {
+      const m = (0.8 + 0.2 * grain(x, y, 241)) * (0.8 + 0.3 * g) * (1 - 0.3 * v);
+      return [150 * m, 146 * m, 132 * m];
+    }
+    // Each tile a touch its own shade, its top and left edges catching the light like a glaze.
+    let m = (0.93 + 0.08 * grain(tx, ty, 242)) * (0.97 + 0.04 * grain(x, y, 243));
+    if (x % 16 === 1 || y % 16 === 1) m *= 1.06;
+    if (x % 16 === 15 || y % 16 === 15) m *= 0.92;
+    m *= 1 - 0.25 * Math.max(0, (v - 0.6) / 0.4) * (0.4 + g);
+    let base: Rgb = ty === 3 ? [150, 156, 150] : [210, 212, 202];
+    // Variant 1 has a crack running across some tiles, variant 2 a tile gone and the combed glue behind it.
+    if (variant === 1 && x > 6 && x < 58 && Math.abs(y - (18 + x * 0.4 + (grain(x >> 2, 0, 245) - 0.5) * 3)) < 0.7) {
+      m *= 0.55;
+    }
+    if (variant === 2 && tx === 2 && ty === 1) {
+      base = [120, 112, 92];
+      m = (0.8 + 0.25 * grain(x, y, 244)) * (y % 4 < 2 ? 0.75 : 1);
+    }
+    return [base[0] * m, base[1] * m, base[2] * m];
+  };
+}
+
+/**
+ * Each zone's wallpaper (map.ts), in three variants: mostly the first, sometimes the second, now and then the third.
+ * Indexed by zone, then variant.
+ */
+export const WALL_TEXTURES = [wallPixel, housePixel, officePixel, drywallPixel, tilesPixel].map((pixel) =>
+  [0, 1, 2].map((variant) => makeTexture(64, pixel(variant))),
+);
 
 /**
  * The carpet, at 64 pixels a cell, and how many cells its picture covers before it repeats. Its stains are the same
@@ -129,6 +251,66 @@ export const CARPET = makeTexture(CARPET_SIZE, (x, y) => {
   m *= 1 - 0.3 * smoothstep(0.56, 0.72, layered(u, v, 2 * k, 33));
   return [150 * m, 128 * m, 66 * m];
 });
+
+/**
+ * A floor the carpet's size, worked out `period` pixels a side and repeated: patterned floors repeat anyway, and
+ * working the whole of each out from noise would make opening the door stall.
+ */
+function makeFloor(period: number, pixel: (x: number, y: number) => Rgb): Uint8ClampedArray {
+  const tile = makeTexture(period, pixel);
+  const out = new Uint8ClampedArray(CARPET_SIZE * CARPET_SIZE * 3);
+  for (let y = 0; y < CARPET_SIZE; y++) {
+    const row = tile.subarray((y % period) * period * 3, ((y % period) + 1) * period * 3);
+    for (let x = 0; x < CARPET_SIZE; x += period) out.set(row, (y * CARPET_SIZE + x) * 3);
+  }
+  return out;
+}
+
+/** An old house's carpet: dark red, worn paler in places. */
+const HOUSE_FLOOR = makeFloor(256, (x, y) => {
+  const u = x / 256;
+  const v = y / 256;
+  let m = 0.78 + 0.4 * grain(x, y, 250);
+  m *= 0.72 + 0.46 * layered(u, v, 6, 251);
+  const worn = smoothstep(0.55, 0.7, layered(u, v, 2, 252));
+  return [112 * m * (1 + worn * 0.25), 52 * m * (1 + worn * 0.4), 44 * m * (1 + worn * 0.4)];
+});
+
+/** Grey-blue carpet tiles, half a cell a side, each one's pile turned a quarter from its neighbours'. */
+const OFFICE_FLOOR = makeFloor(64, (x, y) => {
+  const across = ((x >> 5) + (y >> 5)) % 2 === 0;
+  const line = (across ? y : x) % 3 === 0;
+  let m = (0.82 + 0.3 * grain(x, y, 255)) * (line ? 0.88 : 1);
+  m *= 0.94 + 0.08 * grain(x >> 5, y >> 5, 256);
+  if (x % 32 === 0 || y % 32 === 0) m *= 0.82;
+  return [84 * m, 92 * m, 104 * m];
+});
+
+/** Bare concrete, blotchy, with a crack or two. */
+const CONCRETE_FLOOR = makeFloor(256, (x, y) => {
+  const u = x / 256;
+  const v = y / 256;
+  let m = 0.9 + 0.16 * grain(x, y, 260);
+  m *= 0.78 + 0.34 * layered(u, v, 4, 261);
+  m *= 1 - 0.25 * smoothstep(0.6, 0.75, layered(u, v, 2, 262));
+  if (Math.abs(layered(u, v, 3, 263) - 0.5) < 0.004 && layered(u, v, 2, 264) > 0.6) m *= 0.6;
+  return [124 * m, 120 * m, 112 * m];
+});
+
+/** Checked lino, a quarter of a cell a square, scuffed and yellowed. */
+const LINO_FLOOR = makeFloor(128, (x, y) => {
+  const u = x / 128;
+  const v = y / 128;
+  const dark = ((x >> 4) + (y >> 4)) % 2 === 1;
+  let m = (0.92 + 0.1 * grain(x, y, 265)) * (0.84 + 0.24 * layered(u, v, 4, 266));
+  if (x % 16 === 0 || y % 16 === 0) m *= 0.9;
+  return dark ? [92 * m, 94 * m, 90 * m] : [190 * m, 182 * m, 156 * m];
+});
+
+/** Each zone's floor, all the carpet's size, indexed by zone (map.ts). */
+export const FLOORS = [CARPET, HOUSE_FLOOR, OFFICE_FLOOR, CONCRETE_FLOOR, LINO_FLOOR];
+/** Whether each zone's floor is mirrored like the carpet (CARPET_FLIP): not a pattern, which would jump where it flips. */
+export const FLOOR_FLIPS = [true, true, false, true, false];
 
 /**
  * Whether each column, and each row, of carpet pictures is mirrored, so even eight cells apart the stains don't repeat.

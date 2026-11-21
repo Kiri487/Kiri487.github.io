@@ -37,6 +37,40 @@ export const LIGHT_FLICKER_A = 2;
 export const LIGHT_FLICKER_B = 3;
 export const LIGHT_DEAD = 4;
 
+/**
+ * What a stretch of the place is done up in: its wallpaper and its floor. Still Level 0 everywhere, just built at
+ * different times by different nobodies. Yellow is most of it.
+ */
+export const ZONE_YELLOW = 0;
+/** Faded striped wallpaper over wood panelling, an old dark red carpet: like an old house. */
+export const ZONE_HOUSE = 1;
+/** Off-white paint, a black rubber skirting, grey-blue carpet tiles: a colder office. */
+export const ZONE_OFFICE = 2;
+/** Plasterboard never painted, its seams taped and its screws showing; bare concrete. */
+export const ZONE_DRYWALL = 3;
+/** White tiles all the way up, a checked lino floor: by the toilets and kitchens. */
+export const ZONE_TILES = 4;
+export const ZONE_COUNT = 5;
+/** How likely each zone is to be each kind, in turn from one die; what's left over is yellow. */
+const ZONE_CHANCES: readonly [number, number][] = [
+  [ZONE_HOUSE, 0.11],
+  [ZONE_OFFICE, 0.11],
+  [ZONE_DRYWALL, 0.1],
+  [ZONE_TILES, 0.1],
+];
+/**
+ * Zones are the cells nearest each of a scattering of points, one somewhere in each square this many cells wide, so
+ * they come in all shapes. The square at the spawn has its point right on it, and is always yellow.
+ */
+const ZONE_SIZE = 44;
+/**
+ * Mostly a whole lattice room is one zone, so the change comes at a wall or a doorway, like going into another wing.
+ * In this share of lattice rooms the line between zones runs straight through, wallpaper and carpet cut off mid-room.
+ */
+const ZONE_UNRULY = 0.15;
+/** PREVIEW: puts one of each new zone right by the spawn. Comes out before the pull request. */
+const PREVIEW_ZONES = true;
+
 /** Where the player starts: inside the first lattice room, which is always open. */
 export const SPAWN = { x: 2.5, y: 2.5, angle: 0.6 };
 
@@ -172,6 +206,55 @@ export class WorldMap {
     if (rx === 0 && ry === 0) return MAZE;
     const t = this.noise(rx, ry, 10);
     return t < 0.3 ? HALL : t < 0.72 ? MAZE : OFFICE;
+  }
+
+  /** The kind of zone the scattered point in square (gx, gy) starts, and where in the world that point is. */
+  private zonePoint(gx: number, gy: number): [number, number, number] {
+    if (gx === 0 && gy === 0) return [ZONE_YELLOW, SPAWN.x, SPAWN.y];
+    // PREVIEW: the four squares beside the spawn's are each a new zone, their points close by, east, south, west, north.
+    if (PREVIEW_ZONES && Math.abs(gx) + Math.abs(gy) === 1) {
+      const kind = gx === 1 ? ZONE_HOUSE : gy === 1 ? ZONE_OFFICE : gx === -1 ? ZONE_DRYWALL : ZONE_TILES;
+      return [kind, SPAWN.x + gx * 46, SPAWN.y + gy * 46];
+    }
+    let die = this.noise(gx, gy, 72);
+    let kind = ZONE_YELLOW;
+    for (const [k, chance] of ZONE_CHANCES) {
+      if (die < chance) {
+        kind = k;
+        break;
+      }
+      die -= chance;
+    }
+    return [kind, (gx + this.noise(gx, gy, 73)) * ZONE_SIZE, (gy + this.noise(gx, gy, 74)) * ZONE_SIZE];
+  }
+
+  /**
+   * The zone cell (cx, cy) is in, which its floor and the faces of wall looking into it are done up as. A special
+   * room keeps to the yellow it was built in.
+   */
+  zoneAt(cx: number, cy: number): number {
+    if (this.roomAt(cx, cy)) return ZONE_YELLOW;
+    const lx = Math.floor(cx / 5);
+    const ly = Math.floor(cy / 5);
+    // Most lattice rooms go by their middle, so the whole room is one zone; an unruly one goes cell by cell.
+    const unruly = this.noise(lx, ly, 70) < ZONE_UNRULY;
+    const sx = unruly ? cx + 0.5 : lx * 5 + 2.5;
+    const sy = unruly ? cy + 0.5 : ly * 5 + 2.5;
+    const gx = Math.floor(sx / ZONE_SIZE);
+    const gy = Math.floor(sy / ZONE_SIZE);
+    let best = Infinity;
+    let zone = ZONE_YELLOW;
+    for (let j = gy - 1; j <= gy + 1; j++) {
+      for (let i = gx - 1; i <= gx + 1; i++) {
+        const [kind, x, y] = this.zonePoint(i, j);
+        const d2 = (x - sx) ** 2 + (y - sy) ** 2;
+        if (d2 < best) {
+          best = d2;
+          zone = kind;
+        }
+      }
+    }
+    return zone;
   }
 
   /** What kind of special room block (bx, by) of 3 × 3 lattice rooms is, or null if it's none. Never the spawn's. */
