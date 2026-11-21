@@ -64,6 +64,7 @@ export function placeStatue(model: StatueModel, statue: Statue): StatueMesh {
   const normals = new Float32Array(count * 3);
   const centres = new Float32Array(count * 3);
   const flags = new Uint8Array(count);
+  let reach = 0;
   for (let i = 0; i < count; i++) {
     const o = i * 16;
     const q = i * 15;
@@ -76,6 +77,7 @@ export function placeStatue(model: StatueModel, statue: Statue): StatueMesh {
       corners[q + k * 5 + 2] = Y;
       corners[q + k * 5 + 3] = src[o + k * 5 + 3];
       corners[q + k * 5 + 4] = src[o + k * 5 + 4];
+      reach = Math.max(reach, Math.hypot(X, Z));
     }
     const ax = src[o + 5] - src[o];
     const ay = src[o + 6] - src[o + 1];
@@ -98,7 +100,7 @@ export function placeStatue(model: StatueModel, statue: Statue): StatueMesh {
     centres[i * 3 + 2] = (corners[q + 2] + corners[q + 7] + corners[q + 12]) / 3;
     flags[i] = src[o + 15];
   }
-  return { x: statue.x, y: statue.y, count, corners, normals, centres, flags };
+  return { x: statue.x, y: statue.y, reach, count, corners, normals, centres, flags };
 }
 
 /** What drawStatue needs to know about the frame. */
@@ -123,6 +125,27 @@ export interface StatueFrame {
 
 const screen = new Float32Array(9);
 
+/**
+ * Whether none of a thing would show: all of it off the sides of the picture, or behind the walls in every column it
+ * could cover. Goes by the circle `reach` round where it stands, `ahead` of the eye; nothing is left out that would
+ * have drawn a pixel.
+ */
+function outOfSight(f: StatueFrame, x: number, y: number, ahead: number, reach: number): boolean {
+  const near = ahead - reach;
+  // Partly behind the eye: too near to tell.
+  if (near < 0.05) return false;
+  const far = ahead + reach;
+  const side = -(x - f.camX) * f.dirY + (y - f.camY) * f.dirX;
+  const half = f.width / 2;
+  // A pixel either side for the corners snapping to whole pixels.
+  const left = Math.floor(half + Math.min((side - reach) / near, (side - reach) / far) * f.focal) - 1;
+  const right = Math.ceil(half + Math.max((side + reach) / near, (side + reach) / far) * f.focal) + 1;
+  if (right < 0 || left > f.width - 1) return true;
+  const x1 = Math.min(f.width - 1, right);
+  for (let sx = Math.max(0, left); sx <= x1; sx++) if (f.wallDepth[sx] > near) return false;
+  return true;
+}
+
 export function drawStatue(
   f: StatueFrame,
   mesh: StatueMesh,
@@ -135,6 +158,7 @@ export function drawStatue(
   const reach = mesh.reach ?? 0;
   if (ahead < -0.6 - reach || ahead > 27 + reach) return;
   const { pixels: d, width: W, height: H, wallDepth, depth, focal, horizon, dirX: dx, dirY: dy, camX, camY, eye } = f;
+  if (mesh.reach !== undefined && outOfSight(f, mesh.x, mesh.y, ahead, mesh.reach)) return;
   const { corners: v, normals: nr, centres: ct, flags } = mesh;
   const tex = skin.data;
   const AW = model.atlasWidth;
@@ -195,9 +219,31 @@ export function drawStatue(
     const ar = FR * fog, ag = FG * fog, ab = FB * fog;
     const glow = 0.55 * (1 - fog * 0.5);
     const u0 = v[q + 3], v0 = v[q + 4], u1 = v[q + 8], v1 = v[q + 9], u2 = v[q + 13], v2 = v[q + 14];
+    // Along a row each corner's weight changes steadily with x: by this much a pixel.
+    const a0 = (y1 - y2) * id;
+    const a1 = (y2 - y0) * id;
+    const a2 = -a0 - a1;
     for (let y = by0; y <= by1; y++) {
       const yc = y + 0.5;
-      for (let x = bx0; x <= bx1; x++) {
+      // Where on this row all three weights are positive, worked out from each weight at x = 0. A pixel's margin
+      // either side; each pixel is still tested below.
+      const w0 = ((y1 - y2) * -x2 + (x2 - x1) * (yc - y2)) * id;
+      const w1 = ((y2 - y0) * -x2 + (x0 - x2) * (yc - y2)) * id;
+      let lo = -Infinity;
+      let hi = Infinity;
+      if (a0 > 0) lo = Math.max(lo, -w0 / a0);
+      else if (a0 < 0) hi = Math.min(hi, -w0 / a0);
+      else if (w0 < -1e-9) continue;
+      if (a1 > 0) lo = Math.max(lo, -w1 / a1);
+      else if (a1 < 0) hi = Math.min(hi, -w1 / a1);
+      else if (w1 < -1e-9) continue;
+      const w2 = 1 - w0 - w1;
+      if (a2 > 0) lo = Math.max(lo, -w2 / a2);
+      else if (a2 < 0) hi = Math.min(hi, -w2 / a2);
+      else if (w2 < -1e-9) continue;
+      const sx0 = Math.max(bx0, Math.floor(lo - 0.5) - 1);
+      const sx1 = Math.min(bx1, Math.ceil(hi - 0.5) + 1);
+      for (let x = sx0; x <= sx1; x++) {
         const xc = x + 0.5;
         const l0 = ((y1 - y2) * (xc - x2) + (x2 - x1) * (yc - y2)) * id;
         const l1 = ((y2 - y0) * (xc - x2) + (x0 - x2) * (yc - y2)) * id;

@@ -109,6 +109,8 @@ export class Renderer {
   /** The frame on screen when the tape was paused. */
   private still: Uint8ClampedArray | null = null;
   private noiseSeed = 1;
+  /** The things to draw this frame, in the order they're drawn. */
+  private propOrder: Prop[] = [];
   /** The cult's posters, once their picture has loaded and been aged. */
   private posters: readonly PosterArt[] = [];
   /** The ceiling's posters over each cell of the light window, looked up once a frame; undefined until then. */
@@ -605,7 +607,12 @@ export class Renderer {
         fogK,
         fog: FOG,
       };
-      for (const prop of props) {
+      // Nearest first: what stands behind them is then mostly turned away pixel by pixel before it's coloured.
+      const order = this.propOrder;
+      order.length = 0;
+      for (const prop of props) order.push(prop);
+      order.sort((a, b) => (a.mesh.x - px) ** 2 + (a.mesh.y - py) ** 2 - (b.mesh.x - px) ** 2 - (b.mesh.y - py) ** 2);
+      for (const prop of order) {
         drawStatue(frame, prop.mesh, prop.model, prop.skin, prop.glow ?? light.at(prop.mesh.x, prop.mesh.y), prop.clip);
       }
     }
