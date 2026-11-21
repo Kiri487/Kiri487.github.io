@@ -201,6 +201,11 @@ export class Figure {
     const rx = fy * uz - fz * uy;
     const ry = fz * ux - fx * uz;
     const rz = fx * uy - fy * ux;
+    const half = this.height / 2;
+    const mx = at.x + ux * half;
+    const my = at.y + uy * half;
+    // How far its furthest corner is from its middle, along the floor, for leaving it out when it's out of sight.
+    let reach2 = 0;
     for (let i = 0; i < this.model.faces; i++) {
       const q = i * 15;
       for (let k = 0; k < 3; k++) {
@@ -208,8 +213,12 @@ export class Figure {
         const X = p[vi * 3];
         const Y = p[vi * 3 + 1];
         const Z = p[vi * 3 + 2];
-        corners[q + k * 5] = at.x + X * rx + Y * ux + Z * fx;
-        corners[q + k * 5 + 1] = at.y + X * ry + Y * uy + Z * fy;
+        const wx = at.x + X * rx + Y * ux + Z * fx;
+        const wy = at.y + X * ry + Y * uy + Z * fy;
+        corners[q + k * 5] = wx;
+        corners[q + k * 5 + 1] = wy;
+        const r2 = (wx - mx) * (wx - mx) + (wy - my) * (wy - my);
+        if (r2 > reach2) reach2 = r2;
         corners[q + k * 5 + 2] = at.z + X * rz + Y * uz + Z * fz;
         corners[q + k * 5 + 3] = uvs[vi * 2];
         corners[q + k * 5 + 4] = uvs[vi * 2 + 1];
@@ -232,9 +241,9 @@ export class Figure {
       centres[i * 3 + 1] = (corners[q + 1] + corners[q + 6] + corners[q + 11]) / 3;
       centres[i * 3 + 2] = (corners[q + 2] + corners[q + 7] + corners[q + 12]) / 3;
     }
-    const half = this.height / 2;
-    this.mesh.x = at.x + ux * half;
-    this.mesh.y = at.y + uy * half;
+    this.mesh.x = mx;
+    this.mesh.y = my;
+    this.mesh.reach = Math.sqrt(reach2);
     return this.mesh;
   }
 
