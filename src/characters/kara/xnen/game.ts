@@ -188,6 +188,19 @@ const TRAIL_KEEP = 600;
 const REWIND_SPAN = 200;
 /** With reduced motion, how long REW or STOP stays up while the page fades. */
 const CALM_LEAVE_TIME = 0.5;
+/**
+ * Falling into a pit: how fast, in ceiling heights a second squared, and how far down the eye goes before the tape
+ * stops: the pits have no bottom, and by then it's all dark.
+ */
+const FALL_PULL = 3.6;
+const FALL_END = -2.6;
+/**
+ * How far the visitor's middle can be out over a pit before they fall: until then a foot is still on the rim. Under
+ * PLAYER_RADIUS, so they lean out over the dark a little first.
+ */
+const PIT_FOOTING = 0.08;
+/** While falling, the view tips down this much, as a share of the picture's height. */
+const FALL_TIP = 0.25;
 /** Statues further than this aren't drawn. */
 const DRAW_RANGE = 28;
 /**
@@ -430,6 +443,8 @@ export function createGame(parts: GameParts): Game {
   /** Seconds into the current transition. */
   let fxTime = 0;
   let enterLeft = reduced ? 0 : ENTER_TIME;
+  /** Falling into a pit: the eye's height and how fast it's going down. Null while on solid floor. */
+  let fall: { z: number; speed: number } | null = null;
   let bandPhase = 0;
   /** The rewind's burst has started (and made its sound). */
   let burst = false;
@@ -582,6 +597,8 @@ export function createGame(parts: GameParts): Game {
   /** Room for XN's middle at (x, y): no wall within her reach. */
   const roomFor = (x: number, y: number) => {
     const r = XN_RADIUS;
+    // She keeps out of the pit rooms for now.
+    if (map.inPitRoom(Math.floor(x), Math.floor(y))) return false;
     return (
       !map.wall(Math.floor(x - r), Math.floor(y - r)) &&
       !map.wall(Math.floor(x + r), Math.floor(y - r)) &&
@@ -600,6 +617,7 @@ export function createGame(parts: GameParts): Game {
         if (!map.wall(cx + i, cy + j)) continue;
         for (const [nx, ny] of SIDES) {
           if (map.wall(cx + i + nx, cy + j + ny)) continue;
+          if (map.inPitRoom(cx + i + nx, cy + j + ny)) continue;
           faces.push({ x: cx + i + 0.5 + nx * 0.5, y: cy + j + 0.5 + ny * 0.5, nx, ny });
         }
       }
@@ -1146,8 +1164,9 @@ export function createGame(parts: GameParts): Game {
     x: player.x,
     y: player.y,
     angle: player.angle,
-    pitch: player.pitch,
-    bob: player.bob,
+    pitch: fall ? player.pitch + FALL_TIP * Math.min(1, (EYE - fall.z) / (EYE - FALL_END)) : player.pitch,
+    bob: fall ? 0 : player.bob,
+    z: fall ? fall.z : EYE,
   });
 
   /** Where the camera is while rewinding: running back along the walk, faster and faster. */
@@ -1222,13 +1241,24 @@ export function createGame(parts: GameParts): Game {
       props.push({ mesh, model: junk.model, skin: junkSkin, clip: true });
     }
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
-      const eye: Point = [cam.x, cam.y, EYE];
+      const eye: Point = [cam.x, cam.y, cam.z ?? EYE];
       props.push({ mesh: xn.update(dt, eye, reduced), model: xn.figure.look, skin: xnSkin });
     }
   };
 
   /** dt is capped to keep the walk steady; `real` is the time that actually passed, which is what SAN counts. */
   const update = (dt: number, real: number, now: number) => {
+    // Falling into a pit: nothing to do but drop, and once it's all dark the tape stops.
+    if (fall) {
+      passSanTime(real);
+      fall.speed += FALL_PULL * dt;
+      fall.z -= fall.speed * dt;
+      if (fall.z <= FALL_END) {
+        fall.z = FALL_END;
+        leaveBy("lost");
+      }
+      return;
+    }
     const held = (code: string) => (keys.has(code) ? 1 : 0);
     const step = player.move(
       dt,
@@ -1242,6 +1272,16 @@ export function createGame(parts: GameParts): Game {
       tuning.bob && !reduced ? renderer.pictureHeight : 0,
     );
     if (step) playStepSfx();
+    if (map.pitAt(player.x, player.y, PIT_FOOTING)) {
+      // Over the edge. With reduced motion there's no drop to watch: the tape just stops.
+      showLine(null);
+      setPrompt(false);
+      keys.clear();
+      resetJoystick();
+      if (reduced) leaveBy("lost");
+      else fall = { z: EYE, speed: 0 };
+      return;
+    }
     // Time in here wears the visitor's SAN down, at the clock's pace however slowly the picture draws. Only while
     // playing: paused, hidden or leaving doesn't count.
     passSanTime(real);

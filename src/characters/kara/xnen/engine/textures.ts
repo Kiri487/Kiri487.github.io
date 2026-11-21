@@ -161,3 +161,13 @@ export const PANEL = makeTexture(64, (x, y) => {
   }
   return ceilingPixel(x, y);
 });
+
+/** The sides of the pits: bare plaster, grainy and grubby, about the carpet's colour so the pits sit in the floor. */
+export const PIT_SIDE = makeTexture(64, (x, y) => {
+  const u = x / 64;
+  const v = y / 64;
+  let m = 0.86 + 0.2 * grain(x, y, 90);
+  m *= 0.84 + 0.26 * layered(u, v, 4, 91);
+  m *= 1 - 0.22 * smoothstep(0.55, 0.7, layered(u, v, 2, 95));
+  return [160 * m, 138 * m, 74 * m];
+});

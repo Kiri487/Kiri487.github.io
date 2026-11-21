@@ -6,6 +6,9 @@ import type { Tuning } from "./tuning";
  * Walls sit on a lattice every 5 cells. Each stretch of lattice between two points is a wall, a wall with a doorway,
  * half a wall or nothing, and how often each comes up depends on the kind of area: open halls with pillars, mazes of
  * corridors, or packed office cubicles. Now and then a block of lattice rooms is knocked through into one big room.
+ *
+ * Rarer still, a block of 3 × 3 lattice rooms is a pit room: walled all round, with a doorway somewhere along some of
+ * its sides and at least one, and from wall to wall a grid of square pits with no bottom, only thin rims between them.
  */
 
 interface Area {
@@ -43,6 +46,36 @@ export interface Statue {
   lampY: number;
 }
 
+/** A pit room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
+export const PIT_ROOM = 15;
+/** Its pits fill the room from wall to wall: one cell in from the room's corner, past the wall, and this many a side. */
+const PIT_FIELD_IN = 1;
+export const PIT_FIELD = 14;
+/** How many pits along each side of the field, and so how far apart their rims are. */
+export const PIT_COUNT = 7;
+export const PIT_PITCH = PIT_FIELD / PIT_COUNT;
+/**
+ * Half a rim's width: the rims between pits are this far either side of their lines. Along the walls the rim is all on
+ * the inside, so it's as wide as the others.
+ */
+export const PIT_RIM = 0.15;
+/** How likely a block is to be a pit room. */
+const PIT_CHANCE = 0.06;
+/** How likely each side of a pit room is to have a doorway (one, anywhere along it). A room left with none gets one. */
+const PIT_DOOR = 0.5;
+/**
+ * Preview: the block east of the spawn is always a pit room, and the spawn's own block is one open hall, so its wall
+ * and doorways are in sight from the start. Delete before the PR.
+ */
+const PREVIEW_PITS = true;
+
+/** The square of pits in a pit room, in cells: its north-west corner and its width. */
+export interface PitField {
+  x0: number;
+  y0: number;
+  size: number;
+}
+
 /** How many spots a region tries before it gives up on having a statue. */
 const STATUE_TRIES = 24;
 /** Statues keep this far from their region's edge, so the lamp over one is in the same region. */
@@ -75,9 +108,88 @@ export class WorldMap {
     return t < 0.3 ? HALL : t < 0.72 ? MAZE : OFFICE;
   }
 
+  /** Whether block (bx, by) of 3 × 3 lattice rooms is a pit room. Never the spawn's block. */
+  pitRoom(bx: number, by: number): boolean {
+    if (bx === 0 && by === 0) return false;
+    if (PREVIEW_PITS && bx === 1 && by === 0) return true;
+    return this.noise(bx, by, 50) < PIT_CHANCE;
+  }
+
+  /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a pit room. */
+  private openBlock(bx: number, by: number): boolean {
+    if (PREVIEW_PITS && bx === 0 && by === 0) return true;
+    return this.noise(bx, by, 9) < 0.2 || this.pitRoom(bx, by);
+  }
+
   private bigRoom(lx: number, ly: number, dir: number): boolean {
-    if (this.noise(Math.floor(lx / 3), Math.floor(ly / 3), 9) >= 0.2) return false;
+    if (!this.openBlock(Math.floor(lx / 3), Math.floor(ly / 3))) return false;
     return dir === 0 ? mod(ly, 3) !== 0 : mod(lx, 3) !== 0;
+  }
+
+  /**
+   * Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), is a pit room's wall:
+   * then it's always there, but for the side's doorway if it has one and it's here.
+   */
+  private pitWall(lx: number, ly: number, dir: number): boolean {
+    const across = dir === 0 ? ly : lx;
+    if (mod(across, 3) !== 0) return false;
+    const along = Math.floor((dir === 0 ? lx : ly) / 3);
+    const block = across / 3;
+    return dir === 0
+      ? this.pitRoom(along, block) || this.pitRoom(along, block - 1)
+      : this.pitRoom(block, along) || this.pitRoom(block - 1, along);
+  }
+
+  /**
+   * Which sides of pit room (bx, by) have a doorway: north, south, west, east. Each side's own die is shared with the
+   * block on its other side, so a wall between two pit rooms agrees with itself; a room that rolls none gets one.
+   */
+  private pitSides(bx: number, by: number): [boolean, boolean, boolean, boolean] {
+    const sides: [boolean, boolean, boolean, boolean] = [
+      this.noise(bx, by, 52) < PIT_DOOR,
+      this.noise(bx, by + 1, 52) < PIT_DOOR,
+      this.noise(bx, by, 53) < PIT_DOOR,
+      this.noise(bx + 1, by, 53) < PIT_DOOR,
+    ];
+    // The preview's room always opens toward the spawn.
+    if (PREVIEW_PITS && bx === 1 && by === 0) sides[2] = true;
+    if (!sides.some(Boolean)) sides[Math.floor(this.noise(bx, by, 54) * 4)] = true;
+    return sides;
+  }
+
+  /**
+   * The doorway in a pit room's wall along a block's side, as the stretch it's in (0–2) and the cell along that
+   * stretch (1–4), or null if there's none. dir 0: the wall along the top of block (a, b); dir 1: down its left.
+   */
+  private pitDoorway(dir: number, a: number, b: number): [number, number] | null {
+    const open =
+      dir === 0
+        ? (this.pitRoom(a, b) && this.pitSides(a, b)[0]) || (this.pitRoom(a, b - 1) && this.pitSides(a, b - 1)[1])
+        : (this.pitRoom(a, b) && this.pitSides(a, b)[2]) || (this.pitRoom(a - 1, b) && this.pitSides(a - 1, b)[3]);
+    if (!open) return null;
+    return [Math.floor(this.noise(a, b, 56 + dir) * 3), 1 + Math.floor(this.noise(a, b, 58 + dir) * 4)];
+  }
+
+  /** The square of pits that (x, y) is over or beside, if it's in a pit room. */
+  pitFieldAt(x: number, y: number): PitField | null {
+    const bx = Math.floor(x / PIT_ROOM);
+    const by = Math.floor(y / PIT_ROOM);
+    if (!this.pitRoom(bx, by)) return null;
+    return { x0: bx * PIT_ROOM + PIT_FIELD_IN, y0: by * PIT_ROOM + PIT_FIELD_IN, size: PIT_FIELD };
+  }
+
+  /** Whether cell (cx, cy) is in a pit room, walls included. */
+  inPitRoom(cx: number, cy: number): boolean {
+    return this.pitRoom(Math.floor(cx / PIT_ROOM), Math.floor(cy / PIT_ROOM));
+  }
+
+  /**
+   * Whether (x, y) is over a pit, not on a rim or the carpet round them. With a `margin`, only if it's more than that
+   * far out over the pit: someone standing at (x, y) still has a foot on the rim until then.
+   */
+  pitAt(x: number, y: number, margin = 0): boolean {
+    const field = this.pitFieldAt(x, y);
+    return !!field && overPit(field, x, y, margin);
   }
 
   /** Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), covers cell m (1–4). */
@@ -85,6 +197,13 @@ export class WorldMap {
     // Two stretches by the spawn point are always open, so nobody starts boxed in.
     if (dir === 0 ? lx === 0 && (ly === 0 || ly === 1) : ly === 0 && (lx === 0 || lx === 1)) return false;
     if (this.bigRoom(lx, ly, dir)) return false;
+    if (this.pitWall(lx, ly, dir)) {
+      const doorway =
+        dir === 0
+          ? this.pitDoorway(0, Math.floor(lx / 3), ly / 3)
+          : this.pitDoorway(1, lx / 3, Math.floor(ly / 3));
+      return !doorway || doorway[0] !== mod(dir === 0 ? lx : ly, 3) || doorway[1] !== m;
+    }
     const area = this.area(lx, ly);
     if (this.noise(lx, ly, 2 + dir) >= area.dense) return false;
     const k = this.noise(lx, ly, 4 + dir);
@@ -113,8 +232,11 @@ export class WorldMap {
       ) {
         return 1;
       }
-      const inBigRoom =
-        this.noise(Math.floor(lx / 3), Math.floor(ly / 3), 9) < 0.2 && mod(lx, 3) !== 0 && mod(ly, 3) !== 0;
+      const inside = mod(lx, 3) !== 0 && mod(ly, 3) !== 0;
+      const bx = Math.floor(lx / 3);
+      const by = Math.floor(ly / 3);
+      if (inside && (this.pitRoom(bx, by) || (PREVIEW_PITS && bx === 0 && by === 0))) return 0;
+      const inBigRoom = inside && this.openBlock(bx, by);
       return this.noise(lx, ly, 8) < (inBigRoom ? 0.6 : this.area(lx, ly).post) ? 1 : 0;
     }
     if (my === 0) return this.segment(lx, ly, 0, mx) ? 1 : 0;
@@ -136,8 +258,9 @@ export class WorldMap {
     return r < 0.08 ? LIGHT_FLICKER_A : r < 0.14 ? LIGHT_FLICKER_B : LIGHT_ON;
   }
 
-  /** Room for a statue at cell (x, y): it and the eight cells around it are open. */
+  /** Room for a statue at cell (x, y): it and the eight cells around it are open, and not in a pit room. */
   private roomy(x: number, y: number): boolean {
+    if (this.inPitRoom(x, y)) return false;
     for (let j = -1; j <= 1; j++) {
       for (let i = -1; i <= 1; i++) {
         if (this.wall(x + i, y + j)) return false;
@@ -183,4 +306,16 @@ export class WorldMap {
     }
     return out;
   }
+}
+
+/** Whether (x, y), inside or beside a pit field, is over one of its pits, and more than `margin` out from its rims. */
+export function overPit(field: PitField, x: number, y: number, margin = 0): boolean {
+  const u = x - field.x0;
+  const v = y - field.y0;
+  const edge = PIT_RIM * 2 + margin;
+  if (u <= edge || v <= edge || u >= field.size - edge || v >= field.size - edge) return false;
+  const du = u - Math.round(u / PIT_PITCH) * PIT_PITCH;
+  const dv = v - Math.round(v / PIT_PITCH) * PIT_PITCH;
+  const rim = PIT_RIM + margin;
+  return Math.abs(du) > rim && Math.abs(dv) > rim;
 }
