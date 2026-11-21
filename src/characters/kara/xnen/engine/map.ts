@@ -67,7 +67,7 @@ const PIT_DOOR = 0.5;
  * Preview: the block east of the spawn is always a pit room, and the spawn's own block is one open hall, so its wall
  * and doorways are in sight from the start. Delete before the PR.
  */
-const PREVIEW_PITS = true;
+export const PREVIEW_PITS = true;
 
 /** The square of pits in a pit room, in cells: its north-west corner and its width. */
 export interface PitField {
@@ -168,6 +168,22 @@ export class WorldMap {
         : (this.pitRoom(a, b) && this.pitSides(a, b)[2]) || (this.pitRoom(a - 1, b) && this.pitSides(a - 1, b)[3]);
     if (!open) return null;
     return [Math.floor(this.noise(a, b, 56 + dir) * 3), 1 + Math.floor(this.noise(a, b, 58 + dir) * 4)];
+  }
+
+  /**
+   * Whether side `side` of the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), is the
+   * outside of a pit room's wall: the room on the other side, and not on this one. Side 0 faces north or west.
+   */
+  pitOutside(lx: number, ly: number, dir: number, side: number): boolean {
+    const across = dir === 0 ? ly : lx;
+    if (mod(across, 3) !== 0) return false;
+    const along = Math.floor((dir === 0 ? lx : ly) / 3);
+    const block = across / 3;
+    const room = (k: number) => (dir === 0 ? this.pitRoom(along, k) : this.pitRoom(k, along));
+    // Side 0 is in the block before the line, side 1 in the one after.
+    const here = side === 0 ? block - 1 : block;
+    const there = side === 0 ? block : block - 1;
+    return room(there) && !room(here);
   }
 
   /** The square of pits that (x, y) is over or beside, if it's in a pit room. */
