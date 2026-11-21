@@ -63,7 +63,10 @@ export const PILLAR_HALL_WEIGHTS: ZoneWeights = [1.3, 0.6, 0.8, 1.5, 0.8];
 export const CUBICLE_HALL_WEIGHTS: ZoneWeights = [0.6, 0.2, 3, 0.8, 0.3];
 export const LAMP_HALL_WEIGHTS: ZoneWeights = [1, 1.5, 0.7, 1, 1];
 
-/** The junk lying about (junk.ts), by kind. */
+/**
+ * The junk lying about (junk.ts), by kind. Boxes left by whoever never finished the plasterboard; mugs where people
+ * worked and made their tea; empty tins where someone lived, in the old house.
+ */
 export const JUNK_WEIGHTS = {
   monitor: [1, 0.3, 2, 0.5, 0.2],
   chair: [1, 1, 1, 1, 1],
@@ -75,6 +78,9 @@ export const JUNK_WEIGHTS = {
   desk: [1, 0.3, 2, 0.5, 0.2],
   socket: [1, 1, 1, 1, 1],
   burger: [1, 1, 1, 1, 1],
+  box: [1, 0.5, 0.7, 3, 0.5],
+  mug: [1, 0.4, 2.5, 0.5, 2],
+  tin: [1, 2.5, 0.3, 1, 0.3],
 } as const satisfies Record<string, ZoneWeights>;
 
 /**
@@ -82,6 +88,31 @@ export const JUNK_WEIGHTS = {
  * fabric, not wood: a share, not a weight, mostly in the office wing.
  */
 export const OFFICE_FURNITURE: ZoneWeights = [0.15, 0.05, 0.85, 0.3, 0.2];
+
+/**
+ * How many of the doors (lying about, or flat against a dead end's wall) are red fire doors, not wooden ones: a
+ * share, not a weight. Hardly any in the old house; most where offices and kitchens were fitted out to code.
+ */
+export const FIRE_DOOR: ZoneWeights = [0.3, 0.05, 0.7, 0.5, 0.6];
+
+/**
+ * What's at a dead end (map.ts), against its usual chance: a door that goes nowhere anywhere; a chair facing the wall
+ * most in the old house; a vending machine where people worked and took their breaks, hardly ever in the house.
+ */
+export const DEAD_END_WEIGHTS = {
+  door: [1, 1.2, 1, 1, 1],
+  chair: [1, 1.6, 0.8, 1, 0.8],
+  vending: [1, 0.15, 2, 0.5, 1.5],
+} as const satisfies Record<string, ZoneWeights>;
+
+/**
+ * The ceiling lights, against the usual: how many are out, how many whole stretches are mostly dark, how many of
+ * those still on flicker. The office wing kept up best; the old house's wiring is going; the plasterboard was never
+ * finished, its lights never all put in; the tiles' tubes flicker, as they do by toilets.
+ */
+export const LIGHTS_DEAD: ZoneWeights = [1, 1.3, 0.5, 1.3, 0.8];
+export const DARK_STRETCHES: ZoneWeights = [1, 1, 0.5, 1.35, 0.8];
+export const LIGHTS_FLICKER: ZoneWeights = [1, 1.5, 0.4, 1, 1.6];
 
 /** Writing on the walls (graffiti.ts): most on bare plasterboard. The warnings outside pit rooms aren't weighed. */
 export const GRAFFITI_WEIGHTS: ZoneWeights = [1, 0.5, 0.5, 2, 1];

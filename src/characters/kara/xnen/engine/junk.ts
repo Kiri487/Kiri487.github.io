@@ -17,7 +17,7 @@ import {
 } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
 import { WRITINGS, WRITTEN_FACE, WRITTEN_FRAME, WRITTEN_H, WRITTEN_W } from "./whiteboard";
-import { heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
+import { FIRE_DOOR, heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
 
 /*
  * Things that don't belong, half through the place as if nobody minded: Kara's old CRT monitor, still on, showing
@@ -1644,6 +1644,79 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
   return Math.hypot(dx - ax * t, dy - ay * t);
 }
 
+/**
+ * What of a piece of junk the visitor walks into: its shape on the floor plan, every part of it between what they
+ * can step over and what they can walk under, wrapped round (its convex hull), as [x, y] corners round it.
+ */
+const BODY_LOW = 0.08;
+const BODY_HIGH = 0.55;
+const footprints = new WeakMap<Junk, readonly (readonly [number, number])[]>();
+
+function footprintOf(junk: Junk): readonly (readonly [number, number])[] {
+  const known = footprints.get(junk);
+  if (known) return known;
+  const tris = junk.model.tris;
+  const points: [number, number][] = [];
+  const corner: [number, number, number][] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let o = 0; o < tris.length; o += 16) {
+    for (let k = 0; k < 3; k++) corner[k] = junkPoint(junk, tris[o + k * 5], tris[o + k * 5 + 1], tris[o + k * 5 + 2]);
+    for (let k = 0; k < 3; k++) {
+      const a = corner[k];
+      const b = corner[(k + 1) % 3];
+      if (a[2] >= BODY_LOW && a[2] <= BODY_HIGH) points.push([a[0], a[1]]);
+      // Where an edge crosses into the band: a tall pole has no corner in it, only its sides going through.
+      for (const level of [BODY_LOW, BODY_HIGH]) {
+        if ((a[2] - level) * (b[2] - level) < 0) {
+          const t = (level - a[2]) / (b[2] - a[2]);
+          points.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+        }
+      }
+    }
+  }
+  const hull = convexHull(points);
+  footprints.set(junk, hull);
+  return hull;
+}
+
+/** The convex hull of some points, anticlockwise (Andrew's monotone chain). */
+function convexHull(points: [number, number][]): [number, number][] {
+  if (points.length < 3) return points;
+  points.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  const cross = (o: readonly number[], a: readonly number[], b: readonly number[]) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: [number, number][] = [];
+  for (const p of points) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: [number, number][] = [];
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/** How far (x, y) is from what of the junk the visitor walks into: 0 inside it, Infinity if nothing's in the way. */
+export function bodyDistance(junk: Junk, x: number, y: number): number {
+  const hull = footprintOf(junk);
+  if (!hull.length) return Infinity;
+  if (hull.length === 1) return Math.hypot(x - hull[0][0], y - hull[0][1]);
+  let best = Infinity;
+  let inside = hull.length >= 3;
+  for (let i = 0; i < hull.length; i++) {
+    const [ax, ay] = hull[i];
+    const [bx, by] = hull[(i + 1) % hull.length];
+    const ex = bx - ax;
+    const ey = by - ay;
+    if (ex * (y - ay) - ey * (x - ax) < 0) inside = false;
+    const t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1)));
+    best = Math.min(best, Math.hypot(x - ax - ex * t, y - ay - ey * t));
+  }
+  return inside ? 0 : best;
+}
+
 /** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
 /**
@@ -1669,6 +1742,10 @@ const BURGER_STACKED = 0.1;
 const BURGER_FALLEN = 0.1;
 const BURGER_PYRAMID = 0.07;
 const BURGER_BITTEN = 0.3;
+/** How many blocks have boxes, mugs, empty tins lying about. */
+const BOX_CHANCE = 0.12;
+const MUG_CHANCE = 0.1;
+const TIN_CHANCE = 0.08;
 
 const OUT = [
   [-1, 0],
@@ -1722,8 +1799,10 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     // Nor on a candle sign.
     // Nor in a hall with things of its own.
     if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy) || map.bareHall(cx, cy)) continue;
-    // Nor in a room with a stair.
-    if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5))) continue;
+    // Nor in a room with a stair, nor at a dead end, set out as it is with its one thing and its one light.
+    if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5)) || map.deadEndRoom(Math.floor(cx / 5), Math.floor(cy / 5))) {
+      continue;
+    }
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
@@ -1769,7 +1848,7 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (signSpot) found.push(placeSign(`s${bx},${by}`, signSpot, signRoll));
   const doorRoll = (k: number) => map.noise(bx * 31 + k, by, 730);
   const doorSpot = spotFor(map, bx, by, doorRoll, DOOR_CHANCE, JUNK_WEIGHTS.door);
-  if (doorSpot) found.push(placeDoor(`d${bx},${by}`, doorSpot, doorRoll));
+  if (doorSpot) found.push(placeDoor(`d${bx},${by}`, doorSpot, doorRoll, FIRE_DOOR[map.zoneAt(doorSpot.cx, doorSpot.cy)]));
   const exitRoll = (k: number) => map.noise(bx * 31 + k, by, 740);
   const exitSpot = spotFor(map, bx, by, exitRoll, EXIT_CHANCE, JUNK_WEIGHTS.exit);
   if (exitSpot) found.push(placeExit(`e${bx},${by}`, exitSpot, exitRoll));
@@ -1778,10 +1857,12 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (wetSpot) found.push(placeWetFloor(`w${bx},${by}`, wetSpot, wetRoll));
   const cabinetRoll = (k: number) => map.noise(bx * 31 + k, by, 760);
   const cabinetSpot = spotFor(map, bx, by, cabinetRoll, CABINET_CHANCE, JUNK_WEIGHTS.cabinet);
-  if (cabinetSpot) found.push(placeCabinet(`f${bx},${by}`, cabinetSpot, cabinetRoll));
+  const cabinet = cabinetSpot ? placeCabinet(`f${bx},${by}`, cabinetSpot, cabinetRoll) : null;
+  if (cabinet) found.push(cabinet);
   const deskRoll = (k: number) => map.noise(bx * 31 + k, by, 770);
   const deskSpot = spotFor(map, bx, by, deskRoll, DESK_CHANCE, JUNK_WEIGHTS.desk);
-  if (deskSpot) found.push(placeDesk(`t${bx},${by}`, deskSpot, deskRoll, officeAt(map, deskSpot, deskRoll)));
+  const desk = deskSpot ? placeDesk(`t${bx},${by}`, deskSpot, deskRoll, officeAt(map, deskSpot, deskRoll)) : null;
+  if (desk) found.push(desk);
   for (const salt of [780, 790]) {
     const socketRoll = (k: number) => map.noise(bx * 31 + k, by, salt);
     const spot = spotFor(map, bx, by, socketRoll, SOCKET_CHANCE, JUNK_WEIGHTS.socket);
@@ -1790,7 +1871,33 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const burgerRoll = (k: number) => map.noise(bx * 31 + k, by, 800);
   const burgerSpot = spotFor(map, bx, by, burgerRoll, BURGER_CHANCE, JUNK_WEIGHTS.burger);
   if (burgerSpot) found.push(...placeBurgers(`b${bx},${by}`, burgerSpot, burgerRoll));
+  const boxRoll = (k: number) => map.noise(bx * 31 + k, by, 810);
+  const boxSpot = spotFor(map, bx, by, boxRoll, BOX_CHANCE, JUNK_WEIGHTS.box);
+  if (boxSpot) found.push(...clearOf(found, placeBoxes(`k${bx},${by}`, boxSpot, boxRoll)));
+  // A mug can be left on the block's desk or cabinet, if it's standing up straight on the floor.
+  const tops: Top[] = [];
+  if (desk?.perch && !desk.pitch && !desk.roll && !desk.h) tops.push({ perch: desk.perch, half: 0.17 });
+  if (cabinet?.perch && !cabinet.pitch && !cabinet.roll && !cabinet.h) tops.push({ perch: cabinet.perch, half: 0.06 });
+  const mugRoll = (k: number) => map.noise(bx * 31 + k, by, 820);
+  const mugSpot = spotFor(map, bx, by, mugRoll, MUG_CHANCE, JUNK_WEIGHTS.mug);
+  if (mugSpot) found.push(...clearOf(found, placeMugs(`g${bx},${by}`, mugSpot, mugRoll, tops)));
+  const tinRoll = (k: number) => map.noise(bx * 31 + k, by, 830);
+  const tinSpot = spotFor(map, bx, by, tinRoll, TIN_CHANCE, JUNK_WEIGHTS.tin);
+  if (tinSpot) found.push(...clearOf(found, placeTins(`n${bx},${by}`, tinSpot, tinRoll)));
   return found;
+}
+
+/**
+ * The small things put down after the rest (boxes, mugs, tins), or none of them if any on the floor is in something
+ * else's way: what's up on something (a mug on a desk, a box on a box) is let be.
+ */
+function clearOf(found: readonly Junk[], things: Junk[]): Junk[] {
+  const blocked = things.some((t) => {
+    if (t.h > 0.05) return false;
+    const r = t.solid?.r ?? 0.03;
+    return found.some((f) => f.solid && !f.solid.overhead && solidDistance(f.solid, t.x, t.y) < f.solid.r + r);
+  });
+  return blocked ? [] : things;
 }
 
 /**
@@ -2099,16 +2206,13 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
   };
 }
 
-/** How many doors are fire doors; the rest are wooden. */
-const FIRE_DOORS = 0.3;
-
 /**
  * Doors, closed and going nowhere: standing on their own in the middle of a room, flat against a wall as if there
  * were somewhere behind it, driven aslant into a wall, upside down in the ceiling, or sunk aslant into the carpet.
  * In the way edge on, across their width.
  */
-function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
-  const model = DOORS[roll(70) < FIRE_DOORS ? "fire" : "wood"];
+function placeDoor(key: string, spot: Spot, roll: (k: number) => number, fireShare: number): Junk {
+  const model = DOORS[roll(70) < fireShare ? "fire" : "wood"];
   const base = { key, kind: "door" as const, model, pitch: 0, roll: 0 };
   const how = roll(40);
   const reach = DOOR_W / 2 + FRAME;
@@ -3734,7 +3838,7 @@ function deadEndIn(map: WorldMap, end: DeadEnd): Junk[] {
   const fy = end.y + ay * shift;
   const facing = Math.atan2(ny, nx);
   if (end.thing === "door") {
-    const fire = roll(2) < 0.5;
+    const fire = roll(2) < FIRE_DOOR[map.zoneAt(end.cx, end.cy)];
     const x = fx + nx * FRAME_DEPTH;
     const y = fy + ny * FRAME_DEPTH;
     const reach = DOOR_W / 2 + FRAME;
@@ -5153,18 +5257,62 @@ function buildBox([w, d, h]: readonly [number, number, number], open: boolean, l
     topBox(tris, -hw, hw, 0, h, -hd, hd, label ? CARD_LABEL : CARD, CARD, CARD_TOP);
     return storageModel(tris, [176, 136, 88]);
   }
+  // Only the faces that can be seen, each once: boxes put together here would leave faces hidden a wall's thickness
+  // behind others, which show through up close.
   const t = BOX_WALL;
-  // Its floor, and its four walls standing on it, the front and back between the sides.
-  topBox(tris, -hw, hw, 0, t, -hd, hd, CARD, CARD, CARD_IN);
-  box(tris, -hw, -hw + t, t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, hw - t, hw, t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, -hw + t, hw - t, t, h, hd - t, hd, label ? CARD_LABEL : CARD, CARD_IN, CARD);
-  box(tris, -hw + t, hw - t, t, h, -hd, -hd + t, CARD, CARD_IN, CARD);
-  // The flaps, flat out from the top of each wall.
-  box(tris, -hw - hd, -hw, h - t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, hw, hw + hd, h - t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, -hw, hw, h - t, h, hd, hd + hd, CARD, CARD, CARD);
-  box(tris, -hw, hw, h - t, h, -hd - hd, -hd, CARD, CARD, CARD);
+  const [a, b, ai, bi, rim] = [hw, hd, hw - t, hd - t, h - t];
+  const up = (x0: number, x1: number, z0: number, z1: number, y: number, r: Rect) =>
+    quad(tris, [x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0], r);
+  const down = (x0: number, x1: number, z0: number, z1: number, y: number, r: Rect) =>
+    quad(tris, [x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], r);
+  const east = (x: number, y0: number, y1: number, z0: number, z1: number, r: Rect) =>
+    quad(tris, [x, y0, z1], [x, y0, z0], [x, y1, z0], [x, y1, z1], r);
+  const west = (x: number, y0: number, y1: number, z0: number, z1: number, r: Rect) =>
+    quad(tris, [x, y0, z0], [x, y0, z1], [x, y1, z1], [x, y1, z0], r);
+  const south = (z: number, x0: number, x1: number, y0: number, y1: number, r: Rect) =>
+    quad(tris, [x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], r);
+  const north = (z: number, x0: number, x1: number, y0: number, y1: number, r: Rect) =>
+    quad(tris, [x1, y0, z], [x0, y0, z], [x0, y1, z], [x1, y1, z], r);
+  // Underneath, and the floor inside.
+  down(-a, a, -b, b, 0, CARD);
+  up(-ai, ai, -bi, bi, t, CARD_IN);
+  // The walls outside, up to where the flaps fold out; the label on the front.
+  south(b, -a, a, 0, rim, label ? CARD_LABEL : CARD);
+  north(-b, -a, a, 0, rim, CARD);
+  east(a, 0, rim, -b, b, CARD);
+  west(-a, 0, rim, -b, b, CARD);
+  // The walls inside, from the floor to the lip.
+  east(-ai, t, h, -bi, bi, CARD_IN);
+  west(ai, t, h, -bi, bi, CARD_IN);
+  south(-bi, -ai, ai, t, h, CARD_IN);
+  north(bi, -ai, ai, t, h, CARD_IN);
+  // The lip all round, the sides' running the whole depth and the front's and back's between them.
+  up(-a, -ai, -b, b, h, CARD);
+  up(ai, a, -b, b, h, CARD);
+  up(-ai, ai, bi, b, h, CARD);
+  up(-ai, ai, -b, -bi, h, CARD);
+  // The flaps, out flat from the lip: the sides' as deep as the box, the front's and back's as wide; top, underside,
+  // and their three free edges.
+  up(-a - b, -a, -b, b, h, CARD);
+  down(-a - b, -a, -b, b, rim, CARD);
+  west(-a - b, rim, h, -b, b, CARD);
+  south(b, -a - b, -a, rim, h, CARD);
+  north(-b, -a - b, -a, rim, h, CARD);
+  up(a, a + b, -b, b, h, CARD);
+  down(a, a + b, -b, b, rim, CARD);
+  east(a + b, rim, h, -b, b, CARD);
+  south(b, a, a + b, rim, h, CARD);
+  north(-b, a, a + b, rim, h, CARD);
+  up(-a, a, b, b + b, h, CARD);
+  down(-a, a, b, b + b, rim, CARD);
+  south(b + b, -a, a, rim, h, CARD);
+  east(a, rim, h, b, b + b, CARD);
+  west(-a, rim, h, b, b + b, CARD);
+  up(-a, a, -b - b, -b, h, CARD);
+  down(-a, a, -b - b, -b, rim, CARD);
+  north(-b - b, -a, a, rim, h, CARD);
+  east(a, rim, h, -b - b, -b, CARD);
+  west(-a, rim, h, -b - b, -b, CARD);
   return storageModel(tris, [176, 136, 88]);
 }
 const BOXES = new Map<string, StatueModel>();
@@ -5384,6 +5532,177 @@ function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
       const tilt = Math.asin(LADDER_OUT / LADDER_H);
       put("ladder", LADDER_MODEL, { x, y, h: 0, yaw: inward(side), pitch: -tilt, roll: 0 }, { x, y, r: 0.14 });
       break;
+    }
+  }
+  return out;
+}
+
+// ---- boxes, mugs and tins lying about ----
+
+/*
+ * The storeroom's boxes, the pantry's mugs and the camp's tins, out in the halls with the rest of the junk: boxes
+ * mostly in the bare plasterboard, mugs where the offices and kitchens are, tins in the old house (zones.ts).
+ */
+
+/** Where in the spot's cell something small goes, from two dice: well inside it. */
+const inCell = (spot: Spot, a: number, b: number): [number, number] => [
+  spot.cx + 0.25 + a * 0.5,
+  spot.cy + 0.25 + b * 0.5,
+];
+
+/** How likely: boxes stacked against a wall, a few strewn about, one on its own (the rest sunk in the carpet). */
+const LOOSE_BOX_STACK = 0.4;
+const LOOSE_BOX_STREWN = 0.7;
+const LOOSE_BOX_ALONE = 0.88;
+
+/** Boxes: a stack or two against a wall, a few strewn about and knocked over, one on its own, or one sunk in. */
+function placeBoxes(key: string, spot: Spot, roll: (k: number) => number): Junk[] {
+  const out: Junk[] = [];
+  const put = (pose: Pose, size: number, open: boolean, label: boolean, solid: Solid | null) =>
+    out.push({ key: `${key}.${out.length}`, kind: "storage", model: boxModel(size, open, label), ...pose, solid });
+  const reach = (size: number) => Math.max(BOX_SIZES[size][0], BOX_SIZES[size][1]) / 2 + 0.01;
+  const how = roll(40);
+  if (how < LOOSE_BOX_STACK && spot.wall) {
+    const [ox, oy] = spot.wall;
+    const stacks = roll(41) < 0.5 ? 1 : 2;
+    for (let s = 0; s < stacks; s++) {
+      const [fx, fy] = wallFace(spot, spot.wall, 0.3 + s * 0.35 + roll(42) * 0.05);
+      const x = fx - ox * 0.14;
+      const y = fy - oy * 0.14;
+      const high = 2 + Math.floor(roll(43 + s) * 3);
+      let h = 0;
+      for (let i = 0; i < high; i++) {
+        const r = (j: number) => roll(100 + s * 40 + i * 6 + j);
+        const size = Math.floor(r(0) * BOX_SIZES.length);
+        const top = i === high - 1;
+        const pose = { x: x + (r(1) - 0.5) * 0.03, y: y + (r(2) - 0.5) * 0.03, h, yaw: Math.atan2(-oy, -ox) + (r(3) - 0.5) * 0.4, pitch: 0, roll: 0 };
+        put(pose, size, top && r(4) < BOX_OPEN, r(5) < BOX_LABELLED, i === 0 ? { x, y, r: 0.15 } : null);
+        h += BOX_SIZES[size][2];
+      }
+    }
+    return out;
+  }
+  if (how < LOOSE_BOX_STREWN) {
+    // Knocked about: some on their sides, one opened.
+    const count = 2 + Math.floor(roll(41) * 3);
+    for (let i = 0; i < count; i++) {
+      const r = (j: number) => roll(100 + i * 6 + j);
+      const size = Math.floor(r(0) * BOX_SIZES.length);
+      const [x, y] = inCell(spot, r(1), r(2));
+      // Tipped onto its front, it lies on it: half its depth up.
+      const tipped = r(3) < 0.4;
+      const pose = { x, y, h: tipped ? BOX_SIZES[size][1] / 2 : 0, yaw: r(4) * Math.PI * 2, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
+      put(pose, size, i === 0 && !tipped && r(5) < 0.5, r(5) < BOX_LABELLED, { x, y, r: reach(size) });
+    }
+    return out;
+  }
+  const size = Math.floor(roll(41) * BOX_SIZES.length);
+  const [x, y] = inCell(spot, roll(50), roll(51));
+  const yaw = roll(52) * Math.PI * 2;
+  if (how < LOOSE_BOX_ALONE) {
+    put({ x, y, h: 0, yaw, pitch: 0, roll: 0 }, size, roll(53) < BOX_OPEN, roll(54) < BOX_LABELLED, { x, y, r: reach(size) });
+    return out;
+  }
+  // Sunk into the carpet, aslant, as if it had been dropped from a height into water.
+  const tall = BOX_SIZES[size][2];
+  const sunk = buried(tall, roll(53));
+  const pose = { x, y, h: -sunk, yaw, pitch: (roll(55) - 0.5) * 1, roll: (roll(56) - 0.5) * 1 };
+  put(pose, size, false, roll(54) < BOX_LABELLED, solidAbove(pose, tall - sunk, reach(size)));
+  return out;
+}
+
+/** The top of an upright desk or cabinet nearby, a mug could be left on: where, and how far along it either way. */
+interface Top {
+  perch: Perch;
+  half: number;
+}
+
+/** How likely: a mug left on a desk or cabinet (if the block has one standing), one on the floor; a row on the floor. */
+const LOOSE_MUG_TOP = 0.4;
+const LOOSE_MUG_FLOOR = 0.75;
+/** How many of the mugs on the floor have fallen over; how many in a row, at least and at most, and how far apart. */
+const LOOSE_MUG_FALLEN = 0.35;
+const LOOSE_MUG_ROW = [5, 13] as const;
+const LOOSE_MUG_GAP = 0.06;
+
+/** Mugs: one left on a desk or cabinet, one on the floor, or a row of them along the skirting, handles all one way. */
+function placeMugs(key: string, spot: Spot, roll: (k: number) => number, tops: readonly Top[]): Junk[] {
+  const mug = (name: string, pose: Pose): Junk => ({ key: `${key}.${name}`, kind: "kitchen", model: MUG_MODEL, ...pose, solid: null });
+  const how = roll(40);
+  if (how < LOOSE_MUG_TOP && tops.length) {
+    const { perch, half } = tops[Math.floor(roll(41) * tops.length)];
+    const fx = Math.cos(perch.yaw);
+    const fy = Math.sin(perch.yaw);
+    const a = (roll(42) - 0.5) * 2 * Math.max(0, half - MUG_R - 0.02);
+    const b = (roll(43) - 0.5) * 2 * Math.max(0, perch.edge - MUG_R - 0.02);
+    const x = perch.x + fy * a + fx * b;
+    const y = perch.y - fx * a + fy * b;
+    return [mug("top", { x, y, h: perch.z, yaw: roll(44) * Math.PI * 2, pitch: 0, roll: 0 })];
+  }
+  if (how >= LOOSE_MUG_FLOOR && spot.wall) {
+    // Lined up along the skirting, a hand's breadth out, every handle the same way.
+    const [ox, oy] = spot.wall;
+    const count = LOOSE_MUG_ROW[0] + Math.floor(roll(41) * (LOOSE_MUG_ROW[1] - LOOSE_MUG_ROW[0] + 1));
+    const [fx, fy] = wallFace(spot, spot.wall, 0.5);
+    const [ax, ay] = [-oy, ox];
+    const handle = roll(42) * Math.PI * 2;
+    return Array.from({ length: count }, (_, i) => {
+      const d = (i - (count - 1) / 2) * LOOSE_MUG_GAP;
+      return mug(`row${i}`, { x: fx - ox * 0.06 + ax * d, y: fy - oy * 0.06 + ay * d, h: 0, yaw: handle, pitch: 0, roll: 0 });
+    });
+  }
+  const [x, y] = inCell(spot, roll(50), roll(51));
+  const fallen = roll(52) < LOOSE_MUG_FALLEN;
+  return [mug("floor", { x, y, h: fallen ? MUG_R : 0, yaw: roll(53) * Math.PI * 2, pitch: fallen ? Math.PI / 2 : 0, roll: 0 })];
+}
+
+/** How likely: a few tins strewn about, one on its own; the rest a little pyramid against a wall. */
+const LOOSE_TIN_STREWN = 0.45;
+const LOOSE_TIN_ALONE = 0.75;
+
+/** Empty tins: a few strewn about, some on their sides; one on its own; or a pyramid of six against a wall. */
+function placeTins(key: string, spot: Spot, roll: (k: number) => number): Junk[] {
+  const out: Junk[] = [];
+  const tin = (x: number, y: number, h: number, yaw: number, fallen: boolean) =>
+    out.push({
+      key: `${key}.${out.length}`,
+      kind: "can",
+      model: TIN_MODEL,
+      x,
+      y,
+      h: fallen ? h + TIN_R : h,
+      yaw,
+      pitch: fallen ? Math.PI / 2 : 0,
+      roll: 0,
+      solid: null,
+    });
+  const how = roll(40);
+  if (how < LOOSE_TIN_STREWN || (how >= LOOSE_TIN_ALONE && !spot.wall)) {
+    const count = 3 + Math.floor(roll(41) * 4);
+    const [cx, cy] = inCell(spot, roll(50), roll(51));
+    for (let i = 0; i < count; i++) {
+      const r = (j: number) => roll(100 + i * 4 + j);
+      const a = r(0) * Math.PI * 2;
+      const d = 0.04 + r(1) * 0.22;
+      tin(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0, r(2) * Math.PI * 2, r(3) < TIN_FALLEN);
+    }
+    return out;
+  }
+  if (how < LOOSE_TIN_ALONE || !spot.wall) {
+    const [x, y] = inCell(spot, roll(50), roll(51));
+    tin(x, y, 0, roll(52) * Math.PI * 2, roll(53) < 0.5);
+    return out;
+  }
+  // Three, two and one, each row on the one below, against the skirting.
+  const [ox, oy] = spot.wall;
+  const [fx, fy] = wallFace(spot, spot.wall, 0.3 + roll(41) * 0.4);
+  const [ax, ay] = [-oy, ox];
+  const gap = TIN_R * 2 + 0.004;
+  for (let row = 0; row < 3; row++) {
+    for (let i = 0; i < 3 - row; i++) {
+      const d = (i - (2 - row) / 2) * gap;
+      const off = TIN_R + 0.01;
+      tin(fx - ox * off + ax * d, fy - oy * off + ay * d, row * TIN_H, roll(60 + row * 3 + i) * Math.PI * 2, false);
     }
   }
   return out;

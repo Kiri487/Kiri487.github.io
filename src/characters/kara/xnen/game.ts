@@ -3,6 +3,7 @@ import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
 import {
+  bodyDistance,
   BURGER_SKIN,
   CAMP_SKIN,
   CANDLE_SKIN,
@@ -160,6 +161,12 @@ export interface Game {
  * shouldn't count the whole stall.
  */
 const MAX_REAL_STEP = 1;
+/**
+ * How near the visitor gets to a piece of junk's own shape (junk.ts bodyDistance): a little less than to a wall, where
+ * the whole cell counts. And how far off the middle of the biggest (a stair, a long table) its shape can reach.
+ */
+const JUNK_BODY = 0.15;
+const JUNK_SEEN = 3.5;
 /** Seconds the picture takes to come out of the snow. */
 const ENTER_TIME = 0.9;
 /** A rewind: running back along the walk, then a burst of static, then a quick fade onto the desktop. */
@@ -388,7 +395,6 @@ export function createGame(parts: GameParts): Game {
   let nearJunk: Junk[] = [];
   // Where XN can be, and what she does there.
   const {
-    intoJunk,
     spotAhead,
     startXnAction,
     sees,
@@ -609,7 +615,12 @@ export function createGame(parts: GameParts): Game {
       if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
     }
     if (xn && xnHere && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
-    if (intoJunk(x, y, 0.1, "floor")) return true;
+    // The junk stops them where its own shape is, the part of it at their height, a step short of it.
+    for (const junk of nearJunk) {
+      if (!junk.solid && junk.kind !== "storage") continue;
+      if (Math.abs(junk.x - x) > JUNK_SEEN || Math.abs(junk.y - y) > JUNK_SEEN) continue;
+      if (bodyDistance(junk, x, y) < JUNK_BODY) return true;
+    }
     const r = PLAYER_RADIUS;
     return (
       !!light.wallAt(Math.floor(x - r), Math.floor(y - r), map) ||
