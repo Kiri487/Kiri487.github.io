@@ -89,6 +89,22 @@ export const JUNK_WEIGHTS = {
  */
 export const OFFICE_FURNITURE: ZoneWeights = [0.15, 0.05, 0.85, 0.3, 0.2];
 
+/**
+ * How many of the doors (lying about, or flat against a dead end's wall) are red fire doors, not wooden ones: a
+ * share, not a weight. Hardly any in the old house; most where offices and kitchens were fitted out to code.
+ */
+export const FIRE_DOOR: ZoneWeights = [0.3, 0.05, 0.7, 0.5, 0.6];
+
+/**
+ * What's at a dead end (map.ts), against its usual chance: a door that goes nowhere anywhere; a chair facing the wall
+ * most in the old house; a vending machine where people worked and took their breaks, hardly ever in the house.
+ */
+export const DEAD_END_WEIGHTS = {
+  door: [1, 1.2, 1, 1, 1],
+  chair: [1, 1.6, 0.8, 1, 0.8],
+  vending: [1, 0.15, 2, 0.5, 1.5],
+} as const satisfies Record<string, ZoneWeights>;
+
 /** Writing on the walls (graffiti.ts): most on bare plasterboard. The warnings outside pit rooms aren't weighed. */
 export const GRAFFITI_WEIGHTS: ZoneWeights = [1, 0.5, 0.5, 2, 1];
 

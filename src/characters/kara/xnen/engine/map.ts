@@ -12,6 +12,7 @@ import {
   ZONE_TILES,
   ZONE_YELLOW,
   CAMP_WEIGHTS,
+  DEAD_END_WEIGHTS,
   CUBICLE_HALL_WEIGHTS,
   LAMP_HALL_WEIGHTS,
   MEETING_WEIGHTS,
@@ -217,6 +218,19 @@ const DEAD_END_KINDS: readonly [DeadEndThing | null, number][] = [
   [null, 0.2],
 ];
 const DEAD_END_LAMP_ONLY = 0.5;
+
+/** What's at a dead end in `zone`, from a die: each thing as likely as its share weighed by the zone (zones.ts). */
+function deadEndThing(die: number, zone: number, nothing = true): DeadEndThing | null {
+  const shares = DEAD_END_KINDS.filter(([kind]) => kind || nothing).map(
+    ([kind, share]) => [kind, kind ? share * DEAD_END_WEIGHTS[kind][zone] : share] as const,
+  );
+  let left = die * shares.reduce((sum, [, share]) => sum + share, 0);
+  for (const [kind, share] of shares) {
+    if (left < share) return kind;
+    left -= share;
+  }
+  return shares[shares.length - 1][0];
+}
 /** How likely each side of a corridor walled across is to have something against the wall. */
 const CORRIDOR_END = 0.5;
 
@@ -966,15 +980,7 @@ export class WorldMap {
       }
     }
     if (runs !== 1 || this.statueInRoom(lx, ly)) return null;
-    let thing: DeadEndThing | null = null;
-    let die = this.noise(lx, ly, 78);
-    for (const [kind, share] of DEAD_END_KINDS) {
-      if (die < share) {
-        thing = kind;
-        break;
-      }
-      die -= share;
-    }
+    const thing = deadEndThing(this.noise(lx, ly, 78), this.roomZone(lx, ly));
     const lampOnly = !thing || this.noise(lx, ly, 79) < DEAD_END_LAMP_ONLY;
     // The far wall's inside face, its middle, and the way into the room.
     const far = ACROSS_SIDE[open];
@@ -1105,9 +1111,8 @@ export class WorldMap {
         if (this.wall(ax, ay) || this.wall(bx, by)) continue;
         const side = dir < 0 ? 0 : 1;
         if (this.noise(along * 7 + side, first, 87) >= CORRIDOR_END) continue;
-        // Door, chair or vending machine, as likely as each other as in a room.
-        const die = this.noise(along * 7 + side, first, 88) * 0.8;
-        const thing: DeadEndThing = die < 0.3 ? "door" : die < 0.55 ? "chair" : "vending";
+        // Door, chair or vending machine, as likely as each other as in a room: never nothing.
+        const thing = deadEndThing(this.noise(along * 7 + side, first, 88), this.zoneAt(ax, ay), false);
         const face = along + (dir < 0 ? 0 : 1);
         const [x, y] = at(face, first + 1);
         const [nx, ny] = at(dir, 0);

@@ -17,7 +17,7 @@ import {
 } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
 import { WRITINGS, WRITTEN_FACE, WRITTEN_FRAME, WRITTEN_H, WRITTEN_W } from "./whiteboard";
-import { heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
+import { FIRE_DOOR, heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
 
 /*
  * Things that don't belong, half through the place as if nobody minded: Kara's old CRT monitor, still on, showing
@@ -1775,7 +1775,7 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (signSpot) found.push(placeSign(`s${bx},${by}`, signSpot, signRoll));
   const doorRoll = (k: number) => map.noise(bx * 31 + k, by, 730);
   const doorSpot = spotFor(map, bx, by, doorRoll, DOOR_CHANCE, JUNK_WEIGHTS.door);
-  if (doorSpot) found.push(placeDoor(`d${bx},${by}`, doorSpot, doorRoll));
+  if (doorSpot) found.push(placeDoor(`d${bx},${by}`, doorSpot, doorRoll, FIRE_DOOR[map.zoneAt(doorSpot.cx, doorSpot.cy)]));
   const exitRoll = (k: number) => map.noise(bx * 31 + k, by, 740);
   const exitSpot = spotFor(map, bx, by, exitRoll, EXIT_CHANCE, JUNK_WEIGHTS.exit);
   if (exitSpot) found.push(placeExit(`e${bx},${by}`, exitSpot, exitRoll));
@@ -2134,16 +2134,13 @@ function placeSign(key: string, spot: Spot, roll: (k: number) => number): Junk {
   };
 }
 
-/** How many doors are fire doors; the rest are wooden. */
-const FIRE_DOORS = 0.3;
-
 /**
  * Doors, closed and going nowhere: standing on their own in the middle of a room, flat against a wall as if there
  * were somewhere behind it, driven aslant into a wall, upside down in the ceiling, or sunk aslant into the carpet.
  * In the way edge on, across their width.
  */
-function placeDoor(key: string, spot: Spot, roll: (k: number) => number): Junk {
-  const model = DOORS[roll(70) < FIRE_DOORS ? "fire" : "wood"];
+function placeDoor(key: string, spot: Spot, roll: (k: number) => number, fireShare: number): Junk {
+  const model = DOORS[roll(70) < fireShare ? "fire" : "wood"];
   const base = { key, kind: "door" as const, model, pitch: 0, roll: 0 };
   const how = roll(40);
   const reach = DOOR_W / 2 + FRAME;
@@ -3769,7 +3766,7 @@ function deadEndIn(map: WorldMap, end: DeadEnd): Junk[] {
   const fy = end.y + ay * shift;
   const facing = Math.atan2(ny, nx);
   if (end.thing === "door") {
-    const fire = roll(2) < 0.5;
+    const fire = roll(2) < FIRE_DOOR[map.zoneAt(end.cx, end.cy)];
     const x = fx + nx * FRAME_DEPTH;
     const y = fy + ny * FRAME_DEPTH;
     const reach = DOOR_W / 2 + FRAME;
