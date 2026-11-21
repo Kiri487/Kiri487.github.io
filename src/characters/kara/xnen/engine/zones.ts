@@ -39,6 +39,13 @@ export const CELLS_WEIGHTS: ZoneWeights = [1, 0.5, 2.5, 1.5, 2];
 export const PIT_ROOM_WEIGHTS: ZoneWeights = [1.7, 0, 0, 0, 0];
 export const BURGER_ROOM_WEIGHTS: ZoneWeights = [1, 1, 1, 1, 1];
 
+/**
+ * Rooms fitted out for a use (map.ts, junk.ts): a whole lattice room walled in, with a door or two, its furniture
+ * where it belongs. Each kind keeps mostly to its zone; the yellow has a few of every kind. A workroom: one desk and
+ * whoever sat at it, mostly in the office wing.
+ */
+export const WORKROOM_WEIGHTS: ZoneWeights = [0.25, 0.3, 2, 0.3, 0.2];
+
 /** The junk lying about (junk.ts), by kind. */
 export const JUNK_WEIGHTS = {
   monitor: [1, 0.3, 2, 0.5, 0.2],

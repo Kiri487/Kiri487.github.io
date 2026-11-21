@@ -11,6 +11,7 @@ import {
   ZONE_OFFICE,
   ZONE_TILES,
   ZONE_YELLOW,
+  WORKROOM_WEIGHTS,
   type ZoneWeights,
 } from "./zones";
 
@@ -31,6 +32,9 @@ import {
  *
  * Smaller and rarer, a burger room: two cells by two in a corner of a lattice room, walled in all round with one
  * doorway, a party laid out in it for nobody (junk.ts), under warmer light (lighting.ts).
+ *
+ * Far more common, a fitted room: a whole lattice room walled in, with a door or two, fitted out for a use, its
+ * furniture where it belongs (junk.ts) and none of the junk lying about. Each kind keeps mostly to its zone.
  *
  * The place is done up in zones (zones.ts), which have a say in what turns up where: how areas are laid out, which
  * special rooms there are (pit rooms only in the yellow), and, elsewhere, the junk, the writing and the posters.
@@ -146,8 +150,11 @@ const CANDLE_SIGN_TURNS = 8;
 export const ROOM_BLOCK = 15;
 
 /** The kinds of special room. */
-/** "burger" is a little room in a corner of a lattice room, not a block: see burgerPlan. */
-export type RoomKind = "pit" | "burger";
+/**
+ * "burger" is a little room in a corner of a lattice room, not a block: see burgerPlan. The fitted kinds are whole
+ * lattice rooms: see fittedPlan.
+ */
+export type RoomKind = "pit" | "burger" | FittedKind;
 /**
  * What a special room lets in: the junk lying about the backrooms, a statue, and XN, on its floor and its walls or
  * just turning up there. Things it has of its own (XN on a pit's rim) it sees to itself.
@@ -160,6 +167,7 @@ export interface RoomRules {
 const ROOM_RULES: Record<RoomKind, RoomRules> = {
   pit: { junk: false, statue: false, xn: false },
   burger: { junk: false, statue: false, xn: true },
+  workroom: { junk: false, statue: false, xn: true },
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
@@ -205,6 +213,45 @@ export interface BurgerPlan {
   cell: number;
 }
 
+/** The kinds of fitted room: a lattice room fitted out for a use. */
+export type FittedKind = "workroom";
+/**
+ * How likely a lattice room is to be each kind of fitted room, in turn from one die, weighed by its zone (zones.ts):
+ * a new kind takes the next share, so the ones before stay where they were.
+ */
+const FITTED_CHANCES: readonly [FittedKind, number, ZoneWeights][] = [["workroom", 0.06, WORKROOM_WEIGHTS]];
+/** How likely a fitted room is to have a second door, in another wall. */
+const FITTED_SECOND_DOOR = 0.3;
+/** A fitted room is a lattice room's inside: this many cells a side. */
+export const FITTED_SIZE = 4;
+
+/**
+ * A fitted room: its kind, the cell at its north-west corner inside its walls, and its doors, each the side it's in
+ * (north, south, west, east) and the cell along that side (1-4, from its west or north end; only ever 2 or 3, clear
+ * of the corners). The first door is the way in.
+ */
+export interface FittedPlan {
+  kind: FittedKind;
+  x0: number;
+  y0: number;
+  doors: readonly (readonly [number, number])[];
+  /** Laid out the way the preview asks, not by the dice. */
+  preview?: number;
+}
+
+/**
+ * PREVIEW: a workroom in each lattice room round the spawn, its door onto the spawn's room, each furnished its own
+ * way.
+ */
+const PREVIEW_FITTED = true;
+/** The lattice rooms round the spawn, and the side of each that faces it. */
+const PREVIEW_ROOMS: readonly (readonly [number, number, number])[] = [
+  [1, 0, 2],
+  [0, 1, 0],
+  [-1, 0, 3],
+  [0, -1, 1],
+];
+
 /** How many spots a region tries before it gives up on having a statue. */
 const STATUE_TRIES = 24;
 /** Statues keep this far from their region's edge, so the lamp over one is in the same region. */
@@ -218,6 +265,8 @@ export class WorldMap {
   private readonly statues = new Map<string, Statue | null>();
   /** How each area is laid out, by rx * 100 003 + ry. */
   private readonly layouts = new Map<number, number>();
+  /** Each lattice room's fitted room, or null, by lx * 100 003 + ly. */
+  private readonly fitted = new Map<number, FittedPlan | null>();
 
   /** The tuning is read live, so the dev panel's dead-light slider works without a new map. */
   constructor(seed: number, tuning: Tuning) {
@@ -361,7 +410,8 @@ export class WorldMap {
 
   /**
    * The zone cell (cx, cy) is in, which its floor and the faces of wall looking into it are done up as. A special
-   * room keeps to the yellow it was built in, and a burger room to its lattice room's zone, even an unruly one's.
+   * room keeps to the yellow it was built in, and a burger room or a fitted room to its lattice room's zone, even an
+   * unruly one's.
    */
   zoneAt(cx: number, cy: number): number {
     if (this.roomKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK))) return ZONE_YELLOW;
@@ -369,8 +419,9 @@ export class WorldMap {
     if (burger) return this.roomZone(Math.floor(burger.x0 / 5), Math.floor(burger.y0 / 5));
     const lx = Math.floor(cx / 5);
     const ly = Math.floor(cy / 5);
-    // Most lattice rooms go by their middle, so the whole room is one zone; an unruly one goes cell by cell.
-    if (this.noise(lx, ly, 70) < ZONE_UNRULY) return this.zoneOfPoint(cx + 0.5, cy + 0.5);
+    // Most lattice rooms go by their middle, so the whole room is one zone; an unruly one goes cell by cell. A fitted
+    // room is all of a piece.
+    if (this.noise(lx, ly, 70) < ZONE_UNRULY && !this.fittedPlan(lx, ly)) return this.zoneOfPoint(cx + 0.5, cy + 0.5);
     return this.roomZone(lx, ly);
   }
 
@@ -408,6 +459,8 @@ export class WorldMap {
   /** What kind of special room block (bx, by) rolled, whether or not its area lets it be one. */
   private rolledRoom(bx: number, by: number): RoomKind | null {
     if (bx === 0 && by === 0) return null;
+    // PREVIEW: none where the preview's workrooms are.
+    if (PREVIEW_FITTED && (bx === -1 || bx === 0) && (by === -1 || by === 0)) return null;
     let die = this.noise(bx, by, 50);
     for (const [kind, chance, weights] of ROOM_CHANCES) {
       const share = chance * heaviest(weights);
@@ -434,7 +487,88 @@ export class WorldMap {
   roomAt(cx: number, cy: number): RoomKind | null {
     const kind = this.roomKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK));
     if (kind) return kind;
-    return this.burgerAt(cx, cy) ? "burger" : null;
+    if (this.burgerAt(cx, cy)) return "burger";
+    return this.fittedAt(cx, cy)?.kind ?? null;
+  }
+
+  /** What kind of fitted room lattice room (lx, ly) rolled, whether or not it can be one. */
+  private rolledFitted(lx: number, ly: number): FittedKind | null {
+    let die = this.noise(lx, ly, 64);
+    for (const [kind, chance, weights] of FITTED_CHANCES) {
+      const share = chance * heaviest(weights);
+      if (die < share) return die < chance * weights[this.roomZone(lx, ly)] ? kind : null;
+      die -= share;
+    }
+    return null;
+  }
+
+  /**
+   * The fitted room lattice room (lx, ly) is, if it is one. Never by the spawn (its walls are kept open), nor in or
+   * against a special room, a burger room, an area laid out to a plan, or another fitted room, so its doors always
+   * open onto plain floor. Of two that would be side by side, the one to the west or north is the one there is.
+   */
+  fittedPlan(lx: number, ly: number): FittedPlan | null {
+    const key = lx * 100_003 + ly;
+    let plan = this.fitted.get(key);
+    if (plan === undefined) {
+      plan = this.fittedPlanOf(lx, ly);
+      this.fitted.set(key, plan);
+    }
+    return plan;
+  }
+
+  private fittedPlanOf(lx: number, ly: number): FittedPlan | null {
+    if (PREVIEW_FITTED) {
+      const k = PREVIEW_ROOMS.findIndex(([i, j]) => i === lx && j === ly);
+      if (k >= 0) {
+        // A second door out the other way, so the spawn isn't shut in.
+        const side = PREVIEW_ROOMS[k][2];
+        const doors = [[side, 2], [side < 2 ? 2 : 0, 3]] as const;
+        return { kind: "workroom", x0: lx * 5 + 1, y0: ly * 5 + 1, doors, preview: k };
+      }
+    }
+    if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
+    const kind = this.rolledFitted(lx, ly);
+    if (!kind) return null;
+    for (const [i, j] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (this.layout(lx + i, ly + j) !== LATTICE) return null;
+    }
+    // Of two side by side, the one to the west or north is it.
+    if (this.rolledFitted(lx - 1, ly) || this.rolledFitted(lx, ly - 1)) return null;
+    if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
+    const walls = [[lx, ly, 0], [lx, ly + 1, 0], [lx, ly, 1], [lx + 1, ly, 1]];
+    if (walls.some(([i, j, dir]) => this.roomWall(i, j, dir))) return null;
+    for (let j = -1; j <= 1; j++) {
+      for (let i = -1; i <= 1; i++) if (this.burgerPlan(lx + i, ly + j)) return null;
+    }
+    const first = Math.floor(this.noise(lx, ly, 65) * 4);
+    const doors: [number, number][] = [[first, 2 + Math.floor(this.noise(lx, ly, 66) * 2)]];
+    if (this.noise(lx, ly, 67) < FITTED_SECOND_DOOR) {
+      const side = (first + 1 + Math.floor(this.noise(lx, ly, 68) * 3)) % 4;
+      doors.push([side, 2 + Math.floor(this.noise(lx, ly, 69) * 2)]);
+    }
+    return { kind, x0: lx * 5 + 1, y0: ly * 5 + 1, doors };
+  }
+
+  /** The fitted room cell (cx, cy) is inside, not its walls, if any. */
+  fittedAt(cx: number, cy: number): FittedPlan | null {
+    const lx = Math.floor(cx / 5);
+    const ly = Math.floor(cy / 5);
+    if (cx === lx * 5 || cy === ly * 5) return null;
+    return this.fittedPlan(lx, ly);
+  }
+
+  /**
+   * Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), covers cell m (1-4)
+   * as a fitted room's wall: always, but for one of the room's doors; null if it's no fitted room's wall.
+   */
+  private fittedWall(lx: number, ly: number, dir: number, m: number): boolean | null {
+    // The room it's the top or left of, or else the one it's the bottom or right of.
+    const own = this.fittedPlan(lx, ly);
+    const plan = own ?? (dir === 0 ? this.fittedPlan(lx, ly - 1) : this.fittedPlan(lx - 1, ly));
+    if (!plan) return null;
+    const side = dir === 0 ? (own ? 0 : 1) : own ? 2 : 3;
+    return !plan.doors.some(([s, c]) => s === side && c === m);
   }
 
   /**
@@ -600,6 +734,8 @@ export class WorldMap {
 
   /** Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), covers cell m (1–4). */
   private segment(lx: number, ly: number, dir: number, m: number): boolean {
+    const fitted = this.fittedWall(lx, ly, dir, m);
+    if (fitted !== null) return fitted;
     // Two stretches by the spawn point are always open, so nobody starts boxed in.
     if (dir === 0 ? lx === 0 && (ly === 0 || ly === 1) : ly === 0 && (lx === 0 || lx === 1)) return false;
     const layout = this.layout(lx, ly);

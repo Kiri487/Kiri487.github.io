@@ -1,4 +1,12 @@
-import { CANDLE_SIGN_SIZE, type BurgerPlan, type CandleSign, type Statue, type WorldMap } from "./map";
+import {
+  CANDLE_SIGN_SIZE,
+  FITTED_SIZE,
+  type BurgerPlan,
+  type CandleSign,
+  type FittedPlan,
+  type Statue,
+  type WorldMap,
+} from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
 import { heaviest, JUNK_WEIGHTS, type ZoneWeights } from "./zones";
 
@@ -1628,6 +1636,7 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
     }
   }
   out.push(...partiesAround(map, x, y, radius));
+  out.push(...fittedAround(map, x, y, radius));
   out.push(...candleSignsAround(map, x, y, radius));
   return out;
 }
@@ -2873,6 +2882,271 @@ function partiesAround(map: WorldMap, x: number, y: number, radius: number): Jun
       let found = known.get(key);
       if (!found) {
         found = partyIn(map, lx, ly, plan);
+        known.set(key, found);
+      }
+      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+    }
+  }
+  return out;
+}
+
+// ---- fitted rooms ----
+
+/*
+ * A fitted room is a lattice room walled in, with a door or two, fitted out for a use (map.ts says which and where).
+ * Its furniture stands where it belongs, mostly back to a wall in sets, as if somebody worked there until not long
+ * ago; now and then one thing is wrong.
+ *
+ * A workroom: one desk against the wall facing the way in, a monitor on it and a chair pulled up to it, its back to
+ * whoever comes in; a row of filing cabinets along a wall beside it; a socket behind the desk and a light switch by
+ * the door; sometimes a chair against a wall for a visitor. Now and then the chair has been turned round to face the
+ * door, the monitor turned to the wall, or the chair taken away from the desk and put in a corner, facing into it.
+ */
+
+/** Inward from each side of a fitted room: north, south, west, east. */
+const INWARD = [
+  [0, 1],
+  [0, -1],
+  [1, 0],
+  [-1, 0],
+] as const;
+
+/** A point `out` into fitted room `plan` from the inside face of its wall on side `side`, `t` along that wall. */
+function onWall(plan: FittedPlan, side: number, t: number, out: number): [number, number] {
+  const { x0, y0 } = plan;
+  if (side === 0) return [x0 + t, y0 + out];
+  if (side === 1) return [x0 + t, y0 + FITTED_SIZE - out];
+  if (side === 2) return [x0 + out, y0 + t];
+  return [x0 + FITTED_SIZE - out, y0 + t];
+}
+
+/** The way out of the wall on side `side`, into the room. */
+const inward = (side: number) => Math.atan2(INWARD[side][1], INWARD[side][0]);
+
+/** The side across the room from each side. */
+const ACROSS = [1, 0, 3, 2] as const;
+
+/** The workroom's desk: bigger than the ones lying about, and higher than the chair's seat, as a desk should be. */
+const WORK_DESK: DeskShape = { length: 0.75, depth: 0.36, height: 0.34, legs: 2, drawer: true };
+/** How far the chair stands out from the desk's front, and how far it's turned off square, at most. */
+const WORK_CHAIR_OUT = 0.2;
+const WORK_CHAIR_TURN = 0.25;
+/** How likely the chair is turned round to face the door, the monitor turned to the wall, the chair in a corner. */
+const WORK_CHAIR_TURNED = 0.15;
+const WORK_MONITOR_AWAY = 0.1;
+const WORK_CHAIR_CORNER = 0.08;
+/** How many filing cabinets in the row, at least and at most; how likely a visitor's chair is. */
+const WORK_CABINETS = [1, 3] as const;
+const WORK_VISITOR = 0.35;
+/** The light switch by the door: how far along the wall from the door's middle, and how high. */
+const SWITCH_ALONG = 0.75;
+const SWITCH_H = 0.42;
+/** Kept clear in front of each door: how far into the room its middle is, and how far round that. */
+const DOOR_CLEAR_OUT = 0.45;
+const DOOR_CLEAR = 0.6;
+
+/**
+ * What the preview shows in each of its rooms: the room as it's usually found with all its extras, the chair turned
+ * to the door, the monitor turned to the wall, the chair in a corner.
+ */
+const WORK_PREVIEWS = [
+  { turned: false, away: false, corner: false, visitor: true, cabinets: 3 },
+  { turned: true, away: false, corner: false, visitor: false, cabinets: 2 },
+  { turned: false, away: true, corner: false, visitor: false, cabinets: 1 },
+  { turned: false, away: false, corner: true, visitor: true, cabinets: 2 },
+];
+
+/** Everything in workroom `plan` in lattice room (lx, ly), the same every time for this map. */
+function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 41 + k, ly, 950);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const preview = plan.preview === undefined ? null : WORK_PREVIEWS[plan.preview];
+  const turned = preview ? preview.turned : roll(1) < WORK_CHAIR_TURNED;
+  const away = preview ? preview.away : roll(2) < WORK_MONITOR_AWAY;
+  const corner = preview ? preview.corner : !turned && roll(3) < WORK_CHAIR_CORNER;
+  const visitor = preview ? preview.visitor : roll(4) < WORK_VISITOR;
+  const [least, most] = WORK_CABINETS;
+  const cabinets = preview ? preview.cabinets : least + Math.floor(roll(5) * (most - least + 1));
+
+  // What's taken, as circles; the doors kept clear.
+  const taken: { x: number; y: number; r: number }[] = [];
+  const doorSides = new Set(plan.doors.map(([side]) => side));
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number) =>
+    x - r > plan.x0 &&
+    y - r > plan.y0 &&
+    x + r < plan.x0 + FITTED_SIZE &&
+    y + r < plan.y0 + FITTED_SIZE &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const [doorSide, doorCell] = plan.doors[0];
+  const door = onWall(plan, doorSide, doorCell - 0.5, 0.5);
+
+  // The desk, against the wall across from the way in; or, if there's a door there too, against another.
+  const sides = [ACROSS[doorSide], ...[0, 1, 2, 3].filter((s) => s !== ACROSS[doorSide])];
+  const deskSide = sides.find((s) => !doorSides.has(s)) ?? ACROSS[doorSide];
+  const hl = WORK_DESK.length / 2;
+  const hd = WORK_DESK.depth / 2;
+  const deskT = 1 + roll(10) * 2;
+  const [tx, ty] = onWall(plan, deskSide, deskT, hd + 0.005);
+  const face = inward(deskSide);
+  const [fx, fy] = INWARD[deskSide];
+  // Along the wall.
+  const ax = -fy;
+  const ay = fx;
+  const desk = { x: tx, y: ty, h: 0, yaw: face, pitch: 0, roll: 0 };
+  out.push({
+    key: key("desk"),
+    kind: "desk",
+    model: buildDesk(WORK_DESK),
+    ...desk,
+    solid: slab(tx, ty, ax * hl, ay * hl, hd + 0.01),
+    perch: perchOn(desk, WORK_DESK.height, hd, 0.1),
+  });
+  for (const k of [-1, 0, 1]) taken.push({ x: tx + ax * hl * 0.7 * k, y: ty + ay * hl * 0.7 * k, r: hd + 0.02 });
+
+  // The monitor on it, its back to the wall; or turned round, its screen to the wall.
+  const mt = deskT + (roll(11) - 0.5) * 0.2;
+  const [mx, my] = onWall(plan, deskSide, mt, MONITOR_DEPTH / 2 + 0.01);
+  const monitorYaw = (away ? face + Math.PI : face) + (roll(12) - 0.5) * 0.2;
+  const monitor = {
+    x: mx - Math.cos(monitorYaw) * MONITOR_MIDDLE,
+    y: my - Math.sin(monitorYaw) * MONITOR_MIDDLE,
+    h: WORK_DESK.height,
+    yaw: monitorYaw,
+    pitch: 0,
+    roll: 0,
+  };
+  out.push({
+    key: key("monitor"),
+    kind: "monitor",
+    model: MONITOR,
+    ...monitor,
+    solid: null,
+    perch: perchOn(monitor, MONITOR_TALL, 0.17, 0.42, false, -0.03),
+  });
+
+  // The chair: pulled up to the desk, facing it; turned round to face the door; or in a corner, facing into it.
+  const chair = buildChair(ORDINARY);
+  const seat = chairSeat(ORDINARY);
+  const putChair = (name: string, x: number, y: number, yaw: number) => {
+    const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+    out.push({
+      key: key(name),
+      kind: "chair",
+      model: chair,
+      ...pose,
+      solid: { x, y, r: 0.2 },
+      perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),
+    });
+    taken.push({ x, y, r: 0.22 });
+  };
+  if (corner) {
+    // The corner furthest from the way in, away from the desk if it can be.
+    const corners: [number, number][] = [
+      [plan.x0 + 0.3, plan.y0 + 0.3],
+      [plan.x0 + FITTED_SIZE - 0.3, plan.y0 + 0.3],
+      [plan.x0 + 0.3, plan.y0 + FITTED_SIZE - 0.3],
+      [plan.x0 + FITTED_SIZE - 0.3, plan.y0 + FITTED_SIZE - 0.3],
+    ];
+    corners.sort((a, b) => Math.hypot(b[0] - door[0], b[1] - door[1]) - Math.hypot(a[0] - door[0], a[1] - door[1]));
+    const spot = corners.find(([x, y]) => free(x, y, 0.22)) ?? corners[0];
+    const cx = spot[0] < plan.x0 + 2 ? plan.x0 : plan.x0 + FITTED_SIZE;
+    const cy = spot[1] < plan.y0 + 2 ? plan.y0 : plan.y0 + FITTED_SIZE;
+    putChair("chair", spot[0], spot[1], Math.atan2(cy - spot[1], cx - spot[0]));
+  } else {
+    const along = (roll(13) - 0.5) * 0.2;
+    const [cx, cy] = onWall(plan, deskSide, deskT + along, WORK_DESK.depth + WORK_CHAIR_OUT);
+    const yaw = turned
+      ? Math.atan2(door[1] - cy, door[0] - cx) + (roll(14) - 0.5) * 0.2
+      : face + Math.PI + (roll(14) - 0.5) * 2 * WORK_CHAIR_TURN;
+    putChair("chair", cx, cy, yaw);
+  }
+
+  // Sockets: one low on the wall beside the desk, and the light switch by the way in.
+  const socket = (name: string, model: StatueModel, side: number, t: number, h: number) => {
+    const [x, y] = onWall(plan, side, t, 0);
+    out.push({ key: key(name), kind: "socket", model, x, y, h, yaw: inward(side), pitch: 0, roll: 0, solid: null });
+  };
+  const socketT = deskT + (roll(21) < 0.5 ? -1 : 1) * (hl + 0.15);
+  socket("socket", SOCKETS[Math.floor(roll(20) * 2)].model, deskSide, socketT, 0.07);
+  const switchT = doorCell - 0.5 + (roll(22) < 0.5 ? -1 : 1) * SWITCH_ALONG;
+  socket("switch", SOCKETS[2].model, doorSide, switchT, SWITCH_H);
+
+  // The filing cabinets, in a row back to a wall beside the desk's, from the corner they share; or wherever the row
+  // fits.
+  const cabinetSides = [0, 1, 2, 3].filter((s) => s !== deskSide && s !== ACROSS[deskSide]);
+  if (roll(30) < 0.5) cabinetSides.reverse();
+  cabinetSides.push(ACROSS[deskSide], deskSide);
+  const shape = cabinetShape(roll(31) * 0.5, 0, roll(32));
+  const cw = shape.width + 0.01;
+  const chd = shape.depth / 2;
+  for (const side of cabinetSides) {
+    // From the end by the desk's wall, or from the far end.
+    const nearDesk = side === 0 || side === 1 ? (deskSide === 3 ? FITTED_SIZE : 0) : deskSide === 1 ? FITTED_SIZE : 0;
+    const starts = [nearDesk, FITTED_SIZE - nearDesk];
+    let placed = false;
+    for (const start of starts) {
+      const step = start === 0 ? 1 : -1;
+      const first = start + step * (0.1 + cw / 2);
+      const spots = Array.from({ length: cabinets }, (_, i) => onWall(plan, side, first + step * cw * i, chd + 0.005));
+      if (!spots.every(([x, y]) => free(x, y, Math.max(cw, shape.depth) / 2))) continue;
+      const yaw = inward(side);
+      const [sx, sy] = INWARD[side];
+      spots.forEach(([x, y], i) => {
+        const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+        const one = i === 0 ? shape : { ...shape, pulled: shape.pulled.map(() => 0) };
+        out.push({
+          key: key(`cabinet${i}`),
+          kind: "cabinet",
+          model: buildCabinet(one),
+          ...pose,
+          solid: slab(x, y, sx * chd, sy * chd, shape.width / 2 + 0.01),
+          perch: perchOn(pose, cabinetHeight(one), chd, 0.1),
+        });
+        taken.push({ x, y, r: Math.max(cw, shape.depth) / 2 });
+      });
+      placed = true;
+      break;
+    }
+    if (placed) break;
+  }
+
+  // A visitor's chair, back to a wall, facing the desk.
+  if (visitor) {
+    for (let k = 0; k < 12; k++) {
+      const side = [0, 1, 2, 3].filter((s) => s !== deskSide)[Math.floor(roll(40 + k) * 3)];
+      const [x, y] = onWall(plan, side, 0.4 + roll(52 + k) * 3.2, 0.24);
+      if (!free(x, y, 0.22)) continue;
+      putChair("visitor", x, y, Math.atan2(ty - y, tx - x) + (roll(64 + k) - 0.5) * 0.3);
+      break;
+    }
+  }
+  return out;
+}
+
+/** The fitted rooms' contents, by room and map: laid out once. */
+const fittings = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Everything in the fitted rooms within `radius` of (x, y). */
+function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = fittings.get(map);
+  if (!known) {
+    known = new Map();
+    fittings.set(map, known);
+  }
+  const out: Junk[] = [];
+  for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
+    for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
+      const plan = map.fittedPlan(lx, ly);
+      if (!plan) continue;
+      const key = `${lx},${ly}`;
+      let found = known.get(key);
+      if (!found) {
+        found = workroomIn(map, lx, ly, plan);
         known.set(key, found);
       }
       for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
