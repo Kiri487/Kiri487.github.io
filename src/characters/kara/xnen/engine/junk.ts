@@ -1784,6 +1784,9 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   return out;
 }
 
+/** How far junk keeps from the thing at a corridor's walled-off end, from the middle of its cell to the wall. */
+const CORRIDOR_END_CLEAR = 1.8;
+
 /** An open cell in the block, and the way to a wall beside it if there is one. */
 interface Spot {
   cx: number;
@@ -1803,6 +1806,8 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5)) || map.deadEndRoom(Math.floor(cx / 5), Math.floor(cy / 5))) {
       continue;
     }
+    // Nor by the end of a corridor walled across, where its door, chair or vending machine stands.
+    if (map.deadEndsNear(cx + 0.5, cy + 0.5, CORRIDOR_END_CLEAR).length) continue;
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
