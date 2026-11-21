@@ -1,5 +1,5 @@
 import type { Lighting } from "./lighting";
-import { PIT_COUNT, PIT_PITCH, PIT_RIM, PIT_ROOM, overPit, type PitField, type WorldMap } from "./map";
+import { PIT_COUNT, PIT_PITCH, PIT_RIM, ROOM_BLOCK, overPit, type PitField, type WorldMap } from "./map";
 import { CARPET, CARPET_FLIP, CARPET_SIZE, PIT_SIDE } from "./textures";
 
 /*
@@ -52,9 +52,9 @@ export interface PitView {
 /** The fields of pits in every pit room within `radius` of (x, y). */
 export function pitFieldsNear(map: WorldMap, x: number, y: number, radius: number): PitField[] {
   const out: PitField[] = [];
-  for (let by = Math.floor((y - radius) / PIT_ROOM); by <= Math.floor((y + radius) / PIT_ROOM); by++) {
-    for (let bx = Math.floor((x - radius) / PIT_ROOM); bx <= Math.floor((x + radius) / PIT_ROOM); bx++) {
-      const field = map.pitFieldAt(bx * PIT_ROOM, by * PIT_ROOM);
+  for (let by = Math.floor((y - radius) / ROOM_BLOCK); by <= Math.floor((y + radius) / ROOM_BLOCK); by++) {
+    for (let bx = Math.floor((x - radius) / ROOM_BLOCK); bx <= Math.floor((x + radius) / ROOM_BLOCK); bx++) {
+      const field = map.pitFieldAt(bx * ROOM_BLOCK, by * ROOM_BLOCK);
       if (field) out.push(field);
     }
   }

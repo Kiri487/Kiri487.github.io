@@ -7,8 +7,10 @@ import type { Tuning } from "./tuning";
  * half a wall or nothing, and how often each comes up depends on the kind of area: open halls with pillars, mazes of
  * corridors, or packed office cubicles. Now and then a block of lattice rooms is knocked through into one big room.
  *
- * Rarer still, a block of 3 × 3 lattice rooms is a pit room: walled all round, with a doorway somewhere along some of
- * its sides and at least one, and from wall to wall a grid of square pits with no bottom, only thin rims between them.
+ * Rarer still, a block of 3 × 3 lattice rooms is a special room, built to its own plan: walled all round, with a
+ * doorway somewhere along some of its sides and at least one. Each kind says what of the usual backrooms it lets in.
+ * So far there's one kind, the pit room: from wall to wall a grid of square pits with no bottom, only thin rims
+ * between them.
  */
 
 interface Area {
@@ -46,8 +48,34 @@ export interface Statue {
   lampY: number;
 }
 
-/** A pit room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
-export const PIT_ROOM = 15;
+/** A special room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
+export const ROOM_BLOCK = 15;
+
+/** The kinds of special room. */
+export type RoomKind = "pit";
+/**
+ * What a special room lets in: the junk lying about the backrooms, a statue, and XN, on its floor and its walls or
+ * just turning up there. Things it has of its own (XN on a pit's rim) it sees to itself.
+ */
+export interface RoomRules {
+  junk: boolean;
+  statue: boolean;
+  xn: boolean;
+}
+const ROOM_RULES: Record<RoomKind, RoomRules> = {
+  pit: { junk: false, statue: false, xn: false },
+};
+/**
+ * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
+ * ones before stay where they were.
+ */
+const ROOM_CHANCES: readonly [RoomKind, number][] = [["pit", 0.06]];
+/**
+ * How likely each side of a special room is to have a doorway (one, anywhere along it). A room left with none gets
+ * one.
+ */
+const ROOM_DOOR = 0.5;
+
 /** Its pits fill the room from wall to wall: one cell in from the room's corner, past the wall, and this many a side. */
 const PIT_FIELD_IN = 1;
 export const PIT_FIELD = 14;
@@ -59,10 +87,6 @@ export const PIT_PITCH = PIT_FIELD / PIT_COUNT;
  * the inside, so it's as wide as the others.
  */
 export const PIT_RIM = 0.15;
-/** How likely a block is to be a pit room. */
-const PIT_CHANCE = 0.06;
-/** How likely each side of a pit room is to have a doorway (one, anywhere along it). A room left with none gets one. */
-const PIT_DOOR = 0.5;
 
 /** The square of pits in a pit room, in cells: its north-west corner and its width. */
 export interface PitField {
@@ -103,15 +127,41 @@ export class WorldMap {
     return t < 0.3 ? HALL : t < 0.72 ? MAZE : OFFICE;
   }
 
-  /** Whether block (bx, by) of 3 × 3 lattice rooms is a pit room. Never the spawn's block. */
-  pitRoom(bx: number, by: number): boolean {
-    if (bx === 0 && by === 0) return false;
-    return this.noise(bx, by, 50) < PIT_CHANCE;
+  /** What kind of special room block (bx, by) of 3 × 3 lattice rooms is, or null if it's none. Never the spawn's. */
+  roomKind(bx: number, by: number): RoomKind | null {
+    if (bx === 0 && by === 0) return null;
+    let die = this.noise(bx, by, 50);
+    for (const [kind, chance] of ROOM_CHANCES) {
+      if (die < chance) return kind;
+      die -= chance;
+    }
+    return null;
   }
 
-  /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a pit room. */
+  /** Whether block (bx, by) is a special room of any kind. */
+  private specialRoom(bx: number, by: number): boolean {
+    return this.roomKind(bx, by) !== null;
+  }
+
+  /** Whether block (bx, by) is a pit room. */
+  pitRoom(bx: number, by: number): boolean {
+    return this.roomKind(bx, by) === "pit";
+  }
+
+  /** The kind of special room cell (cx, cy) is in, walls included, or null if it's in none. */
+  roomAt(cx: number, cy: number): RoomKind | null {
+    return this.roomKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK));
+  }
+
+  /** Whether `what` belongs at cell (cx, cy): anywhere outside the special rooms, and in one if its kind lets it in. */
+  allows(cx: number, cy: number, what: keyof RoomRules): boolean {
+    const kind = this.roomAt(cx, cy);
+    return !kind || ROOM_RULES[kind][what];
+  }
+
+  /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a special room. */
   private openBlock(bx: number, by: number): boolean {
-    return this.noise(bx, by, 9) < 0.2 || this.pitRoom(bx, by);
+    return this.noise(bx, by, 9) < 0.2 || this.specialRoom(bx, by);
   }
 
   private bigRoom(lx: number, ly: number, dir: number): boolean {
@@ -120,43 +170,42 @@ export class WorldMap {
   }
 
   /**
-   * Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), is a pit room's wall:
-   * then it's always there, but for the side's doorway if it has one and it's here.
+   * Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), is a special room's
+   * wall: then it's always there, but for the side's doorway if it has one and it's here.
    */
-  private pitWall(lx: number, ly: number, dir: number): boolean {
+  private roomWall(lx: number, ly: number, dir: number): boolean {
     const across = dir === 0 ? ly : lx;
     if (mod(across, 3) !== 0) return false;
     const along = Math.floor((dir === 0 ? lx : ly) / 3);
     const block = across / 3;
     return dir === 0
-      ? this.pitRoom(along, block) || this.pitRoom(along, block - 1)
-      : this.pitRoom(block, along) || this.pitRoom(block - 1, along);
+      ? this.specialRoom(along, block) || this.specialRoom(along, block - 1)
+      : this.specialRoom(block, along) || this.specialRoom(block - 1, along);
   }
 
   /**
-   * Which sides of pit room (bx, by) have a doorway: north, south, west, east. Each side's own die is shared with the
-   * block on its other side, so a wall between two pit rooms agrees with itself; a room that rolls none gets one.
+   * Which sides of special room (bx, by) have a doorway: north, south, west, east. Each side's own die is shared with
+   * the block on its other side, so a wall between two special rooms agrees with itself; a room that rolls none gets
+   * one.
    */
-  private pitSides(bx: number, by: number): [boolean, boolean, boolean, boolean] {
+  private roomSides(bx: number, by: number): [boolean, boolean, boolean, boolean] {
     const sides: [boolean, boolean, boolean, boolean] = [
-      this.noise(bx, by, 52) < PIT_DOOR,
-      this.noise(bx, by + 1, 52) < PIT_DOOR,
-      this.noise(bx, by, 53) < PIT_DOOR,
-      this.noise(bx + 1, by, 53) < PIT_DOOR,
+      this.noise(bx, by, 52) < ROOM_DOOR,
+      this.noise(bx, by + 1, 52) < ROOM_DOOR,
+      this.noise(bx, by, 53) < ROOM_DOOR,
+      this.noise(bx + 1, by, 53) < ROOM_DOOR,
     ];
     if (!sides.some(Boolean)) sides[Math.floor(this.noise(bx, by, 54) * 4)] = true;
     return sides;
   }
 
   /**
-   * The doorway in a pit room's wall along a block's side, as the stretch it's in (0–2) and the cell along that
+   * The doorway in a special room's wall along a block's side, as the stretch it's in (0–2) and the cell along that
    * stretch (1–4), or null if there's none. dir 0: the wall along the top of block (a, b); dir 1: down its left.
    */
-  private pitDoorway(dir: number, a: number, b: number): [number, number] | null {
-    const open =
-      dir === 0
-        ? (this.pitRoom(a, b) && this.pitSides(a, b)[0]) || (this.pitRoom(a, b - 1) && this.pitSides(a, b - 1)[1])
-        : (this.pitRoom(a, b) && this.pitSides(a, b)[2]) || (this.pitRoom(a - 1, b) && this.pitSides(a - 1, b)[3]);
+  private roomDoorway(dir: number, a: number, b: number): [number, number] | null {
+    const side = (bx: number, by: number, k: number) => this.specialRoom(bx, by) && this.roomSides(bx, by)[k];
+    const open = dir === 0 ? side(a, b, 0) || side(a, b - 1, 1) : side(a, b, 2) || side(a - 1, b, 3);
     if (!open) return null;
     return [Math.floor(this.noise(a, b, 56 + dir) * 3), 1 + Math.floor(this.noise(a, b, 58 + dir) * 4)];
   }
@@ -179,15 +228,10 @@ export class WorldMap {
 
   /** The square of pits that (x, y) is over or beside, if it's in a pit room. */
   pitFieldAt(x: number, y: number): PitField | null {
-    const bx = Math.floor(x / PIT_ROOM);
-    const by = Math.floor(y / PIT_ROOM);
+    const bx = Math.floor(x / ROOM_BLOCK);
+    const by = Math.floor(y / ROOM_BLOCK);
     if (!this.pitRoom(bx, by)) return null;
-    return { x0: bx * PIT_ROOM + PIT_FIELD_IN, y0: by * PIT_ROOM + PIT_FIELD_IN, size: PIT_FIELD };
-  }
-
-  /** Whether cell (cx, cy) is in a pit room, walls included. */
-  inPitRoom(cx: number, cy: number): boolean {
-    return this.pitRoom(Math.floor(cx / PIT_ROOM), Math.floor(cy / PIT_ROOM));
+    return { x0: bx * ROOM_BLOCK + PIT_FIELD_IN, y0: by * ROOM_BLOCK + PIT_FIELD_IN, size: PIT_FIELD };
   }
 
   /**
@@ -204,11 +248,11 @@ export class WorldMap {
     // Two stretches by the spawn point are always open, so nobody starts boxed in.
     if (dir === 0 ? lx === 0 && (ly === 0 || ly === 1) : ly === 0 && (lx === 0 || lx === 1)) return false;
     if (this.bigRoom(lx, ly, dir)) return false;
-    if (this.pitWall(lx, ly, dir)) {
+    if (this.roomWall(lx, ly, dir)) {
       const doorway =
         dir === 0
-          ? this.pitDoorway(0, Math.floor(lx / 3), ly / 3)
-          : this.pitDoorway(1, lx / 3, Math.floor(ly / 3));
+          ? this.roomDoorway(0, Math.floor(lx / 3), ly / 3)
+          : this.roomDoorway(1, lx / 3, Math.floor(ly / 3));
       return !doorway || doorway[0] !== mod(dir === 0 ? lx : ly, 3) || doorway[1] !== m;
     }
     const area = this.area(lx, ly);
@@ -242,7 +286,8 @@ export class WorldMap {
       const inside = mod(lx, 3) !== 0 && mod(ly, 3) !== 0;
       const bx = Math.floor(lx / 3);
       const by = Math.floor(ly / 3);
-      if (inside && this.pitRoom(bx, by)) return 0;
+      // A special room has nothing standing in it but what its plan puts there.
+      if (inside && this.specialRoom(bx, by)) return 0;
       const inBigRoom = inside && this.openBlock(bx, by);
       return this.noise(lx, ly, 8) < (inBigRoom ? 0.6 : this.area(lx, ly).post) ? 1 : 0;
     }
@@ -265,9 +310,9 @@ export class WorldMap {
     return r < 0.08 ? LIGHT_FLICKER_A : r < 0.14 ? LIGHT_FLICKER_B : LIGHT_ON;
   }
 
-  /** Room for a statue at cell (x, y): it and the eight cells around it are open, and not in a pit room. */
+  /** Room for a statue at cell (x, y): it and the eight cells around it are open, and statues belong there. */
   private roomy(x: number, y: number): boolean {
-    if (this.inPitRoom(x, y)) return false;
+    if (!this.allows(x, y, "statue")) return false;
     for (let j = -1; j <= 1; j++) {
       for (let i = -1; i <= 1; i++) {
         if (this.wall(x + i, y + j)) return false;

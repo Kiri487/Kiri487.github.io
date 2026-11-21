@@ -5,7 +5,8 @@ import { describeTuning, loadTuning, saveTuning } from "./devTuning";
 import { forgetDoor } from "./door";
 import { readableAt, SAN_DEV_RANGE, setSanExposure, stageAt, useSanSeconds } from "./san";
 import { meetingsSoFar } from "./talk";
-import { PROP_POSES, type PropPose, type PropTarget, type XnPreview } from "./game";
+import type { XnPreview } from "./game";
+import { PROP_POSES, type PropPose, type PropTarget } from "./xnPlaces";
 import {
   NOT_ON_WALLS,
   randomWalk,

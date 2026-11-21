@@ -227,7 +227,14 @@
   }
 }
 
-/* ---- dev builds only: the tuning panel ---- */
+/* ---- dev builds only: the tuning panel, and how the frames are going ---- */
+
+[data-skin="kara"] .kara-xnen__stats {
+  align-self: center;
+  color: var(--xnen-paper);
+  font: 12px ui-monospace, Consolas, monospace;
+  opacity: 0.8;
+}
 
 [data-skin="kara"] .kara-xnen-dev {
   position: absolute;

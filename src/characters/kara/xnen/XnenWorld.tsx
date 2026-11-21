@@ -19,7 +19,7 @@ import { XN_DEV_TOOLS } from "./devFlags";
 import { loadTuning } from "./devTuning";
 import { refocusOpener } from "./door";
 import { DEFAULT_TUNING } from "./engine/tuning";
-import { createGame, type Exit, type Game, type Mode, type XnPreview } from "./game";
+import { createGame, type Exit, type FrameStats, type Game, type Mode, type XnPreview } from "./game";
 import { DEFAULT_CROUCH, DEFAULT_SIT, DEFAULT_WALK, NOTICE_RANGE } from "./xn";
 import "./xnen.css";
 
@@ -132,6 +132,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
   const [line, setLine] = useState<string | null>(null);
   const [devOpen, setDevOpen] = useState(false);
   const [xnPreview, setXnPreview] = useState(FIRST_PREVIEW);
+  const [frameStats, setFrameStats] = useState<FrameStats | null>(null);
 
   useEffect(() => {
     leaveRef.current = onLeave;
@@ -187,6 +188,7 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       onLine: setLine,
       onLeave: (exit) => leaveRef.current(exit),
       onXnWalk: XN_DEV_TOOLS ? (walk) => setXnPreview((preview) => ({ ...preview, walk })) : undefined,
+      onFrameStats: XN_DEV_TOOLS ? setFrameStats : undefined,
     });
     gameRef.current = game;
     return () => {
@@ -251,6 +253,11 @@ function XnenWorld({ onLeave }: XnenWorldProps) {
       )}
 
       <div className="kara-xnen__corner">
+        {XN_DEV_TOOLS && frameStats && (
+          <span className="kara-xnen__stats" aria-hidden="true">
+            {Math.round(frameStats.fps)} fps · {frameStats.work.toFixed(1)} ms · worst {frameStats.worst.toFixed(1)}
+          </span>
+        )}
         {XN_DEV_TOOLS && (
           <button
             type="button"

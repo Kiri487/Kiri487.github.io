@@ -1617,8 +1617,8 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
   for (let k = 0; k < 16; k++) {
     const cx = bx * BLOCK + Math.floor(roll(1 + k) * BLOCK);
     const cy = by * BLOCK + Math.floor(roll(20 + k) * BLOCK);
-    // Nothing in the pit rooms: it would hang over the pits.
-    if (map.wall(cx, cy) || map.inPitRoom(cx, cy)) continue;
+    // Not in a special room that keeps junk out (in a pit room, it would hang over the pits).
+    if (map.wall(cx, cy) || !map.allows(cx, cy, "junk")) continue;
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
