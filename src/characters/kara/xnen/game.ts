@@ -16,7 +16,9 @@ import {
   placeJunk,
   SAFETY_SKIN,
   SIGN_SKIN,
+  STAIRS_SKIN,
   STORAGE_SKIN,
+  VENDING_SKIN,
   WOOD_SKIN,
   type Junk,
 } from "./engine/junk";
@@ -26,6 +28,7 @@ import { PLAYER_RADIUS, Player } from "./engine/player";
 import { inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
 import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
+import { whiteboardSkin } from "./engine/whiteboard";
 import {
   placeStatue,
   STATUE_RADIUS,
@@ -224,6 +227,9 @@ const XN_PROP_CHANCE = 0.5;
  */
 const XN_PARTY_NEAR = 10;
 const XN_PARTY_CHANCE = 0.75;
+/** Otherwise, with a dark hall this near, she's often under its one light. */
+const XN_SPOTLIGHT_NEAR = 12;
+const XN_SPOTLIGHT_CHANCE = 0.5;
 
 /**
  * Seconds of play a subtitle stays: at least LINE_TIME, and longer lines a little longer, LINE_BASE plus this much
@@ -547,9 +553,13 @@ export function createGame(parts: GameParts): Game {
 
   /** Puts XN somewhere new near the visitor, doing something new. False if there was nowhere. */
   const relocateXn = (who: Xn, cam: Camera) => {
-    // At the party, if there's one near; otherwise half the time at something near the visitor, if there's anything.
+    // At the party, if there's one near; or under a dark hall's light; otherwise half the time at something near the
+    // visitor, if there's anything.
     const party = Math.random() < XN_PARTY_CHANCE ? pickXnProp(who, cam, "party", XN_PARTY_NEAR) : null;
-    const prop = party ?? (Math.random() < XN_PROP_CHANCE ? pickXnProp(who, cam) : null);
+    const lit =
+      party ??
+      (Math.random() < XN_SPOTLIGHT_CHANCE ? pickXnProp(who, cam, "spotlight", XN_SPOTLIGHT_NEAR) : null);
+    const prop = lit ?? (Math.random() < XN_PROP_CHANCE ? pickXnProp(who, cam) : null);
     if (prop) {
       who.manner = { tailUp: Math.random() < XN_TAIL_UP, swingArms: false };
       carryOut(who, prop);
@@ -672,8 +682,10 @@ export function createGame(parts: GameParts): Game {
     const flameGlow = reduced ? FLAME_GLOW : FLAME_GLOW + FLAME_FLICKER * flicker;
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
-      // A monitor waits for its screen's picture.
-      const junkSkin = junk.office ? OFFICE_SKIN : {
+      // A monitor waits for its screen's picture. A board XN's written on has its own, as she reads now.
+      const { writing } = junk;
+      const read = (text: string) => readAs(text, xnReadable());
+      const junkSkin = writing ? whiteboardSkin(writing.index, writing.seed, read) : junk.office ? OFFICE_SKIN : {
         monitor,
         chair: WOOD_SKIN,
         sign: SIGN_SKIN,
@@ -691,6 +703,9 @@ export function createGame(parts: GameParts): Game {
         storage: STORAGE_SKIN,
         candle: CANDLE_SKIN,
         flame: CANDLE_SKIN,
+        partition: OFFICE_SKIN,
+        vending: VENDING_SKIN,
+        stairs: STAIRS_SKIN,
       }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);

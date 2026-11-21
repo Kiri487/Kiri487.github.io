@@ -12,7 +12,10 @@ import {
   ZONE_TILES,
   ZONE_YELLOW,
   CAMP_WEIGHTS,
+  CUBICLE_HALL_WEIGHTS,
+  LAMP_HALL_WEIGHTS,
   MEETING_WEIGHTS,
+  PILLAR_HALL_WEIGHTS,
   PANTRY_WEIGHTS,
   STORAGE_WEIGHTS,
   WORKROOM_WEIGHTS,
@@ -44,6 +47,16 @@ import {
  * special rooms there are (pit rooms only in the yellow), and, elsewhere, the junk, the writing and the posters.
  *
  * Some statues have the cult's sign laid out in candles on the floor in front of them (junk.ts), where it fits.
+ *
+ * A big room is a hall of one kind or another (HallKind): pillars every three cells all the way across, like a car
+ * park with no cars; a floor of office cubicles, everyone gone (junk.ts); every light out but the one in the middle,
+ * something under it; or left empty. A hall that's any of the first three has no fitted room or burger room in it.
+ *
+ * At the end of some dead ends, something (DeadEnd): a lattice room with only the one way in, or a corridor walled
+ * across. A door flat on the far wall that doesn't open, a chair facing it, a vending machine or two still lit; in a
+ * room, sometimes only the light nearest the far wall still on, and sometimes only that and nothing else.
+ *
+ * Rarely, in a plain room, a stair up through the ceiling that nobody can climb (StairsPlan).
  */
 
 interface Area {
@@ -152,6 +165,82 @@ const CANDLE_SIGN_TURNS = 8;
 
 /** A special room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
 export const ROOM_BLOCK = 15;
+
+/** How likely a block of lattice rooms is to be knocked through into a big room. */
+const BIG_ROOM = 0.2;
+/**
+ * What a big room has in it: pillars, cubicles, one light. Each share is weighed by the zone at its middle (zones.ts);
+ * an empty one's share isn't, so where a kind is weighed down, more of them are empty.
+ */
+export type HallKind = "pillars" | "cubicles" | "lamp";
+const HALL_CHANCES: readonly [HallKind, number, ZoneWeights][] = [
+  ["pillars", 0.3, PILLAR_HALL_WEIGHTS],
+  ["cubicles", 0.25, CUBICLE_HALL_WEIGHTS],
+  ["lamp", 0.15, LAMP_HALL_WEIGHTS],
+];
+const HALL_EMPTY = 0.3;
+/** In a pillar hall: a pillar on every cell this many apart each way, and how many of them aren't there. */
+export const HALL_PILLAR_EVERY = 3;
+const HALL_PILLAR_MISSING = 0.06;
+/** In a one-light hall: the one that works, this many cells in from the block's corner each way (its middle). */
+export const HALL_LAMP = 7;
+
+/** What's at a dead end. */
+export type DeadEndThing = "door" | "chair" | "vending";
+/**
+ * The end of a dead end, with something at it: the middle of the face of wall at the far end, the way out of it into
+ * the open, and how far either way of the middle there's wall to put things along. A cell (cx, cy) by it and `side`
+ * give its things their own dice.
+ */
+export interface DeadEnd {
+  x: number;
+  y: number;
+  nx: number;
+  ny: number;
+  half: number;
+  cx: number;
+  cy: number;
+  side: number;
+  thing: DeadEndThing | null;
+  /** A room's: only its light nearest the far wall still works. */
+  lampOnly: boolean;
+}
+/**
+ * How likely a lattice room with only the one way in is to have something at its far end; what, in turn from one die
+ * (nothing but its last light, the rest); how likely, with a thing there, its other lights are out too.
+ */
+const DEAD_END = 0.5;
+const DEAD_END_KINDS: readonly [DeadEndThing | null, number][] = [
+  ["door", 0.3],
+  ["chair", 0.25],
+  ["vending", 0.25],
+  [null, 0.2],
+];
+const DEAD_END_LAMP_ONLY = 0.5;
+/** How likely each side of a corridor walled across is to have something against the wall. */
+const CORRIDOR_END = 0.5;
+
+/**
+ * A stair going up, now and then, in a plain lattice room: along a wall from near a corner, its thirteenth step at
+ * the ceiling and the rest on up through it, the way up blocked at its foot, by a sign or a heap of chairs. The middle
+ * of its foot on the floor, the way up it, and the way out of the wall it runs along. A cell in the room gives its
+ * things their own dice.
+ */
+export interface StairsPlan {
+  x: number;
+  y: number;
+  ax: number;
+  ay: number;
+  nx: number;
+  ny: number;
+  block: "sign" | "chairs";
+  cx: number;
+  cy: number;
+}
+/** How likely a plain lattice room is to have a stair; how far from the corner it starts; how wide it is. */
+const STAIRS = 0.006;
+const STAIRS_FROM_CORNER = 0.35;
+export const STAIRS_W = 0.45;
 
 /** The kinds of special room. */
 /**
@@ -352,6 +441,12 @@ export class WorldMap {
   private readonly layouts = new Map<number, number>();
   /** Each lattice room's fitted room, or null, by lx * 100 003 + ly. */
   private readonly fitted = new Map<number, FittedPlan | null>();
+  /** What each block's big room has in it, or null if it's none of the kinds, by bx * 100 003 + by. */
+  private readonly halls = new Map<number, HallKind | null>();
+  /** Each lattice room's dead end, or null, by lx * 100 003 + ly. */
+  private readonly ends = new Map<number, DeadEnd | null>();
+  /** Each lattice room's stair, or null, by lx * 100 003 + ly. */
+  private readonly stairs = new Map<number, StairsPlan | null>();
 
   /** The tuning is read live, so the dev panel's dead-light slider works without a new map. */
   constructor(seed: number, tuning: Tuning) {
@@ -607,6 +702,10 @@ export class WorldMap {
    */
   private fits(lx: number, ly: number): boolean {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return false;
+    // Not in a hall that has something in it.
+    const bx = Math.floor(lx / 3);
+    const by = Math.floor(ly / 3);
+    if (this.hallKind(bx, by)) return false;
     // Its own, those it has doors onto, and the one south-east, whose lattice point is its corner.
     for (const [i, j] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1]]) {
       if (this.layout(lx + i, ly + j) !== LATTICE) return false;
@@ -712,7 +811,9 @@ export class WorldMap {
    */
   burgerPlan(lx: number, ly: number): BurgerPlan | null {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
-    if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
+    const bx = Math.floor(lx / 3);
+    const by = Math.floor(ly / 3);
+    if (this.specialRoom(bx, by) || this.hallKind(bx, by)) return null;
     const die = this.noise(lx, ly, 60);
     if (die >= BURGER_ROOM * heaviest(BURGER_ROOM_WEIGHTS)) return null;
     if (die >= BURGER_ROOM * BURGER_ROOM_WEIGHTS[this.roomZone(lx, ly)]) return null;
@@ -785,7 +886,249 @@ export class WorldMap {
 
   /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a special room. */
   private openBlock(bx: number, by: number): boolean {
-    return this.noise(bx, by, 9) < 0.2 || this.specialRoom(bx, by);
+    return this.noise(bx, by, 9) < BIG_ROOM || this.specialRoom(bx, by);
+  }
+
+  /** What block (bx, by)'s big room has in it, or null if it's no big room, an empty one, or the spawn's. */
+  hallKind(bx: number, by: number): HallKind | null {
+    const key = bx * 100_003 + by;
+    let kind = this.halls.get(key);
+    if (kind === undefined) {
+      kind = this.hallKindOf(bx, by);
+      this.halls.set(key, kind);
+    }
+    return kind;
+  }
+
+  private hallKindOf(bx: number, by: number): HallKind | null {
+    if (bx === 0 && by === 0) return null;
+    // Only a big room of plain lattice rooms: not a special room, nor in an area laid out to a plan, which has none.
+    if (this.noise(bx, by, 9) >= BIG_ROOM || this.specialRoom(bx, by)) return null;
+    if (this.layout(bx * 3, by * 3) !== LATTICE) return null;
+    const zone = this.zoneOfPoint((bx + 0.5) * ROOM_BLOCK, (by + 0.5) * ROOM_BLOCK);
+    const shares = HALL_CHANCES.map(([kind, chance, weights]) => [kind, chance * weights[zone]] as const);
+    let die = this.noise(bx, by, 47) * shares.reduce((sum, [, share]) => sum + share, HALL_EMPTY);
+    for (const [kind, share] of shares) {
+      if (die < share) return kind;
+      die -= share;
+    }
+    return null;
+  }
+
+  /** The kind of hall cell (cx, cy) is inside, not on the lattice round it, or null if it's in none. */
+  hallAt(cx: number, cy: number): HallKind | null {
+    if (mod(cx, ROOM_BLOCK) === 0 || mod(cy, ROOM_BLOCK) === 0) return null;
+    return this.hallKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK));
+  }
+
+  /**
+   * Whether cell (cx, cy) is in a hall that keeps out the junk lying about, statues and candles: the cubicles, which
+   * have their own things, and the one-light hall, which has only the one.
+   */
+  bareHall(cx: number, cy: number): boolean {
+    const hall = this.hallAt(cx, cy);
+    return hall === "cubicles" || hall === "lamp";
+  }
+
+  /**
+   * The dead end lattice room (lx, ly) is, with something at it, if it is: a plain room, with only one way in, an
+   * opening in one of its walls; not by the spawn, nor with a statue in it. Its far end is the wall across from that.
+   */
+  deadEndRoom(lx: number, ly: number): DeadEnd | null {
+    const key = lx * 100_003 + ly;
+    let end = this.ends.get(key);
+    if (end === undefined) {
+      end = this.deadEndRoomOf(lx, ly);
+      this.ends.set(key, end);
+    }
+    return end;
+  }
+
+  private deadEndRoomOf(lx: number, ly: number): DeadEnd | null {
+    if (Math.abs(lx) + Math.abs(ly) <= 1 || this.noise(lx, ly, 77) >= DEAD_END) return null;
+    if (!this.plainRoom(lx, ly)) return null;
+    const x0 = lx * 5;
+    const y0 = ly * 5;
+    // The openings in its walls, as runs of open cells along each side.
+    const cell = (side: number, k: number): [number, number] =>
+      side === 0 ? [x0 + k, y0] : side === 1 ? [x0 + k, y0 + 5] : side === 2 ? [x0, y0 + k] : [x0 + 5, y0 + k];
+    let runs = 0;
+    let open = -1;
+    for (let side = 0; side < 4; side++) {
+      let was = false;
+      for (let k = 1; k <= 4; k++) {
+        const now = !this.wall(...cell(side, k));
+        if (now && !was) {
+          runs++;
+          open = side;
+        }
+        was = now;
+      }
+    }
+    if (runs !== 1 || this.statueInRoom(lx, ly)) return null;
+    let thing: DeadEndThing | null = null;
+    let die = this.noise(lx, ly, 78);
+    for (const [kind, share] of DEAD_END_KINDS) {
+      if (die < share) {
+        thing = kind;
+        break;
+      }
+      die -= share;
+    }
+    const lampOnly = !thing || this.noise(lx, ly, 79) < DEAD_END_LAMP_ONLY;
+    // The far wall's inside face, its middle, and the way into the room.
+    const far = ACROSS_SIDE[open];
+    const [x, y, nx, ny] = [
+      [x0 + 3, y0 + 1, 0, 1],
+      [x0 + 3, y0 + 5, 0, -1],
+      [x0 + 1, y0 + 3, 1, 0],
+      [x0 + 5, y0 + 3, -1, 0],
+    ][far];
+    return { x, y, nx, ny, half: 2, cx: x0 + 1, cy: y0 + 1, side: far, thing, lampOnly };
+  }
+
+  /** Whether lattice room (lx, ly) is plain: of the lattice, and no special room, hall, fitted room or burger room. */
+  private plainRoom(lx: number, ly: number): boolean {
+    if (this.layout(lx, ly) !== LATTICE) return false;
+    const bx = Math.floor(lx / 3);
+    const by = Math.floor(ly / 3);
+    if (this.specialRoom(bx, by) || this.hallKind(bx, by)) return false;
+    return !this.fittedPlan(lx, ly) && !this.burgerPlan(lx, ly);
+  }
+
+  /** Whether its region's statue is inside lattice room (lx, ly). */
+  private statueInRoom(lx: number, ly: number): boolean {
+    const [x0, y0] = [lx * 5, ly * 5];
+    const statue = this.statueIn(Math.floor((x0 + 2.5) / this.region), Math.floor((y0 + 2.5) / this.region));
+    return !!statue && statue.cx > x0 && statue.cx < x0 + 5 && statue.cy > y0 && statue.cy < y0 + 5;
+  }
+
+  /**
+   * The stair in lattice room (lx, ly), if it has one: a plain room, not by the spawn, not a dead end with something in
+   * it, nor with a statue. It runs along a wall with no opening in it, from a corner where the wall across its foot has
+   * none either, so it's in nobody's way in.
+   */
+  stairsIn(lx: number, ly: number): StairsPlan | null {
+    const key = lx * 100_003 + ly;
+    let plan = this.stairs.get(key);
+    if (plan === undefined) {
+      plan = this.stairsOf(lx, ly);
+      this.stairs.set(key, plan);
+    }
+    return plan;
+  }
+
+  private stairsOf(lx: number, ly: number): StairsPlan | null {
+    if (Math.abs(lx) + Math.abs(ly) <= 1 || this.noise(lx, ly, 48) >= STAIRS) return null;
+    if (!this.plainRoom(lx, ly) || this.deadEndRoom(lx, ly)?.thing || this.statueInRoom(lx, ly)) return null;
+    const x0 = lx * 5;
+    const y0 = ly * 5;
+    const first = Math.floor(this.noise(lx, ly, 49) * 4);
+    const sides = [0, 1, 2, 3].map((k) => (first + k) % 4);
+    for (const side of sides) {
+      const along = side < 2;
+      // The wall's cells, all wall.
+      let whole = true;
+      for (let k = 1; k <= 4; k++) {
+        const [cx, cy] = along ? [x0 + k, side === 0 ? y0 : y0 + 5] : [side === 2 ? x0 : x0 + 5, y0 + k];
+        if (!this.wall(cx, cy)) whole = false;
+      }
+      if (!whole) continue;
+      const corners = this.noise(lx, ly, 50) < 0.5 ? [0, 1] : [1, 0];
+      for (const from of corners) {
+        // The cell of the wall across its foot, next to this one.
+        const [qx, qy] = along
+          ? [from === 0 ? x0 : x0 + 5, side === 0 ? y0 + 1 : y0 + 4]
+          : [side === 2 ? x0 + 1 : x0 + 4, from === 0 ? y0 : y0 + 5];
+        if (!this.wall(qx, qy)) continue;
+        const [nx, ny] = [[0, 1], [0, -1], [1, 0], [-1, 0]][side];
+        const [ax, ay] = along ? [from === 0 ? 1 : -1, 0] : [0, from === 0 ? 1 : -1];
+        // The corner on the wall's face it starts from.
+        const fx = along ? (from === 0 ? x0 + 1 : x0 + 5) : side === 2 ? x0 + 1 : x0 + 5;
+        const fy = along ? (side === 0 ? y0 + 1 : y0 + 5) : from === 0 ? y0 + 1 : y0 + 5;
+        const out = STAIRS_W / 2 + 0.01;
+        return {
+          x: fx + ax * STAIRS_FROM_CORNER + nx * out,
+          y: fy + ay * STAIRS_FROM_CORNER + ny * out,
+          ax,
+          ay,
+          nx,
+          ny,
+          block: this.noise(lx, ly, 51) < 0.5 ? "sign" : "chairs",
+          cx: x0 + 1,
+          cy: y0 + 1,
+        };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Every dead end with something at it within `radius` of (x, y): rooms with one way in, and in corridor areas,
+   * each side of a corridor walled across that has something against the wall.
+   */
+  deadEndsNear(x: number, y: number, radius: number): DeadEnd[] {
+    const out: DeadEnd[] = [];
+    for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
+      for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
+        const layout = this.layout(lx, ly);
+        if (layout === LATTICE) {
+          const end = this.deadEndRoom(lx, ly);
+          if (end?.thing) out.push(end);
+        } else if (layout === CORRIDOR_EW || layout === CORRIDOR_NS) {
+          out.push(...this.corridorEnds(lx, ly, layout));
+        }
+      }
+    }
+    return out.filter((end) => Math.hypot(end.x - x, end.y - y) <= radius);
+  }
+
+  /**
+   * The ends of corridors walled across at the lattice line through lattice room (lx, ly), with something against the
+   * wall. Each wall belongs to the lattice room its first cell is in, so it's only found once.
+   */
+  private corridorEnds(lx: number, ly: number, layout: number): DeadEnd[] {
+    const ew = layout === CORRIDOR_EW;
+    const along = (ew ? lx : ly) * 5;
+    const from = (ew ? ly : lx) * 5;
+    const out: DeadEnd[] = [];
+    for (let row = Math.floor(from / CORRIDOR_PERIOD) - 1; row <= Math.floor((from + 4) / CORRIDOR_PERIOD); row++) {
+      // The corridor's two cells across: a wall across them at `along`, if this corridor's walled off here.
+      const first = row * CORRIDOR_PERIOD + 6;
+      if (first < from || first > from + 4) continue;
+      const at = (a: number, c: number): [number, number] => (ew ? [a, c] : [c, a]);
+      if (!this.wall(...at(along, first)) || !this.wall(...at(along, first + 1))) continue;
+      if (this.layout(...(at(along, first).map((v) => Math.floor(v / 5)) as [number, number])) !== layout) continue;
+      for (const dir of [-1, 1]) {
+        const [ax, ay] = at(along + dir, first);
+        const [bx, by] = at(along + dir, first + 1);
+        if (this.wall(ax, ay) || this.wall(bx, by)) continue;
+        const side = dir < 0 ? 0 : 1;
+        if (this.noise(along * 7 + side, first, 87) >= CORRIDOR_END) continue;
+        // Door, chair or vending machine, as likely as each other as in a room.
+        const die = this.noise(along * 7 + side, first, 88) * 0.8;
+        const thing: DeadEndThing = die < 0.3 ? "door" : die < 0.55 ? "chair" : "vending";
+        const face = along + (dir < 0 ? 0 : 1);
+        const [x, y] = at(face, first + 1);
+        const [nx, ny] = at(dir, 0);
+        out.push({ x, y, nx, ny, half: 1, cx: ax, cy: ay, side, thing, lampOnly: false });
+      }
+    }
+    return out;
+  }
+
+  /** The middle of the one working light of every one-light hall within `radius` of (x, y). */
+  lampHallsNear(x: number, y: number, radius: number): [number, number][] {
+    const out: [number, number][] = [];
+    for (let by = Math.floor((y - radius) / ROOM_BLOCK); by <= Math.floor((y + radius) / ROOM_BLOCK); by++) {
+      for (let bx = Math.floor((x - radius) / ROOM_BLOCK); bx <= Math.floor((x + radius) / ROOM_BLOCK); bx++) {
+        if (this.hallKind(bx, by) !== "lamp") continue;
+        const lx = bx * ROOM_BLOCK + HALL_LAMP + 0.5;
+        const ly = by * ROOM_BLOCK + HALL_LAMP + 0.5;
+        if (Math.hypot(lx - x, ly - y) <= radius) out.push([lx, ly]);
+      }
+    }
+    return out;
   }
 
   private bigRoom(lx: number, ly: number, dir: number): boolean {
@@ -906,6 +1249,16 @@ export class WorldMap {
     const layout = this.layout(lx, ly);
     if (layout === CELLS) return this.cellsWall(x, y);
     if (layout !== LATTICE) return this.corridorWall(x, y, layout);
+    const hall = this.hallAt(x, y);
+    if (hall === "pillars" || hall === "cubicles") {
+      const ox = mod(x, ROOM_BLOCK);
+      const oy = mod(y, ROOM_BLOCK);
+      // The lattice's own pillars in a big room aren't where these want them, or where the cubicles go.
+      if (ox % 5 === 0 && oy % 5 === 0) return 0;
+      if (hall === "pillars" && ox % HALL_PILLAR_EVERY === 0 && oy % HALL_PILLAR_EVERY === 0) {
+        return this.noise(x, y, 46) < HALL_PILLAR_MISSING ? 0 : 1;
+      }
+    }
     const mx = x - lx * 5;
     const my = y - ly * 5;
     if (mx === 0 && my === 0) {
@@ -933,6 +1286,28 @@ export class WorldMap {
   /** The ceiling light over cell (x, y), for cells where a light hangs (lampAt). */
   light(x: number, y: number): number {
     if (this.burgerLamp(x, y)) return LIGHT_ON;
+    // A one-light hall's: all out, but the one in its middle, which never even flickers.
+    if (this.hallAt(x, y) === "lamp") {
+      return mod(x, ROOM_BLOCK) === HALL_LAMP && mod(y, ROOM_BLOCK) === HALL_LAMP ? LIGHT_ON : LIGHT_DEAD;
+    }
+    // A dead end's, sometimes: only the one nearest its far wall still on.
+    const end = this.deadEndRoom(Math.floor(x / 5), Math.floor(y / 5));
+    if (end?.lampOnly) {
+      let best: [number, number] | null = null;
+      let bestD = Infinity;
+      for (let j = 1; j <= 4; j++) {
+        for (let i = 1; i <= 4; i++) {
+          const [lx, ly] = [end.cx - 1 + i, end.cy - 1 + j];
+          if (!this.lampAt(lx, ly)) continue;
+          const d = Math.hypot(lx + 0.5 - end.x, ly + 0.5 - end.y);
+          if (d < bestD) {
+            bestD = d;
+            best = [lx, ly];
+          }
+        }
+      }
+      if (best) return best[0] === x && best[1] === y ? LIGHT_ON : LIGHT_DEAD;
+    }
     // A storeroom's are mostly out, and the rest failing.
     if (this.fittedAt(x, y)?.kind === "storage") {
       const r = this.noise(x, y, 23);
@@ -969,7 +1344,7 @@ export class WorldMap {
 
   /** Room for a statue at cell (x, y): it and the eight cells around it are open, and statues belong there. */
   private roomy(x: number, y: number): boolean {
-    if (!this.allows(x, y, "statue")) return false;
+    if (!this.allows(x, y, "statue") || this.bareHall(x, y)) return false;
     for (let j = -1; j <= 1; j++) {
       for (let i = -1; i <= 1; i++) {
         if (this.wall(x + i, y + j)) return false;
@@ -1031,7 +1406,7 @@ export class WorldMap {
     return !this.overSign(sign, 0, (x, y) => {
       const cx = Math.floor(x);
       const cy = Math.floor(y);
-      return this.wall(cx, cy) !== 0 || this.roomAt(cx, cy) !== null;
+      return this.wall(cx, cy) !== 0 || this.roomAt(cx, cy) !== null || this.bareHall(cx, cy);
     });
   }
 

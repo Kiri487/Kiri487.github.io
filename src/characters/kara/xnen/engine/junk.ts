@@ -4,13 +4,19 @@ import {
   meetingAlongX,
   mountedWall,
   FITTED_SIZE,
+  HALL_LAMP,
+  ROOM_BLOCK,
+  STAIRS_W,
   type BurgerPlan,
+  type DeadEnd,
+  type StairsPlan,
   type CandleSign,
   type FittedPlan,
   type Statue,
   type WorldMap,
 } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
+import { WRITINGS, WRITTEN_FACE, WRITTEN_FRAME, WRITTEN_H, WRITTEN_W } from "./whiteboard";
 import { heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
 
 /*
@@ -40,15 +46,18 @@ type V3 = [number, number, number];
  */
 const TILE = 0.1;
 
-/** A face of four corners, counter-clockwise seen from outside, painted with a rect of the atlas. */
-function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect) {
+/**
+ * A face of four corners, counter-clockwise seen from outside, painted with a rect of the atlas. `upTile` is how tall
+ * its tiles may be, if not TILE: a tall face no one can stand over (a partition) needs only to be cut across.
+ */
+function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect, upTile = TILE) {
   const u0 = r.x + 0.5;
   const v0 = r.y + 0.5;
   const u1 = r.x + r.w - 0.5;
   const v1 = r.y + r.h - 0.5;
   // a bottom left, b bottom right, c top right, d top left, as the face is seen.
   const across = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / TILE));
-  const up = Math.max(1, Math.ceil(Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]) / TILE));
+  const up = Math.max(1, Math.ceil(Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]) / upTile));
   // The point s across and t up, and its place in the atlas.
   const at = (s: number, t: number) => {
     const p = [0, 1, 2].map(
@@ -68,6 +77,12 @@ function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect) {
   }
 }
 
+/**
+ * A box as thin as this both ways (a leg, a post) is a stick: nobody gets close enough to the side of one for it to
+ * need cutting up its length, so its four sides are cut only across.
+ */
+const STICK = 0.05;
+
 /** A box from (x0, y0, z0) to (x1, y1, z1); `front` paints the +z face, `back` the −z face, `side` the rest. */
 function box(
   out: number[],
@@ -81,10 +96,11 @@ function box(
   back: Rect,
   side: Rect,
 ) {
-  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], front);
-  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], back);
-  quad(out, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], side);
-  quad(out, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], side);
+  const up = Math.abs(x1 - x0) <= STICK && Math.abs(z1 - z0) <= STICK ? Infinity : TILE;
+  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], front, up);
+  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], back, up);
+  quad(out, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], side, up);
+  quad(out, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], side, up);
   quad(out, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], side);
   quad(out, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], side);
 }
@@ -1541,7 +1557,10 @@ export type JunkKind =
   | "board"
   | "storage"
   | "candle"
-  | "flame";
+  | "flame"
+  | "partition"
+  | "vending"
+  | "stairs";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -1570,6 +1589,8 @@ export interface Junk {
   glow?: boolean;
   /** A desk or chair of the office kind, steel and laminate and fabric, not wood: it's drawn with the office's atlas. */
   office?: boolean;
+  /** A whiteboard XN has written on: which of her boards it is, and the dice for her hand (whiteboard.ts). */
+  writing?: { index: number; seed: number };
 }
 
 /**
@@ -1680,6 +1701,9 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   out.push(...partiesAround(map, x, y, radius));
   out.push(...fittedAround(map, x, y, radius));
   out.push(...candleSignsAround(map, x, y, radius));
+  out.push(...hallsAround(map, x, y, radius));
+  out.push(...deadEndsAround(map, x, y, radius));
+  out.push(...stairsAround(map, x, y, radius));
   return out;
 }
 
@@ -1696,7 +1720,10 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     const cy = by * BLOCK + Math.floor(roll(20 + k) * BLOCK);
     // Not in a special room that keeps junk out (in a pit room, it would hang over the pits).
     // Nor on a candle sign.
-    if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy)) continue;
+    // Nor in a hall with things of its own.
+    if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy) || map.bareHall(cx, cy)) continue;
+    // Nor in a room with a stair.
+    if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5))) continue;
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
@@ -3200,6 +3227,808 @@ function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk
   return out;
 }
 
+// ---- the halls ----
+
+/*
+ * Two of the kinds of big room have things of their own (map.ts says which is which). A floor of office cubicles:
+ * rows of them back to back, fabric partitions a little under eye height, a desk in each with its monitor still on,
+ * and whoever worked there gone, their chair pushed back or turned to the aisle or knocked over, a mug left on the
+ * desk. And a hall with every light out but one in the middle, and under it a chair, or a monitor, or nothing.
+ */
+
+/** A partition: how high, and how thick. A little under the visitor's eyes, so they see over the rows. */
+const PARTITION_H = 0.44;
+const PARTITION_T = 0.03;
+/** A cubicle: its width along the row, and its depth from the partition at its back to the aisle. */
+const CUBE_W = 1.4;
+const CUBE_D = 1.3;
+/** How many cubicles in a row either side of the aisle across the middle, and how wide that aisle is. */
+const CUBES_IN_ROW = 3;
+const CROSS_AISLE = 1.4;
+/** How many rows of cubicles back to back, and the aisle between each two. */
+const CUBE_PAIRS = 3;
+const CUBE_AISLE = 1.3;
+const CUBE_DESK: DeskShape = { length: 0.9, depth: 0.4, height: 0.34, legs: 2, drawer: true };
+/** How far a chair at a desk stands out from its front. */
+const CUBE_CHAIR_OUT = 0.2;
+/**
+ * How likely a cubicle is to have nothing in it but its partitions; its monitor; a mug left on the desk; its chair
+ * pushed well back and turned, turned round to the aisle, or knocked over on its side.
+ */
+const CUBE_EMPTY = 0.08;
+const CUBE_MONITOR = 0.75;
+const CUBE_MUG = 0.3;
+const CUBE_PUSHED = 0.25;
+const CUBE_TURNED = 0.12;
+const CUBE_TIPPED = 0.07;
+
+const PARTITIONS = new Map<number, StatueModel>();
+/** A partition `length` long, fabric both sides, its edges steel. */
+function partitionModel(length: number): StatueModel {
+  let model = PARTITIONS.get(length);
+  if (!model) {
+    const tris: number[] = [];
+    const hl = length / 2;
+    const ht = PARTITION_T / 2;
+    const H = PARTITION_H;
+    // Its two faces, cut only across, its ends and its top; nobody sees under it.
+    quad(tris, [-hl, 0, ht], [hl, 0, ht], [hl, H, ht], [-hl, H, ht], FABRIC, H);
+    quad(tris, [hl, 0, -ht], [-hl, 0, -ht], [-hl, H, -ht], [hl, H, -ht], FABRIC, H);
+    quad(tris, [hl, 0, ht], [hl, 0, -ht], [hl, H, -ht], [hl, H, ht], STEEL, H);
+    quad(tris, [-hl, 0, -ht], [-hl, 0, ht], [-hl, H, ht], [-hl, H, -ht], STEEL, H);
+    quad(tris, [-hl, H, ht], [hl, H, ht], [hl, H, -ht], [-hl, H, -ht], STEEL);
+    model = { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [120, 128, 140] };
+    PARTITIONS.set(length, model);
+  }
+  return model;
+}
+
+/** Everything on a floor of cubicles in block (bx, by), the same every time for this map. */
+function cubiclesIn(map: WorldMap, bx: number, by: number): Junk[] {
+  const roll = (k: number) => map.noise(bx * 53 + k, by, 960);
+  const out: Junk[] = [];
+  const key = (name: string) => `h${bx},${by}.${name}`;
+  // The rows run along x or along y. In the hall's own terms, u is along the rows and v across them, from its corner.
+  const alongX = roll(0) < 0.5;
+  const x0 = bx * ROOM_BLOCK;
+  const y0 = by * ROOM_BLOCK;
+  const at = (u: number, v: number): [number, number] => (alongX ? [x0 + u, y0 + v] : [x0 + v, y0 + u]);
+  /** A way in the hall's terms (an angle from u toward v) as a way in the place. */
+  const way = (a: number) => (alongX ? a : Math.PI / 2 - a);
+  /** Half a length along u, or along v, as a vector in the place. */
+  const alongU = (h: number): [number, number] => (alongX ? [h, 0] : [0, h]);
+  const alongV = (h: number): [number, number] => (alongX ? [0, h] : [h, 0]);
+  const seat = chairSeat(ORDINARY);
+  const chair = buildChair(ORDINARY, true);
+  const desk = buildDesk(CUBE_DESK, true);
+
+  const partition = (name: string, u: number, v: number, length: number, acrossRows: boolean) => {
+    const [x, y] = at(u, v);
+    // Its length along its own x, which the yaw turns to run along u (yaw toward v) or along v (yaw toward u).
+    const yaw = way(acrossRows ? 0 : Math.PI / 2);
+    const [ax, ay] = acrossRows ? alongV(length / 2) : alongU(length / 2);
+    out.push({
+      key: key(name),
+      kind: "partition",
+      model: partitionModel(length),
+      office: true,
+      x,
+      y,
+      h: 0,
+      yaw,
+      pitch: 0,
+      roll: 0,
+      solid: slab(x, y, ax, ay, PARTITION_T / 2 + 0.01),
+    });
+  };
+
+  const inside = ROOM_BLOCK - 1;
+  const rowsSpan = CUBE_PAIRS * CUBE_D * 2 + (CUBE_PAIRS - 1) * CUBE_AISLE;
+  const rowLength = CUBES_IN_ROW * CUBE_W;
+  const firstV = 1 + (inside - rowsSpan) / 2;
+  const firstU = 1 + (inside - rowLength * 2 - CROSS_AISLE) / 2;
+  for (let p = 0; p < CUBE_PAIRS; p++) {
+    // The partitions between the two rows of the pair.
+    const back = firstV + p * (CUBE_D * 2 + CUBE_AISLE) + CUBE_D;
+    for (let g = 0; g < 2; g++) {
+      const u0 = firstU + g * (rowLength + CROSS_AISLE);
+      partition(`back${p}.${g}`, u0 + rowLength / 2, back, rowLength, false);
+      for (let i = 0; i <= CUBES_IN_ROW; i++) partition(`side${p}.${g}.${i}`, u0 + i * CUBE_W, back, CUBE_D * 2, true);
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < CUBES_IN_ROW; i++) {
+          const name = `${p}.${g}.${side}.${i}`;
+          const r = (k: number) => roll(100 + (p * 2 + g) * 400 + (side + 1) * 100 + i * 20 + k);
+          if (r(0) < CUBE_EMPTY) continue;
+          const u = u0 + (i + 0.5) * CUBE_W;
+          // Facing out of the cubicle, to the aisle.
+          const face = way(side > 0 ? Math.PI / 2 : -Math.PI / 2);
+          const deskV = back + side * (PARTITION_T / 2 + CUBE_DESK.depth / 2 + 0.005);
+          const [dx, dy] = at(u + (r(1) - 0.5) * 0.2, deskV);
+          const deskPose = { x: dx, y: dy, h: 0, yaw: face, pitch: 0, roll: 0 };
+          const [hx, hy] = alongU(CUBE_DESK.length / 2);
+          out.push({
+            key: key(`desk${name}`),
+            kind: "desk",
+            model: desk,
+            office: true,
+            ...deskPose,
+            solid: slab(dx, dy, hx, hy, CUBE_DESK.depth / 2 + 0.01),
+            perch: perchOn(deskPose, CUBE_DESK.height, CUBE_DESK.depth / 2, 0.1),
+          });
+          // The monitor, its back to the partition, somewhere along the desk.
+          const mu = u + (r(2) - 0.5) * 0.4;
+          if (r(3) < CUBE_MONITOR) {
+            const mv = back + side * (PARTITION_T / 2 + MONITOR_DEPTH / 2 + 0.01);
+            const monitorYaw = face + (r(4) - 0.5) * 0.3;
+            const [mx, my] = at(mu, mv);
+            const monitor = {
+              x: mx - Math.cos(monitorYaw) * MONITOR_MIDDLE,
+              y: my - Math.sin(monitorYaw) * MONITOR_MIDDLE,
+              h: CUBE_DESK.height,
+              yaw: monitorYaw,
+              pitch: 0,
+              roll: 0,
+            };
+            out.push({
+              key: key(`monitor${name}`),
+              kind: "monitor",
+              model: MONITOR,
+              ...monitor,
+              solid: null,
+              perch: perchOn(monitor, MONITOR_TALL, 0.17, 0.42, false, -0.03),
+            });
+          }
+          // A mug left by it, at the other end of the desk.
+          if (r(5) < CUBE_MUG) {
+            const side2 = mu < u ? 1 : -1;
+            const [gx, gy] = at(u + side2 * (0.25 + r(6) * 0.15), deskV + side * (r(7) - 0.3) * 0.15);
+            const mug = { x: gx, y: gy, h: CUBE_DESK.height, yaw: r(8) * Math.PI * 2, pitch: 0, roll: 0 };
+            out.push({ key: key(`mug${name}`), kind: "kitchen", model: MUG_MODEL, ...mug, solid: null });
+          }
+          // The chair: pulled up to the desk; pushed back and turned; turned round to the aisle; or knocked over.
+          const how = r(10);
+          const pushed = how < CUBE_PUSHED;
+          const chairV = deskV + side * (CUBE_DESK.depth / 2 + CUBE_CHAIR_OUT + (pushed ? 0.25 + r(11) * 0.2 : 0));
+          const [cx, cy] = at(u + (r(12) - 0.5) * (pushed ? 0.5 : 0.15), chairV);
+          const toDesk = face + Math.PI;
+          if (how < CUBE_PUSHED + CUBE_TURNED + CUBE_TIPPED && how >= CUBE_PUSHED + CUBE_TURNED) {
+            // On its side, its seat to the aisle or along it.
+            const pose = { x: cx, y: cy, h: 0.11, yaw: r(13) * Math.PI * 2, pitch: 0, roll: Math.PI / 2 };
+            const solid = { x: cx, y: cy, r: 0.25 };
+            out.push({ key: key(`chair${name}`), kind: "chair", model: chair, office: true, ...pose, solid });
+            continue;
+          }
+          const yaw =
+            how < CUBE_PUSHED
+              ? toDesk + (r(13) - 0.5) * 1.8
+              : how < CUBE_PUSHED + CUBE_TURNED
+                ? face + (r(13) - 0.5) * 0.6
+                : toDesk + (r(13) - 0.5) * 0.4;
+          const pose = { x: cx, y: cy, h: 0, yaw, pitch: 0, roll: 0 };
+          out.push({
+            key: key(`chair${name}`),
+            kind: "chair",
+            model: chair,
+            office: true,
+            ...pose,
+            solid: { x: cx, y: cy, r: 0.2 },
+            perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/** Under a one-light hall's light: a chair, a monitor on the floor, or nothing. */
+const LAMP_CHAIR = 0.4;
+const LAMP_MONITOR = 0.2;
+
+/** What's under the light of the one-light hall in block (bx, by). */
+function lampHallIn(map: WorldMap, bx: number, by: number): Junk[] {
+  const roll = (k: number) => map.noise(bx * 59 + k, by, 970);
+  const x = bx * ROOM_BLOCK + HALL_LAMP + 0.5 + (roll(1) - 0.5) * 0.3;
+  const y = by * ROOM_BLOCK + HALL_LAMP + 0.5 + (roll(2) - 0.5) * 0.3;
+  const yaw = roll(3) * Math.PI * 2;
+  const what = roll(0) < LAMP_CHAIR ? "chair" : roll(0) < LAMP_CHAIR + LAMP_MONITOR ? "monitor" : null;
+  if (what === "chair") {
+    const office = roll(4) < OFFICE_FURNITURE[map.zoneAt(Math.floor(x), Math.floor(y))];
+    const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+    return [
+      {
+        key: `l${bx},${by}`,
+        kind: "chair",
+        model: buildChair(ORDINARY, office),
+        office,
+        ...pose,
+        solid: { x, y, r: 0.2 },
+        perch: perchOn(pose, chairSeat(ORDINARY), CHAIR_EDGE, 0.1),
+      },
+    ];
+  }
+  if (what === "monitor") {
+    // On the floor, still on, facing somewhere.
+    const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+    return [
+      {
+        key: `l${bx},${by}`,
+        kind: "monitor",
+        model: MONITOR,
+        ...pose,
+        solid: { x, y, r: 0.2 },
+        perch: perchOn(pose, MONITOR_TALL, 0.17, 0.42, false, -0.03),
+      },
+    ];
+  }
+  return [];
+}
+
+/** The halls' things, by block and map: laid out once. */
+const hallThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Everything in the halls within `radius` of (x, y). */
+function hallsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = hallThings.get(map);
+  if (!known) {
+    known = new Map();
+    hallThings.set(map, known);
+  }
+  const out: Junk[] = [];
+  for (let by = Math.floor((y - radius) / ROOM_BLOCK); by <= Math.floor((y + radius) / ROOM_BLOCK); by++) {
+    for (let bx = Math.floor((x - radius) / ROOM_BLOCK); bx <= Math.floor((x + radius) / ROOM_BLOCK); bx++) {
+      const kind = map.hallKind(bx, by);
+      if (kind !== "cubicles" && kind !== "lamp") continue;
+      const key = `${bx},${by}`;
+      let found = known.get(key);
+      if (!found) {
+        found = kind === "cubicles" ? cubiclesIn(map, bx, by) : lampHallIn(map, bx, by);
+        known.set(key, found);
+      }
+      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+    }
+  }
+  return out;
+}
+
+// ---- dead ends ----
+
+/*
+ * At the end of a dead end (map.ts), something: a door flat on the far wall that doesn't open, a chair facing that
+ * wall, or a vending machine still lit, a snack machine or a drink machine or the two side by side, back to the wall.
+ * The machines after the plain ones in offices everywhere: a black one with crisps and sweets in rows behind its glass
+ * and a keypad, a red one with its bottles lit from behind, a lit band across its top, a coin box and a flap to reach
+ * in for what you bought. No names on them.
+ */
+
+/** The machines' atlas: what's behind each one's glass, the lit band, the keypad, the coin box, their bodies. */
+const SNACKS: Rect = { x: 0, y: 0, w: 24, h: 40 };
+const DRINKS: Rect = { x: 24, y: 0, w: 24, h: 40 };
+const BAND: Rect = { x: 48, y: 0, w: 16, h: 8 };
+const KEYPAD: Rect = { x: 48, y: 8, w: 8, h: 16 };
+const COINS: Rect = { x: 56, y: 8, w: 8, h: 16 };
+const VEND_BLACK: Rect = { x: 48, y: 24, w: 8, h: 8 };
+const VEND_RED: Rect = { x: 56, y: 24, w: 8, h: 8 };
+const VEND_DARK: Rect = { x: 48, y: 32, w: 8, h: 8 };
+const VEND_STEEL: Rect = { x: 56, y: 32, w: 8, h: 8 };
+const VENDING_ATLAS_W = 64;
+const VENDING_ATLAS_H = 40;
+
+/** Bags of crisps and sweets, in the colours they come in. */
+const BAG_COLOURS = [
+  [214, 52, 40],
+  [238, 176, 36],
+  [52, 110, 210],
+  [226, 84, 160],
+  [56, 160, 76],
+  [236, 122, 34],
+  [196, 196, 206],
+];
+/** Bottles, a row of each: cola, green, orange, water, and a mix. */
+const BOTTLE_ROWS = [
+  [[58, 24, 20]],
+  [[58, 24, 20], [40, 160, 90]],
+  [[236, 128, 30], [220, 226, 230]],
+  [[140, 186, 230]],
+  [[58, 24, 20], [200, 60, 110], [140, 186, 230]],
+];
+
+/**
+ * Alpha marks what lights itself (statue.ts): 64–127, like a screen. Everything behind the glass is lit, the band
+ * across the drink machine's top, and the little screens on the keypad and the coin box.
+ */
+export const VENDING_SKIN: StatueSkin = (() => {
+  const W = VENDING_ATLAS_W;
+  const data = new Uint8ClampedArray(W * VENDING_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], a = 255) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0];
+    data[o + 1] = c[1];
+    data[o + 2] = c[2];
+    data[o + 3] = a;
+  };
+  const fill = (r: Rect, c: (x: number, y: number) => readonly number[], a = 255) => {
+    for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) put(r.x + x, r.y + y, c(x, y), a);
+  };
+  const shade = (c: readonly number[], m: number) => c.map((v) => v * m);
+  const lit = 100;
+
+  // Snacks: five shelves, each a row of six bags on their coils, dim inside.
+  fill(
+    SNACKS,
+    (x, y) => {
+      const row = Math.floor(y / 8);
+      const v = y % 8;
+      if (v === 7) return [110, 110, 114];
+      const bag = Math.floor(x / 4);
+      if (x % 4 === 3 || v === 0) return [26, 26, 30];
+      const colour = BAG_COLOURS[Math.floor(grain(bag + 17, row + 31) * BAG_COLOURS.length)];
+      // Crinkled at the top, a little logo in the middle.
+      if (v === 1) return shade(colour, 1.25);
+      if (v === 3 && x % 4 === 1) return [240, 236, 224];
+      return shade(colour, 0.9 + 0.15 * grain(x, y + 200));
+    },
+    lit,
+  );
+  // Drinks: five shelves of bottles in a row, a cap and a label on each, lit from behind.
+  fill(
+    DRINKS,
+    (x, y) => {
+      const row = Math.floor(y / 8);
+      const v = y % 8;
+      if (v === 7) return [170, 172, 176];
+      if (x % 3 === 2 || v === 0) return [214, 220, 226];
+      const kinds = BOTTLE_ROWS[row];
+      const colour = kinds[Math.floor(x / 3) % kinds.length];
+      if (v === 1) return [200, 40, 36];
+      if (v === 2) return shade(colour, 1.1);
+      if (v === 4) return [236, 236, 230];
+      return shade(colour, 0.95 + 0.1 * grain(x, y + 300));
+    },
+    lit,
+  );
+  // The band: red, darker at its edges, a white wave across.
+  fill(
+    BAND,
+    (x, y) => {
+      const wave = Math.round(3.5 + Math.sin(x * 0.8) * 1.5);
+      if (y === wave) return [244, 240, 236];
+      return shade([210, 40, 32], y === 0 || y === 7 ? 0.7 : 1);
+    },
+    120,
+  );
+  // The keypad: a green screen up top, buttons below.
+  fill(KEYPAD, (x, y) =>
+    y >= 6 && y <= 13 && x % 2 === 1 && y % 2 === 0 ? [206, 206, 200] : [72, 72, 76],
+  );
+  for (let y = 1; y <= 3; y++) for (let x = 1; x <= 6; x++) put(KEYPAD.x + x, KEYPAD.y + y, [70, 196, 96], lit);
+  // The coin box: light grey, a screen, a slot, a column of buttons.
+  fill(COINS, (x, y) => {
+    if (y >= 6 && y <= 7 && x >= 3 && x <= 4) return [20, 20, 22];
+    if (y >= 10 && y <= 14 && x >= 2 && x <= 5 && (x + y) % 2 === 0) return [120, 120, 124];
+    return [188, 190, 192];
+  });
+  for (let y = 1; y <= 3; y++) for (let x = 1; x <= 6; x++) put(COINS.x + x, COINS.y + y, [70, 200, 130], lit);
+  fill(VEND_BLACK, (x, y) => shade([36, 36, 38], 0.92 + 0.12 * grain(x, y + 400)));
+  fill(VEND_RED, (x, y) => shade([196, 34, 28], 0.92 + 0.12 * grain(x, y + 500)));
+  fill(VEND_DARK, () => [14, 14, 16]);
+  fill(VEND_STEEL, (x, y) => shade([160, 162, 166], 0.94 + 0.1 * grain(x, y + 600)));
+  return { data };
+})();
+
+/** A hole in a front: where, how deep it goes back, and what its back and its sides are. */
+interface Hole {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  depth: number;
+  back: Rect;
+  sides: Rect;
+}
+
+/**
+ * A front facing +z at z, from (x0, y0) to (x1, y1), painted `body`, with holes set back into it: a window with
+ * the glass behind its frame, a flap to reach in. The front is cut round the holes into a grid of pieces.
+ */
+function frontWithHoles(
+  out: number[],
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+  z: number,
+  body: Rect,
+  holes: readonly Hole[],
+) {
+  const xs = [...new Set([x0, x1, ...holes.flatMap((h) => [h.x0, h.x1])])].sort((a, b) => a - b);
+  const ys = [...new Set([y0, y1, ...holes.flatMap((h) => [h.y0, h.y1])])].sort((a, b) => a - b);
+  for (let j = 0; j < ys.length - 1; j++) {
+    for (let i = 0; i < xs.length - 1; i++) {
+      const mx = (xs[i] + xs[i + 1]) / 2;
+      const my = (ys[j] + ys[j + 1]) / 2;
+      if (holes.some((h) => mx > h.x0 && mx < h.x1 && my > h.y0 && my < h.y1)) continue;
+      quad(out, [xs[i], ys[j], z], [xs[i + 1], ys[j], z], [xs[i + 1], ys[j + 1], z], [xs[i], ys[j + 1], z], body);
+    }
+  }
+  for (const h of holes) {
+    const b = z - h.depth;
+    // Its back, then its floor, its top, and its two sides, all facing into it.
+    quad(out, [h.x0, h.y0, b], [h.x1, h.y0, b], [h.x1, h.y1, b], [h.x0, h.y1, b], h.back);
+    quad(out, [h.x0, h.y0, z], [h.x1, h.y0, z], [h.x1, h.y0, b], [h.x0, h.y0, b], h.sides);
+    quad(out, [h.x0, h.y1, b], [h.x1, h.y1, b], [h.x1, h.y1, z], [h.x0, h.y1, z], h.sides);
+    quad(out, [h.x0, h.y0, z], [h.x0, h.y0, b], [h.x0, h.y1, b], [h.x0, h.y1, z], h.sides);
+    quad(out, [h.x1, h.y0, b], [h.x1, h.y0, z], [h.x1, h.y1, z], [h.x1, h.y1, b], h.sides);
+  }
+}
+
+/** A vending machine: how wide, how deep, how tall, and how high its feet hold it off the floor. */
+const VEND_W = { snack: 0.34, drink: 0.36 } as const;
+const VEND_D = 0.3;
+const VEND_H = { snack: 0.7, drink: 0.72 } as const;
+const VEND_FEET = 0.02;
+type Vending = keyof typeof VEND_W;
+
+/** A machine's body, its back and sides and top, from its feet up; its front is left to frontWithHoles. */
+function vendingBody(out: number[], kind: Vending, body: Rect): [number, number, number] {
+  const hw = VEND_W[kind] / 2;
+  const hd = VEND_D / 2;
+  const y0 = VEND_FEET;
+  const y1 = VEND_H[kind];
+  quad(out, [hw, y0, -hd], [-hw, y0, -hd], [-hw, y1, -hd], [hw, y1, -hd], body);
+  quad(out, [hw, y0, hd], [hw, y0, -hd], [hw, y1, -hd], [hw, y1, hd], body);
+  quad(out, [-hw, y0, -hd], [-hw, y0, hd], [-hw, y1, hd], [-hw, y1, -hd], body);
+  quad(out, [-hw, y1, hd], [hw, y1, hd], [hw, y1, -hd], [-hw, y1, -hd], body);
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const fx = sx * (hw - 0.03);
+      const fz = sz * (hd - 0.03);
+      box(out, fx - 0.012, fx + 0.012, 0, y0, fz - 0.012, fz + 0.012, VEND_DARK, VEND_DARK, VEND_DARK);
+    }
+  }
+  return [hw, hd, y1];
+}
+
+function buildVending(kind: Vending): StatueModel {
+  const tris: number[] = [];
+  if (kind === "snack") {
+    const [hw, hd, top] = vendingBody(tris, kind, VEND_BLACK);
+    // The glass, the flap under it, and the keypad to the right of the glass.
+    frontWithHoles(tris, -hw, hw, VEND_FEET, top, hd, VEND_BLACK, [
+      { x0: -hw + 0.02, x1: hw - 0.1, y0: 0.24, y1: 0.64, depth: 0.02, back: SNACKS, sides: VEND_BLACK },
+      { x0: -hw + 0.03, x1: hw - 0.12, y0: 0.08, y1: 0.16, depth: 0.05, back: VEND_DARK, sides: VEND_DARK },
+    ]);
+    box(tris, hw - 0.085, hw - 0.02, 0.44, 0.58, hd, hd + 0.01, KEYPAD, VEND_STEEL, VEND_STEEL);
+    return { tris, atlasWidth: VENDING_ATLAS_W, atlasHeight: VENDING_ATLAS_H, stone: [40, 40, 44] };
+  }
+  const [hw, hd, top] = vendingBody(tris, kind, VEND_RED);
+  // The glass, nearly the whole front; to its right the coin box, and the flap under it.
+  frontWithHoles(tris, -hw, hw, VEND_FEET, top, hd, VEND_RED, [
+    { x0: -hw + 0.02, x1: hw - 0.1, y0: 0.17, y1: 0.6, depth: 0.015, back: DRINKS, sides: VEND_STEEL },
+    { x0: hw - 0.08, x1: hw - 0.02, y0: 0.25, y1: 0.32, depth: 0.04, back: VEND_DARK, sides: VEND_DARK },
+  ]);
+  box(tris, hw - 0.08, hw - 0.02, 0.4, 0.52, hd, hd + 0.012, COINS, VEND_STEEL, VEND_STEEL);
+  // The lit band over the glass, just proud of the front.
+  const z = hd + 0.003;
+  quad(tris, [-hw + 0.02, 0.615, z], [hw - 0.1, 0.615, z], [hw - 0.1, 0.69, z], [-hw + 0.02, 0.69, z], BAND);
+  return { tris, atlasWidth: VENDING_ATLAS_W, atlasHeight: VENDING_ATLAS_H, stone: [196, 34, 28] };
+}
+
+const VENDING: Record<Vending, StatueModel> = { snack: buildVending("snack"), drink: buildVending("drink") };
+/** How likely a dead end's machines are a pair, side by side; of one alone, how likely it's the drink machine. */
+const VEND_PAIR = 0.3;
+const VEND_DRINK = 0.5;
+/** How much of a dead end's far wall either side of its middle something can be moved along it by. */
+const END_SHIFT = 0.5;
+
+/** What's at dead end `end`, the same every time for this map. */
+function deadEndIn(map: WorldMap, end: DeadEnd): Junk[] {
+  const roll = (k: number) => map.noise(end.cx * 67 + k, end.cy, 980 + end.side);
+  const key = (name: string) => `x${end.cx},${end.cy},${end.side}.${name}`;
+  const { nx, ny } = end;
+  // Along the wall, and somewhere along it, not too far from its middle.
+  const ax = -ny;
+  const ay = nx;
+  const shift = (roll(1) - 0.5) * 2 * Math.min(END_SHIFT, end.half - 0.5);
+  const fx = end.x + ax * shift;
+  const fy = end.y + ay * shift;
+  const facing = Math.atan2(ny, nx);
+  if (end.thing === "door") {
+    const fire = roll(2) < 0.5;
+    const x = fx + nx * FRAME_DEPTH;
+    const y = fy + ny * FRAME_DEPTH;
+    const reach = DOOR_W / 2 + FRAME;
+    return [
+      {
+        key: key("door"),
+        kind: "door",
+        model: DOORS[fire ? "fire" : "wood"],
+        x,
+        y,
+        h: 0,
+        yaw: facing,
+        pitch: 0,
+        roll: 0,
+        solid: { x, y, r: FRAME_DEPTH + 0.01, along: [ax * reach, ay * reach] },
+        doorway: { x, y, yaw: facing, both: false },
+      },
+    ];
+  }
+  if (end.thing === "chair") {
+    // Close up to the wall, facing it.
+    const x = fx + nx * 0.2;
+    const y = fy + ny * 0.2;
+    const office = roll(3) < OFFICE_FURNITURE[map.zoneAt(end.cx, end.cy)];
+    const pose = { x, y, h: 0, yaw: facing + Math.PI + (roll(4) - 0.5) * 0.2, pitch: 0, roll: 0 };
+    return [
+      {
+        key: key("chair"),
+        kind: "chair",
+        model: buildChair(ORDINARY, office),
+        office,
+        ...pose,
+        solid: { x, y, r: 0.2 },
+        perch: perchOn(pose, chairSeat(ORDINARY), CHAIR_EDGE, 0.1),
+      },
+    ];
+  }
+  if (end.thing !== "vending") return [];
+  // Back to the wall: one, or the two side by side, either way round.
+  const pair = roll(5) < VEND_PAIR;
+  const kinds: Vending[] = pair
+    ? roll(6) < 0.5
+      ? ["snack", "drink"]
+      : ["drink", "snack"]
+    : [roll(7) < VEND_DRINK ? "drink" : "snack"];
+  const width = kinds.reduce((sum, k) => sum + VEND_W[k], 0) + (kinds.length - 1) * 0.01;
+  let along = (pair ? 0 : shift) - width / 2;
+  return kinds.map((kind, i) => {
+    const t = along + VEND_W[kind] / 2;
+    along += VEND_W[kind] + 0.01;
+    const x = end.x + ax * t + nx * (VEND_D / 2 + 0.005);
+    const y = end.y + ay * t + ny * (VEND_D / 2 + 0.005);
+    const hw = VEND_W[kind] / 2;
+    return {
+      key: key(`vending${i}`),
+      kind: "vending" as const,
+      model: VENDING[kind],
+      x,
+      y,
+      h: 0,
+      yaw: facing,
+      pitch: 0,
+      roll: 0,
+      solid: slab(x, y, ax * hw, ay * hw, VEND_D / 2 + 0.01),
+    };
+  });
+}
+
+/** The dead ends' things, by dead end and map: laid out once. */
+const deadEndThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Everything at the dead ends within `radius` of (x, y). */
+function deadEndsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = deadEndThings.get(map);
+  if (!known) {
+    known = new Map();
+    deadEndThings.set(map, known);
+  }
+  const out: Junk[] = [];
+  // Things stand a little off the far wall's middle: look a little further for the walls.
+  for (const end of map.deadEndsNear(x, y, radius + 1)) {
+    const key = `${end.cx},${end.cy},${end.side}`;
+    let found = known.get(key);
+    if (!found) {
+      found = deadEndIn(map, end);
+      known.set(key, found);
+    }
+    for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+  }
+  return out;
+}
+
+// ---- the stairs ----
+
+/*
+ * A stair up, rarely, along a wall of a plain room (map.ts): bare concrete steps with a pale edge to each, a handrail
+ * on the open side, the thirteenth step at the ceiling and the rest going on up through it to nowhere. Nobody goes up:
+ * a no entry sign stands at its foot, or someone has heaped chairs on the bottom steps.
+ */
+
+/** The stair's atlas: a step's top with its pale front edge, a step's front, its side, the handrail. */
+const TREAD: Rect = { x: 0, y: 0, w: 8, h: 8 };
+const RISER: Rect = { x: 8, y: 0, w: 8, h: 8 };
+const STRINGER: Rect = { x: 16, y: 0, w: 8, h: 8 };
+const RAIL: Rect = { x: 24, y: 0, w: 8, h: 8 };
+const STAIRS_ATLAS_W = 32;
+const STAIRS_ATLAS_H = 8;
+
+export const STAIRS_SKIN: StatueSkin = (() => {
+  const W = STAIRS_ATLAS_W;
+  const data = new Uint8ClampedArray(W * STAIRS_ATLAS_H * 4);
+  const fill = (r: Rect, c: (x: number, y: number) => readonly number[]) => {
+    for (let y = 0; y < r.h; y++) {
+      for (let x = 0; x < r.w; x++) {
+        const o = ((r.y + y) * W + r.x + x) * 4;
+        const [cr, cg, cb] = c(x, y);
+        data[o] = cr;
+        data[o + 1] = cg;
+        data[o + 2] = cb;
+        data[o + 3] = 255;
+      }
+    }
+  };
+  const concrete = (x: number, y: number, base: number) => {
+    const v = base * (0.9 + 0.18 * grain(x, y + 700));
+    return [v, v * 0.98, v * 0.94];
+  };
+  // The top of a step, its front edge (the atlas's top row, as the step's top is laid) worn pale.
+  fill(TREAD, (x, y) => (y === 0 ? [196, 190, 170] : concrete(x, y, 150)));
+  fill(RISER, (x, y) => concrete(x, y + 8, 118));
+  fill(STRINGER, (x, y) => concrete(x, y + 16, 134));
+  fill(RAIL, (x, y) => {
+    const v = 150 * (0.94 + 0.1 * grain(x, y + 800));
+    return [v, v, v * 1.04];
+  });
+  return { data };
+})();
+
+/** How many steps, how high each, how deep; the thirteenth's top is at the ceiling. */
+const STAIRS_STEPS = 16;
+const STEP_RISE = 1 / 13;
+const STEP_TREAD = 0.127;
+const STAIRS_LONG = STAIRS_STEPS * STEP_TREAD;
+/** The handrail: how high over the steps' front edges, how thick, and a post every this many steps. */
+const RAIL_H = 0.2;
+const RAIL_T = 0.012;
+const POST_EVERY = 4;
+
+/** Makes the triangles pushed since `from` drawn from both sides. */
+function bothSides(out: number[], from: number) {
+  for (let i = from; i < out.length; i += 16) out[i + 15] = 2;
+}
+
+/**
+ * The stair, its foot at the origin, going up along +z, `rail` the side its handrail is on (+1 for +x). Each step is
+ * its top, its front, and its sides down to the floor; the back is one face up the far end.
+ */
+function buildStairs(rail: number): StatueModel {
+  const tris: number[] = [];
+  const hw = STAIRS_W / 2;
+  for (let k = 0; k < STAIRS_STEPS; k++) {
+    const y0 = k * STEP_RISE;
+    const y1 = y0 + STEP_RISE;
+    const zf = k * STEP_TREAD;
+    const zb = zf + STEP_TREAD;
+    quad(tris, [-hw, y1, zb], [hw, y1, zb], [hw, y1, zf], [-hw, y1, zf], TREAD);
+    quad(tris, [hw, y0, zf], [-hw, y0, zf], [-hw, y1, zf], [hw, y1, zf], RISER);
+    // Its band of the sides, from its front to the far end.
+    quad(tris, [hw, y0, STAIRS_LONG], [hw, y0, zf], [hw, y1, zf], [hw, y1, STAIRS_LONG], STRINGER, Infinity);
+    quad(tris, [-hw, y0, zf], [-hw, y0, STAIRS_LONG], [-hw, y1, STAIRS_LONG], [-hw, y1, zf], STRINGER, Infinity);
+  }
+  const top = STAIRS_STEPS * STEP_RISE;
+  quad(tris, [-hw, 0, STAIRS_LONG], [hw, 0, STAIRS_LONG], [hw, top, STAIRS_LONG], [-hw, top, STAIRS_LONG], STRINGER);
+  // The handrail: posts up from the steps' front edges, and the rail along their tops.
+  const rx = rail * (hw - 0.02);
+  for (let k = 0; k < STAIRS_STEPS; k += POST_EVERY) {
+    const z = k * STEP_TREAD + STEP_TREAD / 2;
+    const y = (k + 1) * STEP_RISE;
+    box(tris, rx - 0.008, rx + 0.008, y, y + RAIL_H, z - 0.008, z + 0.008, RAIL, RAIL, RAIL);
+  }
+  const slope = STEP_RISE / STEP_TREAD;
+  const at = (z: number, dy: number): V3 => [rx, STEP_RISE + RAIL_H + (z - STEP_TREAD / 2) * slope + dy, z];
+  const from = tris.length;
+  const [z0, z1] = [STEP_TREAD / 2 - 0.02, STAIRS_LONG];
+  for (const [dx0, dy0, dx1, dy1] of [
+    [-RAIL_T, RAIL_T, RAIL_T, RAIL_T],
+    [-RAIL_T, -RAIL_T, RAIL_T, -RAIL_T],
+    [-RAIL_T, -RAIL_T, -RAIL_T, RAIL_T],
+    [RAIL_T, -RAIL_T, RAIL_T, RAIL_T],
+  ]) {
+    const a = at(z0, dy0 / 2);
+    const b = at(z1, dy0 / 2);
+    const c = at(z1, dy1 / 2);
+    const d = at(z0, dy1 / 2);
+    a[0] += dx0 / 2;
+    b[0] += dx0 / 2;
+    c[0] += dx1 / 2;
+    d[0] += dx1 / 2;
+    quad(tris, a, b, c, d, RAIL, Infinity);
+  }
+  bothSides(tris, from);
+  return { tris, atlasWidth: STAIRS_ATLAS_W, atlasHeight: STAIRS_ATLAS_H, stone: [140, 136, 128] };
+}
+
+const STAIRS_MODELS: Record<number, StatueModel> = { [-1]: buildStairs(-1), 1: buildStairs(1) };
+
+/** The stair in `plan`, and what blocks it, the same every time for this map. */
+function stairsIn(map: WorldMap, plan: StairsPlan): Junk[] {
+  const roll = (k: number) => map.noise(plan.cx * 71 + k, plan.cy, 990);
+  const key = (name: string) => `u${plan.cx},${plan.cy}.${name}`;
+  const { x, y, ax, ay, nx, ny } = plan;
+  const yaw = Math.atan2(ay, ax);
+  // Its own +x, in the place, is (sin yaw, −cos yaw): the rail goes on whichever side is away from the wall.
+  const rail = Math.sin(yaw) * nx - Math.cos(yaw) * ny > 0 ? 1 : -1;
+  const half = STAIRS_LONG / 2;
+  const out: Junk[] = [
+    {
+      key: key("stairs"),
+      kind: "stairs",
+      model: STAIRS_MODELS[rail],
+      x,
+      y,
+      h: 0,
+      yaw,
+      pitch: 0,
+      roll: 0,
+      solid: slab(x + ax * half, y + ay * half, ax * half, ay * half, STAIRS_W / 2 + 0.01),
+    },
+  ];
+  if (plan.block === "sign") {
+    // No entry, standing just off its foot, facing whoever comes.
+    const sx = x - ax * 0.22 + (roll(1) - 0.5) * 0.06;
+    const sy = y - ay * 0.22 + (roll(2) - 0.5) * 0.06;
+    const facing = yaw + Math.PI + (roll(3) - 0.5) * 0.3;
+    const pose = { x: sx, y: sy, h: 0, yaw: facing, pitch: 0, roll: 0 };
+    out.push({
+      key: key("sign"),
+      kind: "sign",
+      model: signModel("noEntry", SIGN_MIDDLE, false),
+      ...pose,
+      solid: { x: sx, y: sy, r: 0.1 },
+      plate: plateOf(pose, SIGN_MIDDLE),
+    });
+    return out;
+  }
+  // A heap of chairs: one at the foot, facing up the stair, another upside down on its seat, one on its side up the
+  // steps, and now and then one more on top of that.
+  const office = roll(4) < OFFICE_FURNITURE[map.zoneAt(plan.cx, plan.cy)];
+  const model = buildChair(ORDINARY, office);
+  const seat = chairSeat(ORDINARY);
+  const chair = (name: string, cx: number, cy: number, h: number, turn: number, tilt: number, solid: Solid | null) =>
+    out.push({ key: key(name), kind: "chair", model, office, x: cx, y: cy, h, yaw: turn, pitch: 0, roll: tilt, solid });
+  const bx = x + ax * 0.05;
+  const by = y + ay * 0.05;
+  chair("chair0", bx, by, 0, yaw + (roll(5) - 0.5) * 0.4, 0, { x: bx, y: by, r: 0.22 });
+  chair("chair1", bx, by, seat * 2 + 0.01, yaw + (roll(6) - 0.5) * 1.2, Math.PI, null);
+  // On its side two steps up, as if thrown.
+  const up = 2.5 * STEP_TREAD;
+  chair("chair2", x + ax * up, y + ay * up, 3 * STEP_RISE + 0.11, roll(7) * Math.PI * 2, Math.PI / 2, null);
+  if (roll(8) < 0.5) {
+    const higher = 4.5 * STEP_TREAD;
+    const turn = yaw + Math.PI + (roll(9) - 0.5) * 0.8;
+    chair("chair3", x + ax * higher, y + ay * higher, 5 * STEP_RISE, turn, 0, null);
+  }
+  return out;
+}
+
+/** The stairs' things, by room and map: laid out once. */
+const stairsThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Every stair, and what blocks it, within `radius` of (x, y). */
+function stairsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = stairsThings.get(map);
+  if (!known) {
+    known = new Map();
+    stairsThings.set(map, known);
+  }
+  const out: Junk[] = [];
+  for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
+    for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
+      const plan = map.stairsIn(lx, ly);
+      if (!plan) continue;
+      const key = `${lx},${ly}`;
+      let found = known.get(key);
+      if (!found) {
+        found = stairsIn(map, plan);
+        known.set(key, found);
+      }
+      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+    }
+  }
+  return out;
+}
+
 // ---- the camp ----
 
 /*
@@ -3971,8 +4800,8 @@ function pantryIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk
 
 /*
  * A meeting room, sometimes a long one: a long table down the middle with chairs both sides and one at each end, a
- * whiteboard wiped clean on an end wall, mugs left at a few places. Now and then every
- * chair has been turned to face the door, or one is standing on the table; often a chair or two is missing.
+ * whiteboard on an end wall, wiped clean or written on by XN (whiteboard.ts), mugs left at a few places. Now and
+ * then every chair has been turned to face the door, or one is standing on the table; often a chair or two is missing.
  */
 
 /** The meeting room's atlas: the whiteboard, its aluminium frame. */
@@ -4010,22 +4839,39 @@ const BOARD_W = 1.4;
 const BOARD_T = 0.02;
 const BOARD_RIM = 0.015;
 
-/** A whiteboard `width` wide, its back against the wall at z = 0, its face toward +z. */
-function buildBoard(width: number): StatueModel {
+/** How many of the whiteboards XN has written on. */
+const BOARD_WRITTEN = 0.4;
+
+/**
+ * A whiteboard `width` wide, its back against the wall at z = 0, its face toward +z. A written one has an atlas of its
+ * own, bigger, for her writing to be read.
+ */
+function buildBoard(width: number, written = false): StatueModel {
   const tris: number[] = [];
   const hw = width / 2;
   const [y0, y1] = BOARD_Y;
-  box(tris, -hw, hw, y0, y1, 0, BOARD_T, BOARD, BOARD_FRAME, BOARD_FRAME);
+  const face = written ? WRITTEN_FACE : BOARD;
+  const frame = written ? WRITTEN_FRAME : BOARD_FRAME;
+  box(tris, -hw, hw, y0, y1, 0, BOARD_T, face, frame, frame);
   // The frame round its face, and the tray along its foot.
   const rim = (x0: number, x1: number, ya: number, yb: number, z1: number) =>
-    box(tris, x0, x1, ya, yb, BOARD_T, z1, BOARD_FRAME, BOARD_FRAME, BOARD_FRAME);
+    box(tris, x0, x1, ya, yb, BOARD_T, z1, frame, frame, frame);
   rim(-hw, hw, y1 - BOARD_RIM, y1, BOARD_T + 0.006);
   rim(-hw, hw, y0, y0 + BOARD_RIM, BOARD_T + 0.006);
   rim(-hw, -hw + BOARD_RIM, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
   rim(hw - BOARD_RIM, hw, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
   rim(-hw * 0.6, hw * 0.6, y0 - 0.012, y0, BOARD_T + 0.04);
-  return { tris, atlasWidth: MEETING_ATLAS_W, atlasHeight: MEETING_ATLAS_H, stone: [236, 238, 236] };
+  const [atlasWidth, atlasHeight] = written ? [WRITTEN_W, WRITTEN_H] : [MEETING_ATLAS_W, MEETING_ATLAS_H];
+  return { tris, atlasWidth, atlasHeight, stone: [236, 238, 236] };
 }
+
+/** Where a whiteboard's face is, for XN to stand and read it: its middle, and the way it looks. */
+export function boardFace(junk: Junk): { x: number; y: number; z: number; nx: number; ny: number } {
+  const nx = Math.cos(junk.yaw);
+  const ny = Math.sin(junk.yaw);
+  return { x: junk.x + nx * BOARD_T, y: junk.y + ny * BOARD_T, z: (BOARD_Y[0] + BOARD_Y[1]) / 2, nx, ny };
+}
+
 
 /** The table: its height, its depth in a room of one lattice room and in a long one, and how long it is at most. */
 const MEETING_TABLE_H = 0.32;
@@ -4159,7 +5005,10 @@ function meetingIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
     const width = Math.min(BOARD_W, wallLong - 0.6);
     const [bx, by] = onWall(plan, boardSide, wallLong / 2 + (roll(90) - 0.5) * 0.3, 0);
     const pose = { x: bx, y: by, h: 0, yaw: inward(boardSide), pitch: 0, roll: 0 };
-    out.push({ key: key("board"), kind: "board", model: buildBoard(width), ...pose, solid: null });
+    // Wiped clean, or something of hers on it.
+    const written = roll(91) < BOARD_WRITTEN;
+    const writing = written ? { index: Math.floor(roll(92) * WRITINGS), seed: lx * 31 + ly } : undefined;
+    out.push({ key: key("board"), kind: "board", model: buildBoard(width, !!writing), ...pose, solid: null, writing });
   }
   return out;
 }

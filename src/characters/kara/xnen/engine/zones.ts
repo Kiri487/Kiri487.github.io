@@ -54,6 +54,15 @@ export const STORAGE_WEIGHTS: ZoneWeights = [0.25, 0.3, 0.3, 3, 0.3];
 /** A meeting room: the office wing's. */
 export const MEETING_WEIGHTS: ZoneWeights = [0.25, 0.2, 2, 0.3, 0.2];
 
+/**
+ * What a big room (a block of lattice rooms knocked through) has in it (map.ts): a forest of pillars like a car park
+ * with no cars, mostly in the yellow and the bare plasterboard; a floor of office cubicles, the office wing's; every
+ * light out but one, anywhere. The rest are left empty, which is weighed the same everywhere.
+ */
+export const PILLAR_HALL_WEIGHTS: ZoneWeights = [1.3, 0.6, 0.8, 1.5, 0.8];
+export const CUBICLE_HALL_WEIGHTS: ZoneWeights = [0.6, 0.2, 3, 0.8, 0.3];
+export const LAMP_HALL_WEIGHTS: ZoneWeights = [1, 1.5, 0.7, 1, 1];
+
 /** The junk lying about (junk.ts), by kind. */
 export const JUNK_WEIGHTS = {
   monitor: [1, 0.3, 2, 0.5, 0.2],
