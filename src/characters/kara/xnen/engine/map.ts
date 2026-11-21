@@ -113,17 +113,6 @@ export interface BurgerPlan {
   side: number;
   cell: number;
 }
-/**
- * Preview: three burger rooms by the spawn, each with its doorway toward it, and the spawn's own block one open hall
- * round them. Delete before the PR.
- */
-const PREVIEW_BURGERS = true;
-const PREVIEW_ROOMS: readonly [number, number, number, number][] = [
-  // Lattice room; which corner of it (0 north-west, 1 north-east, 2 south-west, 3 south-east); the doorway's side.
-  [2, 0, 0, 2],
-  [0, 2, 0, 0],
-  [2, 2, 0, 2],
-];
 
 /** How many spots a region tries before it gives up on having a statue. */
 const STATUE_TRIES = 24;
@@ -191,16 +180,13 @@ export class WorldMap {
    */
   burgerPlan(lx: number, ly: number): BurgerPlan | null {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
-    const preview = PREVIEW_BURGERS && PREVIEW_ROOMS.find(([x, y]) => x === lx && y === ly);
-    if (!preview) {
-      if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
-      if (this.noise(lx, ly, 60) >= BURGER_ROOM) return null;
-    }
-    const corner = preview ? preview[2] : Math.floor(this.noise(lx, ly, 63) * 4);
+    if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
+    if (this.noise(lx, ly, 60) >= BURGER_ROOM) return null;
+    const corner = Math.floor(this.noise(lx, ly, 63) * 4);
     return {
       x0: lx * 5 + (corner % 2 ? 3 : 1),
       y0: ly * 5 + (corner < 2 ? 1 : 3),
-      side: preview ? preview[3] : Math.floor(this.noise(lx, ly, 61) * 4),
+      side: Math.floor(this.noise(lx, ly, 61) * 4),
       cell: Math.floor(this.noise(lx, ly, 62) * 2),
     };
   }
@@ -261,7 +247,6 @@ export class WorldMap {
 
   /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a special room. */
   private openBlock(bx: number, by: number): boolean {
-    if (PREVIEW_BURGERS && bx === 0 && by === 0) return true;
     return this.noise(bx, by, 9) < 0.2 || this.specialRoom(bx, by);
   }
 
@@ -390,7 +375,7 @@ export class WorldMap {
       const bx = Math.floor(lx / 3);
       const by = Math.floor(ly / 3);
       // A special room has nothing standing in it but what its plan puts there.
-      if (inside && (this.specialRoom(bx, by) || (PREVIEW_BURGERS && bx === 0 && by === 0))) return 0;
+      if (inside && this.specialRoom(bx, by)) return 0;
       const inBigRoom = inside && this.openBlock(bx, by);
       return this.noise(lx, ly, 8) < (inBigRoom ? 0.6 : this.area(lx, ly).post) ? 1 : 0;
     }
