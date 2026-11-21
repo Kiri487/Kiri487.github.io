@@ -13,7 +13,7 @@ import {
 } from "./posters";
 import { drawPits, pitFieldsNear } from "./pits";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
-import { CARPET, CARPET_FLIP, CARPET_SIZE, CEILING, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
+import { CARPET_FLIP, CARPET_SIZE, CEILING, FLOORS, FLOOR_FLIPS, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
 /** The carpet picture's size, for wrapping pixels into it: CARPET_SIZE − 1, and log2 of CARPET_SIZE. */
 const CARPET_MASK = CARPET_SIZE - 1;
@@ -208,6 +208,7 @@ export class Renderer {
     const oy = light.y0 + 0.5;
     const comb = light.combined;
     const warm = light.warm;
+    const zones = light.zone;
     const warmth = this.warmth;
     warmth.fill(0);
     const panels = light.panel;
@@ -278,24 +279,29 @@ export class Renderer {
           const v = gy - iy;
           const k = ix + iy * WN;
           const inWindow = ix >= 0 && iy >= 0 && ix < WN - 1 && iy < WN - 1;
-          if (inWindow) warmth[o >> 2] = warm[Math.floor(fx) - light.x0 + (Math.floor(fy) - light.y0) * WN];
+          const cell = Math.floor(fx) - light.x0 + (Math.floor(fy) - light.y0) * WN;
+          if (inWindow) warmth[o >> 2] = warm[cell];
           const l = inWindow
             ? (comb[k] * (1 - u) + comb[k + 1] * u) * (1 - v) + (comb[k + WN] * (1 - u) + comb[k + WN + 1] * u) * v
             : 0;
           d[o + 3] = 255;
           if (isFloor) {
             const li = l * inv;
+            const zone = inWindow ? zones[cell] : 0;
+            const floor = FLOORS[zone];
             // Each column and row of carpet pictures mirrored or not, so the stains don't line up.
             const tx = Math.floor(fx * 64);
             const ty = Math.floor(fy * 64);
             let cu = tx & CARPET_MASK;
             let cv = ty & CARPET_MASK;
-            if (CARPET_FLIP[(tx >> CARPET_SHIFT) & 255]) cu = CARPET_MASK - cu;
-            if (CARPET_FLIP[(ty >> CARPET_SHIFT) & 255]) cv = CARPET_MASK - cv;
+            if (FLOOR_FLIPS[zone]) {
+              if (CARPET_FLIP[(tx >> CARPET_SHIFT) & 255]) cu = CARPET_MASK - cu;
+              if (CARPET_FLIP[(ty >> CARPET_SHIFT) & 255]) cv = CARPET_MASK - cv;
+            }
             const ti = (cv * CARPET_SIZE + cu) * 3;
-            d[o] = CARPET[ti] * li + ar;
-            d[o + 1] = CARPET[ti + 1] * li + ag;
-            d[o + 2] = CARPET[ti + 2] * li + ab;
+            d[o] = floor[ti] * li + ar;
+            d[o + 1] = floor[ti + 1] * li + ag;
+            d[o + 2] = floor[ti + 2] * li + ab;
           } else {
             const cx = Math.floor(fx);
             const cy = Math.floor(fy);
@@ -458,7 +464,9 @@ export class Renderer {
       const inv = 1 - f;
       const ar = FR * f, ag = FG * f, ab = FB * f;
       const pick = map.noise(mapX, mapY, 30);
-      const tex = WALL_TEXTURES[pick < 0.6 ? 0 : pick < 0.85 ? 1 : 2];
+      // Done up as the zone of the cell this face looks into.
+      const zone = side === 0 ? light.zoneAt(mapX - stepX, mapY, map) : light.zoneAt(mapX, mapY - stepY, map);
+      const tex = WALL_TEXTURES[zone][pick < 0.6 ? 0 : pick < 0.85 ? 1 : 2];
       const gap = this.gaps[x] < effects.wallGaps;
 
       // The posters on this face of wall that this column crosses. Across the face runs left to right as seen.

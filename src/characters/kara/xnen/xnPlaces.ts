@@ -133,11 +133,6 @@ export function between([low, high]: readonly [number, number]) {
   return low + Math.random() * (high - low);
 }
 
-/** Whether a light hangs over the cell, if it's open: lights hang over cells 1, 4, 7… on both axes. */
-function lightOver(x: number, y: number) {
-  return ((x % 3) + 3) % 3 === 1 && ((y % 3) + 3) % 3 === 1;
-}
-
 function pickSurface(): XnSurface {
   const total = XN_SURFACES.reduce((sum, [, weight]) => sum + weight, 0);
   let roll = Math.random() * total;
@@ -300,7 +295,7 @@ export function createXnPlaces(world: XnWorld) {
       for (let i = -r; i <= r; i++) {
         const lx = cx + i;
         const ly = cy + j;
-        if (!lightOver(lx, ly) || world.map.wall(lx, ly)) continue;
+        if (!world.map.lampAt(lx, ly) || world.map.wall(lx, ly)) continue;
         const dx = lx + 0.5 - who.x;
         const dy = ly + 0.5 - who.y;
         const dist = Math.hypot(dx, dy);
@@ -438,7 +433,7 @@ export function createXnPlaces(world: XnWorld) {
         const lx = cx + i;
         const ly = cy + j;
         const pillar = world.map.wall(lx, ly);
-        if (!pillar && !lightOver(lx, ly)) continue;
+        if (!pillar && !world.map.lampAt(lx, ly)) continue;
         const ox = lx + 0.5;
         const oy = ly + 0.5;
         const away = Math.hypot(from.x - ox, from.y - oy);

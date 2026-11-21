@@ -1,4 +1,3 @@
-import { mod } from "./hash";
 import { LIGHT_DEAD, LIGHT_ON, LIGHT_FLICKER_A, type WorldMap } from "./map";
 
 /*
@@ -28,6 +27,8 @@ export class Lighting {
   readonly glow = new Float32Array(5);
   /** 1 for each cell under warmer light, inside a burger room (not its walls or doorway), like a fast-food place's. */
   readonly warm = new Uint8Array(WN * WN);
+  /** The zone each cell is in (map.zoneAt): what its floor, and the faces of wall looking into it, are done up as. */
+  readonly zone = new Uint8Array(WN * WN);
 
   private readonly steady = new Float32Array(WN * WN);
   private readonly groupA = new Float32Array(WN * WN);
@@ -64,6 +65,7 @@ export class Lighting {
       for (let i = 0; i < WN; i++) {
         wall[i + j * WN] = map.wall(this.x0 + i, this.y0 + j);
         this.warm[i + j * WN] = map.burgerInside(this.x0 + i, this.y0 + j) ? 1 : 0;
+        this.zone[i + j * WN] = map.zoneAt(this.x0 + i, this.y0 + j);
       }
     }
     steady.fill(0);
@@ -74,8 +76,7 @@ export class Lighting {
       for (let i = 0; i < WN; i++) {
         const idx = i + j * WN;
         if (wall[idx]) continue;
-        const usual = mod(this.x0 + i, 3) === 1 && mod(this.y0 + j, 3) === 1;
-        if (!usual && !map.burgerLamp(this.x0 + i, this.y0 + j)) continue;
+        if (!map.lampAt(this.x0 + i, this.y0 + j)) continue;
         const state = map.light(this.x0 + i, this.y0 + j);
         panel[idx] = state;
         if (state === LIGHT_DEAD) continue;
@@ -123,6 +124,13 @@ export class Lighting {
     const i = cx - this.x0;
     const j = cy - this.y0;
     return i >= 0 && j >= 0 && i < WN && j < WN ? this.wall[i + j * WN] : map.wall(cx, cy);
+  }
+
+  /** The zone cell (cx, cy) is in, from the window when it's in it. */
+  zoneAt(cx: number, cy: number, map: WorldMap): number {
+    const i = cx - this.x0;
+    const j = cy - this.y0;
+    return i >= 0 && j >= 0 && i < WN && j < WN ? this.zone[i + j * WN] : map.zoneAt(cx, cy);
   }
 
   /** Moves the flicker on and mixes this frame's light. With reduced motion the flickering lights just stay dim. */

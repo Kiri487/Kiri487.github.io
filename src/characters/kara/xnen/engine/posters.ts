@@ -1,6 +1,6 @@
 import { nearestStatue } from "./compass";
 import { cellHasHole } from "./decay";
-import { hash3, mod } from "./hash";
+import { hash3 } from "./hash";
 import type { WorldMap } from "./map";
 import type { Tuning } from "./tuning";
 
@@ -408,7 +408,7 @@ const CEILING_SPREAD = 2;
 
 /** A ceiling tile with nothing in the way: not over a wall, no light in it, none of it missing. */
 const plainTile = (map: WorldMap, x: number, y: number) =>
-  !map.wall(x, y) && !(mod(x, 3) === 1 && mod(y, 3) === 1) && !cellHasHole(map, x, y);
+  !map.wall(x, y) && !map.lampAt(x, y) && !cellHasHole(map, x, y);
 
 /** The posters that went up on the ceiling starting at tile (ox, oy), or null. Only where they fit on plain tiles. */
 function putOnCeiling(map: WorldMap, ox: number, oy: number, tuning: Tuning, aspect: number): Put[] | null {
