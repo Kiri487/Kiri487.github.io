@@ -17,6 +17,7 @@ import {
   type Point,
   type Xn,
   type XnAction,
+  type XnHold,
   type XnRoute,
   type XnSpot,
   type XnSurface,
@@ -44,8 +45,19 @@ export type PropTarget =
   | "graffiti"
   | "portrait"
   | "sign"
-  | "pit";
-export type PropPose = "stand" | "crouch" | "perch" | "swing" | "sit" | "sitBack" | "crouchBack";
+  | "pit"
+  | "party";
+/** `hold` is sitting on the edge with a burger in her hands, now and then taking a bite. */
+export type PropPose =
+  | "stand"
+  | "crouch"
+  | "perch"
+  | "swing"
+  | "sit"
+  | "sitBack"
+  | "crouchBack"
+  | "hold"
+  | "holdSwing";
 
 /** Which poses go with which things. */
 export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
@@ -55,6 +67,7 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   monitor: ["stand", "crouch", "perch", "swing"],
   hung: ["stand", "crouch", "perch", "swing"],
   pit: ["perch", "swing"],
+  party: ["hold", "holdSwing"],
   door: ["stand", "sit", "crouch", "sitBack", "crouchBack"],
   graffiti: ["stand", "sit", "crouch"],
   portrait: ["stand", "sit", "crouch"],
@@ -180,6 +193,8 @@ export interface Plan {
   curious: number;
   /** Her tail up: on a chair's seat there's a backrest behind her for it to go through. */
   tailUp?: boolean;
+  /** What she has in her hands. */
+  holding?: XnHold;
 }
 
 export function createXnPlaces(world: XnWorld) {
@@ -548,7 +563,7 @@ export function createXnPlaces(world: XnWorld) {
     const out: Thing[] = [];
     for (const junk of junkAround(world.map, x, y, radius)) {
       if (junk.perch) {
-        const target = junk.perch.ceiling ? "hung" : (junk.kind as PropTarget);
+        const target = junk.partySeat ? "party" : junk.perch.ceiling ? "hung" : (junk.kind as PropTarget);
         out.push({ target, x: junk.perch.x, y: junk.perch.y, junk, perch: junk.perch });
       }
       if (junk.doorway) out.push({ target: "door", x: junk.x, y: junk.y, junk, door: junk.doorway });
@@ -597,12 +612,14 @@ export function createXnPlaces(world: XnWorld) {
     if (thing.perch) {
       const { x, y, z, yaw, edge } = thing.perch;
       const hanging = thing.target === "hung";
-      if (pose === "perch" || pose === "swing") {
+      const holding: XnHold = pose === "hold" || pose === "holdSwing" ? "burger" : "none";
+      if (pose === "perch" || pose === "swing" || holding !== "none") {
         // On the front edge, hips just back from it, facing out over it.
         const back = edge - XN_EDGE_BACK;
         const spot = topSpot(x + Math.cos(yaw) * back, y + Math.sin(yaw) * back, z, yaw, hanging);
-        const chair = thing.target === "chair" || hanging;
-        return { spot, action: "perch", gaze: null, swing: pose === "swing", curious: 0, tailUp: chair };
+        const chair = thing.target === "chair" || thing.target === "party" || hanging;
+        const swing = pose === "swing" || pose === "holdSwing";
+        return { spot, action: "perch", gaze: null, swing, curious: 0, tailUp: chair, holding };
       }
       if (pose !== "stand" && pose !== "crouch") return null;
       // Upside down under a chair in the ceiling, her feet on the underside of its seat.
@@ -654,14 +671,15 @@ export function createXnPlaces(world: XnWorld) {
     who.swingLegs = plan.swing;
     who.curious = plan.curious;
     if (plan.tailUp) who.manner = { ...who.manner, tailUp: true };
+    who.holding = plan.holding ?? "none";
   };
 
   /**
    * Something near the visitor for XN to do something with, out of their view: one with nothing between, if any of
    * those near is; any out of view otherwise. Null if none is.
    */
-  const pickXnProp = (who: Xn, cam: Camera): Plan | null => {
-    const things = thingsNear(cam.x, cam.y, XN_FAR);
+  const pickXnProp = (who: Xn, cam: Camera, only?: PropTarget, within = XN_FAR): Plan | null => {
+    const things = thingsNear(cam.x, cam.y, within).filter((thing) => !only || thing.target === only);
     for (let i = things.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [things[i], things[j]] = [things[j], things[i]];

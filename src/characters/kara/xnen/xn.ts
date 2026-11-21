@@ -49,6 +49,9 @@ const HAIR_RIGHT = ["hair_side_r_1", "hair_side_r_2", "hair_side_r_3"];
 
 export type XnSurface = "floor" | "ceiling" | "wall";
 
+/** What she has in her hands: nothing, or a burger, held in her lap and now and then lifted to her mouth for a bite. */
+export type XnHold = "none" | "burger";
+
 /** `perch` sits on an edge, legs hanging: only on something she's got up on. */
 export type XnAction = "stand" | "lamp" | "carpet" | "faceWall" | "crouch" | "sit" | "spin" | "walk" | "perch";
 
@@ -196,6 +199,34 @@ const PERCH_SEAT = 0.035;
 const PERCH_SPREAD = 0.08;
 const PERCH_SWING = 0.4;
 const PERCH_SWING_RATE = 1.3;
+/**
+ * Holding a burger in both hands: her upper arms forward and in, her forearms bent up toward each other; lifting it,
+ * further up, to just in front of her face. All in radians, as for the rest of her arms.
+ */
+const HOLD_UPPER = -0.55;
+const HOLD_IN = 0.28;
+const HOLD_FORE = -1.05;
+const HOLD_FORE_IN = 0.45;
+const RAISE_UPPER = -1.25;
+const RAISE_FORE = 0.05;
+/**
+ * Lifting it to her mouth: every this many seconds, this likely to; this long going up (and coming down), this long
+ * held there eating, with a little nibbling bob at this rate a second.
+ */
+const EAT_EVERY = 3;
+const EAT_CHANCE = 0.35;
+const RAISE_MOVE = 0.45;
+const RAISE_EAT = 1.8;
+const NIBBLE_RATE = 2.5;
+const NIBBLE = 0.08;
+/**
+ * The burger tipped back toward her, its bitten side turned up to her: this far held in her lap, this far at her
+ * mouth.
+ */
+const HELD_TIP = 0.35;
+const HELD_TIP_EATING = 0.75;
+/** Her palms: on from her wrists, this far again as from her elbows to her wrists. */
+const PALM_ON = 0.5;
 
 /**
  * Walking, not quite right: one leg lagging, her body rolling over each foot and her head
@@ -295,10 +326,12 @@ export class Xn {
   walk: XnWalk = { ...DEFAULT_WALK };
   /** Where she goes while she walks; null walks on the spot. */
   route: XnRoute | null = null;
-  /** She stops walking and stands, while the visitor talks to her. */
+  /** She stops walking and stands, while the visitor talks to her; with a burger, she stops lifting it to her mouth. */
   halted = false;
   /** Sitting on an edge, she swings her legs. */
   swingLegs = false;
+  /** What she has in her hands. */
+  holding: XnHold = "none";
   /** Her head tipped to one side while she looks at something (her own drawing): radians, 0 for none. */
   curious = 0;
   private readonly neck: number;
@@ -334,6 +367,16 @@ export class Xn {
   /** Seconds she stays frozen mid-step. */
   private frozen = 0;
   private mesh: StatueMesh | null = null;
+  /** Where she was last put, for finding her hands. */
+  private placed: Placement | null = null;
+  /** How far up to her mouth the burger is, 0–1, as of her last pose. */
+  private lift = 0;
+  /** When, on her action's clock, she started a bite; -1 while she isn't taking one. And when she next thinks of one. */
+  private biteAt = -1;
+  private nextBite = EAT_EVERY;
+  /** Her hands' bones, and her palms on them, at rest. */
+  private readonly handBones: [number, number];
+  private readonly palms: [Point, Point];
 
   constructor(model: FigureModel, spot: XnSpot) {
     this.spot = spot;
@@ -355,6 +398,17 @@ export class Xn {
     this.hairRight = HAIR_RIGHT.map((name) => figure.bone(name));
     const head = model.bones[this.head];
     this.headJoint = [head.x, head.y, head.z];
+    this.handBones = pair("hand");
+    const palm = (i: number): Point => {
+      const elbow = model.bones[this.foreArms[i]];
+      const wrist = model.bones[this.handBones[i]];
+      return [
+        wrist.x + (wrist.x - elbow.x) * PALM_ON,
+        wrist.y + (wrist.y - elbow.y) * PALM_ON,
+        wrist.z + (wrist.z - elbow.z) * PALM_ON,
+      ];
+    };
+    this.palms = [palm(0), palm(1)];
   }
 
   /** The middle of her height, on the map: where she can be bumped into, and is looked for. */
@@ -396,6 +450,9 @@ export class Xn {
     this.action = action;
     this.gaze = gaze;
     this.curious = 0;
+    this.holding = "none";
+    this.biteAt = -1;
+    this.nextBite = EAT_EVERY;
     this.actionClock = 0;
     this.gait = 0;
     this.frozen = 0;
@@ -416,8 +473,39 @@ export class Xn {
     if (this.mesh && this.wait > 0) return this.mesh;
     const step = this.mesh ? 1 / POSE_RATE : 0;
     this.wait = 1 / POSE_RATE;
-    this.mesh = this.figure.place(this.pose(step, viewer, still));
+    this.placed = this.pose(step, viewer, still);
+    this.mesh = this.figure.place(this.placed);
     return this.mesh;
+  }
+
+  /**
+   * Where what she holds is, between her hands, in the place, and which way she faces; null if she holds nothing.
+   * As of her last pose.
+   */
+  held(): { x: number; y: number; z: number; yaw: number; tip: number } | null {
+    const at = this.placed;
+    if (this.holding === "none" || !at) return null;
+    let X = 0;
+    let Y = 0;
+    let Z = 0;
+    this.palms.forEach((palm, i) => {
+      const [x, y, z] = this.figure.carried(this.handBones[i], palm[0], palm[1], palm[2]);
+      X += x / 2;
+      Y += y / 2;
+      Z += z / 2;
+    });
+    const [ux, uy, uz] = at.up;
+    const [fx, fy, fz] = at.front;
+    const rx = fy * uz - fz * uy;
+    const ry = fz * ux - fx * uz;
+    const rz = fx * uy - fy * ux;
+    return {
+      x: at.x + X * rx + Y * ux + Z * fx,
+      y: at.y + X * ry + Y * uy + Z * fy,
+      z: at.z + X * rz + Y * uz + Z * fz,
+      yaw: Math.atan2(fy, fx),
+      tip: HELD_TIP + (HELD_TIP_EATING - HELD_TIP) * this.lift,
+    };
   }
 
   /** Which way her front points now: turning on the spot swings it round her up. */
@@ -574,6 +662,43 @@ export class Xn {
       figure.turn(upperR, 0, -swing * Math.sin(g) + jolt, -0.04);
       figure.turn(foreL, 0, -swing * 0.5 * Math.sin(g - 0.7) - 0.1 * swing - jolt);
       figure.turn(foreR, 0, swing * 0.5 * Math.sin(g - 0.7) - 0.1 * swing - jolt);
+    } else if (this.holding !== "none") {
+      // A burger in both hands in her lap; now and then lifted up to her mouth for a bite, and back.
+      let lift = 0;
+      if (still) {
+        this.biteAt = -1;
+      } else if (this.halted) {
+        // Talking to the visitor: down it comes, and stays down; no bites.
+        this.biteAt = -1;
+        this.nextBite = ta + EAT_EVERY;
+        lift = Math.max(0, this.lift - step / RAISE_MOVE);
+      } else {
+        if (this.biteAt < 0 && ta >= this.nextBite) {
+          this.nextBite = ta + EAT_EVERY;
+          if (Math.random() < EAT_CHANCE) this.biteAt = ta;
+        }
+        if (this.biteAt >= 0) {
+          const into = ta - this.biteAt;
+          const ease = (k: number) => k * k * (3 - 2 * k);
+          if (into < RAISE_MOVE) lift = ease(into / RAISE_MOVE);
+          else if (into < RAISE_MOVE + RAISE_EAT) {
+            const eating = into - RAISE_MOVE;
+            lift = 1 - NIBBLE * (0.5 - 0.5 * Math.cos(eating * NIBBLE_RATE * Math.PI * 2));
+          } else if (into < RAISE_MOVE * 2 + RAISE_EAT) {
+            lift = ease(1 - (into - RAISE_MOVE - RAISE_EAT) / RAISE_MOVE);
+          } else {
+            this.biteAt = -1;
+            this.nextBite = ta + EAT_EVERY;
+          }
+        }
+      }
+      this.lift = lift;
+      const upper = HOLD_UPPER + RAISE_UPPER * lift;
+      const fore = HOLD_FORE + RAISE_FORE * lift;
+      figure.turn(upperL, 0, upper, HOLD_IN);
+      figure.turn(upperR, 0, upper, -HOLD_IN);
+      figure.turn(foreL, 0, fore, HOLD_FORE_IN);
+      figure.turn(foreR, 0, fore, -HOLD_FORE_IN);
     } else {
       const w = ta * 2.2;
       const swing = this.manner.swingArms && !ARMS_BUSY.has(this.action) ? 1 : 0;

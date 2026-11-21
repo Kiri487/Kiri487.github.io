@@ -238,6 +238,20 @@ export class Figure {
     return this.mesh;
   }
 
+  /**
+   * Where a point of the model at rest, carried by `bone`, is in the figure's own space as it was last placed (its
+   * bones' movements as worked out then).
+   */
+  carried(bone: number, x: number, y: number, z: number): [number, number, number] {
+    const m = this.moves;
+    const d = bone * 12;
+    return [
+      m[d] * x + m[d + 1] * y + m[d + 2] * z + m[d + 9],
+      m[d + 3] * x + m[d + 4] * y + m[d + 5] * z + m[d + 10],
+      m[d + 6] * x + m[d + 7] * y + m[d + 8] * z + m[d + 11],
+    ];
+  }
+
   /** Works each bone's whole movement out from its own turn and its parent's movement. */
   private solve() {
     const { bones } = this.model;

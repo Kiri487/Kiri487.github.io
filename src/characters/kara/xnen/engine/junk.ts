@@ -1496,6 +1496,8 @@ export interface Junk {
   plate?: Plate | null;
   /** A door XN can stand at, sit or crouch by: flat against a wall, or standing on its own in a room. */
   doorway?: Doorway | null;
+  /** XN's seat at a burger room's party: across the table from Kara's, where a bitten burger's been left. */
+  partySeat?: boolean;
 }
 
 /**
@@ -2570,8 +2572,9 @@ function partyIn(map: WorldMap, lx: number, ly: number, plan: BurgerPlan): Junk[
       model: chair,
       ...pose,
       solid: { x, y, r: 0.2 },
-      // XN doesn't sit on the burger.
+      // XN doesn't sit on the burger: that's Kara's seat, left mid-bite. She sits across from it.
       perch: left ? null : perchOn(pose, seat, CHAIR_EDGE, 0.1),
+      partySeat: !left,
     });
     if (left) {
       out.push({
@@ -2801,6 +2804,29 @@ function partyIn(map: WorldMap, lx: number, ly: number, plan: BurgerPlan): Junk[
     burger(`trail${k}`, model, px, py, 0, { yaw: r(6) * Math.PI * 2, pitch: 0, roll: 0 }, null);
   }
   return out;
+}
+
+/** How big the burger XN holds is: small enough for her hands, which are small. */
+const HELD_SIZE = 0.6;
+
+/** The bite out of the burger XN holds: one, on the side toward her (its back, as it faces the way she does). */
+const HELD_BITE: readonly Bite[] = [{ at: -Math.PI / 2, big: 1 }];
+
+/**
+ * The burger XN holds: its middle at (x, y, z), facing `yaw` as she does, with a bite out of the side toward her,
+ * tipped `tip` so that side turns up toward her.
+ */
+export function heldBurger(
+  x: number,
+  y: number,
+  z: number,
+  yaw: number,
+  tip: number,
+): { mesh: StatueMesh; model: StatueModel } {
+  const model = burgerModel(HELD_SIZE, HELD_BITE);
+  const h = z - (BURGER_W * HELD_SIZE * BURGER_TALL) / 2;
+  const junk: Junk = { key: "held", kind: "burger", model, x, y, h, yaw, pitch: tip, roll: 0, solid: null };
+  return { mesh: placeJunk(model, junk), model };
 }
 
 /** Which way a piece of junk is turned. */
