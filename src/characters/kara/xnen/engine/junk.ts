@@ -1758,23 +1758,35 @@ const OUT = [
 
 const blocks = new WeakMap<WorldMap, Map<string, Junk[]>>();
 
-/** Every piece of junk within `radius` of (x, y). The same every time for this map. */
-export function junkAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
-  let known = blocks.get(map);
+/**
+ * What's been laid out on a map, under `key` in `stores`: worked out by `lay` the first time it's asked for, then
+ * kept, so it's the same every time.
+ */
+function laidOut<K>(stores: WeakMap<WorldMap, Map<K, Junk[]>>, map: WorldMap, key: K, lay: () => Junk[]): Junk[] {
+  let known = stores.get(map);
   if (!known) {
     known = new Map();
-    blocks.set(map, known);
+    stores.set(map, known);
   }
+  let found = known.get(key);
+  if (!found) {
+    found = lay();
+    known.set(key, found);
+  }
+  return found;
+}
+
+/** Adds to `out` each of `found` within `radius` of (x, y). */
+function within(found: readonly Junk[], x: number, y: number, radius: number, out: Junk[]) {
+  for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+}
+
+/** Every piece of junk within `radius` of (x, y). The same every time for this map. */
+export function junkAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
   const out: Junk[] = [];
   for (let by = Math.floor((y - radius) / BLOCK); by <= Math.floor((y + radius) / BLOCK); by++) {
     for (let bx = Math.floor((x - radius) / BLOCK); bx <= Math.floor((x + radius) / BLOCK); bx++) {
-      const key = `${bx},${by}`;
-      let found = known.get(key);
-      if (!found) {
-        found = junkIn(map, bx, by);
-        known.set(key, found);
-      }
-      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+      within(laidOut(blocks, map, `${bx},${by}`, () => junkIn(map, bx, by)), x, y, radius, out);
     }
   }
   out.push(...partiesAround(map, x, y, radius));
@@ -3065,23 +3077,11 @@ const parties = new WeakMap<WorldMap, Map<string, Junk[]>>();
 
 /** Everything in the burger rooms within `radius` of (x, y). */
 function partiesAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
-  let known = parties.get(map);
-  if (!known) {
-    known = new Map();
-    parties.set(map, known);
-  }
   const out: Junk[] = [];
   for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
     for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
       const plan = map.burgerPlan(lx, ly);
-      if (!plan) continue;
-      const key = `${lx},${ly}`;
-      let found = known.get(key);
-      if (!found) {
-        found = partyIn(map, lx, ly, plan);
-        known.set(key, found);
-      }
-      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+      if (plan) within(laidOut(parties, map, `${lx},${ly}`, () => partyIn(map, lx, ly, plan)), x, y, radius, out);
     }
   }
   return out;
@@ -3320,13 +3320,11 @@ function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Ju
 /** The fitted rooms' contents, by room and map: laid out once. */
 const fittings = new WeakMap<WorldMap, Map<string, Junk[]>>();
 
+/** How each kind of fitted room is furnished. */
+const FURNISH = { workroom: workroomIn, camp: campIn, pantry: pantryIn, meeting: meetingIn, storage: storageIn };
+
 /** Everything in the fitted rooms within `radius` of (x, y). */
 function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
-  let known = fittings.get(map);
-  if (!known) {
-    known = new Map();
-    fittings.set(map, known);
-  }
   const out: Junk[] = [];
   const seen = new Set<FittedPlan>();
   for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
@@ -3336,16 +3334,8 @@ function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk
       if (!plan || seen.has(plan)) continue;
       seen.add(plan);
       const [bx, by] = [(plan.x0 - 1) / 5, (plan.y0 - 1) / 5];
-      const key = `${bx},${by}`;
-      let found = known.get(key);
-      if (!found) {
-        const furnish = { workroom: workroomIn, camp: campIn, pantry: pantryIn, meeting: meetingIn, storage: storageIn }[
-          plan.kind
-        ];
-        found = furnish(map, bx, by, plan);
-        known.set(key, found);
-      }
-      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+      const furnish = FURNISH[plan.kind];
+      within(laidOut(fittings, map, `${bx},${by}`, () => furnish(map, bx, by, plan)), x, y, radius, out);
     }
   }
   return out;
@@ -3593,23 +3583,13 @@ const hallThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
 
 /** Everything in the halls within `radius` of (x, y). */
 function hallsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
-  let known = hallThings.get(map);
-  if (!known) {
-    known = new Map();
-    hallThings.set(map, known);
-  }
   const out: Junk[] = [];
   for (let by = Math.floor((y - radius) / ROOM_BLOCK); by <= Math.floor((y + radius) / ROOM_BLOCK); by++) {
     for (let bx = Math.floor((x - radius) / ROOM_BLOCK); bx <= Math.floor((x + radius) / ROOM_BLOCK); bx++) {
       const kind = map.hallKind(bx, by);
       if (kind !== "cubicles" && kind !== "lamp") continue;
-      const key = `${bx},${by}`;
-      let found = known.get(key);
-      if (!found) {
-        found = kind === "cubicles" ? cubiclesIn(map, bx, by) : lampHallIn(map, bx, by);
-        known.set(key, found);
-      }
-      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+      const lay = () => (kind === "cubicles" ? cubiclesIn(map, bx, by) : lampHallIn(map, bx, by));
+      within(laidOut(hallThings, map, `${bx},${by}`, lay), x, y, radius, out);
     }
   }
   return out;
@@ -3932,21 +3912,11 @@ const deadEndThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
 
 /** Everything at the dead ends within `radius` of (x, y). */
 function deadEndsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
-  let known = deadEndThings.get(map);
-  if (!known) {
-    known = new Map();
-    deadEndThings.set(map, known);
-  }
   const out: Junk[] = [];
   // Things stand a little off the far wall's middle: look a little further for the walls.
   for (const end of map.deadEndsNear(x, y, radius + 1)) {
     const key = `${end.cx},${end.cy},${end.side}`;
-    let found = known.get(key);
-    if (!found) {
-      found = deadEndIn(map, end);
-      known.set(key, found);
-    }
-    for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+    within(laidOut(deadEndThings, map, key, () => deadEndIn(map, end)), x, y, radius, out);
   }
   return out;
 }
@@ -4131,23 +4101,11 @@ const stairsThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
 
 /** Every stair, and what blocks it, within `radius` of (x, y). */
 function stairsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
-  let known = stairsThings.get(map);
-  if (!known) {
-    known = new Map();
-    stairsThings.set(map, known);
-  }
   const out: Junk[] = [];
   for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
     for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
       const plan = map.stairsIn(lx, ly);
-      if (!plan) continue;
-      const key = `${lx},${ly}`;
-      let found = known.get(key);
-      if (!found) {
-        found = stairsIn(map, plan);
-        known.set(key, found);
-      }
-      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+      if (plan) within(laidOut(stairsThings, map, `${lx},${ly}`, () => stairsIn(map, plan)), x, y, radius, out);
     }
   }
   return out;
@@ -5868,21 +5826,13 @@ const candleSigns = new WeakMap<WorldMap, Map<Statue, Junk[]>>();
 
 /** The candle signs in front of the statues near (x, y), whole: a sign's candles are one piece. */
 function candleSignsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
-  let known = candleSigns.get(map);
-  if (!known) {
-    known = new Map();
-    candleSigns.set(map, known);
-  }
   const out: Junk[] = [];
   for (const statue of map.statuesAround(x, y, radius)) {
+    const { sign } = statue;
     // Only the ones that could be in reach; a statue's region is far bigger.
-    if (!statue.sign || Math.hypot(statue.sign.x - x, statue.sign.y - y) > radius + CANDLE_SIGN_SIZE / 2) continue;
-    let found = known.get(statue);
-    if (!found) {
-      found = candleSign(map, `candles${statue.cx},${statue.cy}`, statue.cx, statue.cy, statue.sign);
-      known.set(statue, found);
-    }
-    out.push(...found);
+    if (!sign || Math.hypot(sign.x - x, sign.y - y) > radius + CANDLE_SIGN_SIZE / 2) continue;
+    const key = `candles${statue.cx},${statue.cy}`;
+    out.push(...laidOut(candleSigns, map, statue, () => candleSign(map, key, statue.cx, statue.cy, sign)));
   }
   return out;
 }
