@@ -219,9 +219,31 @@ export function drawStatue(
     const ar = FR * fog, ag = FG * fog, ab = FB * fog;
     const glow = 0.55 * (1 - fog * 0.5);
     const u0 = v[q + 3], v0 = v[q + 4], u1 = v[q + 8], v1 = v[q + 9], u2 = v[q + 13], v2 = v[q + 14];
+    // Along a row each corner's weight changes steadily with x: by this much a pixel.
+    const a0 = (y1 - y2) * id;
+    const a1 = (y2 - y0) * id;
+    const a2 = -a0 - a1;
     for (let y = by0; y <= by1; y++) {
       const yc = y + 0.5;
-      for (let x = bx0; x <= bx1; x++) {
+      // Where on this row all three weights are positive, worked out from each weight at x = 0. A pixel's margin
+      // either side; each pixel is still tested below.
+      const w0 = ((y1 - y2) * -x2 + (x2 - x1) * (yc - y2)) * id;
+      const w1 = ((y2 - y0) * -x2 + (x0 - x2) * (yc - y2)) * id;
+      let lo = -Infinity;
+      let hi = Infinity;
+      if (a0 > 0) lo = Math.max(lo, -w0 / a0);
+      else if (a0 < 0) hi = Math.min(hi, -w0 / a0);
+      else if (w0 < -1e-9) continue;
+      if (a1 > 0) lo = Math.max(lo, -w1 / a1);
+      else if (a1 < 0) hi = Math.min(hi, -w1 / a1);
+      else if (w1 < -1e-9) continue;
+      const w2 = 1 - w0 - w1;
+      if (a2 > 0) lo = Math.max(lo, -w2 / a2);
+      else if (a2 < 0) hi = Math.min(hi, -w2 / a2);
+      else if (w2 < -1e-9) continue;
+      const sx0 = Math.max(bx0, Math.floor(lo - 0.5) - 1);
+      const sx1 = Math.min(bx1, Math.ceil(hi - 0.5) + 1);
+      for (let x = sx0; x <= sx1; x++) {
         const xc = x + 0.5;
         const l0 = ((y1 - y2) * (xc - x2) + (x2 - x1) * (yc - y2)) * id;
         const l1 = ((y2 - y0) * (xc - x2) + (x0 - x2) * (yc - y2)) * id;
