@@ -1,5 +1,5 @@
-import { hash3, mod } from "./hash";
-import { PREVIEW_PITS, type WorldMap } from "./map";
+import { hash3 } from "./hash";
+import type { WorldMap } from "./map";
 import type { Tuning } from "./tuning";
 
 /*
@@ -1825,12 +1825,7 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   // Outside a pit room, often a warning in blood; past that roll, whatever any wall might have.
   const outside = map.pitOutside(lx, ly, dir, side);
   const warns = outside ? (PIT_WARNING * tuning.graffiti) / 100 : 0;
-  // Preview: every outside stretch of the preview's pit room has one, the five in turn. Delete before the PR.
-  const previewWarning =
-    PREVIEW_PITS &&
-    outside &&
-    (dir === 0 ? lx >= 3 && lx <= 5 && (ly === 0 || ly === 3) : ly >= 0 && ly <= 2 && (lx === 3 || lx === 6));
-  const warning = previewWarning || pick(0) < warns;
+  const warning = pick(0) < warns;
   if (warning || pick(0) - warns < (CHANCE * tuning.graffiti) / 100) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
@@ -1839,7 +1834,6 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
       const warnings = PLEAS.length - PIT_PLEAS;
       let line = Math.floor(pick(2) * (kind === "plea" ? PIT_PLEAS : lines.length));
       if (warning) line = PIT_PLEAS + Math.floor(pick(2) * warnings);
-      if (previewWarning) line = PIT_PLEAS + mod(lx + ly + dir * 2 + side, warnings);
       const text = kind === "text" ? GRAFFITI_TEXTS[line] : "";
       const seed = Math.floor(pick(3) * 0x7fffffff);
       const r = (k: number) => hash3(seed, k, 7717);

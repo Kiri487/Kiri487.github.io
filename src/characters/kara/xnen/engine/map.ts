@@ -63,11 +63,6 @@ export const PIT_RIM = 0.15;
 const PIT_CHANCE = 0.06;
 /** How likely each side of a pit room is to have a doorway (one, anywhere along it). A room left with none gets one. */
 const PIT_DOOR = 0.5;
-/**
- * Preview: the block east of the spawn is always a pit room, and the spawn's own block is one open hall, so its wall
- * and doorways are in sight from the start. Delete before the PR.
- */
-export const PREVIEW_PITS = true;
 
 /** The square of pits in a pit room, in cells: its north-west corner and its width. */
 export interface PitField {
@@ -111,13 +106,11 @@ export class WorldMap {
   /** Whether block (bx, by) of 3 × 3 lattice rooms is a pit room. Never the spawn's block. */
   pitRoom(bx: number, by: number): boolean {
     if (bx === 0 && by === 0) return false;
-    if (PREVIEW_PITS && bx === 1 && by === 0) return true;
     return this.noise(bx, by, 50) < PIT_CHANCE;
   }
 
   /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a pit room. */
   private openBlock(bx: number, by: number): boolean {
-    if (PREVIEW_PITS && bx === 0 && by === 0) return true;
     return this.noise(bx, by, 9) < 0.2 || this.pitRoom(bx, by);
   }
 
@@ -151,8 +144,6 @@ export class WorldMap {
       this.noise(bx, by, 53) < PIT_DOOR,
       this.noise(bx + 1, by, 53) < PIT_DOOR,
     ];
-    // The preview's room always opens toward the spawn.
-    if (PREVIEW_PITS && bx === 1 && by === 0) sides[2] = true;
     if (!sides.some(Boolean)) sides[Math.floor(this.noise(bx, by, 54) * 4)] = true;
     return sides;
   }
@@ -251,7 +242,7 @@ export class WorldMap {
       const inside = mod(lx, 3) !== 0 && mod(ly, 3) !== 0;
       const bx = Math.floor(lx / 3);
       const by = Math.floor(ly / 3);
-      if (inside && (this.pitRoom(bx, by) || (PREVIEW_PITS && bx === 0 && by === 0))) return 0;
+      if (inside && this.pitRoom(bx, by)) return 0;
       const inBigRoom = inside && this.openBlock(bx, by);
       return this.noise(lx, ly, 8) < (inBigRoom ? 0.6 : this.area(lx, ly).post) ? 1 : 0;
     }
