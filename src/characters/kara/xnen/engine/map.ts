@@ -14,6 +14,8 @@ import type { Tuning } from "./tuning";
  *
  * Smaller and rarer, a burger room: two cells by two in a corner of a lattice room, walled in all round with one
  * doorway, a party laid out in it for nobody (junk.ts), under warmer light (lighting.ts).
+ *
+ * Some statues have the cult's sign laid out in candles on the floor in front of them (junk.ts), where it fits.
  */
 
 interface Area {
@@ -49,7 +51,33 @@ export interface Statue {
   /** The ceiling light nearest to it, which always works. */
   lampX: number;
   lampY: number;
+  /** The cult's sign laid out in candles on the floor in front of it, if someone has. */
+  sign: CandleSign | null;
 }
+
+/**
+ * The cult's sign laid out in candles on the floor (junk.ts): its middle, and the way it runs, from its top (the ears)
+ * to its foot. In front of a statue, its middle on the line the statue faces and its ears toward it.
+ */
+export interface CandleSign {
+  x: number;
+  y: number;
+  dirX: number;
+  dirY: number;
+}
+
+/** How tall the sign is laid out, in cells. */
+export const CANDLE_SIGN_SIZE = 3.4;
+/** Half the room it takes, across it and along it, its candles a little off where they were meant to go included. */
+const CANDLE_SIGN_HALF = [1.25, 1.7] as const;
+/** How far in front of its statue its middle is. */
+const CANDLE_SIGN_AWAY = 2.9;
+/**
+ * How many statues are picked to have one, and how many ways round they're tried: about one in ten in all, as a few
+ * have no room for it any way round.
+ */
+const CANDLE_SIGN_SHARE = 0.12;
+const CANDLE_SIGN_TURNS = 8;
 
 /** A special room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
 export const ROOM_BLOCK = 15;
@@ -425,11 +453,55 @@ export class WorldMap {
       // Lights hang over cells 1, 4, 7… on both axes; the nearest one is at most a cell away.
       const lampX = cx + [1, 0, -1][mod(cx, 3)];
       const lampY = cy + [1, 0, -1][mod(cy, 3)];
-      found = { x: cx + 0.5, y: cy + 0.5, cx, cy, facing: this.noise(rx, ry, 180 + k) * Math.PI * 2, lampX, lampY };
+      const facing = this.noise(rx, ry, 180 + k) * Math.PI * 2;
+      found = { x: cx + 0.5, y: cy + 0.5, cx, cy, facing, lampX, lampY, sign: null };
+      if (this.noise(rx, ry, 190) < CANDLE_SIGN_SHARE) {
+        // It was turned to face the open floor the sign's laid out on, wherever round it there's room.
+        for (let turn = 0; turn < CANDLE_SIGN_TURNS && !found.sign; turn++) {
+          const way = facing + (turn / CANDLE_SIGN_TURNS) * Math.PI * 2;
+          const dirX = Math.cos(way);
+          const dirY = Math.sin(way);
+          const sign = { x: found.x + dirX * CANDLE_SIGN_AWAY, y: found.y + dirY * CANDLE_SIGN_AWAY, dirX, dirY };
+          if (!this.signFits(sign)) continue;
+          found.facing = way;
+          found.sign = sign;
+        }
+      }
       break;
     }
     this.statues.set(key, found);
     return found;
+  }
+
+  /**
+   * Visits the floor a candle sign takes, every quarter of a cell across it and along it, until `stop` says so.
+   * `grow` widens it every way by that much.
+   */
+  private overSign(sign: CandleSign, grow: number, stop: (x: number, y: number) => boolean): boolean {
+    const [hw, hl] = [CANDLE_SIGN_HALF[0] + grow, CANDLE_SIGN_HALF[1] + grow];
+    for (let a = -hw; a <= hw + 1e-6; a += 0.25) {
+      for (let b = -hl; b <= hl + 1e-6; b += 0.25) {
+        if (stop(sign.x - sign.dirY * a + sign.dirX * b, sign.y + sign.dirX * a + sign.dirY * b)) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Whether a candle sign has open floor for all of it, none of it in a special room. */
+  private signFits(sign: CandleSign): boolean {
+    return !this.overSign(sign, 0, (x, y) => {
+      const cx = Math.floor(x);
+      const cy = Math.floor(y);
+      return this.wall(cx, cy) !== 0 || this.roomAt(cx, cy) !== null;
+    });
+  }
+
+  /** Whether cell (cx, cy) is under, or right by, a candle sign: junk keeps off it. */
+  underSign(cx: number, cy: number): boolean {
+    const statue = this.statueIn(Math.floor(cx / this.region), Math.floor(cy / this.region));
+    const sign = statue?.sign;
+    if (!sign || Math.hypot(cx + 0.5 - sign.x, cy + 0.5 - sign.y) > CANDLE_SIGN_HALF[1] + 2) return false;
+    return this.overSign(sign, 0.5, (x, y) => Math.floor(x) === cx && Math.floor(y) === cy);
   }
 
   /** Every statue whose region touches the square of this radius around (x, y). */

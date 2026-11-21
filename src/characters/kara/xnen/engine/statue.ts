@@ -28,6 +28,8 @@ export interface StatueSkin {
 export interface StatueMesh {
   x: number;
   y: number;
+  /** How far its furthest part is from (x, y), if it's well off it: it's drawn while any of it may be in view. */
+  reach?: number;
   count: number;
   /** World x, y, z and atlas u, v for each corner: 15 numbers per triangle. */
   corners: Float32Array;
@@ -43,6 +45,8 @@ export interface Prop {
   skin: StatueSkin;
   /** Cut off below the floor and above the ceiling, for things stuck through them. */
   clip?: boolean;
+  /** Lit by itself this brightly (a flame), rather than by the light where it is. */
+  glow?: number;
 }
 
 /** How close the player can come to a statue's middle. */
@@ -128,7 +132,8 @@ export function drawStatue(
   clip = false,
 ) {
   const ahead = (mesh.x - f.camX) * f.dirX + (mesh.y - f.camY) * f.dirY;
-  if (ahead < -0.6 || ahead > 27) return;
+  const reach = mesh.reach ?? 0;
+  if (ahead < -0.6 - reach || ahead > 27 + reach) return;
   const { pixels: d, width: W, height: H, wallDepth, depth, focal, horizon, dirX: dx, dirY: dy, camX, camY, eye } = f;
   const { corners: v, normals: nr, centres: ct, flags } = mesh;
   const tex = skin.data;
