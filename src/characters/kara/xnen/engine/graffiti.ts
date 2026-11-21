@@ -1,6 +1,7 @@
 import { hash3 } from "./hash";
 import type { BurgerPlan, WorldMap } from "./map";
 import type { Tuning } from "./tuning";
+import { GRAFFITI_WEIGHTS, heaviest } from "./zones";
 
 /*
  * Marks on the walls, here and there at random, and only on the walls:
@@ -159,7 +160,7 @@ const BLOOD: readonly [number, number, number] = [78, 20, 16];
 const FINGER = 0.4;
 /** How far a finger goes, in grid steps, before the blood on it is down to about a third. */
 const DRY = 28;
-/** How often a side of a stretch has something on it, at 100 %. */
+/** How often a side of a stretch has something on it, at 100 %, in the yellow; other zones weigh it (zones.ts). */
 const CHANCE = 0.065;
 /**
  * Of those, what: XN's words, an arrow, tally marks, the lost's words in blood, a cult slogan, XN's drawing, the cat
@@ -1827,7 +1828,15 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   const outside = map.pitOutside(lx, ly, dir, side);
   const warns = outside ? (PIT_WARNING * tuning.graffiti) / 100 : 0;
   const warning = pick(0) < warns;
-  if (warning || pick(0) - warns < (CHANCE * tuning.graffiti) / 100) {
+  const chance = (CHANCE * tuning.graffiti) / 100;
+  // Weighed by the zone of the floor in front of it, halfway along.
+  const front = () => {
+    const out = side ? 1 : -1;
+    return dir === 0 ? map.zoneAt(lx * 5 + 2, ly * 5 + out) : map.zoneAt(lx * 5 + out, ly * 5 + 2);
+  };
+  const drawn = (die: number) =>
+    die < chance * heaviest(GRAFFITI_WEIGHTS) && die < chance * GRAFFITI_WEIGHTS[front()];
+  if (warning || drawn(pick(0) - warns)) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
       const kind = warning ? "plea" : kindOf(pick(1));
