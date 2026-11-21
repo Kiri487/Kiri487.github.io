@@ -26,6 +26,8 @@ const CARPET_SHIFT = Math.log2(CARPET_SIZE);
 /** What the pits need from the frame being drawn. */
 export interface PitView {
   pixels: Uint8ClampedArray;
+  /** How far off each pixel is, filled in where a rim or a pit's side is drawn, for what's drawn over them. */
+  depth: Float32Array;
   width: number;
   height: number;
   /** How far each column's ray goes before a wall. */
@@ -106,7 +108,7 @@ const overHole: boolean[] = [];
 
 export function drawPits(v: PitView, fields: readonly PitField[], light: Lighting) {
   if (!fields.length) return;
-  const { pixels: d, width: W, height: H, wallDepth, camX: px, camY: py, eye: z, focal, horizon, fogK } = v;
+  const { pixels: d, depth, width: W, height: H, wallDepth, camX: px, camY: py, eye: z, focal, horizon, fogK } = v;
   const [FR, FG, FB] = v.fog;
   const seen: { field: PitField; tin: number; tout: number; outAxis: number }[] = [];
   for (let x = 0; x < W; x++) {
@@ -192,6 +194,7 @@ export function drawPits(v: PitView, fields: readonly PitField[], light: Lightin
             if (CARPET_FLIP[(tx >> CARPET_SHIFT) & 255]) cu = CARPET_MASK - cu;
             if (CARPET_FLIP[(ty >> CARPET_SHIFT) & 255]) cv = CARPET_MASK - cv;
             const ti = (cv * CARPET_SIZE + cu) * 3;
+            depth[y * W + x] = t;
             const o = (y * W + x) * 4;
             d[o] = CARPET[ti] * li + FR * f;
             d[o + 1] = CARPET[ti + 1] * li + FG * f;
@@ -227,6 +230,7 @@ export function drawPits(v: PitView, fields: readonly PitField[], light: Lightin
         for (let y = yTop; y <= yb; y++) {
           const down = ((y + 0.5 - horizon) * far) / focal - z;
           const dark = Math.exp(-PIT_DARKEN * Math.max(0, down));
+          depth[y * W + x] = far;
           const o = (y * W + x) * 4;
           if (dark < PIT_BLACK) {
             d[o] = VOID[0];

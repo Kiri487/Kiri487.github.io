@@ -537,9 +537,13 @@ export class Renderer {
 
     // From down in a pit there's no floor at 0 to see: the pit's own floor and sides cover it all.
     if (z > 0) rows(true);
+    // How far off each pixel is, for what's drawn over the place: only the pits have any, for XN's legs hanging into
+    // one to go behind its far side.
+    this.depth.fill(1e9);
     drawPits(
       {
         pixels: d,
+        depth: this.depth,
         width: W,
         height: H,
         wallDepth,
@@ -561,7 +565,6 @@ export class Renderer {
     );
 
     if (props.length) {
-      this.depth.fill(1e9);
       const frame: StatueFrame = {
         pixels: d,
         width: W,

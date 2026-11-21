@@ -17,7 +17,8 @@ import {
   type Junk,
 } from "./engine/junk";
 import { Lighting } from "./engine/lighting";
-import { LIGHT_DEAD, SPAWN, WorldMap, type Statue } from "./engine/map";
+import { LIGHT_DEAD, PIT_COUNT, PIT_PITCH, PIT_RIM, SPAWN, WorldMap, type Statue } from "./engine/map";
+import { pitFieldsNear } from "./engine/pits";
 import { PLAYER_RADIUS, Player } from "./engine/player";
 import { graffitiNear, inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
@@ -68,7 +69,17 @@ import {
  * in the ceiling; stand at a door, or sit or crouch facing it or with her back to it; stand, sit or
  * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign.
  */
-export type PropTarget = "chair" | "desk" | "cabinet" | "monitor" | "hung" | "door" | "graffiti" | "portrait" | "sign";
+export type PropTarget =
+  | "chair"
+  | "desk"
+  | "cabinet"
+  | "monitor"
+  | "hung"
+  | "door"
+  | "graffiti"
+  | "portrait"
+  | "sign"
+  | "pit";
 export type PropPose = "stand" | "crouch" | "perch" | "swing" | "sit" | "sitBack" | "crouchBack";
 
 /** Which poses go with which things. */
@@ -78,6 +89,7 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   cabinet: ["stand", "crouch", "perch", "swing"],
   monitor: ["stand", "crouch", "perch", "swing"],
   hung: ["stand", "crouch", "perch", "swing"],
+  pit: ["perch", "swing"],
   door: ["stand", "sit", "crouch", "sitBack", "crouchBack"],
   graffiti: ["stand", "sit", "crouch"],
   portrait: ["stand", "sit", "crouch"],
@@ -201,6 +213,8 @@ const FALL_END = -2.6;
 const PIT_FOOTING = 0.08;
 /** While falling, the view tips down this much, as a share of the picture's height. */
 const FALL_TIP = 0.25;
+/** How many seats on the rims of each pit room near the visitor XN thinks of, when she's looking for something. */
+const XN_PIT_SEATS = 3;
 /** Statues further than this aren't drawn. */
 const DRAW_RANGE = 28;
 /**
@@ -983,6 +997,21 @@ export function createGame(parts: GameParts): Game {
     for (const tag of graffitiNear(map, x, y, radius, tuning)) {
       const target = tag.kind === "portrait" ? "portrait" : "graffiti";
       out.push({ target, x: tag.centre.x, y: tag.centre.y, junk: null, look: tag.centre });
+    }
+    // A few rims in each pit room near, to sit on with her legs over a pit: on a rim between two, facing either.
+    for (const field of pitFieldsNear(map, x, y, radius)) {
+      for (let k = 0; k < XN_PIT_SEATS; k++) {
+        const across = 1 + Math.floor(Math.random() * (PIT_COUNT - 1));
+        const along = Math.floor(Math.random() * PIT_COUNT);
+        const ahead = Math.random() < 0.5 ? 1 : -1;
+        const onX = Math.random() < 0.5;
+        const line = across * PIT_PITCH;
+        const mid = (along + 0.5) * PIT_PITCH;
+        const sx = field.x0 + (onX ? line : mid);
+        const sy = field.y0 + (onX ? mid : line);
+        const yaw = onX ? (ahead > 0 ? 0 : Math.PI) : ahead > 0 ? Math.PI / 2 : -Math.PI / 2;
+        out.push({ target: "pit", x: sx, y: sy, junk: null, perch: { x: sx, y: sy, z: 0, yaw, edge: PIT_RIM } });
+      }
     }
     return out;
   };
