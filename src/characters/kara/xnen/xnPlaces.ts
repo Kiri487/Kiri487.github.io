@@ -35,7 +35,7 @@ import {
  * in the ceiling; stand at a door, or sit or crouch facing it or with her back to it; stand, sit or
  * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign; sit on a camp's
  * mattress hugging her knees, facing out into the room or turned to the wall with the count on it; sit on the edge
- * of a pantry's worktop.
+ * of a pantry's worktop; stand, sit or crouch under the one light left in a dark hall.
  */
 export type PropTarget =
   | "chair"
@@ -50,7 +50,8 @@ export type PropTarget =
   | "pit"
   | "party"
   | "bed"
-  | "counter";
+  | "counter"
+  | "spotlight";
 /** `hold` is sitting on the edge with a burger in her hands, now and then taking a bite. */
 export type PropPose =
   | "stand"
@@ -80,6 +81,7 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   bed: ["sit", "sitWall"],
   // Only on its edge: standing on it, she'd have her head in the wall cupboards.
   counter: ["perch", "swing"],
+  spotlight: ["stand", "sit", "crouch"],
 };
 
 /** The dev panel puts XN this far in front of the visitor. */
@@ -141,6 +143,8 @@ const XN_BED_ALONG = 0.2;
 const XN_BED_BACK = 0.06;
 /** How many seats on the rims of each pit room near the visitor XN thinks of, when she's looking for something. */
 const XN_PIT_SEATS = 3;
+/** Under a dark hall's one light: how far from right under it she is, at least and at most. */
+const XN_UNDER_LIGHT = [0.35, 0.7] as const;
 
 /** Somewhere between the two, at random. */
 export function between([low, high]: readonly [number, number]) {
@@ -191,6 +195,8 @@ export interface Thing {
   door?: { x: number; y: number; yaw: number; both: boolean };
   /** To look at: its middle and the way it faces out. */
   look?: { x: number; y: number; z: number; nx: number; ny: number };
+  /** To be under: a light, the middle of the floor under it. */
+  light?: { x: number; y: number };
 }
 
 /** Where she goes and what she does, to do a pose with a thing. */
@@ -595,6 +601,10 @@ export function createXnPlaces(world: XnWorld) {
       const target = tag.kind === "portrait" ? "portrait" : "graffiti";
       out.push({ target, x: tag.centre.x, y: tag.centre.y, junk: null, look: tag.centre });
     }
+    // The one light left in each dark hall near.
+    for (const [lx, ly] of world.map.lampHallsNear(x, y, radius)) {
+      out.push({ target: "spotlight", x: lx, y: ly, junk: null, light: { x: lx, y: ly } });
+    }
     // A few rims in each pit room near, to sit on with her legs over a pit: on a rim between two, facing either.
     for (const field of pitFieldsNear(world.map, x, y, radius)) {
       for (let k = 0; k < XN_PIT_SEATS; k++) {
@@ -658,6 +668,23 @@ export function createXnPlaces(world: XnWorld) {
       // Upside down under a chair in the ceiling, her feet on the underside of its seat.
       const spot = topSpot(x, y, z, yaw + (Math.random() - 0.5) * 1.2, hanging);
       return { spot, action: pose, gaze: null, ...still };
+    }
+    if (thing.light) {
+      // Somewhere just off right under it, minding what's there; standing, she looks up into it, and down at the
+      // floor under it otherwise.
+      const { x, y } = thing.light;
+      for (let k = 0; k < 8; k++) {
+        const a = Math.random() * Math.PI * 2;
+        const d = between(XN_UNDER_LIGHT);
+        const sx = x + Math.cos(a) * d;
+        const sy = y + Math.sin(a) * d;
+        if (!roomBy(sx, sy, null)) continue;
+        const action: XnAction = pose === "sit" ? "sit" : pose === "crouch" ? "crouch" : "stand";
+        const facing = Math.atan2(y - sy, x - sx) + (Math.random() - 0.5) * 0.6;
+        const gaze: Point = action === "stand" ? [x, y, 1] : [x, y, 0.1];
+        return { spot: floorSpot(sx, sy, facing), action, gaze, ...still };
+      }
+      return null;
     }
     if (thing.door) {
       const { x, y, yaw, both } = thing.door;
