@@ -1884,7 +1884,6 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const tinRoll = (k: number) => map.noise(bx * 31 + k, by, 830);
   const tinSpot = spotFor(map, bx, by, tinRoll, TIN_CHANCE, JUNK_WEIGHTS.tin);
   if (tinSpot) found.push(...clearOf(found, placeTins(`n${bx},${by}`, tinSpot, tinRoll)));
-  if (PREVIEW_LOOSE && bx === 0 && by === 0) found.push(...previewLoose(map));
   return found;
 }
 
@@ -5707,53 +5706,6 @@ function placeTins(key: string, spot: Spot, roll: (k: number) => number): Junk[]
     }
   }
   return out;
-}
-
-/**
- * TEMPORARY, for Kiri to look over: every way the boxes, mugs and tins can lie, each in one of the open cells with a
- * wall beside it nearest the spawn (the spawn's own room has none), nearest first. Gone once she's happy.
- */
-const PREVIEW_LOOSE = true;
-
-function previewLoose(map: WorldMap): Junk[] {
-  const at = (rolls: Record<number, number>) => (k: number) => rolls[k] ?? 0.5;
-  const cells: Spot[] = [];
-  for (let cy = -4; cy <= 9; cy++) {
-    for (let cx = -4; cx <= 9; cx++) {
-      // Only where junk could be: not over a pit room's pits, nor in any other room that keeps it out.
-      if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy) || map.bareHall(cx, cy)) continue;
-      const wall = OUT.find(([ox, oy]) => map.wall(cx + ox, cy + oy));
-      if (wall) cells.push({ cx, cy, wall });
-    }
-  }
-  cells.sort((p, q) => Math.hypot(p.cx - 2, p.cy - 2) - Math.hypot(q.cx - 2, q.cy - 2));
-  // Two cells apart at least, so a row of mugs keeps to itself.
-  const picked: Spot[] = [];
-  for (const c of cells) if (picked.every((p) => Math.hypot(p.cx - c.cx, p.cy - c.cy) >= 2)) picked.push(c);
-  const ways: ((spot: Spot, key: string) => Junk[])[] = [
-    // Boxes: two stacks against the wall, strewn, one on its own, one sunk.
-    (spot, key) => placeBoxes(key, spot, at({ 40: 0.1, 41: 0.7 })),
-    (spot, key) => placeBoxes(key, spot, at({ 40: 0.5, 41: 0.9 })),
-    (spot, key) => placeBoxes(key, spot, at({ 40: 0.8, 53: 0.1 })),
-    (spot, key) => placeBoxes(key, spot, at({ 40: 0.95 })),
-    // Mugs: on a desk, on a cabinet, on the floor standing and fallen, a row of thirteen.
-    (spot, key) => {
-      const desk = placeDesk(`${key}d`, spot, at({ 40: 0.55, 52: 0.1, 53: 0, 70: 0.1 }), false);
-      return [desk, ...placeMugs(key, spot, at({ 40: 0.1 }), desk.perch ? [{ perch: desk.perch, half: 0.17 }] : [])];
-    },
-    (spot, key) => {
-      const cabinet = placeCabinet(`${key}c`, spot, at({ 40: 0.55, 52: 0.1, 53: 0, 70: 0.1, 72: 0.9 }));
-      return [cabinet, ...placeMugs(key, spot, at({ 40: 0.1 }), cabinet.perch ? [{ perch: cabinet.perch, half: 0.06 }] : [])];
-    },
-    (spot, key) => placeMugs(key, spot, at({ 40: 0.5, 52: 0.9 }), []),
-    (spot, key) => placeMugs(key, spot, at({ 40: 0.5, 52: 0.1 }), []),
-    (spot, key) => placeMugs(key, spot, at({ 40: 0.9, 41: 0.99 }), []),
-    // Tins: strewn, one on its own, a pyramid.
-    (spot, key) => placeTins(key, spot, at({ 40: 0.2, 41: 0.99 })),
-    (spot, key) => placeTins(key, spot, at({ 40: 0.6, 53: 0.9 })),
-    (spot, key) => placeTins(key, spot, at({ 40: 0.9 })),
-  ];
-  return ways.flatMap((way, i) => (picked[i] ? way(picked[i], `pv${i}`) : []));
 }
 
 // ---- the candle sign ----
