@@ -396,8 +396,9 @@ export function postersOn(
   tuning: Tuning,
   aspect: number,
 ): PosterSpot[] | null {
-  // None in a burger room.
-  if (map.roomAt(cx + FACE_OUT[face][0], cy + FACE_OUT[face][1]) === "burger") return null;
+  // None in a burger room or a camp.
+  const room = map.roomAt(cx + FACE_OUT[face][0], cy + FACE_OUT[face][1]);
+  if (room === "burger" || room === "camp") return null;
   const alongX = face >= 2;
   const base = alongX ? cx : cy;
   // Seen from in front, faces 0 and 3 run the way the world's axis does; 1 and 2 the other way.
@@ -466,7 +467,8 @@ export function postersOver(
   tuning: Tuning,
   aspect: number,
 ): PosterSpot[] | null {
-  if (map.roomAt(cx, cy) === "burger") return null;
+  const room = map.roomAt(cx, cy);
+  if (room === "burger" || room === "camp") return null;
   const reach = reachOf(aspect);
   let spots: PosterSpot[] | null = null;
   for (let j = -CEILING_SPREAD; j <= CEILING_SPREAD; j++) {

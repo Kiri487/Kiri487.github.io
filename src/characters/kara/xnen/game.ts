@@ -4,6 +4,7 @@ import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
 import {
   BURGER_SKIN,
+  CAMP_SKIN,
   CANDLE_SKIN,
   DOOR_SKIN,
   heldBurger,
@@ -680,6 +681,8 @@ export function createGame(parts: GameParts): Game {
         desk: WOOD_SKIN,
         socket: OFFICE_SKIN,
         burger: BURGER_SKIN,
+        bedding: CAMP_SKIN,
+        can: CAMP_SKIN,
         candle: CANDLE_SKIN,
         flame: CANDLE_SKIN,
       }[junk.kind];

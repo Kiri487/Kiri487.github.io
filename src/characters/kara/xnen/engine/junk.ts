@@ -1,4 +1,5 @@
 import {
+  campBed,
   CANDLE_SIGN_SIZE,
   FITTED_SIZE,
   type BurgerPlan,
@@ -1532,6 +1533,8 @@ export type JunkKind =
   | "desk"
   | "socket"
   | "burger"
+  | "bedding"
+  | "can"
   | "candle"
   | "flame";
 
@@ -3190,11 +3193,323 @@ function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk
       const key = `${lx},${ly}`;
       let found = known.get(key);
       if (!found) {
-        found = workroomIn(map, lx, ly, plan);
+        found = plan.kind === "camp" ? campIn(map, lx, ly, plan) : workroomIn(map, lx, ly, plan);
         known.set(key, found);
       }
       for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
     }
+  }
+  return out;
+}
+
+// ---- the camp ----
+
+/*
+ * A camp, where one of the lost lived for a while, and isn't any more: a bare mattress on the floor in a corner, a
+ * blanket thrown back off it and a pillow at its head; empty tins everywhere round it, some stood up, some on their
+ * sides, and sometimes a careful pyramid of them against a wall; sometimes a small cabinet at the bed's head with a
+ * tin on it, a chair by the bed turned to the wall with the count on it (graffiti.ts), and, where there's a second
+ * door, a desk turned over and pushed across it, so there's only one way in.
+ */
+
+/** The camp's atlas: mattress ticking, the blanket, the pillow, a tin's label, its bare metal. */
+const TICKING: Rect = { x: 0, y: 0, w: 32, h: 16 };
+const BLANKET: Rect = { x: 32, y: 0, w: 32, h: 16 };
+const PILLOW: Rect = { x: 0, y: 16, w: 16, h: 16 };
+const LABEL: Rect = { x: 16, y: 16, w: 16, h: 16 };
+const TIN: Rect = { x: 32, y: 16, w: 8, h: 8 };
+const CAMP_ATLAS_W = 64;
+const CAMP_ATLAS_H = 32;
+
+export const CAMP_SKIN: StatueSkin = (() => {
+  const W = CAMP_ATLAS_W;
+  const data = new Uint8ClampedArray(W * CAMP_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const noise = (x: number, y: number) => 0.92 + 0.1 * grain(x, y + 800);
+  // Ticking: off-white with thin blue-grey stripes along it, and brown stains spreading where someone lay.
+  for (let y = 0; y < TICKING.h; y++) {
+    for (let x = 0; x < TICKING.w; x++) {
+      let c = y % 4 === 1 ? [120, 130, 150] : [214, 206, 186];
+      const stain = Math.hypot((x - 11) / 7, (y - 8) / 5) + 0.3 * grain(x, y + 801);
+      if (stain < 1) c = c.map((v, i) => v * (0.7 + 0.25 * stain) * [1, 0.92, 0.8][i]);
+      put(TICKING.x + x, TICKING.y + y, c, noise(x, y));
+    }
+  }
+  // The blanket: a dull army green wool, a darker stripe near each end.
+  for (let y = 0; y < BLANKET.h; y++) {
+    for (let x = 0; x < BLANKET.w; x++) {
+      const band = x === 3 || x === 4 || x === BLANKET.w - 5 || x === BLANKET.w - 4;
+      put(BLANKET.x + x, BLANKET.y + y, [92, 98, 66], (band ? 0.72 : 1) * (0.9 + 0.12 * grain(x, y + 802)));
+    }
+  }
+  // The pillow: a grey-white case gone yellow in the middle.
+  for (let y = 0; y < PILLOW.h; y++) {
+    for (let x = 0; x < PILLOW.w; x++) {
+      const yellow = Math.hypot(x - 8, y - 8) < 4;
+      put(PILLOW.x + x, PILLOW.y + y, yellow ? [200, 188, 150] : [204, 204, 198], noise(x, y + 30));
+    }
+  }
+  // A tin's label: red, a white band round the middle with a few dark marks for the writing; rust at the rims.
+  for (let y = 0; y < LABEL.h; y++) {
+    for (let x = 0; x < LABEL.w; x++) {
+      let c = [168, 40, 32];
+      if (y >= 6 && y <= 9) c = [228, 222, 204];
+      if (y === 7 && x % 3 !== 0 && x > 2 && x < 13) c = [60, 40, 36];
+      if (y === 0 || y === LABEL.h - 1) c = [120, 84, 56];
+      put(LABEL.x + x, LABEL.y + y, c, noise(x, y + 60));
+    }
+  }
+  for (let y = 0; y < TIN.h; y++) {
+    for (let x = 0; x < TIN.w; x++) put(TIN.x + x, TIN.y + y, [170, 172, 168], noise(x, y + 90));
+  }
+  return { data };
+})();
+
+/** A box painted all round with one rect of the camp's atlas. */
+function campBox(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, rect: Rect) {
+  const tris: number[] = [];
+  box(tris, x0, x1, y0, y1, z0, z1, rect, rect, rect);
+  return tris;
+}
+
+/** The mattress: its length, width (across, along z) and thickness. */
+const MATTRESS = [0.95, 0.45, 0.11] as const;
+/** The blanket: length, width, thickness; and the part of it folded back over itself. */
+const BLANKET_SIZE = [0.6, 0.47, 0.02] as const;
+const BLANKET_FOLD = 0.16;
+const PILLOW_SIZE = [0.13, 0.22, 0.045] as const;
+/** A tin's radius and height. */
+const TIN_R = 0.024;
+const TIN_H = 0.06;
+
+const campModel = (tris: number[], stone: readonly [number, number, number]): StatueModel => ({
+  tris,
+  atlasWidth: CAMP_ATLAS_W,
+  atlasHeight: CAMP_ATLAS_H,
+  stone,
+});
+
+const MATTRESS_MODEL = campModel(
+  campBox(-MATTRESS[0] / 2, MATTRESS[0] / 2, 0, MATTRESS[2], -MATTRESS[1] / 2, MATTRESS[1] / 2, TICKING),
+  [214, 206, 186],
+);
+const BLANKET_MODEL = (() => {
+  const [l, w, t] = BLANKET_SIZE;
+  const tris = campBox(-l / 2, l / 2, 0, t, -w / 2, w / 2, BLANKET);
+  // Its end folded back on top of it, at the head end.
+  tris.push(...campBox(-l / 2, -l / 2 + BLANKET_FOLD, t, t * 2, -w / 2, w / 2, BLANKET));
+  return campModel(tris, [92, 98, 66]);
+})();
+const PILLOW_MODEL = campModel(
+  campBox(-PILLOW_SIZE[0] / 2, PILLOW_SIZE[0] / 2, 0, PILLOW_SIZE[2], -PILLOW_SIZE[1] / 2, PILLOW_SIZE[1] / 2, PILLOW),
+  [204, 204, 198],
+);
+/** A tin: eight sides of label, a lid of bare metal, standing on its foot, its axis up. */
+const TIN_MODEL = (() => {
+  const tris: number[] = [];
+  const n = 8;
+  const at = (k: number): [number, number] => {
+    const a = (k / n) * Math.PI * 2;
+    return [Math.cos(a) * TIN_R, Math.sin(a) * TIN_R];
+  };
+  for (let k = 0; k < n; k++) {
+    const [ax, az] = at(k);
+    const [bx, bz] = at(k + 1);
+    const u = { x: LABEL.x + (k * LABEL.w) / n, y: LABEL.y, w: LABEL.w / n, h: LABEL.h };
+    quad(tris, [bx, 0, bz], [ax, 0, az], [ax, TIN_H, az], [bx, TIN_H, bz], u);
+    // The lid and the foot, a fan of thin quads from the middle.
+    quad(tris, [0, TIN_H, 0], [bx, TIN_H, bz], [ax, TIN_H, az], [0, TIN_H, 0], TIN);
+    quad(tris, [0, 0, 0], [ax, 0, az], [bx, 0, bz], [0, 0, 0], TIN);
+  }
+  return campModel(tris, [168, 40, 32]);
+})();
+
+/** How many tins lie about, at least and at most; how likely a pyramid of them, a cabinet, a chair, a barricade. */
+const CAMP_TINS = [8, 14] as const;
+const CAMP_PYRAMID = 0.5;
+const CAMP_STAND = 0.5;
+const CAMP_CHAIR = 0.4;
+const CAMP_BARRICADE = 0.7;
+/** How many tins lie on their sides. */
+const TIN_FALLEN = 0.4;
+
+/** What the preview shows in each of its rooms. */
+const CAMP_PREVIEWS = [
+  { pyramid: true, stand: true, chair: true, barricade: true },
+  { pyramid: false, stand: false, chair: true, barricade: false },
+  { pyramid: true, stand: true, chair: false, barricade: false },
+  { pyramid: false, stand: false, chair: false, barricade: true },
+];
+
+/** Everything in camp `plan` in lattice room (lx, ly), the same every time for this map. */
+function campIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 43 + k, ly, 960);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const preview = plan.preview === undefined ? null : CAMP_PREVIEWS[plan.preview];
+  const pyramid = preview ? preview.pyramid : roll(1) < CAMP_PYRAMID;
+  const stand = preview ? preview.stand : roll(2) < CAMP_STAND;
+  const withChair = preview ? preview.chair : roll(3) < CAMP_CHAIR;
+  const barricade = plan.doors.length > 1 && (preview ? preview.barricade : roll(4) < CAMP_BARRICADE);
+  const office = roll(6) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  plan.doors.forEach(([side, cell], i) => {
+    // The barricaded door needn't be kept clear: the barricade's in it.
+    if (barricade && i === 1) return;
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  });
+  // Clear of everything else by r, and of the walls by `wall` (less, for what's backed up to one).
+  const free = (x: number, y: number, r: number, wall = r) =>
+    x - wall > plan.x0 &&
+    y - wall > plan.y0 &&
+    x + wall < plan.x0 + FITTED_SIZE &&
+    y + wall < plan.y0 + FITTED_SIZE &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const put = (
+    name: string,
+    kind: JunkKind,
+    model: StatueModel,
+    pose: Pose,
+    solid: Solid | null,
+    perch: Perch | null = null,
+  ) => {
+    out.push({ key: key(name), kind, model, ...pose, solid, perch });
+  };
+
+  // The bed: from its corner, `ux` along the wall it lies on, `uy` out from that wall.
+  const bed = campBed(plan, (k) => map.noise(plan.x0, plan.y0, 940 + k));
+  const west = bed.corner % 2 === 0;
+  const north = bed.corner < 2;
+  const cx = west ? plan.x0 : plan.x0 + FITTED_SIZE;
+  const cy = north ? plan.y0 : plan.y0 + FITTED_SIZE;
+  const [ux, uy] = bed.alongX ? [west ? 1 : -1, 0] : [0, north ? 1 : -1];
+  const [vx, vy] = bed.alongX ? [0, north ? 1 : -1] : [west ? 1 : -1, 0];
+  // A point a along the wall from the corner and b out from it.
+  const at = (a: number, b: number): [number, number] => [cx + ux * a + vx * b, cy + uy * a + vy * b];
+  const outward = Math.atan2(vy, vx);
+  const [ml, mw, mt] = MATTRESS;
+  const [bx, by] = at(0.03 + ml / 2, 0.03 + mw / 2);
+  const mattress = { x: bx, y: by, h: 0, yaw: outward + (roll(10) - 0.5) * 0.06, pitch: 0, roll: 0 };
+  const bedSolid = slab(bx, by, ux * (ml / 2), uy * (ml / 2), mw / 2);
+  // Nothing for XN to get up on: she has no ways to be on a bed yet (PROP_POSES, xnPlaces.ts).
+  put("mattress", "bedding", MATTRESS_MODEL, mattress, bedSolid);
+  for (const k of [-1, 0, 1]) taken.push({ x: bx + ux * k * 0.33, y: by + uy * k * 0.33, r: mw / 2 + 0.02 });
+  // The blanket over its foot end, thrown back askew; its folded end toward the head.
+  const along = 0.03 + ml - BLANKET_SIZE[0] / 2 + (roll(11) - 0.5) * 0.1;
+  const [kx, ky] = at(along, 0.03 + mw / 2 + (roll(12) - 0.5) * 0.06);
+  // The blanket's own length runs along x, which a yaw turns to (sin, −cos): this one from the head to the foot.
+  const toFoot = Math.atan2(ux, -uy);
+  const blanket = { x: kx, y: ky, h: mt, yaw: toFoot + (roll(13) - 0.5) * 0.3, pitch: 0, roll: 0 };
+  put("blanket", "bedding", BLANKET_MODEL, blanket, null);
+  // The pillow at its head, crooked.
+  const [px, py] = at(0.03 + 0.1, 0.03 + mw / 2 + (roll(14) - 0.5) * 0.08);
+  const pillow = { x: px, y: py, h: mt, yaw: outward + (roll(15) - 0.5) * 0.5, pitch: 0, roll: 0 };
+  put("pillow", "bedding", PILLOW_MODEL, pillow, null);
+
+  // A tin, standing or on its side.
+  let tins = 0;
+  const tin = (x: number, y: number, h: number, r: (k: number) => number, fallen = r(0) < TIN_FALLEN) => {
+    const pose = { x, y, h: fallen ? h + TIN_R : h, yaw: r(1) * Math.PI * 2, pitch: fallen ? Math.PI / 2 : 0, roll: 0 };
+    put(`tin${tins++}`, "can", TIN_MODEL, pose, null);
+  };
+
+  // A small cabinet at the bed's head, against the wall there, a tin on top.
+  if (stand) {
+    const shape: CabinetShape = { drawers: 2, width: 0.2, depth: 0.2, pulled: [0, roll(20) < 0.3 ? 0.06 : 0] };
+    const [sx, sy] = at(0.005 + shape.depth / 2, 0.03 + mw + 0.06 + shape.width / 2);
+    const yaw = Math.atan2(uy, ux);
+    if (free(sx, sy, 0.13, 0.1)) {
+      const pose = { x: sx, y: sy, h: 0, yaw, pitch: 0, roll: 0 };
+      const solid = slab(sx, sy, ux * 0.1, uy * 0.1, 0.11);
+      put("stand", "cabinet", buildCabinet(shape), pose, solid, perchOn(pose, cabinetHeight(shape), 0.1, 0.1));
+      taken.push({ x: sx, y: sy, r: 0.14 });
+      tin(sx, sy, cabinetHeight(shape), (k) => roll(21 + k), false);
+    }
+  }
+
+  // A chair by the foot of the bed, turned to the wall it lies along, where the count is.
+  if (withChair) {
+    const [hx, hy] = at(0.03 + ml + 0.35, 0.32);
+    if (free(hx, hy, 0.22)) {
+      const chair = { x: hx, y: hy, h: 0, yaw: Math.atan2(-vy, -vx) + (roll(25) - 0.5) * 0.3, pitch: 0, roll: 0 };
+      out.push({
+        key: key("chair"),
+        kind: "chair",
+        model: buildChair(ORDINARY, office),
+        office,
+        ...chair,
+        solid: { x: hx, y: hy, r: 0.2 },
+        perch: perchOn(chair, chairSeat(ORDINARY), CHAIR_EDGE, 0.1),
+      });
+      taken.push({ x: hx, y: hy, r: 0.22 });
+    }
+  }
+
+  // The second door barricaded: a desk tipped over onto its back and pushed up to the doorway, its legs to it, its
+  // top standing across it.
+  if (barricade) {
+    const [side, cell] = plan.doors[1];
+    const shape = WORK_DESK;
+    const hl = shape.length / 2;
+    const into = inward(side);
+    const [dx, dy] = onWall(plan, side, cell - 0.5, 0.01);
+    const [fx, fy] = INWARD[side];
+    // Tipped back about its own width-wise axis: up becomes out of the door, into the room.
+    const pose = { x: dx, y: dy, h: shape.depth / 2, yaw: into + (roll(30) - 0.5) * 0.12, pitch: Math.PI / 2, roll: 0 };
+    const [tx, ty] = [dx + fx * shape.height, dy + fy * shape.height];
+    out.push({
+      key: key("barricade"),
+      kind: "desk",
+      model: buildDesk(shape, office),
+      office,
+      ...pose,
+      solid: slab(dx + fx * shape.height * 0.5, dy + fy * shape.height * 0.5, -fy * hl, fx * hl, shape.height * 0.5 + 0.02),
+    });
+    taken.push({ x: tx, y: ty, r: 0.45 });
+  }
+
+  // A pyramid of tins against a wall, a row of four, three, two, one; wherever there's room for it.
+  if (pyramid) {
+    const step = TIN_R * 2 + 0.004;
+    for (let k = 0; k < 10; k++) {
+      const side = Math.floor(roll(40 + k) * 4);
+      const t = 0.4 + roll(50 + k) * 3.2;
+      const [mx, my] = onWall(plan, side, t, TIN_R + 0.01);
+      if (!free(mx, my, step * 2.2, TIN_R)) continue;
+      const [fx, fy] = INWARD[side];
+      for (let level = 0; level < 4; level++) {
+        for (let i = 0; i < 4 - level; i++) {
+          const a = (i - (3 - level) / 2) * step;
+          tin(mx - fy * a, my + fx * a, level * TIN_H, (j) => roll(60 + level * 4 + i + j * 7), false);
+        }
+      }
+      out[out.length - 10].solid = slab(mx, my, -fy * step * 2, fx * step * 2, TIN_R + 0.01);
+      taken.push({ x: mx, y: my, r: step * 2.2 });
+      break;
+    }
+  }
+
+  // Empty tins about the bed, thinning out away from it.
+  const [least, most] = CAMP_TINS;
+  const count = least + Math.floor(roll(80) * (most - least + 1));
+  let strewn = 0;
+  for (let k = 0; k < count * 3 && strewn < count; k++) {
+    const r = (j: number) => roll(100 + k * 5 + j);
+    const a = 0.03 + r(0) * (ml + 0.4);
+    const b = 0.03 + mw + 0.04 + r(1) * r(1) * 0.9;
+    const [x, y] = at(a, b);
+    if (!free(x, y, TIN_R + 0.01)) continue;
+    tin(x, y, 0, (j) => r(2 + j));
+    taken.push({ x, y, r: TIN_R + 0.01 });
+    strewn++;
   }
   return out;
 }

@@ -11,6 +11,7 @@ import {
   ZONE_OFFICE,
   ZONE_TILES,
   ZONE_YELLOW,
+  CAMP_WEIGHTS,
   WORKROOM_WEIGHTS,
   type ZoneWeights,
 } from "./zones";
@@ -168,6 +169,7 @@ const ROOM_RULES: Record<RoomKind, RoomRules> = {
   pit: { junk: false, statue: false, xn: false },
   burger: { junk: false, statue: false, xn: true },
   workroom: { junk: false, statue: false, xn: true },
+  camp: { junk: false, statue: false, xn: true },
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
@@ -213,13 +215,19 @@ export interface BurgerPlan {
   cell: number;
 }
 
-/** The kinds of fitted room: a lattice room fitted out for a use. */
-export type FittedKind = "workroom";
+/**
+ * The kinds of fitted room: a lattice room fitted out for a use. A camp is where one of the lost lived for a while:
+ * a mattress on the floor, empty tins, the count on the wall.
+ */
+export type FittedKind = "workroom" | "camp";
 /**
  * How likely a lattice room is to be each kind of fitted room, in turn from one die, weighed by its zone (zones.ts):
  * a new kind takes the next share, so the ones before stay where they were.
  */
-const FITTED_CHANCES: readonly [FittedKind, number, ZoneWeights][] = [["workroom", 0.06, WORKROOM_WEIGHTS]];
+const FITTED_CHANCES: readonly [FittedKind, number, ZoneWeights][] = [
+  ["workroom", 0.06, WORKROOM_WEIGHTS],
+  ["camp", 0.07, CAMP_WEIGHTS],
+];
 /** How likely a fitted room is to have a second door, in another wall. */
 const FITTED_SECOND_DOOR = 0.3;
 /** A fitted room is a lattice room's inside: this many cells a side. */
@@ -240,10 +248,11 @@ export interface FittedPlan {
 }
 
 /**
- * PREVIEW: a workroom in each lattice room round the spawn, its door onto the spawn's room, each furnished its own
- * way.
+ * PREVIEW: a fitted room of this kind in each lattice room round the spawn, its door onto the spawn's room, each
+ * furnished its own way.
  */
 const PREVIEW_FITTED = true;
+const PREVIEW_KIND: FittedKind = "camp";
 /** The lattice rooms round the spawn, and the side of each that faces it. */
 const PREVIEW_ROOMS: readonly (readonly [number, number, number])[] = [
   [1, 0, 2],
@@ -251,6 +260,40 @@ const PREVIEW_ROOMS: readonly (readonly [number, number, number])[] = [
   [-1, 0, 3],
   [0, -1, 1],
 ];
+
+/**
+ * Where a camp's mattress lies: in a corner, along one of the two walls there, clear of the doors. Its corner (0
+ * north-west, 1 north-east, 2 south-west, 3 south-east), whether it runs east-west, and the sides of the wall it lies
+ * along (where the count is) and of the wall at its head.
+ */
+export interface CampBed {
+  corner: number;
+  alongX: boolean;
+  wall: number;
+  head: number;
+}
+
+/** A camp's mattress, worked out from its plan; the same for whatever asks (the furniture, the writing). */
+export function campBed(plan: FittedPlan, noise: (k: number) => number): CampBed {
+  const options: CampBed[] = [];
+  for (let corner = 0; corner < 4; corner++) {
+    const west = corner % 2 === 0;
+    const north = corner < 2;
+    for (const alongX of [true, false]) {
+      const wall = alongX ? (north ? 0 : 1) : west ? 2 : 3;
+      const head = alongX ? (west ? 2 : 3) : north ? 0 : 1;
+      // It reaches past the first cell from the corner, so a door in the next one would be in its way.
+      const atStart = alongX ? west : north;
+      if (plan.doors.some(([side, cell]) => side === wall && cell === (atStart ? 2 : 3))) continue;
+      options.push({ corner, alongX, wall, head });
+    }
+  }
+  // Further from the way in, more likely: the first options that are far from it, then the dice.
+  const [doorSide] = plan.doors[0];
+  const far = options.filter((o) => o.wall !== doorSide && o.head !== doorSide);
+  const pool = far.length ? far : options;
+  return pool[Math.floor(noise(0) * pool.length)];
+}
 
 /** How many spots a region tries before it gives up on having a statue. */
 const STATUE_TRIES = 24;
@@ -524,7 +567,7 @@ export class WorldMap {
         // A second door out the other way, so the spawn isn't shut in.
         const side = PREVIEW_ROOMS[k][2];
         const doors = [[side, 2], [side < 2 ? 2 : 0, 3]] as const;
-        return { kind: "workroom", x0: lx * 5 + 1, y0: ly * 5 + 1, doors, preview: k };
+        return { kind: PREVIEW_KIND, x0: lx * 5 + 1, y0: ly * 5 + 1, doors, preview: k };
       }
     }
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;

@@ -1,5 +1,5 @@
 import { hash3 } from "./hash";
-import type { BurgerPlan, WorldMap } from "./map";
+import { campBed, type BurgerPlan, type WorldMap } from "./map";
 import type { Tuning } from "./tuning";
 import { GRAFFITI_WEIGHTS, heaviest } from "./zones";
 
@@ -130,6 +130,12 @@ const PIT_PLEAS = PLEAS.length - 5;
 const PIT_WARNING = 0.3;
 /** How often XN has answered one. */
 const ANSWERED = 0.25;
+/**
+ * In a camp, only what the one who lived there wrote: the count always on the wall the bed's along, and on each of
+ * the other walls, this often, the count again or their words (as often as CAMP_TALLY says the count).
+ */
+const CAMP_WRITING = 0.7;
+const CAMP_TALLY = 0.3;
 /**
  * How often the hand went wrong in a particular way: the whole thing mirrored (or only its letters), the line
  * bending off up or down, the blood giving out partway, the whole thing wiped over with a hand.
@@ -1829,17 +1835,26 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   const warns = outside ? (PIT_WARNING * tuning.graffiti) / 100 : 0;
   const warning = pick(0) < warns;
   const chance = (CHANCE * tuning.graffiti) / 100;
-  // Weighed by the zone of the floor in front of it, halfway along.
-  const front = () => {
-    const out = side ? 1 : -1;
-    return dir === 0 ? map.zoneAt(lx * 5 + 2, ly * 5 + out) : map.zoneAt(lx * 5 + out, ly * 5 + 2);
-  };
+  // The floor in front of it, halfway along: what's written is weighed by its zone, or it's in a camp.
+  const facing = side ? 1 : -1;
+  const [fx, fy] = dir === 0 ? [lx * 5 + 2, ly * 5 + facing] : [lx * 5 + facing, ly * 5 + 2];
   const drawn = (die: number) =>
-    die < chance * heaviest(GRAFFITI_WEIGHTS) && die < chance * GRAFFITI_WEIGHTS[front()];
-  if (warning || drawn(pick(0) - warns)) {
+    die < chance * heaviest(GRAFFITI_WEIGHTS) && die < chance * GRAFFITI_WEIGHTS[map.zoneAt(fx, fy)];
+  const camp = map.roomAt(fx, fy) === "camp" ? map.fittedAt(fx, fy) : null;
+  let kind: Kind | null = null;
+  if (camp) {
+    // Which of the camp's walls this is: north, south, west, east.
+    const wall = dir === 0 ? (side ? 0 : 1) : side ? 2 : 3;
+    const bed = campBed(camp, (k) => map.noise(camp.x0, camp.y0, 940 + k));
+    if (tuning.graffiti > 0 && (wall === bed.wall || pick(0) < CAMP_WRITING)) {
+      kind = wall === bed.wall || pick(1) < CAMP_TALLY ? "tally" : "plea";
+    }
+  } else if (warning || drawn(pick(0) - warns)) {
+    kind = warning ? "plea" : kindOf(pick(1));
+  }
+  if (kind) {
     const [first, count] = openRun(map, lx, ly, dir, side);
     if (count) {
-      const kind = warning ? "plea" : kindOf(pick(1));
       const lines = kind === "cult" || kind === "shrine" ? CULT_TEXTS : GRAFFITI_TEXTS;
       const warnings = PLEAS.length - PIT_PLEAS;
       let line = Math.floor(pick(2) * (kind === "plea" ? PIT_PLEAS : lines.length));
