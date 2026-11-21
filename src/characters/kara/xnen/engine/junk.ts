@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import {
   campBed,
   CANDLE_SIGN_SIZE,
@@ -751,7 +752,7 @@ const WET_FLOOR = buildWetFloor();
 function nearLine(px: number, py: number, a: readonly number[], b: readonly number[], r: number) {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
-  const t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy)));
+  const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy), 0, 1);
   return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t) <= r;
 }
 
@@ -1640,7 +1641,7 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
   const dy = y - solid.y;
   if (!solid.along) return Math.hypot(dx, dy);
   const [ax, ay] = solid.along;
-  const t = Math.max(-1, Math.min(1, (dx * ax + dy * ay) / (ax * ax + ay * ay)));
+  const t = clamp((dx * ax + dy * ay) / (ax * ax + ay * ay), -1, 1);
   return Math.hypot(dx - ax * t, dy - ay * t);
 }
 
@@ -1711,7 +1712,7 @@ export function bodyDistance(junk: Junk, x: number, y: number): number {
     const ex = bx - ax;
     const ey = by - ay;
     if (ex * (y - ay) - ey * (x - ax) < 0) inside = false;
-    const t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1)));
+    const t = clamp(((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1), 0, 1);
     best = Math.min(best, Math.hypot(x - ax - ex * t, y - ay - ey * t));
   }
   return inside ? 0 : best;
@@ -1784,6 +1785,9 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   return out;
 }
 
+/** How far junk keeps from the thing at a corridor's walled-off end, from the middle of its cell to the wall. */
+const CORRIDOR_END_CLEAR = 1.8;
+
 /** An open cell in the block, and the way to a wall beside it if there is one. */
 interface Spot {
   cx: number;
@@ -1803,6 +1807,8 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5)) || map.deadEndRoom(Math.floor(cx / 5), Math.floor(cy / 5))) {
       continue;
     }
+    // Nor by the end of a corridor walled across, where its door, chair or vending machine stands.
+    if (map.deadEndsNear(cx + 0.5, cy + 0.5, CORRIDOR_END_CLEAR).length) continue;
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
@@ -1893,9 +1899,11 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
  */
 function clearOf(found: readonly Junk[], things: Junk[]): Junk[] {
   const blocked = things.some((t) => {
-    if (t.h > 0.05) return false;
-    const r = t.solid?.r ?? 0.03;
-    return found.some((f) => f.solid && !f.solid.overhead && solidDistance(f.solid, t.x, t.y) < f.solid.r + r);
+    // Standing up straight off the floor, it's up on something; anything tipped over is on the floor, however high
+    // its middle is.
+    if (t.h > 0.05 && !t.pitch && !t.roll) return false;
+    const { x, y, r } = t.solid ?? { x: t.x, y: t.y, r: 0.04 };
+    return found.some((f) => f.solid && !f.solid.overhead && solidDistance(f.solid, x, y) < f.solid.r + r);
   });
   return blocked ? [] : things;
 }
@@ -1955,7 +1963,7 @@ function through(pose: Pose, level: number): [number, number] {
   const up = Math.cos(pose.roll) * Math.cos(pose.pitch);
   const out = Math.cos(pose.roll) * Math.sin(pose.pitch);
   if (Math.abs(up) < 0.2) return [pose.x, pose.y];
-  const t = Math.max(-1.2, Math.min(1.2, (level - pose.h) / up));
+  const t = clamp((level - pose.h) / up, -1.2, 1.2);
   const fx = Math.cos(pose.yaw);
   const fy = Math.sin(pose.yaw);
   return [pose.x + t * (across * fy + out * fx), pose.y + t * (-across * fx + out * fy)];
@@ -2704,7 +2712,7 @@ const PARTY_BIGGEST = 2;
 function fromLine(x: number, y: number, [ax, ay]: readonly number[], [bx, by]: readonly number[]) {
   const dx = bx - ax;
   const dy = by - ay;
-  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+  const t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
   return Math.hypot(x - ax - dx * t, y - ay - dy * t);
 }
 
@@ -5417,22 +5425,31 @@ function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
       // Fallen off onto the floor in front, every which way.
       const fx = Math.cos(yaw);
       const fy = Math.sin(yaw);
+      // Clear of the doorways and of everything else but the unit they fell from, and of each other: they're in the
+      // way now (game.ts goes by their shape).
+      const others = taken.slice(0, -3);
       for (let i = 0; i < 7; i++) {
         const r = (j: number) => roll(900 + i * 6 + j);
         const size = Math.floor(r(0) * BOX_SIZES.length);
+        const [w, d, tall] = BOX_SIZES[size];
         const along = (r(1) - 0.5) * SHELF_L;
         const outBy = SHELF_D / 2 + 0.1 + r(2) * 0.4;
         const tipped = r(3) < 0.5;
-        // Tipped onto its front, it lies on it: half its depth up.
-        const pose = {
-          x: x + ax * along + fx * outBy,
-          y: y + ay * along + fy * outBy,
-          h: tipped ? BOX_SIZES[size][1] / 2 : 0,
-          yaw: r(4) * Math.PI * 2,
-          pitch: tipped ? Math.PI / 2 : 0,
-          roll: 0,
-        };
-        put("box", boxModel(size, r(5) < BOX_OPEN, false), pose);
+        const open = r(5) < BOX_OPEN;
+        const turn = r(4) * Math.PI * 2;
+        const bx = x + ax * along + fx * outBy;
+        const by = y + ay * along + fy * outBy;
+        // Tipped onto its front, it lies on it, half its depth up, its top the way its front faced.
+        const mx = tipped ? bx + (Math.cos(turn) * tall) / 2 : bx;
+        const my = tipped ? by + (Math.sin(turn) * tall) / 2 : by;
+        const round = open ? Math.hypot(w + d, d * 2) / 2 : Math.hypot(w, tipped ? tall : d) / 2;
+        const inRoom =
+          mx - round > plan.x0 && my - round > plan.y0 && mx + round < plan.x0 + plan.w && my + round < plan.y0 + plan.h;
+        if (!inRoom || !others.every((t) => Math.hypot(t.x - mx, t.y - my) > t.r + round)) continue;
+        others.push({ x: mx, y: my, r: round });
+        taken.push({ x: mx, y: my, r: round });
+        const pose = { x: bx, y: by, h: tipped ? d / 2 : 0, yaw: turn, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
+        put("box", boxModel(size, open, false), pose);
       }
     }
   };
@@ -5566,7 +5583,7 @@ function placeBoxes(key: string, spot: Spot, roll: (k: number) => number): Junk[
     const [ox, oy] = spot.wall;
     const stacks = roll(41) < 0.5 ? 1 : 2;
     for (let s = 0; s < stacks; s++) {
-      const [fx, fy] = wallFace(spot, spot.wall, 0.3 + s * 0.35 + roll(42) * 0.05);
+      const [fx, fy] = wallFace(spot, spot.wall, 0.28 + s * 0.4 + roll(42) * 0.04);
       const x = fx - ox * 0.14;
       const y = fy - oy * 0.14;
       const high = 2 + Math.floor(roll(43 + s) * 3);
@@ -5574,25 +5591,36 @@ function placeBoxes(key: string, spot: Spot, roll: (k: number) => number): Junk[
       for (let i = 0; i < high; i++) {
         const r = (j: number) => roll(100 + s * 40 + i * 6 + j);
         const size = Math.floor(r(0) * BOX_SIZES.length);
-        const top = i === high - 1;
         const pose = { x: x + (r(1) - 0.5) * 0.03, y: y + (r(2) - 0.5) * 0.03, h, yaw: Math.atan2(-oy, -ox) + (r(3) - 0.5) * 0.4, pitch: 0, roll: 0 };
-        put(pose, size, top && r(4) < BOX_OPEN, r(5) < BOX_LABELLED, i === 0 ? { x, y, r: 0.15 } : null);
+        // Shut, all of them: an open one's flaps would go into the wall, or into the stack beside it.
+        put(pose, size, false, r(5) < BOX_LABELLED, i === 0 ? { x, y, r: 0.15 } : null);
         h += BOX_SIZES[size][2];
       }
     }
     return out;
   }
   if (how < LOOSE_BOX_STREWN) {
-    // Knocked about: some on their sides, one opened.
+    // Knocked about: some on their sides, one opened; none where another already lies.
     const count = 2 + Math.floor(roll(41) * 3);
+    const lying: { x: number; y: number; r: number }[] = [];
     for (let i = 0; i < count; i++) {
-      const r = (j: number) => roll(100 + i * 6 + j);
+      const r = (j: number) => roll(100 + i * 7 + j);
       const size = Math.floor(r(0) * BOX_SIZES.length);
+      const [w, d, tall] = BOX_SIZES[size];
       const [x, y] = inCell(spot, r(1), r(2));
       // Tipped onto its front, it lies on it: half its depth up.
       const tipped = r(3) < 0.4;
-      const pose = { x, y, h: tipped ? BOX_SIZES[size][1] / 2 : 0, yaw: r(4) * Math.PI * 2, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
-      put(pose, size, i === 0 && !tipped && r(5) < 0.5, r(5) < BOX_LABELLED, { x, y, r: reach(size) });
+      const open = i === 0 && !tipped && r(5) < 0.5;
+      const yaw = r(4) * Math.PI * 2;
+      // Tipped, its top goes the way its front faced: its middle on the floor is half its height that way.
+      const mx = tipped ? x + (Math.cos(yaw) * tall) / 2 : x;
+      const my = tipped ? y + (Math.sin(yaw) * tall) / 2 : y;
+      // However it's turned, it keeps inside this round its middle: its flaps too, if it's open.
+      const round = open ? Math.hypot(w + d, d * 2) / 2 : Math.hypot(w, tipped ? tall : d) / 2;
+      if (lying.some((l) => Math.hypot(l.x - mx, l.y - my) < l.r + round)) continue;
+      lying.push({ x: mx, y: my, r: round });
+      const pose = { x, y, h: tipped ? d / 2 : 0, yaw, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
+      put(pose, size, open, r(6) < BOX_LABELLED, { x: mx, y: my, r: reach(size) });
     }
     return out;
   }
@@ -5680,11 +5708,20 @@ function placeTins(key: string, spot: Spot, roll: (k: number) => number): Junk[]
   if (how < LOOSE_TIN_STREWN || (how >= LOOSE_TIN_ALONE && !spot.wall)) {
     const count = 3 + Math.floor(roll(41) * 4);
     const [cx, cy] = inCell(spot, roll(50), roll(51));
+    const lying: { x: number; y: number; r: number }[] = [];
     for (let i = 0; i < count; i++) {
       const r = (j: number) => roll(100 + i * 4 + j);
       const a = r(0) * Math.PI * 2;
       const d = 0.04 + r(1) * 0.22;
-      tin(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0, r(2) * Math.PI * 2, r(3) < TIN_FALLEN);
+      const [x, y] = [cx + Math.cos(a) * d, cy + Math.sin(a) * d];
+      const yaw = r(2) * Math.PI * 2;
+      const fallen = r(3) < TIN_FALLEN;
+      // Not where another lies. One on its side lies the way it faced, its middle half its height along.
+      const mid = fallen ? TIN_H / 2 : 0;
+      const at = { x: x + Math.cos(yaw) * mid, y: y + Math.sin(yaw) * mid, r: fallen ? Math.hypot(TIN_H / 2, TIN_R) : TIN_R };
+      if (lying.some((l) => Math.hypot(l.x - at.x, l.y - at.y) < l.r + at.r + 0.005)) continue;
+      lying.push(at);
+      tin(x, y, 0, yaw, fallen);
     }
     return out;
   }

@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import { SPAWN } from "./map";
 
 /** The player's size, for bumping into walls. */
@@ -33,7 +34,7 @@ export class Player {
 
   look(dx: number, dy: number, speed: number) {
     this.angle += dx * 0.0026 * speed;
-    this.pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, this.pitch - dy * 0.0016 * speed));
+    this.pitch = clamp(this.pitch - dy * 0.0016 * speed, -MAX_PITCH, MAX_PITCH);
   }
 
   /**

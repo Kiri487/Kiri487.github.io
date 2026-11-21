@@ -1331,8 +1331,12 @@ export class WorldMap {
     const zone = this.zoneAt(x, y);
     const rx = Math.floor((x + 11) / 22);
     const ry = Math.floor((y + 11) / 22);
-    let dead = Math.min(0.95, (this.tuning.dead / 100) * LIGHTS_DEAD[zone]);
-    const darkStretch = !(rx === 0 && ry === 0) && this.noise(rx, ry, 21) < DARK_STRETCH * DARK_STRETCHES[zone];
+    // All the way up, every light is out, wherever; short of that, never quite all, however dark the zone.
+    const tuned = this.tuning.dead / 100;
+    let dead = tuned >= 1 ? 1 : Math.min(0.95, tuned * LIGHTS_DEAD[zone]);
+    // A stretch is dark or not as a whole, as the zone at its middle has it, not cut short where zones meet.
+    const stretchZone = this.zoneOfPoint(rx * 22, ry * 22);
+    const darkStretch = !(rx === 0 && ry === 0) && this.noise(rx, ry, 21) < DARK_STRETCH * DARK_STRETCHES[stretchZone];
     if (darkStretch) dead = Math.max(dead, 0.85);
     if (this.noise(x, y, 20) < dead) return LIGHT_DEAD;
     const r = this.noise(x, y, 22) / LIGHTS_FLICKER[zone];

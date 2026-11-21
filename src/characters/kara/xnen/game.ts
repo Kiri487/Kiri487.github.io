@@ -1,4 +1,5 @@
 import { resumeAudioContext } from "../../../shared/audio";
+import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
@@ -161,6 +162,12 @@ export interface Game {
  * shouldn't count the whole stall.
  */
 const MAX_REAL_STEP = 1;
+/** How many placed things out of drawing range are kept, ready, before they're let go. */
+const MESHES_SPARE = 400;
+/** What's all above this height (XN up on the ceiling) the visitor walks under. */
+const WALK_UNDER = 0.55;
+/** The lowest of XN: the floor, unless she's on the ceiling or hanging from something, her head down toward it. */
+const xnLowest = (xn: Xn) => (xn.surface === "ceiling" ? xn.where.z - xn.figure.height : 0);
 /**
  * How near the visitor gets to a piece of junk's own shape (junk.ts bodyDistance): a little less than to a wall, where
  * the whole cell counts. And how far off the middle of the biggest (a stair, a long table) its shape can reach.
@@ -418,6 +425,7 @@ export function createGame(parts: GameParts): Game {
     },
     tuning,
     spread: () => renderer.spread(tuning.fov),
+    drawRange: DRAW_RANGE,
   });
   /** What the picture draws besides the place itself, built again each frame. */
   let props: Prop[] = [];
@@ -549,8 +557,10 @@ export function createGame(parts: GameParts): Game {
   };
 
   /** Near enough XN, and facing her, to talk to her. */
+  /** She's here, and can be seen: her picture came. */
+  const xnThere = () => !!xn && xnHere && !!xnSkin;
   const xnInReach = () => {
-    if (!xn || !xnHere) return false;
+    if (!xn || !xnThere()) return false;
     const dx = xn.x - player.x;
     const dy = xn.y - player.y;
     const dist = Math.hypot(dx, dy);
@@ -611,10 +621,13 @@ export function createGame(parts: GameParts): Game {
   };
 
   const blocked = (x: number, y: number) => {
-    for (const mesh of nearby) {
-      if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
+    // Only what can be seen is in the way: if a picture never came, its statues and XN aren't there at all.
+    if (skin) {
+      for (const mesh of nearby) {
+        if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
+      }
     }
-    if (xn && xnHere && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
+    if (xnThere() && xn && xnLowest(xn) < WALK_UNDER && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
     // The junk stops them where its own shape is, the part of it at their height, a step short of it.
     for (const junk of nearJunk) {
       if (!junk.solid && junk.kind !== "storage") continue;
@@ -678,7 +691,11 @@ export function createGame(parts: GameParts): Game {
         meshes.set(statue, mesh);
       }
       nearby.push(mesh);
-      if (dist <= tuning.statueReach / 100 && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
+      if (skin && dist <= tuning.statueReach / 100 && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
+    }
+    if (meshes.size > nearby.length + MESHES_SPARE) {
+      const kept = new Set(nearby);
+      for (const [statue, mesh] of meshes) if (!kept.has(mesh)) meshes.delete(statue);
     }
     nearJunk = junkAround(map, cam.x, cam.y, DRAW_RANGE);
     return reachable;
@@ -725,6 +742,11 @@ export function createGame(parts: GameParts): Game {
         junkMeshes.set(junk.key, mesh);
       }
       props.push({ mesh, model: junk.model, skin: junkSkin, clip: true, glow: junk.glow ? flameGlow : undefined });
+    }
+    // Let go of what's been left far behind, now and then, or a long walk keeps every piece it ever passed.
+    if (junkMeshes.size > nearJunk.length + MESHES_SPARE) {
+      const kept = new Set(nearJunk.map((junk) => junk.key));
+      for (const key of junkMeshes.keys()) if (!kept.has(key)) junkMeshes.delete(key);
     }
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
       const eye: Point = [cam.x, cam.y, cam.z ?? EYE];
@@ -903,7 +925,7 @@ export function createGame(parts: GameParts): Game {
   };
   const runFrame = (t: number) => {
     const now = t / 1000;
-    const real = last < 0 ? 0 : Math.min(MAX_REAL_STEP, Math.max(0, (t - last) / 1000));
+    const real = last < 0 ? 0 : clamp((t - last) / 1000, 0, MAX_REAL_STEP);
     const dt = Math.min(0.05, real);
     last = t;
     if (left) return;
@@ -1058,6 +1080,14 @@ export function createGame(parts: GameParts): Game {
     if (e.pointerId === lookId) lookId = -1;
   };
   const onContextMenu = (e: Event) => e.preventDefault();
+  // With the mouse locked, its presses go to the element that holds the lock (the stage), not the canvas inside it,
+  // so a click to touch a statue or XN is caught out here.
+  const onLockedPointerDown = (e: PointerEvent) => {
+    if (!locked() || e.target === canvas || mode !== "play") return;
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    resumeAudioContext();
+    interact();
+  };
 
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
@@ -1070,6 +1100,7 @@ export function createGame(parts: GameParts): Game {
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerUp);
   canvas.addEventListener("contextmenu", onContextMenu);
+  document.addEventListener("pointerdown", onLockedPointerDown);
 
   const fit = () => {
     renderer.resize(stage.clientWidth, stage.clientHeight, tuning.res);
@@ -1111,6 +1142,8 @@ export function createGame(parts: GameParts): Game {
         junkMeshes.clear();
         nearJunk = [];
         trail = [];
+        // Not still falling into a pit on the old map, if the tape was stopped mid-fall.
+        fall = null;
         if (xnPreview.auto) {
           // A new start: she turns up a while from now, as when the visitor comes in.
           sendXnAway(between(XN_FIRST_WAIT));
@@ -1188,6 +1221,7 @@ export function createGame(parts: GameParts): Game {
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
       canvas.removeEventListener("contextmenu", onContextMenu);
+      document.removeEventListener("pointerdown", onLockedPointerDown);
       hum.stop();
       // No unlocking here: every way out (rewind, stop, a crash's boundary) already lets go of the mouse, and a dev
       // build mounts this twice, where letting go would read as the visitor pressing Esc and pause the tape.

@@ -111,7 +111,7 @@ export const DEAD_END_WEIGHTS = {
  * finished, its lights never all put in; the tiles' tubes flicker, as they do by toilets.
  */
 export const LIGHTS_DEAD: ZoneWeights = [1, 1.3, 0.5, 1.3, 0.8];
-export const DARK_STRETCHES: ZoneWeights = [1, 1, 0.5, 1.35, 0.8];
+export const DARK_STRETCHES: ZoneWeights = [1, 1, 0.5, 1.4, 0.8];
 export const LIGHTS_FLICKER: ZoneWeights = [1, 1.5, 0.4, 1, 1.6];
 
 /** Writing on the walls (graffiti.ts): most on bare plasterboard. The warnings outside pit rooms aren't weighed. */

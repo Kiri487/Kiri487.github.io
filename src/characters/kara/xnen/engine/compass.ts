@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import type { WorldMap } from "./map";
 
 /*
@@ -6,12 +7,20 @@ import type { WorldMap } from "./map";
  * no way through yet. That's the place.
  */
 
+/** How far off nearestStatue looks at most: past every band, where all it does is read the most digits. */
+const FARTHEST_LOOK = 300;
+
 /** Straight-line distance in cells from (x, y) to the nearest statue, or Infinity if none stands nearby. */
 export function nearestStatue(map: WorldMap, x: number, y: number): number {
+  // Looked for within a region's width first. One found farther off than that may not be the nearest: a nearer one
+  // could stand just outside the square looked in, so it looks again, wider, out to past the last band's reach.
   let best = Infinity;
-  for (const s of map.statuesAround(x, y, map.region)) best = Math.min(best, Math.hypot(s.x - x, s.y - y));
-  return best;
+  for (let radius = map.region; ; radius *= 2) {
+    for (const s of map.statuesAround(x, y, radius)) best = Math.min(best, Math.hypot(s.x - x, s.y - y));
+    if (best <= radius || radius >= FARTHEST_LOOK) return best;
+  }
 }
+
 
 /** At or under this distance it reads 4:20: close enough to touch. */
 export const AT_STATUE = 1.4;
@@ -61,7 +70,7 @@ export class Timecode {
     let key: string;
     let text: string;
     if (d < CLOSE * k) {
-      const n = Math.min(9, Math.max(1, Math.round(d / k)));
+      const n = clamp(Math.round(d / k), 1, 9);
       key = text = `2${n}`;
     } else {
       const band = BANDS.find(([upTo]) => d < upTo * k);

@@ -184,6 +184,8 @@ export interface XnWorld {
   readonly tuning: Tuning;
   /** How far the picture reaches to each side of straight ahead, at one cell ahead. */
   spread(): number;
+  /** How far off anything is drawn at all: past it, lost in the fog, nothing can be seen. */
+  readonly drawRange: number;
 }
 
 /** Something near her that XN can do something with: what it is, how far it is, and where. */
@@ -337,20 +339,23 @@ export function createXnPlaces(world: XnWorld) {
 
   // ---- XN walking ----
 
-  /** Room for her middle at (x, y) as she walks: no wall, statue or visitor there. */
-  const freeFor = (x: number, y: number) => {
+  /**
+   * Room for her middle at (x, y) as she walks on `surface`: no wall or statue there (a statue stands nearly to the
+   * ceiling), nor junk on that surface; on the floor, no visitor either. Up on the ceiling she goes over them.
+   */
+  const freeFor = (x: number, y: number, surface: XnSurface) => {
+    if (!roomFor(x, y) || intoJunk(x, y, XN_RADIUS, surface)) return false;
     const { player } = world;
-    if (!roomFor(x, y) || Math.hypot(x - player.x, y - player.y) < XN_RADIUS + PLAYER_RADIUS) return false;
-    if (intoJunk(x, y, XN_RADIUS)) return false;
+    if (surface !== "ceiling" && Math.hypot(x - player.x, y - player.y) < XN_RADIUS + PLAYER_RADIUS) return false;
     return world.statues.every((mesh) => Math.hypot(x - mesh.x, y - mesh.y) >= STATUE_RADIUS + XN_RADIUS);
   };
 
-  /** Room for her all the way from (x, y) `far` cells along `angle`. */
-  const wayClear = (x: number, y: number, angle: number, far: number) => {
+  /** Room for her all the way from (x, y) `far` cells along `angle`, on `surface`. */
+  const wayClear = (x: number, y: number, angle: number, far: number, surface: XnSurface) => {
     const n = Math.max(1, Math.ceil(far / 0.1));
     for (let i = 1; i <= n; i++) {
       const k = (far * i) / n;
-      if (!freeFor(x + Math.cos(angle) * k, y + Math.sin(angle) * k)) return false;
+      if (!freeFor(x + Math.cos(angle) * k, y + Math.sin(angle) * k, surface)) return false;
     }
     return true;
   };
@@ -362,24 +367,24 @@ export function createXnPlaces(world: XnWorld) {
   type Aim = (x: number, y: number, facing: number, dt: number, held: number) => number | null;
 
   /** A way from (x, y) with room to walk, near `facing` if there's one; back the way she came if there's none. */
-  const openWay = (x: number, y: number, facing: number) => {
+  const openWay = (x: number, y: number, facing: number, surface: XnSurface) => {
     for (let i = 0; i < 12; i++) {
       const a = facing + (Math.random() * 2 - 1) * (i < 6 ? 1.2 : Math.PI);
-      if (wayClear(x, y, a, 1)) return a;
+      if (wayClear(x, y, a, 1, surface)) return a;
     }
     return facing + Math.PI;
   };
 
-  /** Wandering: on ahead until the way is blocked, or she feels like going another way. */
-  const wanderAim = (): Aim => {
+  /** Wandering on `surface`: on ahead until the way is blocked, or she feels like going another way. */
+  const wanderAim = (surface: XnSurface): Aim => {
     let want: number | null = null;
     let restless = between(XN_WANDER_TURN);
     return (x, y, facing, dt, held) => {
       restless -= dt;
       if (want === null) want = facing;
-      if (restless <= 0 || held > XN_HELD || !wayClear(x, y, want, XN_LOOK_AHEAD)) {
+      if (restless <= 0 || held > XN_HELD || !wayClear(x, y, want, XN_LOOK_AHEAD, surface)) {
         restless = between(XN_WANDER_TURN);
-        want = openWay(x, y, want);
+        want = openWay(x, y, want, surface);
       }
       return want;
     };
@@ -396,7 +401,7 @@ export function createXnPlaces(world: XnWorld) {
       const facing = Math.atan2(spot.front[1], spot.front[0]);
       let want = steer(spot.x, spot.y, facing, dt, held);
       if (want === null) {
-        steer = wanderAim();
+        steer = wanderAim(spot.surface);
         held = 0;
         want = steer(spot.x, spot.y, facing, dt, held) ?? facing;
       }
@@ -408,7 +413,11 @@ export function createXnPlaces(world: XnWorld) {
       const y = spot.y + Math.sin(turned) * go;
       const { player } = world;
       const near = Math.hypot(x - player.x, y - player.y);
-      const intoVisitor = near < XN_RADIUS + PLAYER_RADIUS && near < Math.hypot(spot.x - player.x, spot.y - player.y);
+      // Up on the ceiling she goes over the visitor, but not the statues, nearly as tall as the room.
+      const intoVisitor =
+        spot.surface !== "ceiling" &&
+        near < XN_RADIUS + PLAYER_RADIUS &&
+        near < Math.hypot(spot.x - player.x, spot.y - player.y);
       const intoStatue =
         world.statues.some((mesh) => Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS + XN_RADIUS) ||
         intoJunk(x, y, XN_RADIUS, spot.surface);
@@ -426,7 +435,7 @@ export function createXnPlaces(world: XnWorld) {
     for (let i = 0; i < 16; i++) {
       const a = Math.random() * Math.PI * 2;
       const far = between(XN_PACE_SPAN);
-      if (!wayClear(from.x, from.y, a, far)) continue;
+      if (!wayClear(from.x, from.y, a, far, from.surface)) continue;
       const ends = [
         [from.x, from.y],
         [from.x + Math.cos(a) * far, from.y + Math.sin(a) * far],
@@ -469,7 +478,8 @@ export function createXnPlaces(world: XnWorld) {
         }
         // The nearest point of the ring, and a clear walk there.
         const toward = Math.atan2(oy - from.y, ox - from.x);
-        if (room && wayClear(from.x, from.y, away > radius ? toward : toward + Math.PI, Math.abs(away - radius))) {
+        const way = away > radius ? toward : toward + Math.PI;
+        if (room && wayClear(from.x, from.y, way, Math.abs(away - radius), from.surface)) {
           rings.push([ox, oy, radius]);
         }
       }
@@ -489,7 +499,7 @@ export function createXnPlaces(world: XnWorld) {
   /** One of her three ways of walking, at random. */
   const routeFor = (who: Xn): XnRoute => {
     const roll = Math.floor(Math.random() * 3);
-    const aim = (roll === 1 && backAndForth(who.where)) || (roll === 2 && roundAbout(who.where)) || wanderAim();
+    const aim = (roll === 1 && backAndForth(who.where)) || (roll === 2 && roundAbout(who.where)) || wanderAim(who.where.surface);
     return walker(aim);
   };
 
@@ -537,7 +547,7 @@ export function createXnPlaces(world: XnWorld) {
     const fx = Math.cos(cam.angle);
     const fy = Math.sin(cam.angle);
     const ahead = dx * fx + dy * fy;
-    if (ahead <= 0) return false;
+    if (ahead <= 0 || Math.hypot(dx, dy) > world.drawRange) return false;
     if (Math.abs(dy * fx - dx * fy) - XN_RADIUS > ahead * world.spread()) return false;
     return clearBetween(cam.x, cam.y, x, y);
   };

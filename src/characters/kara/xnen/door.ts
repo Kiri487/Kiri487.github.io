@@ -105,6 +105,8 @@ export function refocusOpener() {
 
 /** The backrooms took the whole screen when the door opened, and should give it back on the way out. */
 let fillingScreen = false;
+/** Counts the asks for the whole screen and the givings back, so an ask answered after the way out is undone. */
+let screenTurn = 0;
 
 /**
  * Phones: the backrooms fill the whole screen, where the browser allows it. Must be called while the tap that opens
@@ -112,8 +114,14 @@ let fillingScreen = false;
  */
 export function fillScreen(element: Element | null) {
   if (!element || typeof element.requestFullscreen !== "function" || document.fullscreenElement) return;
+  const turn = ++screenTurn;
   element.requestFullscreen().then(
     () => {
+      // Given only after the visitor already left: given straight back.
+      if (turn !== screenTurn) {
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        return;
+      }
       fillingScreen = true;
     },
     () => {
@@ -130,6 +138,7 @@ export function enterBackrooms() {
 
 /** The screen and the mouse back as they were before the door. */
 function giveBack() {
+  screenTurn++;
   if (fillingScreen) {
     fillingScreen = false;
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
