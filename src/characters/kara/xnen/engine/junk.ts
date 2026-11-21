@@ -5155,18 +5155,62 @@ function buildBox([w, d, h]: readonly [number, number, number], open: boolean, l
     topBox(tris, -hw, hw, 0, h, -hd, hd, label ? CARD_LABEL : CARD, CARD, CARD_TOP);
     return storageModel(tris, [176, 136, 88]);
   }
+  // Only the faces that can be seen, each once: boxes put together here would leave faces hidden a wall's thickness
+  // behind others, which show through up close.
   const t = BOX_WALL;
-  // Its floor, and its four walls standing on it, the front and back between the sides.
-  topBox(tris, -hw, hw, 0, t, -hd, hd, CARD, CARD, CARD_IN);
-  box(tris, -hw, -hw + t, t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, hw - t, hw, t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, -hw + t, hw - t, t, h, hd - t, hd, label ? CARD_LABEL : CARD, CARD_IN, CARD);
-  box(tris, -hw + t, hw - t, t, h, -hd, -hd + t, CARD, CARD_IN, CARD);
-  // The flaps, flat out from the top of each wall.
-  box(tris, -hw - hd, -hw, h - t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, hw, hw + hd, h - t, h, -hd, hd, CARD, CARD, CARD);
-  box(tris, -hw, hw, h - t, h, hd, hd + hd, CARD, CARD, CARD);
-  box(tris, -hw, hw, h - t, h, -hd - hd, -hd, CARD, CARD, CARD);
+  const [a, b, ai, bi, rim] = [hw, hd, hw - t, hd - t, h - t];
+  const up = (x0: number, x1: number, z0: number, z1: number, y: number, r: Rect) =>
+    quad(tris, [x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0], r);
+  const down = (x0: number, x1: number, z0: number, z1: number, y: number, r: Rect) =>
+    quad(tris, [x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], r);
+  const east = (x: number, y0: number, y1: number, z0: number, z1: number, r: Rect) =>
+    quad(tris, [x, y0, z1], [x, y0, z0], [x, y1, z0], [x, y1, z1], r);
+  const west = (x: number, y0: number, y1: number, z0: number, z1: number, r: Rect) =>
+    quad(tris, [x, y0, z0], [x, y0, z1], [x, y1, z1], [x, y1, z0], r);
+  const south = (z: number, x0: number, x1: number, y0: number, y1: number, r: Rect) =>
+    quad(tris, [x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], r);
+  const north = (z: number, x0: number, x1: number, y0: number, y1: number, r: Rect) =>
+    quad(tris, [x1, y0, z], [x0, y0, z], [x0, y1, z], [x1, y1, z], r);
+  // Underneath, and the floor inside.
+  down(-a, a, -b, b, 0, CARD);
+  up(-ai, ai, -bi, bi, t, CARD_IN);
+  // The walls outside, up to where the flaps fold out; the label on the front.
+  south(b, -a, a, 0, rim, label ? CARD_LABEL : CARD);
+  north(-b, -a, a, 0, rim, CARD);
+  east(a, 0, rim, -b, b, CARD);
+  west(-a, 0, rim, -b, b, CARD);
+  // The walls inside, from the floor to the lip.
+  east(-ai, t, h, -bi, bi, CARD_IN);
+  west(ai, t, h, -bi, bi, CARD_IN);
+  south(-bi, -ai, ai, t, h, CARD_IN);
+  north(bi, -ai, ai, t, h, CARD_IN);
+  // The lip all round, the sides' running the whole depth and the front's and back's between them.
+  up(-a, -ai, -b, b, h, CARD);
+  up(ai, a, -b, b, h, CARD);
+  up(-ai, ai, bi, b, h, CARD);
+  up(-ai, ai, -b, -bi, h, CARD);
+  // The flaps, out flat from the lip: the sides' as deep as the box, the front's and back's as wide; top, underside,
+  // and their three free edges.
+  up(-a - b, -a, -b, b, h, CARD);
+  down(-a - b, -a, -b, b, rim, CARD);
+  west(-a - b, rim, h, -b, b, CARD);
+  south(b, -a - b, -a, rim, h, CARD);
+  north(-b, -a - b, -a, rim, h, CARD);
+  up(a, a + b, -b, b, h, CARD);
+  down(a, a + b, -b, b, rim, CARD);
+  east(a + b, rim, h, -b, b, CARD);
+  south(b, a, a + b, rim, h, CARD);
+  north(-b, a, a + b, rim, h, CARD);
+  up(-a, a, b, b + b, h, CARD);
+  down(-a, a, b, b + b, rim, CARD);
+  south(b + b, -a, a, rim, h, CARD);
+  east(a, rim, h, b, b + b, CARD);
+  west(-a, rim, h, b, b + b, CARD);
+  up(-a, a, -b - b, -b, h, CARD);
+  down(-a, a, -b - b, -b, rim, CARD);
+  north(-b - b, -a, a, rim, h, CARD);
+  east(a, rim, h, -b - b, -b, CARD);
+  west(-a, rim, h, -b - b, -b, CARD);
   return storageModel(tris, [176, 136, 88]);
 }
 const BOXES = new Map<string, StatueModel>();
