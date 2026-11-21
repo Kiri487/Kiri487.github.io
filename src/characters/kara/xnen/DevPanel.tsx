@@ -138,6 +138,7 @@ const PROP_TARGETS: readonly [PropTarget, string][] = [
   ["bed", "床墊"],
   ["counter", "流理台"],
   ["spotlight", "唯一的燈下"],
+  ["board", "白板"],
 ];
 
 const PROP_POSE_LABELS: Record<PropPose, string> = {
@@ -154,7 +155,7 @@ const PROP_POSE_LABELS: Record<PropPose, string> = {
 };
 
 /** Looking at something, "站" reads better as "站著看". */
-const LOOKED_AT = new Set<PropTarget>(["graffiti", "portrait", "sign"]);
+const LOOKED_AT = new Set<PropTarget>(["graffiti", "portrait", "sign", "board"]);
 
 interface DevPanelProps {
   panelRef: Ref<HTMLDivElement>;

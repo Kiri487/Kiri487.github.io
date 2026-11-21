@@ -1,6 +1,6 @@
 import { clamp } from "../../../shared/math";
 import { graffitiNear } from "./engine/graffiti";
-import { junkAround, solidDistance, type Junk } from "./engine/junk";
+import { boardFace, junkAround, solidDistance, type Junk } from "./engine/junk";
 import { LIGHT_DEAD, PIT_COUNT, PIT_PITCH, PIT_RIM, type WorldMap } from "./engine/map";
 import { pitFieldsNear } from "./engine/pits";
 import { PLAYER_RADIUS, type Player } from "./engine/player";
@@ -35,7 +35,8 @@ import {
  * in the ceiling; stand at a door, or sit or crouch facing it or with her back to it; stand, sit or
  * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign; sit on a camp's
  * mattress hugging her knees, facing out into the room or turned to the wall with the count on it; sit on the edge
- * of a pantry's worktop; stand, sit or crouch under the one light left in a dark hall.
+ * of a pantry's worktop; stand, sit or crouch under the one light left in a dark hall, or reading a whiteboard she's
+ * written on.
  */
 export type PropTarget =
   | "chair"
@@ -51,7 +52,8 @@ export type PropTarget =
   | "party"
   | "bed"
   | "counter"
-  | "spotlight";
+  | "spotlight"
+  | "board";
 /** `hold` is sitting on the edge with a burger in her hands, now and then taking a bite. */
 export type PropPose =
   | "stand"
@@ -82,6 +84,7 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   // Only on its edge: standing on it, she'd have her head in the wall cupboards.
   counter: ["perch", "swing"],
   spotlight: ["stand", "sit", "crouch"],
+  board: ["stand", "sit", "crouch"],
 };
 
 /** The dev panel puts XN this far in front of the visitor. */
@@ -591,6 +594,10 @@ export function createXnPlaces(world: XnWorld) {
         if (target in PROP_POSES) out.push({ target, x: junk.perch.x, y: junk.perch.y, junk, perch: junk.perch });
       }
       if (junk.doorway) out.push({ target: "door", x: junk.x, y: junk.y, junk, door: junk.doorway });
+      if (junk.writing) {
+        const look = boardFace(junk);
+        out.push({ target: "board", x: look.x, y: look.y, junk, look });
+      }
       if (junk.plate) {
         const { x: px, y: py, z, yaw } = junk.plate;
         const look = { x: px, y: py, z, nx: Math.cos(yaw), ny: Math.sin(yaw) };
