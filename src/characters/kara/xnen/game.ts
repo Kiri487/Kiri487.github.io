@@ -1130,6 +1130,8 @@ export function createGame(parts: GameParts): Game {
         junkMeshes.clear();
         nearJunk = [];
         trail = [];
+        // Not still falling into a pit on the old map, if the tape was stopped mid-fall.
+        fall = null;
         if (xnPreview.auto) {
           // A new start: she turns up a while from now, as when the visitor comes in.
           sendXnAway(between(XN_FIRST_WAIT));
