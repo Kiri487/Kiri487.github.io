@@ -33,7 +33,8 @@ import {
  * What XN can do with something near her. Get up on a chair, a desk, a filing cabinet or a monitor lying back
  * (stand, crouch, or sit on the edge with her legs hanging, still or swinging), the same upside down under a chair
  * in the ceiling; stand at a door, or sit or crouch facing it or with her back to it; stand, sit or
- * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign.
+ * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign; sit on a camp's
+ * mattress hugging her knees, facing out into the room or turned to the wall with the count on it.
  */
 export type PropTarget =
   | "chair"
@@ -46,7 +47,8 @@ export type PropTarget =
   | "portrait"
   | "sign"
   | "pit"
-  | "party";
+  | "party"
+  | "bed";
 /** `hold` is sitting on the edge with a burger in her hands, now and then taking a bite. */
 export type PropPose =
   | "stand"
@@ -57,7 +59,8 @@ export type PropPose =
   | "sitBack"
   | "crouchBack"
   | "hold"
-  | "holdSwing";
+  | "holdSwing"
+  | "sitWall";
 
 /** Which poses go with which things. */
 export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
@@ -72,6 +75,7 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   graffiti: ["stand", "sit", "crouch"],
   portrait: ["stand", "sit", "crouch"],
   sign: ["stand", "sit", "crouch"],
+  bed: ["sit", "sitWall"],
 };
 
 /** The dev panel puts XN this far in front of the visitor. */
@@ -125,6 +129,12 @@ const XN_DOOR_BACK = 0.12;
 const XN_CURIOUS = 0.3;
 /** Sitting on an edge, her hips this far back from it. */
 const XN_EDGE_BACK = 0.035;
+/**
+ * On a mattress: how far along it from its middle she sits, at most, either way; and how far her hips are back from
+ * its middle, away from the way she faces, so her feet are on it too.
+ */
+const XN_BED_ALONG = 0.2;
+const XN_BED_BACK = 0.06;
 /** How many seats on the rims of each pit room near the visitor XN thinks of, when she's looking for something. */
 const XN_PIT_SEATS = 3;
 
@@ -558,7 +568,13 @@ export function createXnPlaces(world: XnWorld) {
     const out: Thing[] = [];
     for (const junk of junkAround(world.map, x, y, radius)) {
       if (junk.perch) {
-        const target = junk.partySeat ? "party" : junk.perch.ceiling ? "hung" : (junk.kind as PropTarget);
+        const target = junk.partySeat
+          ? "party"
+          : junk.perch.ceiling
+            ? "hung"
+            : junk.kind === "bedding"
+              ? "bed"
+              : (junk.kind as PropTarget);
         // Only what she has ways to be on: a perch on any other kind of thing is left alone.
         if (target in PROP_POSES) out.push({ target, x: junk.perch.x, y: junk.perch.y, junk, perch: junk.perch });
       }
@@ -605,6 +621,21 @@ export function createXnPlaces(world: XnWorld) {
   /** Where she goes and what she does, to do `pose` with `thing`; null if there's no room for it. */
   const planFor = (thing: Thing, pose: PropPose): Plan | null => {
     const still = { swing: false, curious: 0 };
+    if (thing.target === "bed" && thing.perch) {
+      // Sitting on it hugging her knees, somewhere along it: facing out into the room, or turned to the wall it lies
+      // along, looking at the count.
+      const { x, y, z, yaw } = thing.perch;
+      const along = (Math.random() * 2 - 1) * XN_BED_ALONG;
+      const toWall = pose === "sitWall";
+      const facing = toWall ? yaw + Math.PI : yaw;
+      const sx = x + Math.sin(yaw) * along - Math.cos(facing) * XN_BED_BACK;
+      const sy = y - Math.cos(yaw) * along - Math.sin(facing) * XN_BED_BACK;
+      const spot = topSpot(sx, sy, z, facing + (Math.random() - 0.5) * 0.3);
+      // The wall is behind the mattress's middle, as far as its edge is in front.
+      const { edge } = thing.perch;
+      const gaze: Point | null = toWall ? [x - Math.cos(yaw) * edge, y - Math.sin(yaw) * edge, 0.45] : null;
+      return { spot, action: "sit", gaze, ...still };
+    }
     if (thing.perch) {
       const { x, y, z, yaw, edge } = thing.perch;
       const hanging = thing.target === "hung";

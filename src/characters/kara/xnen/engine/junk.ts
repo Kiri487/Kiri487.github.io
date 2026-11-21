@@ -3399,8 +3399,8 @@ function campIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[]
   const [bx, by] = at(0.03 + ml / 2, 0.03 + mw / 2);
   const mattress = { x: bx, y: by, h: 0, yaw: outward + (roll(10) - 0.5) * 0.06, pitch: 0, roll: 0 };
   const bedSolid = slab(bx, by, ux * (ml / 2), uy * (ml / 2), mw / 2);
-  // Nothing for XN to get up on: she has no ways to be on a bed yet (PROP_POSES, xnPlaces.ts).
-  put("mattress", "bedding", MATTRESS_MODEL, mattress, bedSolid);
+  // XN sits on it (xnPlaces.ts): its perch is its middle, facing out into the room.
+  put("mattress", "bedding", MATTRESS_MODEL, mattress, bedSolid, perchOn(mattress, mt, mw / 2, 0.1));
   for (const k of [-1, 0, 1]) taken.push({ x: bx + ux * k * 0.33, y: by + uy * k * 0.33, r: mw / 2 + 0.02 });
   // The blanket over its foot end, thrown back askew; its folded end toward the head.
   const along = 0.03 + ml - BLANKET_SIZE[0] / 2 + (roll(11) - 0.5) * 0.1;
