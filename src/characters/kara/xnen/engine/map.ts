@@ -13,6 +13,9 @@ import {
   ZONE_YELLOW,
   CAMP_WEIGHTS,
   DEAD_END_WEIGHTS,
+  DARK_STRETCHES,
+  LIGHTS_DEAD,
+  LIGHTS_FLICKER,
   CUBICLE_HALL_WEIGHTS,
   LAMP_HALL_WEIGHTS,
   MEETING_WEIGHTS,
@@ -99,6 +102,9 @@ const CELLS_DENSE = 0.85;
 const CELLS_DOOR = 0.6;
 
 export const LIGHT_ON = 1;
+/** How likely a stretch of 22 × 22 cells is to be mostly dark, before its zone weighs it (zones.ts). */
+const DARK_STRETCH = 0.16;
+
 /** Two groups of lights that flicker, each in step with itself. */
 export const LIGHT_FLICKER_A = 2;
 export const LIGHT_FLICKER_B = 3;
@@ -1321,13 +1327,15 @@ export class WorldMap {
     }
     const statue = this.statueIn(Math.floor(x / this.region), Math.floor(y / this.region));
     if (statue && statue.lampX === x && statue.lampY === y) return LIGHT_ON;
-    // Some whole stretches are mostly dark.
+    // Some whole stretches are mostly dark; how many, and how many lights are out or failing, as the zone says.
+    const zone = this.zoneAt(x, y);
     const rx = Math.floor((x + 11) / 22);
     const ry = Math.floor((y + 11) / 22);
-    let dead = this.tuning.dead / 100;
-    if (!(rx === 0 && ry === 0) && this.noise(rx, ry, 21) < 0.16) dead = Math.max(dead, 0.85);
+    let dead = Math.min(0.95, (this.tuning.dead / 100) * LIGHTS_DEAD[zone]);
+    const darkStretch = !(rx === 0 && ry === 0) && this.noise(rx, ry, 21) < DARK_STRETCH * DARK_STRETCHES[zone];
+    if (darkStretch) dead = Math.max(dead, 0.85);
     if (this.noise(x, y, 20) < dead) return LIGHT_DEAD;
-    const r = this.noise(x, y, 22);
+    const r = this.noise(x, y, 22) / LIGHTS_FLICKER[zone];
     return r < 0.08 ? LIGHT_FLICKER_A : r < 0.14 ? LIGHT_FLICKER_B : LIGHT_ON;
   }
 

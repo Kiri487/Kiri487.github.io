@@ -105,6 +105,15 @@ export const DEAD_END_WEIGHTS = {
   vending: [1, 0.15, 2, 0.5, 1.5],
 } as const satisfies Record<string, ZoneWeights>;
 
+/**
+ * The ceiling lights, against the usual: how many are out, how many whole stretches are mostly dark, how many of
+ * those still on flicker. The office wing kept up best; the old house's wiring is going; the plasterboard was never
+ * finished, its lights never all put in; the tiles' tubes flicker, as they do by toilets.
+ */
+export const LIGHTS_DEAD: ZoneWeights = [1, 1.3, 0.5, 1.3, 0.8];
+export const DARK_STRETCHES: ZoneWeights = [1, 1, 0.5, 1.35, 0.8];
+export const LIGHTS_FLICKER: ZoneWeights = [1, 1.5, 0.4, 1, 1.6];
+
 /** Writing on the walls (graffiti.ts): most on bare plasterboard. The warnings outside pit rooms aren't weighed. */
 export const GRAFFITI_WEIGHTS: ZoneWeights = [1, 0.5, 0.5, 2, 1];
 
