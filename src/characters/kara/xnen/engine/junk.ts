@@ -1704,14 +1704,6 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   out.push(...hallsAround(map, x, y, radius));
   out.push(...deadEndsAround(map, x, y, radius));
   out.push(...stairsAround(map, x, y, radius));
-  if (PREVIEW_BOARDS) {
-    let boards = previewed.get(map);
-    if (!boards) {
-      boards = previewBoards(map);
-      previewed.set(map, boards);
-    }
-    out.push(...boards.filter((junk) => Math.hypot(junk.x - x, junk.y - y) <= radius));
-  }
   return out;
 }
 
@@ -4880,30 +4872,6 @@ export function boardFace(junk: Junk): { x: number; y: number; z: number; nx: nu
   return { x: junk.x + nx * BOARD_T, y: junk.y + ny * BOARD_T, z: (BOARD_Y[0] + BOARD_Y[1]) / 2, nx, ny };
 }
 
-/**
- * Preview, for Kiri: every one of XN's boards, standing in a ring round the spawn facing it. Comes out before the pull
- * request.
- */
-const PREVIEW_BOARDS = true;
-const previewBoards = (map: WorldMap): Junk[] => {
-  if (!PREVIEW_BOARDS) return [];
-  const out: Junk[] = [];
-  const model = buildBoard(BOARD_W, true);
-  for (let i = 0; i < WRITINGS; i++) {
-    const a = (i / WRITINGS) * Math.PI * 2;
-    for (const r of [3.2, 2.6, 3.8, 4.4, 2]) {
-      const x = 2.5 + Math.cos(a) * r;
-      const y = 2.5 + Math.sin(a) * r;
-      if (map.wall(Math.floor(x), Math.floor(y))) continue;
-      const yaw = a + Math.PI;
-      const writing = { index: i, seed: i * 7 + 1 };
-      out.push({ key: `pb${i}`, kind: "board", model, x, y, h: 0, yaw, pitch: 0, roll: 0, solid: null, writing });
-      break;
-    }
-  }
-  return out;
-};
-const previewed = new WeakMap<WorldMap, Junk[]>();
 
 /** The table: its height, its depth in a room of one lattice room and in a long one, and how long it is at most. */
 const MEETING_TABLE_H = 0.32;
