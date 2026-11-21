@@ -161,6 +161,8 @@ export interface Game {
  * shouldn't count the whole stall.
  */
 const MAX_REAL_STEP = 1;
+/** How many placed things out of drawing range are kept, ready, before they're let go. */
+const MESHES_SPARE = 400;
 /** What's all above this height (XN up on the ceiling) the visitor walks under. */
 const WALK_UNDER = 0.55;
 /** The lowest of XN: the floor, unless she's on the ceiling or hanging from something, her head down toward it. */
@@ -690,6 +692,10 @@ export function createGame(parts: GameParts): Game {
       nearby.push(mesh);
       if (skin && dist <= tuning.statueReach / 100 && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
     }
+    if (meshes.size > nearby.length + MESHES_SPARE) {
+      const kept = new Set(nearby);
+      for (const [statue, mesh] of meshes) if (!kept.has(mesh)) meshes.delete(statue);
+    }
     nearJunk = junkAround(map, cam.x, cam.y, DRAW_RANGE);
     return reachable;
   };
@@ -735,6 +741,11 @@ export function createGame(parts: GameParts): Game {
         junkMeshes.set(junk.key, mesh);
       }
       props.push({ mesh, model: junk.model, skin: junkSkin, clip: true, glow: junk.glow ? flameGlow : undefined });
+    }
+    // Let go of what's been left far behind, now and then, or a long walk keeps every piece it ever passed.
+    if (junkMeshes.size > nearJunk.length + MESHES_SPARE) {
+      const kept = new Set(nearJunk.map((junk) => junk.key));
+      for (const key of junkMeshes.keys()) if (!kept.has(key)) junkMeshes.delete(key);
     }
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
       const eye: Point = [cam.x, cam.y, cam.z ?? EYE];
