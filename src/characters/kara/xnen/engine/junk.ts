@@ -1564,8 +1564,6 @@ export interface Junk {
   partySeat?: boolean;
   /** It lights itself (a candle's flame), whatever the light where it is. */
   glow?: boolean;
-  /** How far its furthest part is from (x, y), when that's well off it (a candle sign, laid out round its middle). */
-  reach?: number;
   /** A desk or chair of the office kind, steel and laminate and fabric, not wood: it's drawn with the office's atlas. */
   office?: boolean;
 }
@@ -4067,8 +4065,7 @@ function flame(out: number[], x: number, y: number, z: number) {
 
 /**
  * A candle sign: its candles as one model round the sign's middle with yaw 0 (its z is the place's x, its x
- * the place's −y), and their flames as another. Each has a reach, how far the furthest candle is from the middle, so
- * none of them is left out while it's in view.
+ * the place's −y), and their flames as another.
  */
 function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, sign: CandleSign): Junk[] {
   const roll = (k: number) => map.noise(seedX * 13 + k, seedY, 960);
@@ -4076,7 +4073,6 @@ function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, si
   const { x, y, dirX, dirY } = sign;
   const wax: number[] = [];
   const flames: number[] = [];
-  let reach = 0;
   SIGN_CANDLES.forEach(([across, down], i) => {
     const r = (k: number) => roll(100 + i * 4 + k);
     const tall = CANDLE_TALL[0] + r(3) * (CANDLE_TALL[1] - CANDLE_TALL[0]);
@@ -4087,11 +4083,10 @@ function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, si
     const cy = (dirX * across + dirY * down) * CANDLE_SIGN_SIZE;
     const X = -cy + (r(1) - 0.5) * 0.03;
     const Z = cx + (r(2) - 0.5) * 0.03;
-    reach = Math.max(reach, Math.hypot(X, Z));
     box(wax, X - CANDLE_HW, X + CANDLE_HW, 0, high, Z - CANDLE_HW, Z + CANDLE_HW, WAX, WAX, WAX);
     if (!burnt) flame(flames, X, high, Z);
   });
-  const at = { x, y, h: 0, yaw: 0, pitch: 0, roll: 0, solid: null, reach: reach + 0.1 };
+  const at = { x, y, h: 0, yaw: 0, pitch: 0, roll: 0, solid: null };
   return [
     { key, kind: "candle", model: model(wax), ...at },
     { key: `${key}.flames`, kind: "flame", model: model(flames), ...at, glow: true },
@@ -4146,6 +4141,10 @@ export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
   const normals = new Float32Array(count * 3);
   const centres = new Float32Array(count * 3);
   const flags = new Uint8Array(count);
+  // How far its furthest corner is from where it stands. The drawing leaves out whatever stands well behind the eye,
+  // going by where it stands: a long table standing behind, or a candle sign laid out round its middle, would go with
+  // its far end still in view.
+  let reach = 0;
   for (let i = 0; i < count; i++) {
     const o = i * 16;
     const q = i * 15;
@@ -4156,6 +4155,7 @@ export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
       corners[q + k * 5 + 2] = junk.h + Y;
       corners[q + k * 5 + 3] = src[o + k * 5 + 3];
       corners[q + k * 5 + 4] = src[o + k * 5 + 4];
+      reach = Math.max(reach, Math.hypot(X * rx + Z * fx, X * ry + Z * fy));
     }
     const ax = src[o + 5] - src[o];
     const ay = src[o + 6] - src[o + 1];
@@ -4173,5 +4173,5 @@ export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
     centres[i * 3 + 2] = (corners[q + 2] + corners[q + 7] + corners[q + 12]) / 3;
     flags[i] = src[o + 15];
   }
-  return { x: junk.x, y: junk.y, count, corners, normals, centres, flags, reach: junk.reach };
+  return { x: junk.x, y: junk.y, count, corners, normals, centres, flags, reach };
 }
