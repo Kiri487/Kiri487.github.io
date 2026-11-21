@@ -1058,6 +1058,14 @@ export function createGame(parts: GameParts): Game {
     if (e.pointerId === lookId) lookId = -1;
   };
   const onContextMenu = (e: Event) => e.preventDefault();
+  // With the mouse locked, its presses go to the element that holds the lock (the stage), not the canvas inside it,
+  // so a click to touch a statue or XN is caught out here.
+  const onLockedPointerDown = (e: PointerEvent) => {
+    if (!locked() || e.target === canvas || mode !== "play") return;
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    resumeAudioContext();
+    interact();
+  };
 
   window.addEventListener("keydown", onKeyDown, true);
   window.addEventListener("keyup", onKeyUp, true);
@@ -1070,6 +1078,7 @@ export function createGame(parts: GameParts): Game {
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerUp);
   canvas.addEventListener("contextmenu", onContextMenu);
+  document.addEventListener("pointerdown", onLockedPointerDown);
 
   const fit = () => {
     renderer.resize(stage.clientWidth, stage.clientHeight, tuning.res);
@@ -1188,6 +1197,7 @@ export function createGame(parts: GameParts): Game {
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
       canvas.removeEventListener("contextmenu", onContextMenu);
+      document.removeEventListener("pointerdown", onLockedPointerDown);
       hum.stop();
       // No unlocking here: every way out (rewind, stop, a crash's boundary) already lets go of the mouse, and a dev
       // build mounts this twice, where letting go would read as the visitor pressing Esc and pause the tape.
