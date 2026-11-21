@@ -9,6 +9,7 @@ import {
   DOOR_SKIN,
   heldBurger,
   KITCHEN_SKIN,
+  MEETING_SKIN,
   junkAround,
   monitorSkin,
   OFFICE_SKIN,
@@ -685,6 +686,7 @@ export function createGame(parts: GameParts): Game {
         bedding: CAMP_SKIN,
         can: CAMP_SKIN,
         kitchen: KITCHEN_SKIN,
+        board: MEETING_SKIN,
         candle: CANDLE_SKIN,
         flame: CANDLE_SKIN,
       }[junk.kind];

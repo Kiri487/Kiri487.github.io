@@ -12,6 +12,7 @@ import {
   ZONE_TILES,
   ZONE_YELLOW,
   CAMP_WEIGHTS,
+  MEETING_WEIGHTS,
   PANTRY_WEIGHTS,
   WORKROOM_WEIGHTS,
   type ZoneWeights,
@@ -172,6 +173,7 @@ const ROOM_RULES: Record<RoomKind, RoomRules> = {
   workroom: { junk: false, statue: false, xn: true },
   camp: { junk: false, statue: false, xn: true },
   pantry: { junk: false, statue: false, xn: true },
+  meeting: { junk: false, statue: false, xn: true },
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
@@ -219,9 +221,10 @@ export interface BurgerPlan {
 
 /**
  * The kinds of fitted room: a lattice room fitted out for a use. A camp is where one of the lost lived for a while:
- * a mattress on the floor, empty tins, the count on the wall. A pantry is a little kitchen.
+ * a mattress on the floor, empty tins, the count on the wall. A pantry is a little kitchen. A meeting room, sometimes
+ * two lattice rooms knocked through into one long one.
  */
-export type FittedKind = "workroom" | "camp" | "pantry";
+export type FittedKind = "workroom" | "camp" | "pantry" | "meeting";
 /**
  * How likely a lattice room is to be each kind of fitted room, in turn from one die, weighed by its zone (zones.ts):
  * a new kind takes the next share, so the ones before stay where they were.
@@ -230,21 +233,28 @@ const FITTED_CHANCES: readonly [FittedKind, number, ZoneWeights][] = [
   ["workroom", 0.06, WORKROOM_WEIGHTS],
   ["camp", 0.07, CAMP_WEIGHTS],
   ["pantry", 0.06, PANTRY_WEIGHTS],
+  ["meeting", 0.05, MEETING_WEIGHTS],
 ];
+/** How likely a meeting room is to take in the lattice room east of it or south of it too, if it can. */
+const MEETING_LONG = 0.4;
+/** A long one's inside, the long way: two lattice rooms' insides and the lattice between them. */
+const FITTED_LONG = 9;
 /** How likely a fitted room is to have a second door, in another wall. */
 const FITTED_SECOND_DOOR = 0.3;
 /** A fitted room is a lattice room's inside: this many cells a side. */
 export const FITTED_SIZE = 4;
 
 /**
- * A fitted room: its kind, the cell at its north-west corner inside its walls, and its doors, each the side it's in
- * (north, south, west, east) and the cell along that side (1-4, from its west or north end; only ever 2 or 3, clear
- * of the corners). The first door is the way in.
+ * A fitted room: its kind, the cell at its north-west corner inside its walls, its size inside them, and its doors,
+ * each the side it's in (north, south, west, east) and the cell along that side (from 1 at its west or north end;
+ * only ever the middle two of a lattice room's four, clear of the corners). The first door is the way in.
  */
 export interface FittedPlan {
   kind: FittedKind;
   x0: number;
   y0: number;
+  w: number;
+  h: number;
   doors: readonly (readonly [number, number])[];
   /** Laid out the way the preview asks, not by the dice. */
   preview?: number;
@@ -255,7 +265,14 @@ export interface FittedPlan {
  * furnished its own way.
  */
 const PREVIEW_FITTED = true;
-const PREVIEW_KIND: FittedKind = "pantry";
+const PREVIEW_KIND: FittedKind = "meeting";
+/** Each preview room's size: the first two long, taking in the room beyond. */
+const PREVIEW_SIZES: readonly (readonly [number, number])[] = [
+  [9, 4],
+  [4, 9],
+  [4, 4],
+  [4, 4],
+];
 /** The lattice rooms round the spawn, and the side of each that faces it. */
 const PREVIEW_ROOMS: readonly (readonly [number, number, number])[] = [
   [1, 0, 2],
@@ -274,6 +291,37 @@ export interface CampBed {
   alongX: boolean;
   wall: number;
   head: number;
+}
+
+/** The side across a fitted room from each side: north, south, west, east. */
+const ACROSS_SIDE = [1, 0, 3, 2] as const;
+
+/** The wall across from a fitted room's way in, or, if there's a door in that too, the first without one. */
+function facingWall(plan: FittedPlan): number {
+  const [doorSide] = plan.doors[0];
+  const across = ACROSS_SIDE[doorSide];
+  const doorSides = new Set(plan.doors.map(([side]) => side));
+  const sides = [across, ...[0, 1, 2, 3].filter((s) => s !== across)];
+  return sides.find((s) => !doorSides.has(s)) ?? across;
+}
+
+/** Which way a meeting room's table runs: along x in a long room that's long that way, and either way in a square one. */
+export function meetingAlongX(plan: FittedPlan, noise: (k: number) => number): boolean {
+  return plan.w > plan.h || (plan.w === plan.h && noise(0) < 0.5);
+}
+
+/**
+ * The wall something's put up on in a fitted room, or −1: a meeting room's whiteboard (an end wall with no door, or
+ * else any with none), a pantry's counter and wall cupboards (the wall across from the way in). Nothing's written or
+ * put up on it, where it would be half behind them. The furniture goes by it too.
+ */
+export function mountedWall(plan: FittedPlan, noise: (k: number) => number): number {
+  if (plan.kind === "pantry") return facingWall(plan);
+  if (plan.kind !== "meeting") return -1;
+  const ends = meetingAlongX(plan, noise) ? [2, 3] : [0, 1];
+  const sides = [...ends, ...[0, 1, 2, 3].filter((s) => !ends.includes(s))];
+  const doorSides = new Set(plan.doors.map(([s]) => s));
+  return sides.find((s) => !doorSides.has(s)) ?? -1;
 }
 
 /** A camp's mattress, worked out from its plan; the same for whatever asks (the furniture, the writing). */
@@ -355,6 +403,8 @@ export class WorldMap {
    */
   private layoutOf(rx: number, ry: number): number {
     if (rx === 0 && ry === 0) return LATTICE;
+    // PREVIEW: none laid out to a plan round the preview's rooms, whose walls they'd take over.
+    if (PREVIEW_FITTED && Math.abs(rx) <= 1 && Math.abs(ry) <= 1) return LATTICE;
     const die = this.noise(rx, ry, 11);
     if (die >= CORRIDOR_SHARE * heaviest(CORRIDOR_WEIGHTS) + CELLS_SHARE * heaviest(CELLS_WEIGHTS)) return LATTICE;
     const zone = this.zoneOfPoint(rx * 30, ry * 30);
@@ -466,8 +516,10 @@ export class WorldMap {
     const lx = Math.floor(cx / 5);
     const ly = Math.floor(cy / 5);
     // Most lattice rooms go by their middle, so the whole room is one zone; an unruly one goes cell by cell. A fitted
-    // room is all of a piece.
-    if (this.noise(lx, ly, 70) < ZONE_UNRULY && !this.fittedPlan(lx, ly)) return this.zoneOfPoint(cx + 0.5, cy + 0.5);
+    // room is all of a piece, even a long one: it goes by its first lattice room.
+    const fitted = this.fittedPlan(lx, ly);
+    if (fitted) return this.roomZone((fitted.x0 - 1) / 5, (fitted.y0 - 1) / 5);
+    if (this.noise(lx, ly, 70) < ZONE_UNRULY) return this.zoneOfPoint(cx + 0.5, cy + 0.5);
     return this.roomZone(lx, ly);
   }
 
@@ -548,10 +600,43 @@ export class WorldMap {
     return null;
   }
 
+  /** Which way a meeting room at lattice room (lx, ly) would be long: 0 east, 1 south, −1 not. */
+  private meetingLong(lx: number, ly: number): number {
+    if (this.noise(lx, ly, 75) >= MEETING_LONG) return -1;
+    return this.noise(lx, ly, 76) < 0.5 ? 0 : 1;
+  }
+
+  /** Whether lattice room (lx, ly) rolled a fitted room, or is the other half a long meeting room rolled to take in. */
+  private wanted(lx: number, ly: number): boolean {
+    if (this.rolledFitted(lx, ly)) return true;
+    if (this.rolledFitted(lx - 1, ly) === "meeting" && this.meetingLong(lx - 1, ly) === 0) return true;
+    return this.rolledFitted(lx, ly - 1) === "meeting" && this.meetingLong(lx, ly - 1) === 1;
+  }
+
   /**
-   * The fitted room lattice room (lx, ly) is, if it is one. Never by the spawn (its walls are kept open), nor in or
-   * against a special room, a burger room, an area laid out to a plan, or another fitted room, so its doors always
-   * open onto plain floor. Of two that would be side by side, the one to the west or north is the one there is.
+   * Whether lattice room (lx, ly) can be (half of) a fitted room: not by the spawn (its walls are kept open), nor in
+   * or against a special room, a burger room or an area laid out to a plan, so its doors always open onto plain
+   * floor.
+   */
+  private fits(lx: number, ly: number): boolean {
+    if (Math.abs(lx) + Math.abs(ly) <= 1) return false;
+    // Its own, those it has doors onto, and the one south-east, whose lattice point is its corner.
+    for (const [i, j] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1]]) {
+      if (this.layout(lx + i, ly + j) !== LATTICE) return false;
+    }
+    if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return false;
+    const walls = [[lx, ly, 0], [lx, ly + 1, 0], [lx, ly, 1], [lx + 1, ly, 1]];
+    if (walls.some(([i, j, dir]) => this.roomWall(i, j, dir))) return false;
+    for (let j = -1; j <= 1; j++) {
+      for (let i = -1; i <= 1; i++) if (this.burgerPlan(lx + i, ly + j)) return false;
+    }
+    return true;
+  }
+
+  /**
+   * The fitted room lattice room (lx, ly) is, or is half of, if any: the same plan for both halves of a long one.
+   * Never against another fitted room: of two that would be side by side, the one to the west or north is the one
+   * there is.
    */
   fittedPlan(lx: number, ly: number): FittedPlan | null {
     const key = lx * 100_003 + ly;
@@ -570,52 +655,83 @@ export class WorldMap {
         // A second door out the other way, so the spawn isn't shut in.
         const side = PREVIEW_ROOMS[k][2];
         const doors = [[side, 2], [side < 2 ? 2 : 0, 3]] as const;
-        return { kind: PREVIEW_KIND, x0: lx * 5 + 1, y0: ly * 5 + 1, doors, preview: k };
+        const [w, h] = PREVIEW_SIZES[k];
+        return { kind: PREVIEW_KIND, x0: lx * 5 + 1, y0: ly * 5 + 1, w, h, doors, preview: k };
+      }
+      // The far half of a long one.
+      const west = PREVIEW_ROOMS.findIndex(([i, j]) => i === lx - 1 && j === ly);
+      if (west >= 0 && PREVIEW_SIZES[west][0] > FITTED_SIZE) return this.fittedPlan(lx - 1, ly);
+      const north = PREVIEW_ROOMS.findIndex(([i, j]) => i === lx && j === ly - 1);
+      if (north >= 0 && PREVIEW_SIZES[north][1] > FITTED_SIZE) return this.fittedPlan(lx, ly - 1);
+    }
+    // The far half of a long meeting room west or north of it.
+    if (this.rolledFitted(lx - 1, ly) === "meeting" && this.meetingLong(lx - 1, ly) === 0) {
+      const plan = this.fittedPlan(lx - 1, ly);
+      if (plan && plan.w > FITTED_SIZE) return plan;
+    }
+    if (this.rolledFitted(lx, ly - 1) === "meeting" && this.meetingLong(lx, ly - 1) === 1) {
+      const plan = this.fittedPlan(lx, ly - 1);
+      if (plan && plan.h > FITTED_SIZE) return plan;
+    }
+    const kind = this.rolledFitted(lx, ly);
+    if (!kind || !this.fits(lx, ly)) return null;
+    if (this.wanted(lx - 1, ly) || this.wanted(lx, ly - 1)) return null;
+    let w = FITTED_SIZE;
+    let h = FITTED_SIZE;
+    const long = kind === "meeting" ? this.meetingLong(lx, ly) : -1;
+    if (long >= 0) {
+      // The room it takes in has to fit too, and nothing else want it from its other side: north of it, or west.
+      const [px, py] = long === 0 ? [lx + 1, ly] : [lx, ly + 1];
+      const other = long === 0 ? this.wanted(px, py - 1) : this.wanted(px - 1, py);
+      if (this.fits(px, py) && !other) {
+        if (long === 0) w = FITTED_LONG;
+        else h = FITTED_LONG;
       }
     }
-    if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
-    const kind = this.rolledFitted(lx, ly);
-    if (!kind) return null;
-    // Its own, those it has doors onto, and the one south-east, whose lattice point is its corner.
-    for (const [i, j] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1]]) {
-      if (this.layout(lx + i, ly + j) !== LATTICE) return null;
-    }
-    // Of two side by side, the one to the west or north is it.
-    if (this.rolledFitted(lx - 1, ly) || this.rolledFitted(lx, ly - 1)) return null;
-    if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
-    const walls = [[lx, ly, 0], [lx, ly + 1, 0], [lx, ly, 1], [lx + 1, ly, 1]];
-    if (walls.some(([i, j, dir]) => this.roomWall(i, j, dir))) return null;
-    for (let j = -1; j <= 1; j++) {
-      for (let i = -1; i <= 1; i++) if (this.burgerPlan(lx + i, ly + j)) return null;
-    }
+    // Doors in the middle two cells of a lattice room's stretch of the wall, either of them on a long wall.
+    const cellOn = (side: number, die: number) => {
+      const cells = (side < 2 ? w : h) > FITTED_SIZE ? [2, 3, 7, 8] : [2, 3];
+      return cells[Math.floor(die * cells.length)];
+    };
     const first = Math.floor(this.noise(lx, ly, 65) * 4);
-    const doors: [number, number][] = [[first, 2 + Math.floor(this.noise(lx, ly, 66) * 2)]];
+    const doors: [number, number][] = [[first, cellOn(first, this.noise(lx, ly, 66))]];
     if (this.noise(lx, ly, 67) < FITTED_SECOND_DOOR) {
       const side = (first + 1 + Math.floor(this.noise(lx, ly, 68) * 3)) % 4;
-      doors.push([side, 2 + Math.floor(this.noise(lx, ly, 69) * 2)]);
+      doors.push([side, cellOn(side, this.noise(lx, ly, 69))]);
     }
-    return { kind, x0: lx * 5 + 1, y0: ly * 5 + 1, doors };
+    return { kind, x0: lx * 5 + 1, y0: ly * 5 + 1, w, h, doors };
   }
 
   /** The fitted room cell (cx, cy) is inside, not its walls, if any. */
   fittedAt(cx: number, cy: number): FittedPlan | null {
-    const lx = Math.floor(cx / 5);
-    const ly = Math.floor(cy / 5);
-    if (cx === lx * 5 || cy === ly * 5) return null;
-    return this.fittedPlan(lx, ly);
+    const plan = this.fittedPlan(Math.floor(cx / 5), Math.floor(cy / 5));
+    if (!plan || cx < plan.x0 || cy < plan.y0 || cx >= plan.x0 + plan.w || cy >= plan.y0 + plan.h) return null;
+    return plan;
   }
 
   /**
    * Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), covers cell m (1-4)
-   * as a fitted room's wall: always, but for one of the room's doors; null if it's no fitted room's wall.
+   * as a fitted room's wall: always, but for one of the room's doors; not at all between a long room's halves; null
+   * if it's no fitted room's.
    */
   private fittedWall(lx: number, ly: number, dir: number, m: number): boolean | null {
     // The room it's the top or left of, or else the one it's the bottom or right of.
-    const own = this.fittedPlan(lx, ly);
-    const plan = own ?? (dir === 0 ? this.fittedPlan(lx, ly - 1) : this.fittedPlan(lx - 1, ly));
+    const plan = this.fittedPlan(lx, ly) ?? (dir === 0 ? this.fittedPlan(lx, ly - 1) : this.fittedPlan(lx - 1, ly));
     if (!plan) return null;
-    const side = dir === 0 ? (own ? 0 : 1) : own ? 2 : 3;
-    return !plan.doors.some(([s, c]) => s === side && c === m);
+    // The room's first lattice room, and how many it takes in each way.
+    const bx = (plan.x0 - 1) / 5;
+    const by = (plan.y0 - 1) / 5;
+    const across = plan.w > FITTED_SIZE ? 2 : 1;
+    const down = plan.h > FITTED_SIZE ? 2 : 1;
+    // Along the stretch, and across it.
+    const [along, line, from, span, lines] = dir === 0 ? [lx, ly, bx, across, down] : [ly, lx, by, down, across];
+    if (along < from || along >= from + span) return null;
+    if (line > (dir === 0 ? by : bx) && line < (dir === 0 ? by : bx) + lines) return false;
+    const first = line === (dir === 0 ? by : bx);
+    if (!first && line !== (dir === 0 ? by : bx) + lines) return null;
+    const side = dir === 0 ? (first ? 0 : 1) : first ? 2 : 3;
+    const cell = (along - from) * 5 + m;
+    return !plan.doors.some(([s, c]) => s === side && c === cell);
   }
 
   /**

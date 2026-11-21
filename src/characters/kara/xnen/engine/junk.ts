@@ -1,6 +1,8 @@
 import {
   campBed,
   CANDLE_SIGN_SIZE,
+  meetingAlongX,
+  mountedWall,
   FITTED_SIZE,
   type BurgerPlan,
   type CandleSign,
@@ -1536,6 +1538,7 @@ export type JunkKind =
   | "bedding"
   | "can"
   | "kitchen"
+  | "board"
   | "candle"
   | "flame";
 
@@ -2957,9 +2960,9 @@ const INWARD = [
 function onWall(plan: FittedPlan, side: number, t: number, out: number): [number, number] {
   const { x0, y0 } = plan;
   if (side === 0) return [x0 + t, y0 + out];
-  if (side === 1) return [x0 + t, y0 + FITTED_SIZE - out];
+  if (side === 1) return [x0 + t, y0 + plan.h - out];
   if (side === 2) return [x0 + out, y0 + t];
-  return [x0 + FITTED_SIZE - out, y0 + t];
+  return [x0 + plan.w - out, y0 + t];
 }
 
 /** The way out of the wall on side `side`, into the room. */
@@ -3185,15 +3188,19 @@ function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk
     fittings.set(map, known);
   }
   const out: Junk[] = [];
+  const seen = new Set<FittedPlan>();
   for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
     for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
       const plan = map.fittedPlan(lx, ly);
-      if (!plan) continue;
-      const key = `${lx},${ly}`;
+      // A long room's halves are the one plan: furnished once, by its first lattice room.
+      if (!plan || seen.has(plan)) continue;
+      seen.add(plan);
+      const [bx, by] = [(plan.x0 - 1) / 5, (plan.y0 - 1) / 5];
+      const key = `${bx},${by}`;
       let found = known.get(key);
       if (!found) {
-        const furnish = { workroom: workroomIn, camp: campIn, pantry: pantryIn }[plan.kind];
-        found = furnish(map, lx, ly, plan);
+        const furnish = { workroom: workroomIn, camp: campIn, pantry: pantryIn, meeting: meetingIn }[plan.kind];
+        found = furnish(map, bx, by, plan);
         known.set(key, found);
       }
       for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
@@ -3855,10 +3862,7 @@ function pantryIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk
 
   // The counter, along the wall across from the way in (or another without a door), from one of its corners: the
   // fridge in the corner, then the units.
-  const [doorSide] = plan.doors[0];
-  const doorSides = new Set(plan.doors.map(([side]) => side));
-  const sides = [ACROSS[doorSide], ...[0, 1, 2, 3].filter((s) => s !== ACROSS[doorSide])];
-  const side = sides.find((s) => !doorSides.has(s)) ?? ACROSS[doorSide];
+  const side = mountedWall(plan, (k) => map.noise(plan.x0, plan.y0, 945 + k));
   const into = inward(side);
   const [fx, fy] = INWARD[side];
   // Along the wall, from the corner it starts in.
@@ -3988,6 +3992,212 @@ function pantryIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk
       put("tableMug", "kitchen", MUG_MODEL, level(tx + (roll(85) - 0.5) * 0.2, ty + (roll(86) - 0.5) * 0.2, PANTRY_TABLE.height, roll(87) * 6.3));
       break;
     }
+  }
+  return out;
+}
+
+// ---- the meeting room ----
+
+/*
+ * A meeting room, sometimes a long one: a long table down the middle with chairs both sides and one at each end, a
+ * whiteboard wiped clean on an end wall, mugs left at a few places. Now and then every
+ * chair has been turned to face the door, or one is standing on the table; often a chair or two is missing.
+ */
+
+/** The meeting room's atlas: the whiteboard, its aluminium frame. */
+const BOARD: Rect = { x: 0, y: 0, w: 64, h: 32 };
+const BOARD_FRAME: Rect = { x: 0, y: 32, w: 8, h: 8 };
+const MEETING_ATLAS_W = 64;
+const MEETING_ATLAS_H = 40;
+
+export const MEETING_SKIN: StatueSkin = (() => {
+  const W = MEETING_ATLAS_W;
+  const data = new Uint8ClampedArray(W * MEETING_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[]) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0];
+    data[o + 1] = c[1];
+    data[o + 2] = c[2];
+    data[o + 3] = 255;
+  };
+  // Wiped clean: white, but for the faintest grain.
+  for (let y = 0; y < BOARD.h; y++) {
+    for (let x = 0; x < BOARD.w; x++) {
+      const m = 0.97 + 0.04 * grain(x, y + 1000);
+      put(BOARD.x + x, BOARD.y + y, [236 * m, 238 * m, 236 * m]);
+    }
+  }
+  for (let y = 0; y < BOARD_FRAME.h; y++) {
+    for (let x = 0; x < BOARD_FRAME.w; x++) put(BOARD_FRAME.x + x, BOARD_FRAME.y + y, [168, 170, 172]);
+  }
+  return { data };
+})();
+
+/** The whiteboard: from how high to how high, how wide at most, how thick; and its tray for the markers. */
+const BOARD_Y = [0.38, 0.82] as const;
+const BOARD_W = 1.4;
+const BOARD_T = 0.02;
+const BOARD_RIM = 0.015;
+
+/** A whiteboard `width` wide, its back against the wall at z = 0, its face toward +z. */
+function buildBoard(width: number): StatueModel {
+  const tris: number[] = [];
+  const hw = width / 2;
+  const [y0, y1] = BOARD_Y;
+  box(tris, -hw, hw, y0, y1, 0, BOARD_T, BOARD, BOARD_FRAME, BOARD_FRAME);
+  // The frame round its face, and the tray along its foot.
+  const rim = (x0: number, x1: number, ya: number, yb: number, z1: number) =>
+    box(tris, x0, x1, ya, yb, BOARD_T, z1, BOARD_FRAME, BOARD_FRAME, BOARD_FRAME);
+  rim(-hw, hw, y1 - BOARD_RIM, y1, BOARD_T + 0.006);
+  rim(-hw, hw, y0, y0 + BOARD_RIM, BOARD_T + 0.006);
+  rim(-hw, -hw + BOARD_RIM, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
+  rim(hw - BOARD_RIM, hw, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
+  rim(-hw * 0.6, hw * 0.6, y0 - 0.012, y0, BOARD_T + 0.04);
+  return { tris, atlasWidth: MEETING_ATLAS_W, atlasHeight: MEETING_ATLAS_H, stone: [236, 238, 236] };
+}
+
+/** The table: its height, its depth in a room of one lattice room and in a long one, and how long it is at most. */
+const MEETING_TABLE_H = 0.32;
+const MEETING_TABLE_D = [0.55, 0.65] as const;
+const MEETING_TABLE_MOST = 5;
+/** How much of the room's length is left round the table's ends. */
+const MEETING_TABLE_ROOM = 2.2;
+/** Chairs: how far apart along the sides, how far out from the table's edge, and pulled out up to this much more. */
+const MEETING_SEAT_GAP = 0.45;
+const MEETING_SEAT_OUT = 0.17;
+const MEETING_PULLED = 0.12;
+/** How likely: every chair turned to the door, one standing on the table, a chair or two missing, a mug at a place. */
+const MEETING_FACING_DOOR = 0.08;
+const MEETING_ON_TABLE = 0.1;
+const MEETING_MISSING = 0.3;
+const MEETING_MUG = 0.3;
+
+/** What the preview shows in each of its rooms. */
+const MEETING_PREVIEWS = [
+  { facingDoor: false, onTable: false, missing: false },
+  { facingDoor: true, onTable: false, missing: false },
+  { facingDoor: false, onTable: true, missing: true },
+  { facingDoor: false, onTable: false, missing: false },
+];
+
+/** Everything in meeting room `plan` in lattice room (lx, ly), the same every time for this map. */
+function meetingIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 53 + k, ly, 980);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const preview = plan.preview === undefined ? null : MEETING_PREVIEWS[plan.preview];
+  const facingDoor = preview ? preview.facingDoor : roll(1) < MEETING_FACING_DOOR;
+  const onTable = preview ? preview.onTable : roll(2) < MEETING_ON_TABLE;
+  const missing = preview ? preview.missing : roll(3) < MEETING_MISSING;
+  const office = roll(4) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number) =>
+    x - r > plan.x0 &&
+    y - r > plan.y0 &&
+    x + r < plan.x0 + plan.w &&
+    y + r < plan.y0 + plan.h &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const [doorSide, doorCell] = plan.doors[0];
+  const door = onWall(plan, doorSide, doorCell - 0.5, 0.5);
+
+  // The table down the middle, the long way (either way, in a square room).
+  const shared = (k: number) => map.noise(plan.x0, plan.y0, 945 + k);
+  const alongX = meetingAlongX(plan, shared);
+  const long = alongX ? plan.w : plan.h;
+  const [ax, ay] = alongX ? [1, 0] : [0, 1];
+  const [px, py] = [-ay, ax];
+  const length = Math.min(MEETING_TABLE_MOST, long - MEETING_TABLE_ROOM);
+  const depth = MEETING_TABLE_D[long > FITTED_SIZE ? 1 : 0];
+  const shape: DeskShape = {
+    length,
+    depth,
+    height: MEETING_TABLE_H,
+    legs: 2 + Math.floor(length / 0.9),
+    drawer: false,
+  };
+  const cx = plan.x0 + plan.w / 2 + (roll(11) - 0.5) * 0.1;
+  const cy = plan.y0 + plan.h / 2 + (roll(12) - 0.5) * 0.1;
+  // The desk's length runs along its own x, which a yaw turns to (sin, −cos).
+  const tablePose = { x: cx, y: cy, h: 0, yaw: Math.atan2(ax, -ay), pitch: 0, roll: 0 };
+  out.push({
+    key: key("table"),
+    kind: "desk",
+    model: buildDesk(shape, office),
+    office,
+    ...tablePose,
+    solid: slab(cx, cy, ax * (length / 2), ay * (length / 2), depth / 2 + 0.01),
+    perch: perchOn(tablePose, MEETING_TABLE_H, depth / 2, 0.1),
+  });
+  for (let d = -length / 2; d <= length / 2; d += 0.3) taken.push({ x: cx + ax * d, y: cy + ay * d, r: depth / 2 + 0.02 });
+
+  // The chairs: down both sides, and one at each end, facing the table, pulled out a little or more; or all turned
+  // to face the door. A chair or two missing, here and there.
+  const chair = buildChair(ORDINARY, office);
+  const seat = chairSeat(ORDINARY);
+  // Each place: where the chair goes, the way to the table, and where a mug left there would be.
+  const places: [number, number, number, number, number][] = [];
+  const perSide = Math.max(1, Math.floor((length - 0.1) / MEETING_SEAT_GAP));
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < perSide; i++) {
+      const d = (i - (perSide - 1) / 2) * MEETING_SEAT_GAP;
+      const outBy = depth / 2 + MEETING_SEAT_OUT + roll(20 + i * 2 + (s > 0 ? 1 : 0)) * MEETING_PULLED;
+      const mug = depth / 2 - 0.07;
+      places.push([
+        cx + ax * d + px * s * outBy,
+        cy + ay * d + py * s * outBy,
+        Math.atan2(-py * s, -px * s),
+        cx + ax * d + px * s * mug,
+        cy + ay * d + py * s * mug,
+      ]);
+    }
+  }
+  for (const s of [-1, 1]) {
+    const outBy = length / 2 + 0.22 + roll(60 + (s > 0 ? 1 : 0)) * MEETING_PULLED;
+    const mug = length / 2 - 0.07;
+    places.push([cx + ax * s * outBy, cy + ay * s * outBy, Math.atan2(-ay * s, -ax * s), cx + ax * s * mug, cy + ay * s * mug]);
+  }
+  const gone = new Set<number>(missing ? [Math.floor(roll(64) * places.length), Math.floor(roll(65) * places.length)] : []);
+  places.forEach(([x, y, toTable, mx, my], i) => {
+    if (gone.has(i) || !free(x, y, 0.2)) return;
+    const yaw = facingDoor ? Math.atan2(door[1] - y, door[0] - x) : toTable + (roll(70 + i) - 0.5) * 0.4;
+    const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
+    out.push({
+      key: key(`chair${i}`),
+      kind: "chair",
+      model: chair,
+      office,
+      ...pose,
+      solid: { x, y, r: 0.2 },
+      perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),
+    });
+    taken.push({ x, y, r: 0.22 });
+    // A mug left on the table in front of it.
+    if (roll(120 + i) < MEETING_MUG) {
+      const mug = { x: mx, y: my, h: MEETING_TABLE_H, yaw: roll(180 + i) * Math.PI * 2, pitch: 0, roll: 0 };
+      out.push({ key: key(`mug${i}`), kind: "kitchen", model: MUG_MODEL, ...mug, solid: null });
+    }
+  });
+
+  // One standing on the table.
+  if (onTable) {
+    const d = (roll(80) - 0.5) * (length - 0.4);
+    const pose = { x: cx + ax * d, y: cy + ay * d, h: MEETING_TABLE_H, yaw: roll(81) * Math.PI * 2, pitch: 0, roll: 0 };
+    out.push({ key: key("onTable"), kind: "chair", model: chair, office, ...pose, solid: null });
+  }
+
+  // The whiteboard: on an end wall with no door, or else any wall with none (map.ts).
+  const boardSide = mountedWall(plan, shared);
+  if (boardSide >= 0) {
+    const wallLong = boardSide < 2 ? plan.w : plan.h;
+    const width = Math.min(BOARD_W, wallLong - 0.6);
+    const [bx, by] = onWall(plan, boardSide, wallLong / 2 + (roll(90) - 0.5) * 0.3, 0);
+    const pose = { x: bx, y: by, h: 0, yaw: inward(boardSide), pitch: 0, roll: 0 };
+    out.push({ key: key("board"), kind: "board", model: buildBoard(width), ...pose, solid: null });
   }
   return out;
 }
