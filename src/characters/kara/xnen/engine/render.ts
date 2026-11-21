@@ -446,9 +446,10 @@ export class Renderer {
       let l = light.at(hx, hy);
       const wx = Math.floor(hx) - light.x0;
       const wy = Math.floor(hy) - light.y0;
-      if (wx >= 0 && wy >= 0 && wx < WN && wy < WN && warm[wx + wy * WN]) {
-        for (let y = y0; y <= y1; y++) warmth[y * W + x] = 1;
-      }
+      // Set for every pixel of the wall, warm or not: the ceiling drawn before it may have marked them for a room
+      // behind it.
+      const warmHere = wx >= 0 && wy >= 0 && wx < WN && wy < WN ? warm[wx + wy * WN] : 0;
+      for (let y = y0; y <= y1; y++) warmth[y * W + x] = warmHere;
       if (side === 1) l *= 0.9;
       let f = 1 - Math.exp(-perp * fogK);
       const far = (perp - 20) / 8;
