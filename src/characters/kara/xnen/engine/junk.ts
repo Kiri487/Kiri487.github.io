@@ -6,8 +6,10 @@ import {
   FITTED_SIZE,
   HALL_LAMP,
   ROOM_BLOCK,
+  STAIRS_W,
   type BurgerPlan,
   type DeadEnd,
+  type StairsPlan,
   type CandleSign,
   type FittedPlan,
   type Statue,
@@ -1556,7 +1558,8 @@ export type JunkKind =
   | "candle"
   | "flame"
   | "partition"
-  | "vending";
+  | "vending"
+  | "stairs";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -1697,6 +1700,7 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   out.push(...candleSignsAround(map, x, y, radius));
   out.push(...hallsAround(map, x, y, radius));
   out.push(...deadEndsAround(map, x, y, radius));
+  out.push(...stairsAround(map, x, y, radius));
   return out;
 }
 
@@ -1715,6 +1719,8 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     // Nor on a candle sign.
     // Nor in a hall with things of its own.
     if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy) || map.bareHall(cx, cy)) continue;
+    // Nor in a room with a stair.
+    if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5))) continue;
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
@@ -3814,6 +3820,208 @@ function deadEndsAround(map: WorldMap, x: number, y: number, radius: number): Ju
       known.set(key, found);
     }
     for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+  }
+  return out;
+}
+
+// ---- the stairs ----
+
+/*
+ * A stair up, rarely, along a wall of a plain room (map.ts): bare concrete steps with a pale edge to each, a handrail
+ * on the open side, the thirteenth step at the ceiling and the rest going on up through it to nowhere. Nobody goes up:
+ * a no entry sign stands at its foot, or someone has heaped chairs on the bottom steps.
+ */
+
+/** The stair's atlas: a step's top with its pale front edge, a step's front, its side, the handrail. */
+const TREAD: Rect = { x: 0, y: 0, w: 8, h: 8 };
+const RISER: Rect = { x: 8, y: 0, w: 8, h: 8 };
+const STRINGER: Rect = { x: 16, y: 0, w: 8, h: 8 };
+const RAIL: Rect = { x: 24, y: 0, w: 8, h: 8 };
+const STAIRS_ATLAS_W = 32;
+const STAIRS_ATLAS_H = 8;
+
+export const STAIRS_SKIN: StatueSkin = (() => {
+  const W = STAIRS_ATLAS_W;
+  const data = new Uint8ClampedArray(W * STAIRS_ATLAS_H * 4);
+  const fill = (r: Rect, c: (x: number, y: number) => readonly number[]) => {
+    for (let y = 0; y < r.h; y++) {
+      for (let x = 0; x < r.w; x++) {
+        const o = ((r.y + y) * W + r.x + x) * 4;
+        const [cr, cg, cb] = c(x, y);
+        data[o] = cr;
+        data[o + 1] = cg;
+        data[o + 2] = cb;
+        data[o + 3] = 255;
+      }
+    }
+  };
+  const concrete = (x: number, y: number, base: number) => {
+    const v = base * (0.9 + 0.18 * grain(x, y + 700));
+    return [v, v * 0.98, v * 0.94];
+  };
+  // The top of a step, its front edge (the atlas's top row, as the step's top is laid) worn pale.
+  fill(TREAD, (x, y) => (y === 0 ? [196, 190, 170] : concrete(x, y, 150)));
+  fill(RISER, (x, y) => concrete(x, y + 8, 118));
+  fill(STRINGER, (x, y) => concrete(x, y + 16, 134));
+  fill(RAIL, (x, y) => {
+    const v = 150 * (0.94 + 0.1 * grain(x, y + 800));
+    return [v, v, v * 1.04];
+  });
+  return { data };
+})();
+
+/** How many steps, how high each, how deep; the thirteenth's top is at the ceiling. */
+const STAIRS_STEPS = 16;
+const STEP_RISE = 1 / 13;
+const STEP_TREAD = 0.127;
+const STAIRS_LONG = STAIRS_STEPS * STEP_TREAD;
+/** The handrail: how high over the steps' front edges, how thick, and a post every this many steps. */
+const RAIL_H = 0.2;
+const RAIL_T = 0.012;
+const POST_EVERY = 4;
+
+/** Makes the triangles pushed since `from` drawn from both sides. */
+function bothSides(out: number[], from: number) {
+  for (let i = from; i < out.length; i += 16) out[i + 15] = 2;
+}
+
+/**
+ * The stair, its foot at the origin, going up along +z, `rail` the side its handrail is on (+1 for +x). Each step is
+ * its top, its front, and its sides down to the floor; the back is one face up the far end.
+ */
+function buildStairs(rail: number): StatueModel {
+  const tris: number[] = [];
+  const hw = STAIRS_W / 2;
+  for (let k = 0; k < STAIRS_STEPS; k++) {
+    const y0 = k * STEP_RISE;
+    const y1 = y0 + STEP_RISE;
+    const zf = k * STEP_TREAD;
+    const zb = zf + STEP_TREAD;
+    quad(tris, [-hw, y1, zb], [hw, y1, zb], [hw, y1, zf], [-hw, y1, zf], TREAD);
+    quad(tris, [hw, y0, zf], [-hw, y0, zf], [-hw, y1, zf], [hw, y1, zf], RISER);
+    // Its band of the sides, from its front to the far end.
+    quad(tris, [hw, y0, STAIRS_LONG], [hw, y0, zf], [hw, y1, zf], [hw, y1, STAIRS_LONG], STRINGER, Infinity);
+    quad(tris, [-hw, y0, zf], [-hw, y0, STAIRS_LONG], [-hw, y1, STAIRS_LONG], [-hw, y1, zf], STRINGER, Infinity);
+  }
+  const top = STAIRS_STEPS * STEP_RISE;
+  quad(tris, [-hw, 0, STAIRS_LONG], [hw, 0, STAIRS_LONG], [hw, top, STAIRS_LONG], [-hw, top, STAIRS_LONG], STRINGER);
+  // The handrail: posts up from the steps' front edges, and the rail along their tops.
+  const rx = rail * (hw - 0.02);
+  for (let k = 0; k < STAIRS_STEPS; k += POST_EVERY) {
+    const z = k * STEP_TREAD + STEP_TREAD / 2;
+    const y = (k + 1) * STEP_RISE;
+    box(tris, rx - 0.008, rx + 0.008, y, y + RAIL_H, z - 0.008, z + 0.008, RAIL, RAIL, RAIL);
+  }
+  const slope = STEP_RISE / STEP_TREAD;
+  const at = (z: number, dy: number): V3 => [rx, STEP_RISE + RAIL_H + (z - STEP_TREAD / 2) * slope + dy, z];
+  const from = tris.length;
+  const [z0, z1] = [STEP_TREAD / 2 - 0.02, STAIRS_LONG];
+  for (const [dx0, dy0, dx1, dy1] of [
+    [-RAIL_T, RAIL_T, RAIL_T, RAIL_T],
+    [-RAIL_T, -RAIL_T, RAIL_T, -RAIL_T],
+    [-RAIL_T, -RAIL_T, -RAIL_T, RAIL_T],
+    [RAIL_T, -RAIL_T, RAIL_T, RAIL_T],
+  ]) {
+    const a = at(z0, dy0 / 2);
+    const b = at(z1, dy0 / 2);
+    const c = at(z1, dy1 / 2);
+    const d = at(z0, dy1 / 2);
+    a[0] += dx0 / 2;
+    b[0] += dx0 / 2;
+    c[0] += dx1 / 2;
+    d[0] += dx1 / 2;
+    quad(tris, a, b, c, d, RAIL, Infinity);
+  }
+  bothSides(tris, from);
+  return { tris, atlasWidth: STAIRS_ATLAS_W, atlasHeight: STAIRS_ATLAS_H, stone: [140, 136, 128] };
+}
+
+const STAIRS_MODELS: Record<number, StatueModel> = { [-1]: buildStairs(-1), 1: buildStairs(1) };
+
+/** The stair in `plan`, and what blocks it, the same every time for this map. */
+function stairsIn(map: WorldMap, plan: StairsPlan): Junk[] {
+  const roll = (k: number) => map.noise(plan.cx * 71 + k, plan.cy, 990);
+  const key = (name: string) => `u${plan.cx},${plan.cy}.${name}`;
+  const { x, y, ax, ay, nx, ny } = plan;
+  const yaw = Math.atan2(ay, ax);
+  // Its own +x, in the place, is (sin yaw, −cos yaw): the rail goes on whichever side is away from the wall.
+  const rail = Math.sin(yaw) * nx - Math.cos(yaw) * ny > 0 ? 1 : -1;
+  const half = STAIRS_LONG / 2;
+  const out: Junk[] = [
+    {
+      key: key("stairs"),
+      kind: "stairs",
+      model: STAIRS_MODELS[rail],
+      x,
+      y,
+      h: 0,
+      yaw,
+      pitch: 0,
+      roll: 0,
+      solid: slab(x + ax * half, y + ay * half, ax * half, ay * half, STAIRS_W / 2 + 0.01),
+    },
+  ];
+  if (plan.block === "sign") {
+    // No entry, standing just off its foot, facing whoever comes.
+    const sx = x - ax * 0.22 + (roll(1) - 0.5) * 0.06;
+    const sy = y - ay * 0.22 + (roll(2) - 0.5) * 0.06;
+    const facing = yaw + Math.PI + (roll(3) - 0.5) * 0.3;
+    const pose = { x: sx, y: sy, h: 0, yaw: facing, pitch: 0, roll: 0 };
+    out.push({
+      key: key("sign"),
+      kind: "sign",
+      model: signModel("noEntry", SIGN_MIDDLE, false),
+      ...pose,
+      solid: { x: sx, y: sy, r: 0.1 },
+      plate: plateOf(pose, SIGN_MIDDLE),
+    });
+    return out;
+  }
+  // A heap of chairs: one at the foot, facing up the stair, another upside down on its seat, one on its side up the
+  // steps, and now and then one more on top of that.
+  const office = roll(4) < OFFICE_FURNITURE[map.zoneAt(plan.cx, plan.cy)];
+  const model = buildChair(ORDINARY, office);
+  const seat = chairSeat(ORDINARY);
+  const chair = (name: string, cx: number, cy: number, h: number, turn: number, tilt: number, solid: Solid | null) =>
+    out.push({ key: key(name), kind: "chair", model, office, x: cx, y: cy, h, yaw: turn, pitch: 0, roll: tilt, solid });
+  const bx = x + ax * 0.05;
+  const by = y + ay * 0.05;
+  chair("chair0", bx, by, 0, yaw + (roll(5) - 0.5) * 0.4, 0, { x: bx, y: by, r: 0.22 });
+  chair("chair1", bx, by, seat * 2 + 0.01, yaw + (roll(6) - 0.5) * 1.2, Math.PI, null);
+  // On its side two steps up, as if thrown.
+  const up = 2.5 * STEP_TREAD;
+  chair("chair2", x + ax * up, y + ay * up, 3 * STEP_RISE + 0.11, roll(7) * Math.PI * 2, Math.PI / 2, null);
+  if (roll(8) < 0.5) {
+    const higher = 4.5 * STEP_TREAD;
+    const turn = yaw + Math.PI + (roll(9) - 0.5) * 0.8;
+    chair("chair3", x + ax * higher, y + ay * higher, 5 * STEP_RISE, turn, 0, null);
+  }
+  return out;
+}
+
+/** The stairs' things, by room and map: laid out once. */
+const stairsThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Every stair, and what blocks it, within `radius` of (x, y). */
+function stairsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = stairsThings.get(map);
+  if (!known) {
+    known = new Map();
+    stairsThings.set(map, known);
+  }
+  const out: Junk[] = [];
+  for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
+    for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
+      const plan = map.stairsIn(lx, ly);
+      if (!plan) continue;
+      const key = `${lx},${ly}`;
+      let found = known.get(key);
+      if (!found) {
+        found = stairsIn(map, plan);
+        known.set(key, found);
+      }
+      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+    }
   }
   return out;
 }

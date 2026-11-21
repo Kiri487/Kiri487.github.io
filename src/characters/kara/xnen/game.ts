@@ -16,6 +16,7 @@ import {
   placeJunk,
   SAFETY_SKIN,
   SIGN_SKIN,
+  STAIRS_SKIN,
   STORAGE_SKIN,
   VENDING_SKIN,
   WOOD_SKIN,
@@ -701,6 +702,7 @@ export function createGame(parts: GameParts): Game {
         flame: CANDLE_SKIN,
         partition: OFFICE_SKIN,
         vending: VENDING_SKIN,
+        stairs: STAIRS_SKIN,
       }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
