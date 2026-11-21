@@ -14,6 +14,7 @@ import {
   CAMP_WEIGHTS,
   MEETING_WEIGHTS,
   PANTRY_WEIGHTS,
+  STORAGE_WEIGHTS,
   WORKROOM_WEIGHTS,
   type ZoneWeights,
 } from "./zones";
@@ -174,6 +175,7 @@ const ROOM_RULES: Record<RoomKind, RoomRules> = {
   camp: { junk: false, statue: false, xn: true },
   pantry: { junk: false, statue: false, xn: true },
   meeting: { junk: false, statue: false, xn: true },
+  storage: { junk: false, statue: false, xn: true },
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
@@ -222,9 +224,9 @@ export interface BurgerPlan {
 /**
  * The kinds of fitted room: a lattice room fitted out for a use. A camp is where one of the lost lived for a while:
  * a mattress on the floor, empty tins, the count on the wall. A pantry is a little kitchen. A meeting room, sometimes
- * two lattice rooms knocked through into one long one.
+ * two lattice rooms knocked through into one long one. A storeroom, shelving all round.
  */
-export type FittedKind = "workroom" | "camp" | "pantry" | "meeting";
+export type FittedKind = "workroom" | "camp" | "pantry" | "meeting" | "storage";
 /**
  * How likely a lattice room is to be each kind of fitted room, in turn from one die, weighed by its zone (zones.ts):
  * a new kind takes the next share, so the ones before stay where they were.
@@ -234,7 +236,11 @@ const FITTED_CHANCES: readonly [FittedKind, number, ZoneWeights][] = [
   ["camp", 0.07, CAMP_WEIGHTS],
   ["pantry", 0.06, PANTRY_WEIGHTS],
   ["meeting", 0.05, MEETING_WEIGHTS],
+  ["storage", 0.06, STORAGE_WEIGHTS],
 ];
+/** A storeroom's lights: how many are out, and how many of the rest flicker. */
+const STORAGE_DEAD = 0.5;
+const STORAGE_FLICKER = 0.5;
 /** How likely a meeting room is to take in the lattice room east of it or south of it too, if it can. */
 const MEETING_LONG = 0.4;
 /** A long one's inside, the long way: two lattice rooms' insides and the lattice between them. */
@@ -265,14 +271,22 @@ export interface FittedPlan {
  * furnished its own way.
  */
 const PREVIEW_FITTED = true;
-const PREVIEW_KIND: FittedKind = "meeting";
-/** Each preview room's size: the first two long, taking in the room beyond. */
-const PREVIEW_SIZES: readonly (readonly [number, number])[] = [
-  [9, 4],
-  [4, 9],
-  [4, 4],
-  [4, 4],
-];
+const PREVIEW_KIND = "storage" as FittedKind;
+/** Each preview room's size: for meeting rooms, the first two long, taking in the room beyond. */
+const PREVIEW_SIZES: readonly (readonly [number, number])[] =
+  PREVIEW_KIND === "meeting"
+    ? [
+        [9, 4],
+        [4, 9],
+        [4, 4],
+        [4, 4],
+      ]
+    : [
+        [4, 4],
+        [4, 4],
+        [4, 4],
+        [4, 4],
+      ];
 /** The lattice rooms round the spawn, and the side of each that faces it. */
 const PREVIEW_ROOMS: readonly (readonly [number, number, number])[] = [
   [1, 0, 2],
@@ -312,8 +326,8 @@ export function meetingAlongX(plan: FittedPlan, noise: (k: number) => number): b
 
 /**
  * The wall something's put up on in a fitted room, or −1: a meeting room's whiteboard (an end wall with no door, or
- * else any with none), a pantry's counter and wall cupboards (the wall across from the way in). Nothing's written or
- * put up on it, where it would be half behind them. The furniture goes by it too.
+ * else any with none), a pantry's counter and wall cupboards (the wall across from the way in). The furniture goes
+ * by it.
  */
 export function mountedWall(plan: FittedPlan, noise: (k: number) => number): number {
   if (plan.kind === "pantry") return facingWall(plan);
@@ -322,6 +336,14 @@ export function mountedWall(plan: FittedPlan, noise: (k: number) => number): num
   const sides = [...ends, ...[0, 1, 2, 3].filter((s) => !ends.includes(s))];
   const doorSides = new Set(plan.doors.map(([s]) => s));
   return sides.find((s) => !doorSides.has(s)) ?? -1;
+}
+
+/**
+ * Whether wall `side` of a fitted room is kept bare of writing and posters, which would be half behind what's against
+ * it: the wall something's put up on, and every wall of a storeroom, shelved all round.
+ */
+export function bareWall(plan: FittedPlan, side: number, noise: (k: number) => number): boolean {
+  return plan.kind === "storage" || side === mountedWall(plan, noise);
 }
 
 /** A camp's mattress, worked out from its plan; the same for whatever asks (the furniture, the writing). */
@@ -961,6 +983,12 @@ export class WorldMap {
   /** The ceiling light over cell (x, y), for cells where a light hangs (lampAt). */
   light(x: number, y: number): number {
     if (this.burgerLamp(x, y)) return LIGHT_ON;
+    // A storeroom's are mostly out, and the rest failing.
+    if (this.fittedAt(x, y)?.kind === "storage") {
+      const r = this.noise(x, y, 23);
+      if (r < STORAGE_DEAD) return LIGHT_DEAD;
+      return r < STORAGE_DEAD + (1 - STORAGE_DEAD) * STORAGE_FLICKER ? LIGHT_FLICKER_A : LIGHT_ON;
+    }
     const statue = this.statueIn(Math.floor(x / this.region), Math.floor(y / this.region));
     if (statue && statue.lampX === x && statue.lampY === y) return LIGHT_ON;
     // Some whole stretches are mostly dark.

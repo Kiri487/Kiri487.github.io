@@ -49,6 +49,8 @@ export const WORKROOM_WEIGHTS: ZoneWeights = [0.25, 0.3, 2, 0.3, 0.2];
 export const CAMP_WEIGHTS: ZoneWeights = [0.25, 3, 0.2, 0.6, 0.2];
 /** A pantry, a little kitchen: mostly by the tiles, now and then off the office wing. */
 export const PANTRY_WEIGHTS: ZoneWeights = [0.25, 0.3, 0.6, 0.3, 3];
+/** A storeroom: in the unfinished plasterboard most. */
+export const STORAGE_WEIGHTS: ZoneWeights = [0.25, 0.3, 0.3, 3, 0.3];
 /** A meeting room: the office wing's. */
 export const MEETING_WEIGHTS: ZoneWeights = [0.25, 0.2, 2, 0.3, 0.2];
 

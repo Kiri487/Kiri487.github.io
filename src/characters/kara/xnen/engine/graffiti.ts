@@ -1,5 +1,5 @@
 import { hash3 } from "./hash";
-import { campBed, mountedWall, type BurgerPlan, type WorldMap } from "./map";
+import { bareWall, campBed, type BurgerPlan, type WorldMap } from "./map";
 import type { Tuning } from "./tuning";
 import { GRAFFITI_WEIGHTS, heaviest } from "./zones";
 
@@ -1845,8 +1845,8 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   // Which of a fitted room's walls this is, seen from inside: north, south, west, east.
   const wall = dir === 0 ? (side ? 0 : 1) : side ? 2 : 3;
   let kind: Kind | null = null;
-  if (fitted && wall === mountedWall(fitted, (k) => map.noise(fitted.x0, fitted.y0, 945 + k))) {
-    // Nothing on a wall with something put up on it, half behind it.
+  if (fitted && bareWall(fitted, wall, (k) => map.noise(fitted.x0, fitted.y0, 945 + k))) {
+    // Nothing on a wall with something against it, half behind it.
   } else if (camp) {
     const bed = campBed(camp, (k) => map.noise(camp.x0, camp.y0, 940 + k));
     if (tuning.graffiti > 0 && (wall === bed.wall || pick(0) < CAMP_WRITING)) {

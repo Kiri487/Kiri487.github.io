@@ -16,6 +16,7 @@ import {
   placeJunk,
   SAFETY_SKIN,
   SIGN_SKIN,
+  STORAGE_SKIN,
   WOOD_SKIN,
   type Junk,
 } from "./engine/junk";
@@ -687,6 +688,7 @@ export function createGame(parts: GameParts): Game {
         can: CAMP_SKIN,
         kitchen: KITCHEN_SKIN,
         board: MEETING_SKIN,
+        storage: STORAGE_SKIN,
         candle: CANDLE_SKIN,
         flame: CANDLE_SKIN,
       }[junk.kind];

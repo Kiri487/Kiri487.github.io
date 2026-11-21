@@ -1539,6 +1539,7 @@ export type JunkKind =
   | "can"
   | "kitchen"
   | "board"
+  | "storage"
   | "candle"
   | "flame";
 
@@ -3199,7 +3200,9 @@ function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk
       const key = `${bx},${by}`;
       let found = known.get(key);
       if (!found) {
-        const furnish = { workroom: workroomIn, camp: campIn, pantry: pantryIn, meeting: meetingIn }[plan.kind];
+        const furnish = { workroom: workroomIn, camp: campIn, pantry: pantryIn, meeting: meetingIn, storage: storageIn }[
+          plan.kind
+        ];
         found = furnish(map, bx, by, plan);
         known.set(key, found);
       }
@@ -4198,6 +4201,391 @@ function meetingIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
     const [bx, by] = onWall(plan, boardSide, wallLong / 2 + (roll(90) - 0.5) * 0.3, 0);
     const pose = { x: bx, y: by, h: 0, yaw: inward(boardSide), pitch: 0, roll: 0 };
     out.push({ key: key("board"), kind: "board", model: buildBoard(width), ...pose, solid: null });
+  }
+  return out;
+}
+
+// ---- the storeroom ----
+
+/*
+ * A storeroom: steel shelving all round the walls, but where the doors are, and sometimes a double row back to back
+ * down the middle; cardboard boxes on the shelves, a few gaps, and stacks of them on the floor, some opened and left
+ * open; sometimes a stepladder leant against a wall. Its lights are mostly out or failing (map.ts). Now and then the
+ * boxes are piled up to the ceiling in a corner, or one shelf's boxes have all come down onto the floor in front of
+ * it.
+ */
+
+/** The storeroom's atlas: cardboard, its top with the tape across, its inside, a label, the shelves' steel. */
+const CARD: Rect = { x: 0, y: 0, w: 16, h: 16 };
+const CARD_TOP: Rect = { x: 16, y: 0, w: 16, h: 16 };
+const CARD_IN: Rect = { x: 32, y: 0, w: 16, h: 16 };
+/** Twice as fine as the rest, for the handwriting on the label. */
+const CARD_LABEL: Rect = { x: 32, y: 16, w: 32, h: 32 };
+const SHELF_POST: Rect = { x: 0, y: 16, w: 8, h: 32 };
+const SHELF_STEEL: Rect = { x: 8, y: 16, w: 16, h: 8 };
+const STORAGE_ATLAS_W = 64;
+const STORAGE_ATLAS_H = 48;
+
+export const STORAGE_SKIN: StatueSkin = (() => {
+  const W = STORAGE_ATLAS_W;
+  const data = new Uint8ClampedArray(W * STORAGE_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const BROWN = [176, 136, 88];
+  const noise = (x: number, y: number) => 0.92 + 0.1 * grain(x, y + 1300);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      // Cardboard: brown, a darker edge where the flaps fold.
+      put(CARD.x + x, CARD.y + y, BROWN, (y === 0 || y === 15 ? 0.8 : 1) * noise(x, y));
+      // The top: the two flaps meeting down the middle under a band of tape.
+      const tape = x >= 6 && x <= 9;
+      put(CARD_TOP.x + x, CARD_TOP.y + y, tape ? [196, 170, 120] : BROWN, (x === 7 || x === 8 ? 0.85 : 1) * noise(x + 20, y));
+      // Inside: darker, in shadow.
+      put(CARD_IN.x + x, CARD_IN.y + y, BROWN, 0.62 * noise(x + 40, y));
+    }
+  }
+  // A side with a white label on it, scrawled on in marker: three lines of quick, thin, wobbly handwriting, too
+  // small to read, the last line short.
+  const L = CARD_LABEL;
+  const PAPER = [226, 224, 214];
+  const INK = [88, 92, 120];
+  for (let y = 0; y < L.h; y++) {
+    for (let x = 0; x < L.w; x++) {
+      const paper = x >= 6 && x <= 25 && y >= 9 && y <= 22;
+      put(L.x + x, L.y + y, paper ? PAPER : BROWN, noise(x + 60, y + 20));
+    }
+  }
+  [12, 16, 20].forEach((base, line) => {
+    const end = line === 2 ? 15 + Math.floor(grain(line, 1320) * 5) : 22 + Math.floor(grain(line, 1321) * 3);
+    let x = 8 + Math.floor(grain(line, 1322) * 2);
+    let word = 0;
+    while (x < end) {
+      const len = 2 + Math.floor(grain(word, line + 1323) * 4);
+      for (let i = 0; i < len && x < end; i++, x++) {
+        const y = base + Math.round(Math.sin(x * 1.7 + line * 2.3) * 0.7 + (grain(x, line + 1330) - 0.5) * 1.4);
+        put(L.x + x, L.y + y, INK);
+        // Now and then a letter reaching up or down.
+        if (grain(x, line + 1340) > 0.8) put(L.x + x, L.y + y + (grain(x, line + 1341) < 0.5 ? -1 : 1), INK);
+      }
+      x += 1 + Math.floor(grain(word, line + 1350) * 2);
+      word++;
+    }
+  });
+  // The shelving's uprights: grey steel angle with a row of slots up it; its shelves plain grey.
+  for (let y = 0; y < SHELF_POST.h; y++) {
+    for (let x = 0; x < SHELF_POST.w; x++) {
+      const slot = x >= 3 && x <= 4 && y % 4 < 2;
+      put(SHELF_POST.x + x, SHELF_POST.y + y, slot ? [50, 52, 54] : [140, 144, 146], noise(x, y + 80));
+    }
+  }
+  for (let y = 0; y < SHELF_STEEL.h; y++) {
+    for (let x = 0; x < SHELF_STEEL.w; x++) {
+      put(SHELF_STEEL.x + x, SHELF_STEEL.y + y, [150, 154, 156], (y === 0 ? 0.8 : 1) * noise(x, y + 100));
+    }
+  }
+  return { data };
+})();
+
+const storageModel = (tris: number[], stone: readonly [number, number, number]): StatueModel => ({
+  tris,
+  atlasWidth: STORAGE_ATLAS_W,
+  atlasHeight: STORAGE_ATLAS_H,
+  stone,
+});
+
+/** A shelving unit: how long, how deep, its uprights' width, and the height of each shelf from the floor. */
+const SHELF_L = 0.9;
+const SHELF_D = 0.26;
+const SHELF_POST_W = 0.018;
+const SHELF_LEVELS = [0.03, 0.3, 0.57, 0.84] as const;
+const SHELF_T = 0.012;
+/** A shelving unit, its back at z = −SHELF_D / 2 and its front toward +z. */
+const SHELF_MODEL = (() => {
+  const tris: number[] = [];
+  const hl = SHELF_L / 2;
+  const hd = SHELF_D / 2;
+  const top = SHELF_LEVELS[SHELF_LEVELS.length - 1] + SHELF_T;
+  for (const x of [-hl, hl - SHELF_POST_W]) {
+    for (const z of [-hd, hd - SHELF_POST_W]) {
+      box(tris, x, x + SHELF_POST_W, 0, top, z, z + SHELF_POST_W, SHELF_POST, SHELF_POST, SHELF_POST);
+    }
+  }
+  // The shelves sit between the uprights, so no face of one lies on a face of a post.
+  for (const y of SHELF_LEVELS) {
+    box(tris, -hl + SHELF_POST_W, hl - SHELF_POST_W, y, y + SHELF_T, -hd + 0.002, hd - 0.002, SHELF_STEEL, SHELF_STEEL, SHELF_STEEL);
+  }
+  return storageModel(tris, [150, 154, 156]);
+})();
+
+/** The boxes' sizes: width, depth, height. Each fits on a shelf. */
+const BOX_SIZES: readonly (readonly [number, number, number])[] = [
+  [0.22, 0.16, 0.14],
+  [0.18, 0.18, 0.18],
+  [0.3, 0.2, 0.12],
+  [0.14, 0.1, 0.1],
+  [0.26, 0.2, 0.2],
+];
+/** An opened box's walls, and how far its flaps lie out flat. */
+const BOX_WALL = 0.004;
+
+/**
+ * A cardboard box, its foot at 0: shut and taped, with or without a label on its front; or opened, hollow, its four
+ * flaps folded out flat round its mouth.
+ */
+function buildBox([w, d, h]: readonly [number, number, number], open: boolean, label: boolean): StatueModel {
+  const tris: number[] = [];
+  const hw = w / 2;
+  const hd = d / 2;
+  if (!open) {
+    topBox(tris, -hw, hw, 0, h, -hd, hd, label ? CARD_LABEL : CARD, CARD, CARD_TOP);
+    return storageModel(tris, [176, 136, 88]);
+  }
+  const t = BOX_WALL;
+  // Its floor, and its four walls standing on it, the front and back between the sides.
+  topBox(tris, -hw, hw, 0, t, -hd, hd, CARD, CARD, CARD_IN);
+  box(tris, -hw, -hw + t, t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, hw - t, hw, t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, -hw + t, hw - t, t, h, hd - t, hd, label ? CARD_LABEL : CARD, CARD_IN, CARD);
+  box(tris, -hw + t, hw - t, t, h, -hd, -hd + t, CARD, CARD_IN, CARD);
+  // The flaps, flat out from the top of each wall.
+  box(tris, -hw - hd, -hw, h - t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, hw, hw + hd, h - t, h, -hd, hd, CARD, CARD, CARD);
+  box(tris, -hw, hw, h - t, h, hd, hd + hd, CARD, CARD, CARD);
+  box(tris, -hw, hw, h - t, h, -hd - hd, -hd, CARD, CARD, CARD);
+  return storageModel(tris, [176, 136, 88]);
+}
+const BOXES = new Map<string, StatueModel>();
+/** One model for each size, opened or not, labelled or not. */
+function boxModel(size: number, open: boolean, label: boolean): StatueModel {
+  const key = `${size}${open ? "o" : ""}${label ? "l" : ""}`;
+  let model = BOXES.get(key);
+  if (!model) {
+    model = buildBox(BOX_SIZES[size], open, label);
+    BOXES.set(key, model);
+  }
+  return model;
+}
+
+/** A stepladder's height, its rails' spread, and the gap between its rungs. */
+const LADDER_H = 0.95;
+const LADDER_HALF = 0.12;
+const LADDER_RUNG = 0.16;
+/** A ladder of two rails and rungs between them, upright, its foot at 0. */
+const LADDER_MODEL = (() => {
+  const tris: number[] = [];
+  for (const x of [-LADDER_HALF, LADDER_HALF - 0.02]) box(tris, x, x + 0.02, 0, LADDER_H, -0.012, 0.012, SHELF_POST, SHELF_POST, SHELF_POST);
+  for (let y = LADDER_RUNG; y < LADDER_H - 0.05; y += LADDER_RUNG) {
+    box(tris, -LADDER_HALF + 0.02, LADDER_HALF - 0.02, y, y + 0.012, -0.015, 0.015, SHELF_STEEL, SHELF_STEEL, SHELF_STEEL);
+  }
+  return storageModel(tris, [140, 144, 146]);
+})();
+/** How far its foot stands out from the wall it leans on. */
+const LADDER_OUT = 0.3;
+
+/** How likely: a shelf filled where a box could go; a double row down the middle; a ladder; a pile to the ceiling. */
+const STORE_FILLED = 0.6;
+const STORE_MIDDLE = 0.5;
+const STORE_LADDER = 0.4;
+const STORE_PILE = 0.15;
+const STORE_SPILLED = 0.15;
+/** How likely a box is opened, and labelled; stacks on the floor: how many, and how many boxes high, at most. */
+const BOX_OPEN = 0.25;
+const BOX_LABELLED = 0.4;
+const STORE_STACKS = [2, 4] as const;
+const STACK_MOST = 4;
+
+/** What the preview shows in each of its rooms. */
+const STORAGE_PREVIEWS = [
+  { middle: true, ladder: true, pile: false, spilled: false },
+  { middle: false, ladder: false, pile: true, spilled: false },
+  { middle: false, ladder: true, pile: false, spilled: true },
+  { middle: true, ladder: false, pile: false, spilled: false },
+];
+
+/** Everything in storeroom `plan` in lattice room (lx, ly), the same every time for this map. */
+function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 59 + k, ly, 990);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const preview = plan.preview === undefined ? null : STORAGE_PREVIEWS[plan.preview];
+  const middle = preview ? preview.middle : roll(1) < STORE_MIDDLE;
+  const ladder = preview ? preview.ladder : roll(2) < STORE_LADDER;
+  const pile = preview ? preview.pile : roll(3) < STORE_PILE;
+  const spilled = preview ? preview.spilled : roll(4) < STORE_SPILLED;
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number, wall = r) =>
+    x - wall > plan.x0 &&
+    y - wall > plan.y0 &&
+    x + wall < plan.x0 + plan.w &&
+    y + wall < plan.y0 + plan.h &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  let n = 0;
+  const put = (name: string, model: StatueModel, pose: Pose, solid: Solid | null = null) => {
+    out.push({ key: key(`${name}${n++}`), kind: "storage", model, ...pose, solid });
+  };
+  // Boxes in a row along a shelf at height h, its middle at (x, y), along (ax, ay), facing `yaw`; most places filled.
+  const shelfBoxes = (x: number, y: number, h: number, ax: number, ay: number, yaw: number, k: number) => {
+    let at = -SHELF_L / 2 + SHELF_POST_W + 0.01;
+    for (let i = 0; i < 4; i++) {
+      const r = (j: number) => roll(k + i * 5 + j);
+      const size = Math.floor(r(0) * BOX_SIZES.length);
+      const [w] = BOX_SIZES[size];
+      if (at + w > SHELF_L / 2 - SHELF_POST_W - 0.01) break;
+      if (r(1) < STORE_FILLED) {
+        const mid = at + w / 2;
+        const pose = { x: x + ax * mid, y: y + ay * mid, h, yaw: yaw + (r(2) - 0.5) * 0.15, pitch: 0, roll: 0 };
+        put("box", boxModel(size, r(3) < BOX_OPEN * 0.4, r(4) < BOX_LABELLED), pose);
+      }
+      at += w + 0.02;
+    }
+  };
+  // A shelving unit at (x, y) facing `yaw`, along (ax, ay), its shelves filled, or its boxes all come down in front.
+  let units = 0;
+  const shelf = (x: number, y: number, yaw: number, ax: number, ay: number) => {
+    const k = 100 + units * 40;
+    const down = spilled && units === 0;
+    units++;
+    put("shelf", SHELF_MODEL, { x, y, h: 0, yaw, pitch: 0, roll: 0 }, slab(x, y, ax * (SHELF_L / 2), ay * (SHELF_L / 2), SHELF_D / 2));
+    taken.push(
+      { x, y, r: SHELF_D / 2 + 0.02 },
+      { x: x + ax * 0.3, y: y + ay * 0.3, r: SHELF_D / 2 + 0.02 },
+      { x: x - ax * 0.3, y: y - ay * 0.3, r: SHELF_D / 2 + 0.02 },
+    );
+    SHELF_LEVELS.forEach((level, i) => {
+      // The bottom shelf too, but not the top, under the ceiling.
+      if (i === SHELF_LEVELS.length - 1 || down) return;
+      shelfBoxes(x, y, level + SHELF_T, ax, ay, yaw, k + i * 10);
+    });
+    if (down) {
+      // Fallen off onto the floor in front, every which way.
+      const fx = Math.cos(yaw);
+      const fy = Math.sin(yaw);
+      for (let i = 0; i < 7; i++) {
+        const r = (j: number) => roll(900 + i * 6 + j);
+        const size = Math.floor(r(0) * BOX_SIZES.length);
+        const along = (r(1) - 0.5) * SHELF_L;
+        const outBy = SHELF_D / 2 + 0.1 + r(2) * 0.4;
+        const tipped = r(3) < 0.5;
+        // Tipped onto its front, it lies on it: half its depth up.
+        const pose = {
+          x: x + ax * along + fx * outBy,
+          y: y + ay * along + fy * outBy,
+          h: tipped ? BOX_SIZES[size][1] / 2 : 0,
+          yaw: r(4) * Math.PI * 2,
+          pitch: tipped ? Math.PI / 2 : 0,
+          roll: 0,
+        };
+        put("box", boxModel(size, r(5) < BOX_OPEN, false), pose);
+      }
+    }
+  };
+
+  // Shelving all along the walls, unit by unit, but where a door is; the north and south walls' run the whole way,
+  // the west and east walls' stop short of them.
+  for (let side = 0; side < 4; side++) {
+    const len = side < 2 ? plan.w : plan.h;
+    const yaw = inward(side);
+    const [fx, fy] = INWARD[side];
+    const [ax, ay] = [-fy, fx];
+    const start = side < 2 ? 0.02 : SHELF_D + 0.04;
+    const end = side < 2 ? len - 0.02 : len - SHELF_D - 0.04;
+    for (let t = start; t + SHELF_L <= end + 1e-6; t += SHELF_L + 0.02) {
+      const [x, y] = onWall(plan, side, t + SHELF_L / 2, SHELF_D / 2 + 0.01);
+      // Clear of the doors: the whole unit, not only its middle.
+      const clear = [-0.3, 0, 0.3].every((d) => free(x + ax * d, y + ay * d, SHELF_D / 2, 0));
+      if (clear) shelf(x, y, yaw, ax, ay);
+    }
+  }
+
+  // A double row back to back down the middle, the long way across the doors' line, with aisles either side.
+  if (middle) {
+    const alongX = roll(20) < 0.5;
+    const [ax, ay] = alongX ? [1, 0] : [0, 1];
+    const [px, py] = [-ay, ax];
+    const cx = plan.x0 + plan.w / 2;
+    const cy = plan.y0 + plan.h / 2;
+    const count = Math.max(1, Math.floor((Math.min(plan.w, plan.h) - 2 * (SHELF_D + 0.9)) / SHELF_L) + 1);
+    for (let i = 0; i < count; i++) {
+      const d = (i - (count - 1) / 2) * (SHELF_L + 0.02);
+      for (const s of [-1, 1]) {
+        const x = cx + ax * d + px * s * (SHELF_D / 2 + 0.01);
+        const y = cy + ay * d + py * s * (SHELF_D / 2 + 0.01);
+        if ([-0.3, 0, 0.3].every((e) => free(x + ax * e, y + ay * e, SHELF_D / 2))) {
+          shelf(x, y, Math.atan2(py * s, px * s), ax, ay);
+        }
+      }
+    }
+  }
+
+  // Stacks of boxes on the floor, wherever there's room, a little askew one on another; the top one sometimes open.
+  const stack = (x: number, y: number, high: number, k: number) => {
+    let h = 0;
+    for (let i = 0; i < high; i++) {
+      const r = (j: number) => roll(k + i * 5 + j);
+      const size = Math.min(BOX_SIZES.length - 1, Math.floor(r(0) * BOX_SIZES.length));
+      const top = i === high - 1;
+      const pose = { x: x + (r(1) - 0.5) * 0.03, y: y + (r(2) - 0.5) * 0.03, h, yaw: r(3) * 0.5, pitch: 0, roll: 0 };
+      put("box", boxModel(size, top && r(4) < BOX_OPEN, r(5) < BOX_LABELLED), pose, i === 0 ? { x, y, r: 0.16 } : null);
+      h += BOX_SIZES[size][2];
+      if (h > 0.9) break;
+    }
+  };
+  const [least, most] = STORE_STACKS;
+  const stacks = least + Math.floor(roll(30) * (most - least + 1));
+  let placed = 0;
+  for (let k = 0; k < 30 && placed < stacks; k++) {
+    const x = plan.x0 + 0.4 + roll(31 + k) * (plan.w - 0.8);
+    const y = plan.y0 + 0.4 + roll(61 + k) * (plan.h - 0.8);
+    if (!free(x, y, 0.2)) continue;
+    stack(x, y, 1 + Math.floor(roll(91 + k) * STACK_MOST), 300 + placed * 30);
+    taken.push({ x, y, r: 0.2 });
+    placed++;
+  }
+
+  // Piled to the ceiling in a corner: a column of the biggest boxes.
+  if (pile) {
+    const corners: [number, number][] = [
+      [plan.x0 + 0.5, plan.y0 + 0.5],
+      [plan.x0 + plan.w - 0.5, plan.y0 + 0.5],
+      [plan.x0 + 0.5, plan.y0 + plan.h - 0.5],
+      [plan.x0 + plan.w - 0.5, plan.y0 + plan.h - 0.5],
+    ];
+    const spot = corners.find(([x, y]) => free(x, y, 0.18)) ?? null;
+    if (spot) {
+      let h = 0;
+      for (let i = 0; h + BOX_SIZES[4][2] <= 1; i++) {
+        const pose = { x: spot[0] + (roll(500 + i) - 0.5) * 0.02, y: spot[1], h, yaw: (roll(520 + i) - 0.5) * 0.2, pitch: 0, roll: 0 };
+        put("box", boxModel(4, false, roll(540 + i) < BOX_LABELLED), pose, i === 0 ? { x: spot[0], y: spot[1], r: 0.18 } : null);
+        h += BOX_SIZES[4][2];
+      }
+      taken.push({ x: spot[0], y: spot[1], r: 0.2 });
+    }
+  }
+
+  // A stepladder leant against a wall, or against the shelving along it: its foot out from it, its top against it.
+  if (ladder) {
+    for (let k = 0; k < 12; k++) {
+      const side = Math.floor(roll(600 + k) * 4);
+      const len = side < 2 ? plan.w : plan.h;
+      const t = 0.4 + roll(620 + k) * (len - 0.8);
+      const [wx, wy] = onWall(plan, side, t, 0.05);
+      const against = free(wx, wy, 0.04, 0) ? 0 : SHELF_D + 0.02;
+      const [x, y] = onWall(plan, side, t, against + LADDER_OUT);
+      if (!free(x, y, 0.15)) continue;
+      const tilt = Math.asin(LADDER_OUT / LADDER_H);
+      put("ladder", LADDER_MODEL, { x, y, h: 0, yaw: inward(side), pitch: -tilt, roll: 0 }, { x, y, r: 0.14 });
+      break;
+    }
   }
   return out;
 }
