@@ -549,8 +549,10 @@ export function createGame(parts: GameParts): Game {
   };
 
   /** Near enough XN, and facing her, to talk to her. */
+  /** She's here, and can be seen: her picture came. */
+  const xnThere = () => !!xn && xnHere && !!xnSkin;
   const xnInReach = () => {
-    if (!xn || !xnHere) return false;
+    if (!xn || !xnThere()) return false;
     const dx = xn.x - player.x;
     const dy = xn.y - player.y;
     const dist = Math.hypot(dx, dy);
@@ -611,10 +613,13 @@ export function createGame(parts: GameParts): Game {
   };
 
   const blocked = (x: number, y: number) => {
-    for (const mesh of nearby) {
-      if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
+    // Only what can be seen is in the way: if a picture never came, its statues and XN aren't there at all.
+    if (skin) {
+      for (const mesh of nearby) {
+        if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
+      }
     }
-    if (xn && xnHere && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
+    if (xnThere() && xn && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
     // The junk stops them where its own shape is, the part of it at their height, a step short of it.
     for (const junk of nearJunk) {
       if (!junk.solid && junk.kind !== "storage") continue;
@@ -678,7 +683,7 @@ export function createGame(parts: GameParts): Game {
         meshes.set(statue, mesh);
       }
       nearby.push(mesh);
-      if (dist <= tuning.statueReach / 100 && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
+      if (skin && dist <= tuning.statueReach / 100 && (dx * fx + dy * fy) / (dist || 1) > FACING) reachable = true;
     }
     nearJunk = junkAround(map, cam.x, cam.y, DRAW_RANGE);
     return reachable;
