@@ -1,5 +1,5 @@
 import { hash3 } from "./hash";
-import { campBed, type BurgerPlan, type WorldMap } from "./map";
+import { campBed, mountedWall, type BurgerPlan, type WorldMap } from "./map";
 import type { Tuning } from "./tuning";
 import { GRAFFITI_WEIGHTS, heaviest } from "./zones";
 
@@ -1840,11 +1840,14 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
   const [fx, fy] = dir === 0 ? [lx * 5 + 2, ly * 5 + facing] : [lx * 5 + facing, ly * 5 + 2];
   const drawn = (die: number) =>
     die < chance * heaviest(GRAFFITI_WEIGHTS) && die < chance * GRAFFITI_WEIGHTS[map.zoneAt(fx, fy)];
-  const camp = map.roomAt(fx, fy) === "camp" ? map.fittedAt(fx, fy) : null;
+  const fitted = map.fittedAt(fx, fy);
+  const camp = fitted?.kind === "camp" ? fitted : null;
+  // Which of a fitted room's walls this is, seen from inside: north, south, west, east.
+  const wall = dir === 0 ? (side ? 0 : 1) : side ? 2 : 3;
   let kind: Kind | null = null;
-  if (camp) {
-    // Which of the camp's walls this is: north, south, west, east.
-    const wall = dir === 0 ? (side ? 0 : 1) : side ? 2 : 3;
+  if (fitted && wall === mountedWall(fitted, (k) => map.noise(fitted.x0, fitted.y0, 945 + k))) {
+    // Nothing on a wall with something put up on it, half behind it.
+  } else if (camp) {
     const bed = campBed(camp, (k) => map.noise(camp.x0, camp.y0, 940 + k));
     if (tuning.graffiti > 0 && (wall === bed.wall || pick(0) < CAMP_WRITING)) {
       kind = wall === bed.wall || pick(1) < CAMP_TALLY ? "tally" : "plea";

@@ -1,7 +1,7 @@
 import { nearestStatue } from "./compass";
 import { cellHasHole } from "./decay";
 import { hash3 } from "./hash";
-import type { WorldMap } from "./map";
+import { mountedWall, type WorldMap } from "./map";
 import type { Tuning } from "./tuning";
 import { heaviest, POSTER_WEIGHTS } from "./zones";
 
@@ -396,9 +396,14 @@ export function postersOn(
   tuning: Tuning,
   aspect: number,
 ): PosterSpot[] | null {
-  // None in a burger room or a camp.
-  const room = map.roomAt(cx + FACE_OUT[face][0], cy + FACE_OUT[face][1]);
+  // None in a burger room or a camp, nor on a wall with something put up on it (a whiteboard, wall cupboards).
+  const fx = cx + FACE_OUT[face][0];
+  const fy = cy + FACE_OUT[face][1];
+  const room = map.roomAt(fx, fy);
   if (room === "burger" || room === "camp") return null;
+  const fitted = map.fittedAt(fx, fy);
+  // Seen from the west, it's the room's east wall, and so on.
+  if (fitted && [3, 2, 1, 0][face] === mountedWall(fitted, (k) => map.noise(fitted.x0, fitted.y0, 945 + k))) return null;
   const alongX = face >= 2;
   const base = alongX ? cx : cy;
   // Seen from in front, faces 0 and 3 run the way the world's axis does; 1 and 2 the other way.
