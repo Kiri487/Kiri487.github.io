@@ -133,7 +133,7 @@ const EMPTY_BALLOON_MS = 1000;
  */
 const BACK_AFTER_SINKING_MS = 13_000;
 const BACK_AFTER_SINKING_LINE = "that door was always there";
-/** Left behind in the backrooms when the tape is stopped, she walks back on her own. */
+/** Left behind in the backrooms when the tape is stopped or the signal lost, she walks back on her own. */
 const BACK_AFTER_STOP_MS = 13_000;
 /** How small she starts, coming out of the door. */
 const DOOR_SCALE = 0.4;
@@ -159,6 +159,16 @@ const BACK_LINES: Record<Exit, { first: string; more: string[]; seenKey: string 
       "i stayed and talked to xnen. i understood like half",
     ],
     seenKey: "kara-xn-back-stop",
+  },
+  lost: {
+    first: "you fell out of the tape",
+    more: [
+      "the tape ate you. i asked it nicely to spit you out",
+      "i found you under the carpet",
+      "you went somewhere even xnen doesn't go",
+      "the static said your name wrong",
+    ],
+    seenKey: "kara-xn-back-lost",
   },
 };
 
@@ -827,7 +837,7 @@ function DesktopPet({ shuttingDown }: { shuttingDown: boolean }) {
     return () => window.clearTimeout(timer);
   }, [visit, setStage]);
 
-  // And back out: straight away through a statue, or in her own time when the tape was stopped.
+  // And back out: straight away through a statue, or in her own time when the tape was stopped or the signal lost.
   useEffect(() => {
     if (!lastReturn || lastReturn.id === seenReturnRef.current) return;
     seenReturnRef.current = lastReturn.id;

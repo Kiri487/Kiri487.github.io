@@ -102,9 +102,12 @@ export interface XnPreview {
 }
 
 /** What the tape is doing, shown top left. */
-export type Mode = "play" | "pause" | "rewind" | "stop";
-/** How the visitor left: through a statue, or by stopping the tape. */
-export type Exit = "rewind" | "stop";
+export type Mode = "play" | "pause" | "rewind" | "stop" | "lost";
+/**
+ * How the visitor left: through a statue, by stopping the tape, or by losing the signal, which the place does to them
+ * (falling into a pit, for one).
+ */
+export type Exit = "rewind" | "stop" | "lost";
 
 export interface GameParts {
   stage: HTMLElement;
@@ -175,6 +178,9 @@ const REWIND_TIME = 1.45;
 const BURST_TIME = 0.35;
 const CUT_TIME = 0.2;
 const STOP_TIME = 0.35;
+/** Signal lost: the picture gone to snow, rolling and torn, for this long, then a quick fade onto the desktop. */
+const LOST_TIME = 0.9;
+const LOST_FADE = 0.2;
 /** The walk is remembered every this many seconds, for rewinding. */
 const TRAIL_STEP = 0.1;
 /** How much of the walk is remembered, and how much of it a rewind runs back over, in steps. */
@@ -528,7 +534,7 @@ export function createGame(parts: GameParts): Game {
   };
 
   const leaveBy = (exit: Exit) => {
-    if (mode === "rewind" || mode === "stop") return;
+    if (mode === "rewind" || mode === "stop" || mode === "lost") return;
     showLine(null);
     fxTime = 0;
     bandPhase = 0;
@@ -1298,6 +1304,18 @@ export function createGame(parts: GameParts): Game {
         flash: Math.max(0, 1 - into / 0.08),
       };
     }
+    if (mode === "lost") {
+      if (reduced) return { ...CLEAN, snow: 1 };
+      // No picture at all: snow, slipping and rolling as the tracking hunts for a signal that isn't there.
+      if (fxTime > LOST_TIME) stage.style.opacity = String(Math.max(0, 1 - (fxTime - LOST_TIME) / LOST_FADE));
+      return {
+        ...CLEAN,
+        snow: 1,
+        tear: 0.6 + Math.random() * 0.4,
+        roll: Math.random() < 0.25 ? Math.random() * renderer.pictureHeight : 0,
+        bleed: 2,
+      };
+    }
     return { ...CLEAN, snow: reduced ? 0.6 : 1, tear: reduced ? 0 : 1 };
   };
 
@@ -1358,10 +1376,17 @@ export function createGame(parts: GameParts): Game {
     light.step(dt, reduced, tuning.bright / 100);
     gather(cam, dt);
     renderer.render(cam, light, map, tuning, props, fx, reduced);
-    const ending = mode === "rewind" ? REWIND_TIME + BURST_TIME + CUT_TIME : mode === "stop" ? STOP_TIME : 0;
+    const ending =
+      mode === "rewind"
+        ? REWIND_TIME + BURST_TIME + CUT_TIME
+        : mode === "stop"
+          ? STOP_TIME
+          : mode === "lost"
+            ? LOST_TIME + LOST_FADE
+            : 0;
     if (ending && fxTime >= (reduced ? CALM_LEAVE_TIME : ending)) {
       left = true;
-      parts.onLeave(mode === "rewind" ? "rewind" : "stop");
+      parts.onLeave(mode === "rewind" || mode === "lost" ? mode : "stop");
     }
   };
 
