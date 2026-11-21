@@ -161,6 +161,10 @@ export interface Game {
  * shouldn't count the whole stall.
  */
 const MAX_REAL_STEP = 1;
+/** What's all above this height (XN up on the ceiling) the visitor walks under. */
+const WALK_UNDER = 0.55;
+/** The lowest of XN: the floor, unless she's on the ceiling or hanging from something, her head down toward it. */
+const xnLowest = (xn: Xn) => (xn.surface === "ceiling" ? xn.where.z - xn.figure.height : 0);
 /**
  * How near the visitor gets to a piece of junk's own shape (junk.ts bodyDistance): a little less than to a wall, where
  * the whole cell counts. And how far off the middle of the biggest (a stair, a long table) its shape can reach.
@@ -620,7 +624,7 @@ export function createGame(parts: GameParts): Game {
         if (Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS) return true;
       }
     }
-    if (xnThere() && xn && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
+    if (xnThere() && xn && xnLowest(xn) < WALK_UNDER && Math.hypot(x - xn.x, y - xn.y) < XN_RADIUS) return true;
     // The junk stops them where its own shape is, the part of it at their height, a step short of it.
     for (const junk of nearJunk) {
       if (!junk.solid && junk.kind !== "storage") continue;
