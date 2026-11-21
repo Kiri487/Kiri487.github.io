@@ -1,5 +1,18 @@
 import { hash3, mod } from "./hash";
 import type { Tuning } from "./tuning";
+import {
+  BURGER_ROOM_WEIGHTS,
+  CELLS_WEIGHTS,
+  CORRIDOR_WEIGHTS,
+  heaviest,
+  PIT_ROOM_WEIGHTS,
+  ZONE_DRYWALL,
+  ZONE_HOUSE,
+  ZONE_OFFICE,
+  ZONE_TILES,
+  ZONE_YELLOW,
+  type ZoneWeights,
+} from "./zones";
 
 /*
  * The place is an endless grid of one-metre cells, worked out from the seed wherever it's looked at, never stored.
@@ -18,6 +31,9 @@ import type { Tuning } from "./tuning";
  *
  * Smaller and rarer, a burger room: two cells by two in a corner of a lattice room, walled in all round with one
  * doorway, a party laid out in it for nobody (junk.ts), under warmer light (lighting.ts).
+ *
+ * The place is done up in zones (zones.ts), which have a say in what turns up where: how areas are laid out, which
+ * special rooms there are (pit rooms only in the yellow), and, elsewhere, the junk, the writing and the posters.
  *
  * Some statues have the cult's sign laid out in candles on the floor in front of them (junk.ts), where it fits.
  */
@@ -43,7 +59,10 @@ const LATTICE = 0;
 const CORRIDOR_EW = 1;
 const CORRIDOR_NS = 2;
 const CELLS = 3;
-/** How likely an area is to be corridors, and to be cells, if nothing round it stops it. */
+/**
+ * How likely an area is to be corridors, and to be cells, if nothing round it stops it: in the yellow, and weighed in
+ * the other zones (zones.ts).
+ */
 const CORRIDOR_SHARE = 0.16;
 /** A corridor area's walls, rooms and corridors repeat every this many cells across the corridors. */
 const CORRIDOR_PERIOD = 8;
@@ -63,20 +82,6 @@ export const LIGHT_FLICKER_A = 2;
 export const LIGHT_FLICKER_B = 3;
 export const LIGHT_DEAD = 4;
 
-/**
- * What a stretch of the place is done up in: its wallpaper and its floor. Still Level 0 everywhere, just built at
- * different times by different nobodies. Yellow is most of it.
- */
-export const ZONE_YELLOW = 0;
-/** Faded striped wallpaper over wood panelling, an old dark red carpet: like an old house. */
-export const ZONE_HOUSE = 1;
-/** Off-white paint, a black rubber skirting, grey-blue carpet tiles: a colder office. */
-export const ZONE_OFFICE = 2;
-/** Plasterboard never painted, its seams taped and its screws showing; bare concrete. */
-export const ZONE_DRYWALL = 3;
-/** White tiles all the way up, a checked lino floor: by the toilets and kitchens. */
-export const ZONE_TILES = 4;
-export const ZONE_COUNT = 5;
 /** How likely each zone is to be each kind, in turn from one die; what's left over is yellow. */
 const ZONE_CHANCES: readonly [number, number][] = [
   [ZONE_HOUSE, 0.11],
@@ -158,9 +163,9 @@ const ROOM_RULES: Record<RoomKind, RoomRules> = {
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
- * ones before stay where they were.
+ * ones before stay where they were. Each is weighed by the zone at the block's middle (zones.ts).
  */
-const ROOM_CHANCES: readonly [RoomKind, number][] = [["pit", 0.06]];
+const ROOM_CHANCES: readonly [RoomKind, number, ZoneWeights][] = [["pit", 0.06, PIT_ROOM_WEIGHTS]];
 /**
  * How likely each side of a special room is to have a doorway (one, anywhere along it). A room left with none gets
  * one.
@@ -186,7 +191,7 @@ export interface PitField {
   size: number;
 }
 
-/** How likely a lattice room is to have a burger room in it. */
+/** How likely a lattice room is to have a burger room in it, weighed by its zone (zones.ts). */
 const BURGER_ROOM = 0.0035;
 
 /**
@@ -250,18 +255,22 @@ export class WorldMap {
   /**
    * How area (rx, ry) is laid out. An area takes in 2 × 2 blocks of lattice rooms; one laid out to a plan has no
    * special rooms in them, and isn't next to one whose wall would run along its own north or west edge, which it
-   * builds itself. The spawn's area is always left to the dice.
+   * builds itself. The spawn's area is always left to the dice. How likely it is to be each depends on the zone at
+   * its middle.
    */
   private layoutOf(rx: number, ry: number): number {
     if (rx === 0 && ry === 0) return LATTICE;
     const die = this.noise(rx, ry, 11);
-    if (die >= CORRIDOR_SHARE + CELLS_SHARE) return LATTICE;
+    if (die >= CORRIDOR_SHARE * heaviest(CORRIDOR_WEIGHTS) + CELLS_SHARE * heaviest(CELLS_WEIGHTS)) return LATTICE;
+    const zone = this.zoneOfPoint(rx * 30, ry * 30);
+    const corridors = CORRIDOR_SHARE * CORRIDOR_WEIGHTS[zone];
+    if (die >= corridors + CELLS_SHARE * CELLS_WEIGHTS[zone]) return LATTICE;
     const bx = rx * 2 - 1;
     const by = ry * 2 - 1;
     for (const [i, j] of [[0, -1], [1, -1], [-1, 0], [-1, 1], [-1, -1]]) {
       if (this.rolledRoom(bx + i, by + j)) return LATTICE;
     }
-    if (die >= CORRIDOR_SHARE) return CELLS;
+    if (die >= corridors) return CELLS;
     return this.noise(rx, ry, 12) < 0.5 ? CORRIDOR_EW : CORRIDOR_NS;
   }
 
@@ -352,16 +361,26 @@ export class WorldMap {
 
   /**
    * The zone cell (cx, cy) is in, which its floor and the faces of wall looking into it are done up as. A special
-   * room keeps to the yellow it was built in.
+   * room keeps to the yellow it was built in, and a burger room to its lattice room's zone, even an unruly one's.
    */
   zoneAt(cx: number, cy: number): number {
-    if (this.roomAt(cx, cy)) return ZONE_YELLOW;
+    if (this.roomKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK))) return ZONE_YELLOW;
+    const burger = this.burgerAt(cx, cy);
+    if (burger) return this.roomZone(Math.floor(burger.x0 / 5), Math.floor(burger.y0 / 5));
     const lx = Math.floor(cx / 5);
     const ly = Math.floor(cy / 5);
     // Most lattice rooms go by their middle, so the whole room is one zone; an unruly one goes cell by cell.
-    const unruly = this.noise(lx, ly, 70) < ZONE_UNRULY;
-    const sx = unruly ? cx + 0.5 : lx * 5 + 2.5;
-    const sy = unruly ? cy + 0.5 : ly * 5 + 2.5;
+    if (this.noise(lx, ly, 70) < ZONE_UNRULY) return this.zoneOfPoint(cx + 0.5, cy + 0.5);
+    return this.roomZone(lx, ly);
+  }
+
+  /** The zone lattice room (lx, ly) is in by its middle: all of it, unless it's unruly. */
+  private roomZone(lx: number, ly: number): number {
+    return this.zoneOfPoint(lx * 5 + 2.5, ly * 5 + 2.5);
+  }
+
+  /** The zone point (sx, sy) is in. What zoneAt goes by (layouts, rooms) asks this instead, so as not to go round. */
+  private zoneOfPoint(sx: number, sy: number): number {
     const gx = Math.floor(sx / ZONE_SIZE);
     const gy = Math.floor(sy / ZONE_SIZE);
     let best = Infinity;
@@ -390,9 +409,13 @@ export class WorldMap {
   private rolledRoom(bx: number, by: number): RoomKind | null {
     if (bx === 0 && by === 0) return null;
     let die = this.noise(bx, by, 50);
-    for (const [kind, chance] of ROOM_CHANCES) {
-      if (die < chance) return kind;
-      die -= chance;
+    for (const [kind, chance, weights] of ROOM_CHANCES) {
+      const share = chance * heaviest(weights);
+      if (die < share) {
+        const zone = this.zoneOfPoint((bx + 0.5) * ROOM_BLOCK, (by + 0.5) * ROOM_BLOCK);
+        return die < chance * weights[zone] ? kind : null;
+      }
+      die -= share;
     }
     return null;
   }
@@ -421,7 +444,9 @@ export class WorldMap {
   burgerPlan(lx: number, ly: number): BurgerPlan | null {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
     if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
-    if (this.noise(lx, ly, 60) >= BURGER_ROOM) return null;
+    const die = this.noise(lx, ly, 60);
+    if (die >= BURGER_ROOM * heaviest(BURGER_ROOM_WEIGHTS)) return null;
+    if (die >= BURGER_ROOM * BURGER_ROOM_WEIGHTS[this.roomZone(lx, ly)]) return null;
     // Its walls can reach the lattice on its east and south, which may be an area laid out to a plan.
     for (const [i, j] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
       if (this.layout(lx + i, ly + j) !== LATTICE) return null;
