@@ -1,4 +1,4 @@
-import type { BurgerPlan, WorldMap } from "./map";
+import { CANDLE_SIGN_SIZE, type BurgerPlan, type CandleSign, type Statue, type WorldMap } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
 
 /*
@@ -1473,7 +1473,9 @@ export type JunkKind =
   | "cabinet"
   | "desk"
   | "socket"
-  | "burger";
+  | "burger"
+  | "candle"
+  | "flame";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -1498,6 +1500,10 @@ export interface Junk {
   doorway?: Doorway | null;
   /** XN's seat at a burger room's party: across the table from Kara's, where a bitten burger's been left. */
   partySeat?: boolean;
+  /** It lights itself (a candle's flame), whatever the light where it is. */
+  glow?: boolean;
+  /** How far its furthest part is from (x, y), when that's well off it (a candle sign, laid out round its middle). */
+  reach?: number;
 }
 
 /**
@@ -1606,6 +1612,7 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
     }
   }
   out.push(...partiesAround(map, x, y, radius));
+  out.push(...candleSignsAround(map, x, y, radius));
   return out;
 }
 
@@ -1621,7 +1628,8 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     const cx = bx * BLOCK + Math.floor(roll(1 + k) * BLOCK);
     const cy = by * BLOCK + Math.floor(roll(20 + k) * BLOCK);
     // Not in a special room that keeps junk out (in a pit room, it would hang over the pits).
-    if (map.wall(cx, cy) || !map.allows(cx, cy, "junk")) continue;
+    // Nor on a candle sign.
+    if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy)) continue;
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
@@ -2859,6 +2867,144 @@ function partiesAround(map: WorldMap, x: number, y: number, radius: number): Jun
   return out;
 }
 
+// ---- the candle sign ----
+
+/*
+ * The cult's sign laid out in candles on the floor in front of a statue, its ears toward it (map.ts says which and
+ * where): the candles all one model, their flames another (they light themselves); a few burnt down to stubs with
+ * nothing left to light.
+ */
+
+/** The candles' atlas: wax, flame. */
+const WAX: Rect = { x: 0, y: 0, w: 8, h: 8 };
+const FLAME: Rect = { x: 8, y: 0, w: 8, h: 8 };
+
+export const CANDLE_SKIN: StatueSkin = (() => {
+  const data = new Uint8ClampedArray(16 * 8 * 4);
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 16; x++) {
+      const o = (y * 16 + x) * 4;
+      const m = 0.9 + 0.1 * grain(x, y);
+      // Dark green wax; a green flame, paler in the middle.
+      const c = x < 8 ? [38, 74, 40] : Math.abs(x - 11.5) < 1.5 && y > 2 ? [214, 255, 170] : [90, 230, 110];
+      data[o] = c[0] * m;
+      data[o + 1] = c[1] * m;
+      data[o + 2] = c[2] * m;
+      data[o + 3] = 255;
+    }
+  }
+  return { data };
+})();
+
+/** The cult's sign as candles: points across it and down it, as shares of its height, its top toward the altar. */
+const SIGN_CANDLES: readonly (readonly [number, number])[] = [
+  [-0.057, -0.48], [0.04, -0.48], [0.073, -0.457], [-0.027, -0.453], [-0.08, -0.443], [0.023, -0.443],
+  [0.073, -0.417], [-0.04, -0.413], [-0.093, -0.403], [0.007, -0.403], [0.097, -0.383], [-0.1, -0.363],
+  [0.09, -0.343], [-0.103, -0.323], [0.09, -0.303], [-0.1, -0.283], [-0.347, -0.277], [0.337, -0.277],
+  [0.087, -0.263], [-0.31, -0.257], [0.3, -0.253], [-0.097, -0.243], [0.353, -0.24], [-0.353, -0.237],
+  [-0.277, -0.233], [0.267, -0.227], [0.087, -0.223], [-0.25, -0.203], [-0.09, -0.203], [0.333, -0.203],
+  [-0.337, -0.2], [0.24, -0.193], [-0.183, -0.183], [0.08, -0.183], [0.167, -0.183], [-0.223, -0.173],
+  [0.313, -0.167], [-0.317, -0.163], [-0.147, -0.163], [-0.08, -0.163], [0.213, -0.163], [0.133, -0.153],
+  [-0.197, -0.143], [0.067, -0.143], [0.18, -0.14], [0.287, -0.137], [-0.29, -0.133], [-0.123, -0.13],
+  [-0.063, -0.127], [0.11, -0.12], [0.257, -0.11], [-0.26, -0.107], [0.05, -0.103], [-0.097, -0.1],
+  [-0.047, -0.09], [0.087, -0.087], [0.223, -0.087], [-0.227, -0.083], [0.027, -0.07], [-0.19, -0.063],
+  [0.183, -0.063], [-0.02, -0.06], [-0.15, -0.05], [0.137, -0.047], [-0.067, -0.043], [0.053, -0.04],
+  [-0.11, -0.037], [0.01, -0.033], [0.093, -0.033], [-0.033, -0.02], [-0.187, -0.013], [0.16, -0.013],
+  [0.2, -0.007], [0.033, 0.0], [-0.23, 0.003], [-0.007, 0.01], [0.237, 0.01], [-0.057, 0.017],
+  [0.067, 0.023], [-0.26, 0.03], [-0.093, 0.037], [0.103, 0.04], [0.017, 0.043], [0.26, 0.043],
+  [-0.143, 0.05], [-0.023, 0.05], [0.143, 0.05], [0.04, 0.077], [-0.047, 0.083], [-0.143, 0.09],
+  [0.14, 0.09], [-0.01, 0.103], [0.07, 0.103], [-0.077, 0.11], [0.16, 0.127], [-0.16, 0.13],
+  [0.103, 0.13], [-0.117, 0.133], [0.013, 0.137], [-0.027, 0.153], [0.007, 0.177], [-0.02, 0.207],
+  [0.023, 0.213], [-0.003, 0.243], [0.02, 0.277], [-0.023, 0.28], [0.037, 0.313], [-0.033, 0.32],
+  [0.003, 0.337], [-0.007, 0.377], [-0.007, 0.417], [-0.007, 0.457],
+];
+/** A candle's half width, its height (on the floor), and its flame's half width and height. */
+const CANDLE_HW = 0.011;
+const CANDLE_TALL = [0.03, 0.06] as const;
+const FLAME_HW = 0.007;
+const FLAME_TALL = 0.026;
+/** How many have burnt down to a stub, unlit. */
+const BURNT = 0.08;
+
+/** A flame: two crossed sheets, each seen from both sides, narrowing to a point. */
+function flame(out: number[], x: number, y: number, z: number) {
+  const top = y + FLAME_TALL;
+  for (const [ax, az] of [
+    [FLAME_HW, 0],
+    [0, FLAME_HW],
+  ]) {
+    quad(out, [x - ax, y, z - az], [x + ax, y, z + az], [x, top, z], [x, top, z], FLAME);
+    quad(out, [x + ax, y, z + az], [x - ax, y, z - az], [x, top, z], [x, top, z], FLAME);
+  }
+}
+
+/**
+ * A candle sign: its candles as one model round the sign's middle with yaw 0 (its z is the place's x, its x
+ * the place's −y), and their flames as another. Each has a reach, how far the furthest candle is from the middle, so
+ * none of them is left out while it's in view.
+ */
+function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, sign: CandleSign): Junk[] {
+  const roll = (k: number) => map.noise(seedX * 13 + k, seedY, 960);
+  const model = (tris: number[]): StatueModel => ({ tris, atlasWidth: 16, atlasHeight: 8, stone: [40, 78, 40] });
+  const { x, y, dirX, dirY } = sign;
+  const wax: number[] = [];
+  const flames: number[] = [];
+  let reach = 0;
+  SIGN_CANDLES.forEach(([across, down], i) => {
+    const r = (k: number) => roll(100 + i * 4 + k);
+    const tall = CANDLE_TALL[0] + r(3) * (CANDLE_TALL[1] - CANDLE_TALL[0]);
+    const burnt = r(0) < BURNT;
+    const high = burnt ? tall * 0.3 : tall;
+    // Across it, then down it from the ears; each a little off where it was meant to go.
+    const cx = (-dirY * across + dirX * down) * CANDLE_SIGN_SIZE;
+    const cy = (dirX * across + dirY * down) * CANDLE_SIGN_SIZE;
+    const X = -cy + (r(1) - 0.5) * 0.03;
+    const Z = cx + (r(2) - 0.5) * 0.03;
+    reach = Math.max(reach, Math.hypot(X, Z));
+    box(wax, X - CANDLE_HW, X + CANDLE_HW, 0, high, Z - CANDLE_HW, Z + CANDLE_HW, WAX, WAX, WAX);
+    if (!burnt) flame(flames, X, high, Z);
+  });
+  const at = { x, y, h: 0, yaw: 0, pitch: 0, roll: 0, solid: null, reach: reach + 0.1 };
+  return [
+    { key, kind: "candle", model: model(wax), ...at },
+    { key: `${key}.flames`, kind: "flame", model: model(flames), ...at, glow: true },
+  ];
+}
+
+/** The candle signs, by statue and map: laid out once. */
+const candleSigns = new WeakMap<WorldMap, Map<Statue | "preview", Junk[]>>();
+
+/** The candle signs in front of the statues near (x, y), whole: a sign's candles are one piece. */
+function candleSignsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = candleSigns.get(map);
+  if (!known) {
+    known = new Map();
+    candleSigns.set(map, known);
+  }
+  const out: Junk[] = [];
+  for (const statue of map.statuesAround(x, y, radius)) {
+    // Only the ones that could be in reach; a statue's region is far bigger.
+    if (!statue.sign || Math.hypot(statue.sign.x - x, statue.sign.y - y) > radius + CANDLE_SIGN_SIZE / 2) continue;
+    let found = known.get(statue);
+    if (!found) {
+      found = candleSign(map, `candles${statue.cx},${statue.cy}`, statue.cx, statue.cy, statue.sign);
+      known.set(statue, found);
+    }
+    out.push(...found);
+  }
+  // Preview: one in front of the spawn. Delete before the PR.
+  const preview = map.previewSign();
+  if (preview && Math.hypot(preview.x - x, preview.y - y) <= radius + CANDLE_SIGN_SIZE / 2) {
+    let found = known.get("preview");
+    if (!found) {
+      found = candleSign(map, "candlesPreview", 0, 0, preview);
+      known.set("preview", found);
+    }
+    out.push(...found);
+  }
+  return out;
+}
+
 // ---- putting one in place ----
 
 /** A model turned and moved to where this piece of junk is, ready to draw. */
@@ -2910,5 +3056,5 @@ export function placeJunk(model: StatueModel, junk: Junk): StatueMesh {
     centres[i * 3 + 2] = (corners[q + 2] + corners[q + 7] + corners[q + 12]) / 3;
     flags[i] = src[o + 15];
   }
-  return { x: junk.x, y: junk.y, count, corners, normals, centres, flags };
+  return { x: junk.x, y: junk.y, count, corners, normals, centres, flags, reach: junk.reach };
 }

@@ -4,6 +4,7 @@ import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
 import {
   BURGER_SKIN,
+  CANDLE_SKIN,
   DOOR_SKIN,
   heldBurger,
   junkAround,
@@ -184,6 +185,9 @@ const PIT_FOOTING = 0.08;
 const FALL_TIP = 0.25;
 /** Dev builds: how often the frame stats are reported, in seconds. */
 const STATS_EVERY = 0.5;
+/** How brightly candle flames light themselves, and how much they flicker. */
+const FLAME_GLOW = 1.5;
+const FLAME_FLICKER = 0.25;
 /** Statues further than this aren't drawn. */
 const DRAW_RANGE = 28;
 /**
@@ -401,6 +405,8 @@ export function createGame(parts: GameParts): Game {
   });
   /** What the picture draws besides the place itself, built again each frame. */
   let props: Prop[] = [];
+  /** Seconds of flicker so far. */
+  let flameClock = 0;
 
   parts.dateLine.textContent = dateStamp(new Date());
 
@@ -656,6 +662,10 @@ export function createGame(parts: GameParts): Game {
   /** Everything to draw from this camera. XN moves on by dt seconds; she watches the camera. */
   const gather = (cam: Camera, dt: number) => {
     props = [];
+    // Candle flames, bright, and all flickering a little together; still, with reduced motion.
+    flameClock += dt;
+    const flicker = Math.sin(flameClock * 11) * Math.sin(flameClock * 4.3);
+    const flameGlow = reduced ? FLAME_GLOW : FLAME_GLOW + FLAME_FLICKER * flicker;
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
       // A monitor waits for its screen's picture.
@@ -670,6 +680,8 @@ export function createGame(parts: GameParts): Game {
         desk: WOOD_SKIN,
         socket: OFFICE_SKIN,
         burger: BURGER_SKIN,
+        candle: CANDLE_SKIN,
+        flame: CANDLE_SKIN,
       }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
@@ -677,7 +689,7 @@ export function createGame(parts: GameParts): Game {
         mesh = placeJunk(junk.model, junk);
         junkMeshes.set(junk.key, mesh);
       }
-      props.push({ mesh, model: junk.model, skin: junkSkin, clip: true });
+      props.push({ mesh, model: junk.model, skin: junkSkin, clip: true, glow: junk.glow ? flameGlow : undefined });
     }
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
       const eye: Point = [cam.x, cam.y, cam.z ?? EYE];

@@ -598,7 +598,7 @@ export class Renderer {
         fog: FOG,
       };
       for (const prop of props) {
-        drawStatue(frame, prop.mesh, prop.model, prop.skin, light.at(prop.mesh.x, prop.mesh.y), prop.clip);
+        drawStatue(frame, prop.mesh, prop.model, prop.skin, prop.glow ?? light.at(prop.mesh.x, prop.mesh.y), prop.clip);
       }
     }
 
