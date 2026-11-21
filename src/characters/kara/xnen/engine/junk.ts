@@ -1644,6 +1644,79 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
   return Math.hypot(dx - ax * t, dy - ay * t);
 }
 
+/**
+ * What of a piece of junk the visitor walks into: its shape on the floor plan, every part of it between what they
+ * can step over and what they can walk under, wrapped round (its convex hull), as [x, y] corners round it.
+ */
+const BODY_LOW = 0.08;
+const BODY_HIGH = 0.55;
+const footprints = new WeakMap<Junk, readonly (readonly [number, number])[]>();
+
+function footprintOf(junk: Junk): readonly (readonly [number, number])[] {
+  const known = footprints.get(junk);
+  if (known) return known;
+  const tris = junk.model.tris;
+  const points: [number, number][] = [];
+  const corner: [number, number, number][] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (let o = 0; o < tris.length; o += 16) {
+    for (let k = 0; k < 3; k++) corner[k] = junkPoint(junk, tris[o + k * 5], tris[o + k * 5 + 1], tris[o + k * 5 + 2]);
+    for (let k = 0; k < 3; k++) {
+      const a = corner[k];
+      const b = corner[(k + 1) % 3];
+      if (a[2] >= BODY_LOW && a[2] <= BODY_HIGH) points.push([a[0], a[1]]);
+      // Where an edge crosses into the band: a tall pole has no corner in it, only its sides going through.
+      for (const level of [BODY_LOW, BODY_HIGH]) {
+        if ((a[2] - level) * (b[2] - level) < 0) {
+          const t = (level - a[2]) / (b[2] - a[2]);
+          points.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+        }
+      }
+    }
+  }
+  const hull = convexHull(points);
+  footprints.set(junk, hull);
+  return hull;
+}
+
+/** The convex hull of some points, anticlockwise (Andrew's monotone chain). */
+function convexHull(points: [number, number][]): [number, number][] {
+  if (points.length < 3) return points;
+  points.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  const cross = (o: readonly number[], a: readonly number[], b: readonly number[]) =>
+    (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: [number, number][] = [];
+  for (const p of points) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: [number, number][] = [];
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/** How far (x, y) is from what of the junk the visitor walks into: 0 inside it, Infinity if nothing's in the way. */
+export function bodyDistance(junk: Junk, x: number, y: number): number {
+  const hull = footprintOf(junk);
+  if (!hull.length) return Infinity;
+  if (hull.length === 1) return Math.hypot(x - hull[0][0], y - hull[0][1]);
+  let best = Infinity;
+  let inside = hull.length >= 3;
+  for (let i = 0; i < hull.length; i++) {
+    const [ax, ay] = hull[i];
+    const [bx, by] = hull[(i + 1) % hull.length];
+    const ex = bx - ax;
+    const ey = by - ay;
+    if (ex * (y - ay) - ey * (x - ax) < 0) inside = false;
+    const t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1)));
+    best = Math.min(best, Math.hypot(x - ax - ex * t, y - ay - ey * t));
+  }
+  return inside ? 0 : best;
+}
+
 /** Junk is worked out a square block at a time, this many cells across; each block has at most one of each kind. */
 const BLOCK = 12;
 /**
