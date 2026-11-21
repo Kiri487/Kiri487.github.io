@@ -40,15 +40,18 @@ type V3 = [number, number, number];
  */
 const TILE = 0.1;
 
-/** A face of four corners, counter-clockwise seen from outside, painted with a rect of the atlas. */
-function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect) {
+/**
+ * A face of four corners, counter-clockwise seen from outside, painted with a rect of the atlas. `upTile` is how tall
+ * its tiles may be, if not TILE: a tall face no one can stand over (a partition) needs only to be cut across.
+ */
+function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect, upTile = TILE) {
   const u0 = r.x + 0.5;
   const v0 = r.y + 0.5;
   const u1 = r.x + r.w - 0.5;
   const v1 = r.y + r.h - 0.5;
   // a bottom left, b bottom right, c top right, d top left, as the face is seen.
   const across = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / TILE));
-  const up = Math.max(1, Math.ceil(Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]) / TILE));
+  const up = Math.max(1, Math.ceil(Math.hypot(d[0] - a[0], d[1] - a[1], d[2] - a[2]) / upTile));
   // The point s across and t up, and its place in the atlas.
   const at = (s: number, t: number) => {
     const p = [0, 1, 2].map(
@@ -68,6 +71,12 @@ function quad(out: number[], a: V3, b: V3, c: V3, d: V3, r: Rect) {
   }
 }
 
+/**
+ * A box as thin as this both ways (a leg, a post) is a stick: nobody gets close enough to the side of one for it to
+ * need cutting up its length, so its four sides are cut only across.
+ */
+const STICK = 0.05;
+
 /** A box from (x0, y0, z0) to (x1, y1, z1); `front` paints the +z face, `back` the −z face, `side` the rest. */
 function box(
   out: number[],
@@ -81,10 +90,11 @@ function box(
   back: Rect,
   side: Rect,
 ) {
-  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], front);
-  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], back);
-  quad(out, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], side);
-  quad(out, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], side);
+  const up = Math.abs(x1 - x0) <= STICK && Math.abs(z1 - z0) <= STICK ? Infinity : TILE;
+  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], front, up);
+  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], back, up);
+  quad(out, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], side, up);
+  quad(out, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], side, up);
   quad(out, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], side);
   quad(out, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], side);
 }
