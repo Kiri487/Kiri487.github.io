@@ -324,10 +324,10 @@ const BURGER_ROOM = 0.0035;
  * side (north, south, west, east) and which of that side's two cells.
  */
 export interface BurgerPlan {
-  x0: number;
-  y0: number;
-  side: number;
-  cell: number;
+  readonly x0: number;
+  readonly y0: number;
+  readonly side: number;
+  readonly cell: number;
 }
 
 /**
