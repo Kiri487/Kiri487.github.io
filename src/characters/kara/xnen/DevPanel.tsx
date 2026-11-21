@@ -136,6 +136,7 @@ const PROP_TARGETS: readonly [PropTarget, string][] = [
   ["pit", "坑邊"],
   ["party", "漢堡房的座位"],
   ["bed", "床墊"],
+  ["counter", "流理台"],
 ];
 
 const PROP_POSE_LABELS: Record<PropPose, string> = {

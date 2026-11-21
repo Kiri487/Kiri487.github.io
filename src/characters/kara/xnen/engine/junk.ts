@@ -1535,6 +1535,7 @@ export type JunkKind =
   | "burger"
   | "bedding"
   | "can"
+  | "kitchen"
   | "candle"
   | "flame";
 
@@ -3193,7 +3194,8 @@ function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk
       const key = `${lx},${ly}`;
       let found = known.get(key);
       if (!found) {
-        found = plan.kind === "camp" ? campIn(map, lx, ly, plan) : workroomIn(map, lx, ly, plan);
+        const furnish = { workroom: workroomIn, camp: campIn, pantry: pantryIn }[plan.kind];
+        found = furnish(map, lx, ly, plan);
         known.set(key, found);
       }
       for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
@@ -3530,6 +3532,464 @@ function campIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[]
     tin(x, y, 0, (j) => r(2 + j));
     taken.push({ x, y, r: TIN_R + 0.01 });
     strewn++;
+  }
+  return out;
+}
+
+// ---- the pantry ----
+
+/*
+ * A pantry, the little kitchen off an office corridor: a run of base cupboards along one wall with a worktop, a sink
+ * let into it and a tap, wall cupboards over it, a microwave on it; a fridge in the corner at its end; a water cooler
+ * against another wall; a small table with two chairs; mugs left about. Sometimes the chairs are up on the table
+ * upside down, as if someone closed up for the night; sometimes a wet floor sign by the sink; sometimes thirteen mugs
+ * in a row along the worktop's edge, all their handles the same way; now and then the fridge turned to the wall.
+ */
+
+/** The pantry's atlas: cupboard doors, the worktop, the sink, bright steel, the fridge, white sides, the microwave's
+ * front, the water cooler, its bottle, a mug. */
+const CUPBOARD: Rect = { x: 0, y: 0, w: 32, h: 16 };
+const WORKTOP: Rect = { x: 32, y: 0, w: 32, h: 16 };
+const SINK: Rect = { x: 0, y: 16, w: 16, h: 16 };
+const CHROME: Rect = { x: 16, y: 16, w: 8, h: 8 };
+const FRIDGE: Rect = { x: 32, y: 16, w: 16, h: 32 };
+const WHITE: Rect = { x: 48, y: 16, w: 8, h: 8 };
+const MICROWAVE: Rect = { x: 0, y: 32, w: 16, h: 8 };
+/** The water cooler's drip tray grille, the inside of its recess, and its two taps. */
+const GRILLE: Rect = { x: 16, y: 32, w: 8, h: 8 };
+const RECESS: Rect = { x: 16, y: 40, w: 4, h: 8 };
+const TAP_HOT: Rect = { x: 20, y: 40, w: 2, h: 8 };
+const TAP_COLD: Rect = { x: 22, y: 40, w: 2, h: 8 };
+const BOTTLE: Rect = { x: 24, y: 32, w: 8, h: 16 };
+const MUG: Rect = { x: 56, y: 16, w: 8, h: 8 };
+const KITCHEN_ATLAS_W = 64;
+const KITCHEN_ATLAS_H = 48;
+
+export const KITCHEN_SKIN: StatueSkin = (() => {
+  const W = KITCHEN_ATLAS_W;
+  const data = new Uint8ClampedArray(W * KITCHEN_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], m = 1) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0] * m;
+    data[o + 1] = c[1] * m;
+    data[o + 2] = c[2] * m;
+    data[o + 3] = 255;
+  };
+  const noise = (x: number, y: number) => 0.94 + 0.08 * grain(x, y + 900);
+  // `shade` darkens or lightens each pixel; by default, none.
+  const fill = (r: Rect, colour: (x: number, y: number) => readonly number[], shade?: (x: number, y: number) => number) => {
+    for (let y = 0; y < r.h; y++) {
+      for (let x = 0; x < r.w; x++) put(r.x + x, r.y + y, colour(x, y), (shade?.(x, y) ?? 1) * noise(x + r.x, y + r.y));
+    }
+  };
+  const CREAM = [222, 216, 196];
+  // Two cupboard doors: cream, a dark gap between them and round the edge, a short bar handle each by the gap.
+  fill(CUPBOARD, (x, y) => {
+    if (x === 0 || x === 15 || x === 16 || x === 31 || y === 0 || y === 15) return [96, 92, 82];
+    if ((x === 13 || x === 18) && y >= 3 && y <= 6) return [150, 152, 150];
+    return CREAM;
+  });
+  // The worktop: grey laminate with a fine dark speckle.
+  fill(WORKTOP, (x, y) => (grain(x, y + 910) > 0.9 ? [92, 92, 90] : [168, 166, 160]));
+  // The sink: a steel basin in a rim, darker toward the drain in the middle.
+  fill(SINK, (x, y) => {
+    const rim = x <= 1 || y <= 1 || x >= 14 || y >= 14;
+    if (rim) return [186, 188, 188];
+    const d = Math.hypot(x - 7.5, y - 7.5);
+    return d < 1.5 ? [40, 40, 42] : [120 + d * 6, 122 + d * 6, 124 + d * 6];
+  });
+  fill(CHROME, () => [200, 204, 206]);
+  // The fridge's door: white, the freezer's door at the top, a long handle down each.
+  fill(FRIDGE, (x, y) => {
+    if (y === 9 || x === 0 || x === 15 || y === 0 || y === 31) return [150, 150, 146];
+    if (x === 2 && ((y >= 2 && y <= 7) || (y >= 12 && y <= 22))) return [120, 120, 118];
+    return [232, 232, 226];
+  });
+  fill(WHITE, () => [226, 226, 220]);
+  // The microwave: a dark window on the left, a panel of buttons on the right.
+  fill(MICROWAVE, (x, y) => {
+    if (x >= 1 && x <= 10 && y >= 1 && y <= 6) return [34, 36, 34];
+    if (x >= 12 && x <= 14 && y % 2 === 1) return [70, 70, 70];
+    return [214, 212, 204];
+  });
+  // The water cooler: a dark grey grille over its drip tray, a paler grey inside its recess, a red tap and a blue.
+  fill(GRILLE, (x) => (x % 2 === 0 ? [40, 42, 44] : [96, 98, 100]));
+  fill(RECESS, () => [150, 152, 150]);
+  fill(TAP_HOT, () => [190, 40, 34]);
+  fill(TAP_COLD, () => [40, 80, 190]);
+  // Its bottle: pale clear blue, darker where it's thicker at the sides, a band of label.
+  fill(
+    BOTTLE,
+    (_x, y) => (y >= 6 && y <= 8 ? [220, 232, 240] : [120, 170, 210]),
+    (x) => 1 - 0.12 * Math.abs(x - 3.5) / 3.5,
+  );
+  // A mug: white, a ring of colour round its rim.
+  fill(MUG, (_x, y) => (y <= 1 ? [180, 60, 50] : [236, 234, 228]));
+  return { data };
+})();
+
+/** A box as `box` makes it, but its top painted with `top`. */
+function topBox(
+  out: number[],
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+  z0: number,
+  z1: number,
+  front: Rect,
+  side: Rect,
+  top: Rect,
+) {
+  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], front);
+  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], side);
+  quad(out, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], side);
+  quad(out, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], side);
+  quad(out, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], top);
+  quad(out, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], side);
+}
+
+/** An upright cylinder of eight sides, its foot at 0: `side` round it, `top` on its lid and its foot. */
+function cylinder(out: number[], r: number, y0: number, y1: number, side: Rect, top: Rect) {
+  const n = 8;
+  const at = (k: number): [number, number] => {
+    const a = (k / n) * Math.PI * 2;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  };
+  for (let k = 0; k < n; k++) {
+    const [ax, az] = at(k);
+    const [bx, bz] = at(k + 1);
+    const u = { x: side.x + (k * side.w) / n, y: side.y, w: side.w / n, h: side.h };
+    quad(out, [bx, y0, bz], [ax, y0, az], [ax, y1, az], [bx, y1, bz], u);
+    quad(out, [0, y1, 0], [bx, y1, bz], [ax, y1, az], [0, y1, 0], top);
+    quad(out, [0, y0, 0], [ax, y0, az], [bx, y0, bz], [0, y0, 0], top);
+  }
+}
+
+const kitchenModel = (tris: number[], stone: readonly [number, number, number]): StatueModel => ({
+  tris,
+  atlasWidth: KITCHEN_ATLAS_W,
+  atlasHeight: KITCHEN_ATLAS_H,
+  stone,
+});
+
+/** A unit of the counter: how long, deep and high; the worktop's thickness and how far it overhangs the doors. */
+const UNIT = 0.5;
+const COUNTER_D = 0.3;
+const COUNTER_H = 0.36;
+const WORKTOP_T = 0.025;
+const WORKTOP_OVER = 0.015;
+/** The sink's basin: half its width, how far its mouth is from the worktop's back and front edges, how deep it is. */
+const SINK_HALF = 0.16;
+const SINK_BACK = 0.06;
+const SINK_FRONT = 0.035;
+const SINK_DEEP = 0.09;
+/** Wall cupboards: from how high to how high, and how deep. */
+const WALL_UNIT_Y = [0.6, 0.84] as const;
+const WALL_UNIT_D = 0.15;
+
+/** One unit of the counter, its back at z = −COUNTER_D / 2: cupboards under a length of worktop, or the sink. */
+function counterUnit(sink: boolean): StatueModel {
+  const tris: number[] = [];
+  const hl = UNIT / 2;
+  const hd = COUNTER_D / 2;
+  const under = COUNTER_H - WORKTOP_T;
+  const x0 = -hl + 0.002;
+  const x1 = hl - 0.002;
+  const z1 = hd - WORKTOP_OVER;
+  if (!sink) {
+    box(tris, x0, x1, 0, under, -hd, z1, CUPBOARD, WHITE, WHITE);
+    topBox(tris, -hl, hl, under, COUNTER_H, -hd, hd, WORKTOP, WORKTOP, WORKTOP);
+  } else {
+    // The cupboards, with no top: the basin sinks down into them.
+    quad(tris, [x0, 0, z1], [x1, 0, z1], [x1, under, z1], [x0, under, z1], CUPBOARD);
+    quad(tris, [x1, 0, -hd], [x0, 0, -hd], [x0, under, -hd], [x1, under, -hd], WHITE);
+    quad(tris, [x1, 0, z1], [x1, 0, -hd], [x1, under, -hd], [x1, under, z1], WHITE);
+    quad(tris, [x0, 0, -hd], [x0, 0, z1], [x0, under, z1], [x0, under, -hd], WHITE);
+    quad(tris, [x0, 0, -hd], [x1, 0, -hd], [x1, 0, z1], [x0, 0, z1], WHITE);
+    // The worktop round the basin's mouth: a strip behind it (for the tap), one in front, one either side.
+    const [bw, b0, b1] = [SINK_HALF, -hd + SINK_BACK, hd - SINK_FRONT];
+    const top = (xa: number, xb: number, za: number, zb: number) =>
+      topBox(tris, xa, xb, under, COUNTER_H, za, zb, WORKTOP, WORKTOP, WORKTOP);
+    top(-hl, hl, -hd, b0);
+    top(-hl, hl, b1, hd);
+    top(-hl, -bw, b0, b1);
+    top(bw, hl, b0, b1);
+    // The basin under the mouth, its walls facing in, down to its floor with the drain in it. Its walls stop at the
+    // worktop's underside; the worktop's own edges go on up from there.
+    const yb = COUNTER_H - SINK_DEEP;
+    quad(tris, [-bw, yb, b0], [bw, yb, b0], [bw, under, b0], [-bw, under, b0], CHROME);
+    quad(tris, [bw, yb, b1], [-bw, yb, b1], [-bw, under, b1], [bw, under, b1], CHROME);
+    quad(tris, [-bw, yb, b1], [-bw, yb, b0], [-bw, under, b0], [-bw, under, b1], CHROME);
+    quad(tris, [bw, yb, b0], [bw, yb, b1], [bw, under, b1], [bw, under, b0], CHROME);
+    quad(tris, [-bw, yb, b1], [bw, yb, b1], [bw, yb, b0], [-bw, yb, b0], SINK);
+  }
+  if (sink) {
+    // The tap at the back: a post, and a spout out over the basin.
+    box(tris, -0.008, 0.008, COUNTER_H, COUNTER_H + 0.08, -hd + 0.02, -hd + 0.036, CHROME, CHROME, CHROME);
+    box(tris, -0.006, 0.006, COUNTER_H + 0.066, COUNTER_H + 0.078, -hd + 0.036, -hd + 0.1, CHROME, CHROME, CHROME);
+  }
+  return kitchenModel(tris, [222, 216, 196]);
+}
+const COUNTER_UNIT = counterUnit(false);
+const SINK_UNIT = counterUnit(true);
+const WALL_UNIT = (() => {
+  const tris: number[] = [];
+  box(tris, -UNIT / 2 + 0.002, UNIT / 2 - 0.002, WALL_UNIT_Y[0], WALL_UNIT_Y[1], -WALL_UNIT_D / 2, WALL_UNIT_D / 2, CUPBOARD, WHITE, WHITE);
+  return kitchenModel(tris, [222, 216, 196]);
+})();
+/** The fridge: width, depth, height. */
+const FRIDGE_SIZE = [0.32, 0.3, 0.86] as const;
+const FRIDGE_MODEL = (() => {
+  const [w, d, h] = FRIDGE_SIZE;
+  const tris: number[] = [];
+  box(tris, -w / 2, w / 2, 0, h, -d / 2, d / 2, FRIDGE, WHITE, WHITE);
+  return kitchenModel(tris, [232, 232, 226]);
+})();
+const MICROWAVE_SIZE = [0.2, 0.12, 0.14] as const;
+const MICROWAVE_MODEL = (() => {
+  const [w, h, d] = MICROWAVE_SIZE;
+  const tris: number[] = [];
+  box(tris, -w / 2, w / 2, 0, h, -d / 2, d / 2, MICROWAVE, WHITE, WHITE);
+  return kitchenModel(tris, [214, 212, 204]);
+})();
+/** The water cooler: its body's width and height, its bottle's radius and height. */
+const COOLER_W = 0.16;
+const COOLER_H = 0.46;
+const BOTTLE_R = 0.065;
+const BOTTLE_H = 0.2;
+/** The recess in its front the taps are in: from how high to how high, half its width, and how deep. */
+const COOLER_RECESS = [0.25, 0.36] as const;
+const COOLER_RECESS_HALF = 0.055;
+const COOLER_RECESS_DEEP = 0.06;
+const COOLER_MODEL = (() => {
+  const tris: number[] = [];
+  const h = COOLER_W / 2;
+  const [r0, r1] = COOLER_RECESS;
+  const a = COOLER_RECESS_HALF;
+  const back = h - COOLER_RECESS_DEEP;
+  const white = (x0: number, x1: number, y0: number, y1: number) => box(tris, x0, x1, y0, y1, -h, h, WHITE, WHITE, WHITE);
+  // Below the recess and above it, whole; beside it, a post either side; behind it, its back. Its floor is the top of
+  // the part below, its roof the underside of the part above.
+  white(-h, h, 0, r0);
+  white(-h, h, r1, COOLER_H);
+  white(-h, -a, r0, r1);
+  white(a, h, r0, r1);
+  box(tris, -a, a, r0, r1, -h, back, RECESS, RECESS, RECESS);
+  // The drip tray's grille on its floor, and the two taps hanging from its roof.
+  topBox(tris, -a + 0.004, a - 0.004, r0, r0 + 0.008, back + 0.004, h - 0.004, WHITE, WHITE, GRILLE);
+  for (const [x, tap] of [[-0.024, TAP_HOT], [0.024, TAP_COLD]] as const) {
+    box(tris, x - 0.008, x + 0.008, r1 - 0.03, r1, back + 0.012, back + 0.03, tap, tap, tap);
+  }
+  cylinder(tris, BOTTLE_R, COOLER_H, COOLER_H + BOTTLE_H, BOTTLE, BOTTLE);
+  return kitchenModel(tris, [226, 226, 220]);
+})();
+/** A mug: radius and height; its handle is toward −x. */
+const MUG_R = 0.018;
+const MUG_H = 0.036;
+const MUG_MODEL = (() => {
+  const tris: number[] = [];
+  hollowCup(tris, MUG_R, MUG_H, 0.003, 0.005, MUG, WHITE, WHITE);
+  // The handle, a loop: an arm out at the top and at the bottom, and the grip down between them, a hole inside.
+  const part = (x0: number, x1: number, y0: number, y1: number) =>
+    box(tris, x0, x1, y0, y1, -0.003, 0.003, WHITE, WHITE, WHITE);
+  const reach = -MUG_R - 0.012;
+  part(reach, -MUG_R + 0.002, MUG_H - 0.01, MUG_H - 0.004);
+  part(reach, -MUG_R + 0.002, 0.008, 0.014);
+  part(reach, reach + 0.005, 0.014, MUG_H - 0.01);
+  return kitchenModel(tris, [236, 234, 228]);
+})();
+/** The table: small and square, and its height. */
+const PANTRY_TABLE: DeskShape = { length: 0.42, depth: 0.42, height: 0.3, legs: 2, drawer: false };
+
+/** How many units of counter, at least and at most; how likely each extra. */
+const PANTRY_UNITS = [3, 4] as const;
+const PANTRY_WALL_UNITS = 0.7;
+const PANTRY_COOLER = 0.6;
+const PANTRY_TABLE_CHANCE = 0.8;
+const PANTRY_CHAIRS_UP = 0.2;
+const PANTRY_WET = 0.35;
+const PANTRY_MUG_ROW = 0.25;
+const PANTRY_FRIDGE_AWAY = 0.12;
+/** How many mugs in the row, all handles one way. */
+const MUG_ROW = 13;
+
+/** What the preview shows in each of its rooms. */
+const PANTRY_PREVIEWS = [
+  { wallUnits: true, cooler: true, table: true, chairsUp: false, wet: true, mugRow: false, fridgeAway: false },
+  { wallUnits: true, cooler: false, table: true, chairsUp: true, wet: false, mugRow: false, fridgeAway: false },
+  { wallUnits: false, cooler: true, table: true, chairsUp: false, wet: false, mugRow: true, fridgeAway: false },
+  { wallUnits: true, cooler: false, table: false, chairsUp: false, wet: true, mugRow: false, fridgeAway: true },
+];
+
+/** Everything in pantry `plan` in lattice room (lx, ly), the same every time for this map. */
+function pantryIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 47 + k, ly, 970);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const preview = plan.preview === undefined ? null : PANTRY_PREVIEWS[plan.preview];
+  const has = (name: keyof (typeof PANTRY_PREVIEWS)[number], chance: number, k: number) =>
+    preview ? preview[name] : roll(k) < chance;
+  const wallUnits = has("wallUnits", PANTRY_WALL_UNITS, 1);
+  const cooler = has("cooler", PANTRY_COOLER, 2);
+  const table = has("table", PANTRY_TABLE_CHANCE, 3);
+  const chairsUp = table && has("chairsUp", PANTRY_CHAIRS_UP, 4);
+  const wet = has("wet", PANTRY_WET, 5);
+  const mugRow = has("mugRow", PANTRY_MUG_ROW, 6);
+  const fridgeAway = has("fridgeAway", PANTRY_FRIDGE_AWAY, 7);
+  const office = roll(8) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+
+  const taken: { x: number; y: number; r: number }[] = [];
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  const free = (x: number, y: number, r: number, wall = r) =>
+    x - wall > plan.x0 &&
+    y - wall > plan.y0 &&
+    x + wall < plan.x0 + FITTED_SIZE &&
+    y + wall < plan.y0 + FITTED_SIZE &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  const put = (name: string, kind: JunkKind, model: StatueModel, pose: Pose, solid: Solid | null = null) => {
+    out.push({ key: key(name), kind, model, ...pose, solid });
+  };
+  const level = (x: number, y: number, h: number, yaw: number): Pose => ({ x, y, h, yaw, pitch: 0, roll: 0 });
+
+  // The counter, along the wall across from the way in (or another without a door), from one of its corners: the
+  // fridge in the corner, then the units.
+  const [doorSide] = plan.doors[0];
+  const doorSides = new Set(plan.doors.map(([side]) => side));
+  const sides = [ACROSS[doorSide], ...[0, 1, 2, 3].filter((s) => s !== ACROSS[doorSide])];
+  const side = sides.find((s) => !doorSides.has(s)) ?? ACROSS[doorSide];
+  const into = inward(side);
+  const [fx, fy] = INWARD[side];
+  // Along the wall, from the corner it starts in.
+  const fromEnd = roll(10) < 0.5;
+  const t = (along: number) => (fromEnd ? FITTED_SIZE - along : along);
+  const [least, most] = PANTRY_UNITS;
+  const units = least + Math.floor(roll(11) * (most - least + 1));
+  const [w, d] = FRIDGE_SIZE;
+  const [frx, fry] = onWall(plan, side, t(0.02 + w / 2), d / 2 + 0.01);
+  const fridgeYaw = fridgeAway ? into + Math.PI : into;
+  put("fridge", "kitchen", FRIDGE_MODEL, level(frx, fry, 0, fridgeYaw), slab(frx, fry, fx * (d / 2), fy * (d / 2), w / 2));
+  taken.push({ x: frx, y: fry, r: w / 2 + 0.02 });
+  const sinkAt = Math.floor(roll(12) * units);
+  const microwaveAt = (sinkAt + 1 + Math.floor(roll(13) * (units - 1))) % units;
+  const start = 0.02 + w + 0.02;
+  const [ax, ay] = [-fy, fx];
+  for (let i = 0; i < units; i++) {
+    const [ux, uy] = onWall(plan, side, t(start + UNIT * (i + 0.5)), COUNTER_D / 2 + 0.005);
+    const unit = level(ux, uy, 0, into);
+    out.push({
+      key: key(`unit${i}`),
+      kind: "kitchen",
+      model: i === sinkAt ? SINK_UNIT : COUNTER_UNIT,
+      ...unit,
+      solid: slab(ux, uy, ax * (UNIT / 2), ay * (UNIT / 2), COUNTER_D / 2),
+      // XN can sit on the worktop (as on a desk), not by the tap.
+      perch: i === sinkAt ? null : perchOn(unit, COUNTER_H, COUNTER_D / 2, 0.1),
+    });
+    taken.push({ x: ux, y: uy, r: COUNTER_D / 2 + 0.03 }, { x: ux + ax * 0.2, y: uy + ay * 0.2, r: COUNTER_D / 2 });
+    taken.push({ x: ux - ax * 0.2, y: uy - ay * 0.2, r: COUNTER_D / 2 });
+    if (wallUnits) {
+      const [wx, wy] = onWall(plan, side, t(start + UNIT * (i + 0.5)), WALL_UNIT_D / 2 + 0.005);
+      put(`wallUnit${i}`, "kitchen", WALL_UNIT, level(wx, wy, 0, into));
+    }
+    if (i === microwaveAt) {
+      const [mx, my] = onWall(plan, side, t(start + UNIT * (i + 0.5) + (roll(14) - 0.5) * 0.15), MICROWAVE_SIZE[2] / 2 + 0.04);
+      put("microwave", "kitchen", MICROWAVE_MODEL, level(mx, my, COUNTER_H, into + (roll(15) - 0.5) * 0.15));
+    }
+  }
+  // The worktop that isn't the sink, as one length: d along it is this far along the wall, the sink skipped.
+  const dry = UNIT * (units - 1);
+  const onDry = (d: number) => start + d + (d >= UNIT * sinkAt ? UNIT : 0);
+
+  // Mugs: a row of thirteen along the worktop's front edge, handles all one way, past the sink if it's in the way;
+  // or a couple left on it, toward its front, clear of the microwave.
+  if (mugRow) {
+    const gap = Math.min(0.06, (dry - 0.1) / MUG_ROW);
+    const handle = into + Math.PI / 2;
+    for (let i = 0; i < MUG_ROW; i++) {
+      const [mx, my] = onWall(plan, side, t(onDry(0.05 + gap * (i + 0.5))), COUNTER_D - 0.04);
+      put(`row${i}`, "kitchen", MUG_MODEL, level(mx, my, COUNTER_H, handle));
+    }
+  } else {
+    for (let i = 0; i < 2; i++) {
+      const [mx, my] = onWall(plan, side, t(onDry(0.05 + roll(20 + i) * (dry - 0.1))), 0.21 + roll(22 + i) * 0.05);
+      put(`mug${i}`, "kitchen", MUG_MODEL, level(mx, my, COUNTER_H, roll(24 + i) * Math.PI * 2));
+    }
+  }
+
+  // A wet floor sign out in front of the sink.
+  if (wet) {
+    const [sx, sy] = onWall(plan, side, t(start + UNIT * (sinkAt + 0.5) + (roll(30) - 0.5) * 0.3), COUNTER_D + 0.35);
+    if (free(sx, sy, 0.12)) {
+      put("wet", "wetFloor", WET_FLOOR, level(sx, sy, 0, roll(31) * Math.PI * 2), { x: sx, y: sy, r: 0.1 });
+      taken.push({ x: sx, y: sy, r: 0.12 });
+    }
+  }
+
+  // The water cooler against another wall, near one of its ends.
+  if (cooler) {
+    for (let k = 0; k < 8; k++) {
+      const wall = [0, 1, 2, 3].filter((s) => s !== side)[Math.floor(roll(40 + k) * 3)];
+      const along = roll(48 + k) < 0.5 ? 0.3 : FITTED_SIZE - 0.3;
+      const [cx, cy] = onWall(plan, wall, along, COOLER_W / 2 + 0.02);
+      if (!free(cx, cy, 0.14, 0.09)) continue;
+      put("cooler", "kitchen", COOLER_MODEL, level(cx, cy, 0, inward(wall)), { x: cx, y: cy, r: 0.11 });
+      taken.push({ x: cx, y: cy, r: 0.14 });
+      break;
+    }
+  }
+
+  // The table and its two chairs, out in the room, square to the walls; or the chairs upside down on it.
+  if (table) {
+    const chair = buildChair(ORDINARY, office);
+    const seat = chairSeat(ORDINARY);
+    const hd = PANTRY_TABLE.depth / 2;
+    for (let k = 0; k < 10; k++) {
+      const [tx, ty] = onWall(plan, side, 1 + roll(60 + k) * 2, 1.9 + roll(70 + k) * 0.8);
+      if (!free(tx, ty, 0.5)) continue;
+      const yaw = into + (roll(80) - 0.5) * 0.1;
+      const tablePose = level(tx, ty, 0, yaw);
+      out.push({
+        key: key("table"),
+        kind: "desk",
+        model: buildDesk(PANTRY_TABLE, office),
+        office,
+        ...tablePose,
+        solid: { x: tx, y: ty, r: hd + 0.02 },
+        perch: perchOn(tablePose, PANTRY_TABLE.height, hd, 0.1),
+      });
+      taken.push({ x: tx, y: ty, r: 0.5 });
+      // Either side of it, along the counter's wall.
+      for (const s of [-1, 1]) {
+        const ex = Math.sin(yaw) * s;
+        const ey = -Math.cos(yaw) * s;
+        if (chairsUp) {
+          // Seat down on the table, legs up, its back over the edge.
+          const cx = tx + ex * (hd - 0.09);
+          const cy = ty + ey * (hd - 0.09);
+          const up = { x: cx, y: cy, h: PANTRY_TABLE.height + seat, yaw: Math.atan2(-ey, -ex), pitch: 0, roll: Math.PI };
+          out.push({ key: key(`chair${s}`), kind: "chair", model: chair, office, ...up, solid: null });
+        } else {
+          const cx = tx + ex * (hd + 0.2);
+          const cy = ty + ey * (hd + 0.2);
+          const pose = level(cx, cy, 0, Math.atan2(-ey, -ex) + (roll(81 + s) - 0.5) * 0.4);
+          out.push({
+            key: key(`chair${s}`),
+            kind: "chair",
+            model: chair,
+            office,
+            ...pose,
+            solid: { x: cx, y: cy, r: 0.2 },
+            perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),
+          });
+        }
+      }
+      put("tableMug", "kitchen", MUG_MODEL, level(tx + (roll(85) - 0.5) * 0.2, ty + (roll(86) - 0.5) * 0.2, PANTRY_TABLE.height, roll(87) * 6.3));
+      break;
+    }
   }
   return out;
 }

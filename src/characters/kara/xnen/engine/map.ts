@@ -12,6 +12,7 @@ import {
   ZONE_TILES,
   ZONE_YELLOW,
   CAMP_WEIGHTS,
+  PANTRY_WEIGHTS,
   WORKROOM_WEIGHTS,
   type ZoneWeights,
 } from "./zones";
@@ -170,6 +171,7 @@ const ROOM_RULES: Record<RoomKind, RoomRules> = {
   burger: { junk: false, statue: false, xn: true },
   workroom: { junk: false, statue: false, xn: true },
   camp: { junk: false, statue: false, xn: true },
+  pantry: { junk: false, statue: false, xn: true },
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
@@ -217,9 +219,9 @@ export interface BurgerPlan {
 
 /**
  * The kinds of fitted room: a lattice room fitted out for a use. A camp is where one of the lost lived for a while:
- * a mattress on the floor, empty tins, the count on the wall.
+ * a mattress on the floor, empty tins, the count on the wall. A pantry is a little kitchen.
  */
-export type FittedKind = "workroom" | "camp";
+export type FittedKind = "workroom" | "camp" | "pantry";
 /**
  * How likely a lattice room is to be each kind of fitted room, in turn from one die, weighed by its zone (zones.ts):
  * a new kind takes the next share, so the ones before stay where they were.
@@ -227,6 +229,7 @@ export type FittedKind = "workroom" | "camp";
 const FITTED_CHANCES: readonly [FittedKind, number, ZoneWeights][] = [
   ["workroom", 0.06, WORKROOM_WEIGHTS],
   ["camp", 0.07, CAMP_WEIGHTS],
+  ["pantry", 0.06, PANTRY_WEIGHTS],
 ];
 /** How likely a fitted room is to have a second door, in another wall. */
 const FITTED_SECOND_DOOR = 0.3;
@@ -252,7 +255,7 @@ export interface FittedPlan {
  * furnished its own way.
  */
 const PREVIEW_FITTED = true;
-const PREVIEW_KIND: FittedKind = "camp";
+const PREVIEW_KIND: FittedKind = "pantry";
 /** The lattice rooms round the spawn, and the side of each that faces it. */
 const PREVIEW_ROOMS: readonly (readonly [number, number, number])[] = [
   [1, 0, 2],

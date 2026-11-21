@@ -34,7 +34,8 @@ import {
  * (stand, crouch, or sit on the edge with her legs hanging, still or swinging), the same upside down under a chair
  * in the ceiling; stand at a door, or sit or crouch facing it or with her back to it; stand, sit or
  * crouch looking at graffiti (her head on one side if it's her drawing of herself) or a sign; sit on a camp's
- * mattress hugging her knees, facing out into the room or turned to the wall with the count on it.
+ * mattress hugging her knees, facing out into the room or turned to the wall with the count on it; sit on the edge
+ * of a pantry's worktop.
  */
 export type PropTarget =
   | "chair"
@@ -48,7 +49,8 @@ export type PropTarget =
   | "sign"
   | "pit"
   | "party"
-  | "bed";
+  | "bed"
+  | "counter";
 /** `hold` is sitting on the edge with a burger in her hands, now and then taking a bite. */
 export type PropPose =
   | "stand"
@@ -76,6 +78,8 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   portrait: ["stand", "sit", "crouch"],
   sign: ["stand", "sit", "crouch"],
   bed: ["sit", "sitWall"],
+  // Only on its edge: standing on it, she'd have her head in the wall cupboards.
+  counter: ["perch", "swing"],
 };
 
 /** The dev panel puts XN this far in front of the visitor. */
@@ -574,7 +578,9 @@ export function createXnPlaces(world: XnWorld) {
             ? "hung"
             : junk.kind === "bedding"
               ? "bed"
-              : (junk.kind as PropTarget);
+              : junk.kind === "kitchen"
+                ? "counter"
+                : (junk.kind as PropTarget);
         // Only what she has ways to be on: a perch on any other kind of thing is left alone.
         if (target in PROP_POSES) out.push({ target, x: junk.perch.x, y: junk.perch.y, junk, perch: junk.perch });
       }
