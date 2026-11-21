@@ -12,7 +12,10 @@ import {
   ZONE_TILES,
   ZONE_YELLOW,
   CAMP_WEIGHTS,
+  CUBICLE_HALL_WEIGHTS,
+  LAMP_HALL_WEIGHTS,
   MEETING_WEIGHTS,
+  PILLAR_HALL_WEIGHTS,
   PANTRY_WEIGHTS,
   STORAGE_WEIGHTS,
   WORKROOM_WEIGHTS,
@@ -44,6 +47,10 @@ import {
  * special rooms there are (pit rooms only in the yellow), and, elsewhere, the junk, the writing and the posters.
  *
  * Some statues have the cult's sign laid out in candles on the floor in front of them (junk.ts), where it fits.
+ *
+ * A big room is a hall of one kind or another (HallKind): pillars every three cells all the way across, like a car
+ * park with no cars; a floor of office cubicles, everyone gone (junk.ts); every light out but the one in the middle,
+ * something under it; or left empty. A hall that's any of the first three has no fitted room or burger room in it.
  */
 
 interface Area {
@@ -152,6 +159,41 @@ const CANDLE_SIGN_TURNS = 8;
 
 /** A special room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
 export const ROOM_BLOCK = 15;
+
+/** How likely a block of lattice rooms is to be knocked through into a big room. */
+const BIG_ROOM = 0.2;
+/**
+ * What a big room has in it: pillars, cubicles, one light. Each share is weighed by the zone at its middle (zones.ts);
+ * an empty one's share isn't, so where a kind is weighed down, more of them are empty.
+ */
+export type HallKind = "pillars" | "cubicles" | "lamp";
+const HALL_CHANCES: readonly [HallKind, number, ZoneWeights][] = [
+  ["pillars", 0.3, PILLAR_HALL_WEIGHTS],
+  ["cubicles", 0.25, CUBICLE_HALL_WEIGHTS],
+  ["lamp", 0.15, LAMP_HALL_WEIGHTS],
+];
+const HALL_EMPTY = 0.3;
+/** In a pillar hall: a pillar on every cell this many apart each way, and how many of them aren't there. */
+export const HALL_PILLAR_EVERY = 3;
+const HALL_PILLAR_MISSING = 0.06;
+/** In a one-light hall: the one that works, this many cells in from the block's corner each way (its middle). */
+export const HALL_LAMP = 7;
+
+/**
+ * Preview, for Kiri: one of each kind of hall right round the spawn, its own block always a plain big room and the
+ * walls between them open. Comes out before the pull request.
+ */
+const PREVIEW_HALLS = true;
+const PREVIEW_HALL_KINDS: Record<string, HallKind> = {
+  "1,0": "pillars",
+  "0,1": "cubicles",
+  "-1,0": "lamp",
+  "0,-1": "lamp",
+};
+const previewHall = (bx: number, by: number): HallKind | null =>
+  PREVIEW_HALLS ? (PREVIEW_HALL_KINDS[`${bx},${by}`] ?? null) : null;
+/** Whether block (bx, by) is one the preview has a say in: the spawn's or one round it. */
+const previewBlock = (bx: number, by: number) => PREVIEW_HALLS && Math.abs(bx) + Math.abs(by) <= 1;
 
 /** The kinds of special room. */
 /**
@@ -352,6 +394,8 @@ export class WorldMap {
   private readonly layouts = new Map<number, number>();
   /** Each lattice room's fitted room, or null, by lx * 100 003 + ly. */
   private readonly fitted = new Map<number, FittedPlan | null>();
+  /** What each block's big room has in it, or null if it's none of the kinds, by bx * 100 003 + by. */
+  private readonly halls = new Map<number, HallKind | null>();
 
   /** The tuning is read live, so the dev panel's dead-light slider works without a new map. */
   constructor(seed: number, tuning: Tuning) {
@@ -394,6 +438,7 @@ export class WorldMap {
    */
   private layoutOf(rx: number, ry: number): number {
     if (rx === 0 && ry === 0) return LATTICE;
+    if (PREVIEW_HALLS && Math.abs(rx) + Math.abs(ry) <= 1) return LATTICE;
     const die = this.noise(rx, ry, 11);
     if (die >= CORRIDOR_SHARE * heaviest(CORRIDOR_WEIGHTS) + CELLS_SHARE * heaviest(CELLS_WEIGHTS)) return LATTICE;
     const zone = this.zoneOfPoint(rx * 30, ry * 30);
@@ -546,6 +591,7 @@ export class WorldMap {
   /** What kind of special room block (bx, by) rolled, whether or not its area lets it be one. */
   private rolledRoom(bx: number, by: number): RoomKind | null {
     if (bx === 0 && by === 0) return null;
+    if (previewBlock(bx, by)) return null;
     let die = this.noise(bx, by, 50);
     for (const [kind, chance, weights] of ROOM_CHANCES) {
       const share = chance * heaviest(weights);
@@ -607,6 +653,10 @@ export class WorldMap {
    */
   private fits(lx: number, ly: number): boolean {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return false;
+    // Not in a hall that has something in it.
+    const bx = Math.floor(lx / 3);
+    const by = Math.floor(ly / 3);
+    if (this.hallKind(bx, by) || previewBlock(bx, by)) return false;
     // Its own, those it has doors onto, and the one south-east, whose lattice point is its corner.
     for (const [i, j] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1]]) {
       if (this.layout(lx + i, ly + j) !== LATTICE) return false;
@@ -712,7 +762,9 @@ export class WorldMap {
    */
   burgerPlan(lx: number, ly: number): BurgerPlan | null {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
-    if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
+    const bx = Math.floor(lx / 3);
+    const by = Math.floor(ly / 3);
+    if (this.specialRoom(bx, by) || this.hallKind(bx, by) || previewBlock(bx, by)) return null;
     const die = this.noise(lx, ly, 60);
     if (die >= BURGER_ROOM * heaviest(BURGER_ROOM_WEIGHTS)) return null;
     if (die >= BURGER_ROOM * BURGER_ROOM_WEIGHTS[this.roomZone(lx, ly)]) return null;
@@ -785,7 +837,74 @@ export class WorldMap {
 
   /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a special room. */
   private openBlock(bx: number, by: number): boolean {
-    return this.noise(bx, by, 9) < 0.2 || this.specialRoom(bx, by);
+    return this.noise(bx, by, 9) < BIG_ROOM || this.specialRoom(bx, by) || previewBlock(bx, by);
+  }
+
+  /** What block (bx, by)'s big room has in it, or null if it's no big room, an empty one, or the spawn's. */
+  hallKind(bx: number, by: number): HallKind | null {
+    const key = bx * 100_003 + by;
+    let kind = this.halls.get(key);
+    if (kind === undefined) {
+      kind = this.hallKindOf(bx, by);
+      this.halls.set(key, kind);
+    }
+    return kind;
+  }
+
+  private hallKindOf(bx: number, by: number): HallKind | null {
+    if (previewBlock(bx, by)) return previewHall(bx, by);
+    if (bx === 0 && by === 0) return null;
+    // Only a big room of plain lattice rooms: not a special room, nor in an area laid out to a plan, which has none.
+    if (this.noise(bx, by, 9) >= BIG_ROOM || this.specialRoom(bx, by)) return null;
+    if (this.layout(bx * 3, by * 3) !== LATTICE) return null;
+    const zone = this.zoneOfPoint((bx + 0.5) * ROOM_BLOCK, (by + 0.5) * ROOM_BLOCK);
+    const shares = HALL_CHANCES.map(([kind, chance, weights]) => [kind, chance * weights[zone]] as const);
+    let die = this.noise(bx, by, 47) * shares.reduce((sum, [, share]) => sum + share, HALL_EMPTY);
+    for (const [kind, share] of shares) {
+      if (die < share) return kind;
+      die -= share;
+    }
+    return null;
+  }
+
+  /** The kind of hall cell (cx, cy) is inside, not on the lattice round it, or null if it's in none. */
+  hallAt(cx: number, cy: number): HallKind | null {
+    if (mod(cx, ROOM_BLOCK) === 0 || mod(cy, ROOM_BLOCK) === 0) return null;
+    return this.hallKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK));
+  }
+
+  /**
+   * Whether cell (cx, cy) is in a hall that keeps out the junk lying about, statues and candles: the cubicles, which
+   * have their own things, and the one-light hall, which has only the one.
+   */
+  bareHall(cx: number, cy: number): boolean {
+    const hall = this.hallAt(cx, cy);
+    return hall === "cubicles" || hall === "lamp";
+  }
+
+  /** The middle of the one working light of every one-light hall within `radius` of (x, y). */
+  lampHallsNear(x: number, y: number, radius: number): [number, number][] {
+    const out: [number, number][] = [];
+    for (let by = Math.floor((y - radius) / ROOM_BLOCK); by <= Math.floor((y + radius) / ROOM_BLOCK); by++) {
+      for (let bx = Math.floor((x - radius) / ROOM_BLOCK); bx <= Math.floor((x + radius) / ROOM_BLOCK); bx++) {
+        if (this.hallKind(bx, by) !== "lamp") continue;
+        const lx = bx * ROOM_BLOCK + HALL_LAMP + 0.5;
+        const ly = by * ROOM_BLOCK + HALL_LAMP + 0.5;
+        if (Math.hypot(lx - x, ly - y) <= radius) out.push([lx, ly]);
+      }
+    }
+    return out;
+  }
+
+  /** Preview: whether the stretch of lattice is on the line between the spawn's block and one of the halls round it. */
+  private previewJoin(lx: number, ly: number, dir: number): boolean {
+    const across = dir === 0 ? ly : lx;
+    if (!PREVIEW_HALLS || mod(across, 3) !== 0) return false;
+    const along = Math.floor((dir === 0 ? lx : ly) / 3);
+    const block = across / 3;
+    return dir === 0
+      ? previewBlock(along, block) && previewBlock(along, block - 1)
+      : previewBlock(block, along) && previewBlock(block - 1, along);
   }
 
   private bigRoom(lx: number, ly: number, dir: number): boolean {
@@ -876,6 +995,7 @@ export class WorldMap {
     const layout = this.layout(lx, ly);
     // An area laid out to a plan has walls of its own (cellsWall, corridorWall).
     if (layout !== LATTICE) return false;
+    if (this.previewJoin(lx, ly, dir)) return false;
     if (this.bigRoom(lx, ly, dir)) return false;
     if (this.roomWall(lx, ly, dir)) {
       const doorway =
@@ -906,6 +1026,16 @@ export class WorldMap {
     const layout = this.layout(lx, ly);
     if (layout === CELLS) return this.cellsWall(x, y);
     if (layout !== LATTICE) return this.corridorWall(x, y, layout);
+    const hall = this.hallAt(x, y);
+    if (hall === "pillars" || hall === "cubicles") {
+      const ox = mod(x, ROOM_BLOCK);
+      const oy = mod(y, ROOM_BLOCK);
+      // The lattice's own pillars in a big room aren't where these want them, or where the cubicles go.
+      if (ox % 5 === 0 && oy % 5 === 0) return 0;
+      if (hall === "pillars" && ox % HALL_PILLAR_EVERY === 0 && oy % HALL_PILLAR_EVERY === 0) {
+        return this.noise(x, y, 46) < HALL_PILLAR_MISSING ? 0 : 1;
+      }
+    }
     const mx = x - lx * 5;
     const my = y - ly * 5;
     if (mx === 0 && my === 0) {
@@ -933,6 +1063,10 @@ export class WorldMap {
   /** The ceiling light over cell (x, y), for cells where a light hangs (lampAt). */
   light(x: number, y: number): number {
     if (this.burgerLamp(x, y)) return LIGHT_ON;
+    // A one-light hall's: all out, but the one in its middle, which never even flickers.
+    if (this.hallAt(x, y) === "lamp") {
+      return mod(x, ROOM_BLOCK) === HALL_LAMP && mod(y, ROOM_BLOCK) === HALL_LAMP ? LIGHT_ON : LIGHT_DEAD;
+    }
     // A storeroom's are mostly out, and the rest failing.
     if (this.fittedAt(x, y)?.kind === "storage") {
       const r = this.noise(x, y, 23);
@@ -969,7 +1103,7 @@ export class WorldMap {
 
   /** Room for a statue at cell (x, y): it and the eight cells around it are open, and statues belong there. */
   private roomy(x: number, y: number): boolean {
-    if (!this.allows(x, y, "statue")) return false;
+    if (!this.allows(x, y, "statue") || this.bareHall(x, y)) return false;
     for (let j = -1; j <= 1; j++) {
       for (let i = -1; i <= 1; i++) {
         if (this.wall(x + i, y + j)) return false;
@@ -1031,7 +1165,7 @@ export class WorldMap {
     return !this.overSign(sign, 0, (x, y) => {
       const cx = Math.floor(x);
       const cy = Math.floor(y);
-      return this.wall(cx, cy) !== 0 || this.roomAt(cx, cy) !== null;
+      return this.wall(cx, cy) !== 0 || this.roomAt(cx, cy) !== null || this.bareHall(cx, cy);
     });
   }
 

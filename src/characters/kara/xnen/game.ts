@@ -691,6 +691,7 @@ export function createGame(parts: GameParts): Game {
         storage: STORAGE_SKIN,
         candle: CANDLE_SKIN,
         flame: CANDLE_SKIN,
+        partition: OFFICE_SKIN,
       }[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
