@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import { hash3 } from "./hash";
 
 /* Every surface is drawn by code when the place first opens: no image files. Textures are flat RGB arrays. */
@@ -56,7 +57,7 @@ const layered = (u: number, v: number, per: number, s: number) =>
   0.125 * valueNoise(u, v, per * 8, s + 3);
 
 function smoothstep(a: number, b: number, x: number): number {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  const t = clamp((x - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 }
 

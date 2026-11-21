@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import type { WorldMap } from "./map";
 
 /*
@@ -69,7 +70,7 @@ export class Timecode {
     let key: string;
     let text: string;
     if (d < CLOSE * k) {
-      const n = Math.min(9, Math.max(1, Math.round(d / k)));
+      const n = clamp(Math.round(d / k), 1, 9);
       key = text = `2${n}`;
     } else {
       const band = BANDS.find(([upTo]) => d < upTo * k);

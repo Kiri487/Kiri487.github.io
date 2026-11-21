@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import {
   campBed,
   CANDLE_SIGN_SIZE,
@@ -751,7 +752,7 @@ const WET_FLOOR = buildWetFloor();
 function nearLine(px: number, py: number, a: readonly number[], b: readonly number[], r: number) {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
-  const t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy)));
+  const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / (dx * dx + dy * dy), 0, 1);
   return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t) <= r;
 }
 
@@ -1640,7 +1641,7 @@ export function solidDistance(solid: Solid, x: number, y: number): number {
   const dy = y - solid.y;
   if (!solid.along) return Math.hypot(dx, dy);
   const [ax, ay] = solid.along;
-  const t = Math.max(-1, Math.min(1, (dx * ax + dy * ay) / (ax * ax + ay * ay)));
+  const t = clamp((dx * ax + dy * ay) / (ax * ax + ay * ay), -1, 1);
   return Math.hypot(dx - ax * t, dy - ay * t);
 }
 
@@ -1711,7 +1712,7 @@ export function bodyDistance(junk: Junk, x: number, y: number): number {
     const ex = bx - ax;
     const ey = by - ay;
     if (ex * (y - ay) - ey * (x - ax) < 0) inside = false;
-    const t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1)));
+    const t = clamp(((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey || 1), 0, 1);
     best = Math.min(best, Math.hypot(x - ax - ex * t, y - ay - ey * t));
   }
   return inside ? 0 : best;
@@ -1962,7 +1963,7 @@ function through(pose: Pose, level: number): [number, number] {
   const up = Math.cos(pose.roll) * Math.cos(pose.pitch);
   const out = Math.cos(pose.roll) * Math.sin(pose.pitch);
   if (Math.abs(up) < 0.2) return [pose.x, pose.y];
-  const t = Math.max(-1.2, Math.min(1.2, (level - pose.h) / up));
+  const t = clamp((level - pose.h) / up, -1.2, 1.2);
   const fx = Math.cos(pose.yaw);
   const fy = Math.sin(pose.yaw);
   return [pose.x + t * (across * fy + out * fx), pose.y + t * (-across * fx + out * fy)];
@@ -2711,7 +2712,7 @@ const PARTY_BIGGEST = 2;
 function fromLine(x: number, y: number, [ax, ay]: readonly number[], [bx, by]: readonly number[]) {
   const dx = bx - ax;
   const dy = by - ay;
-  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+  const t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
   return Math.hypot(x - ax - dx * t, y - ay - dy * t);
 }
 

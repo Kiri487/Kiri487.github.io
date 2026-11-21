@@ -1,4 +1,5 @@
 import { resumeAudioContext } from "../../../shared/audio";
+import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
@@ -924,7 +925,7 @@ export function createGame(parts: GameParts): Game {
   };
   const runFrame = (t: number) => {
     const now = t / 1000;
-    const real = last < 0 ? 0 : Math.min(MAX_REAL_STEP, Math.max(0, (t - last) / 1000));
+    const real = last < 0 ? 0 : clamp((t - last) / 1000, 0, MAX_REAL_STEP);
     const dt = Math.min(0.05, real);
     last = t;
     if (left) return;

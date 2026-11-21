@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import { hash3 } from "./hash";
 import { bareWall, campBed, type BurgerPlan, type WorldMap } from "./map";
 import type { Tuning } from "./tuning";
@@ -1348,7 +1349,7 @@ function layOut(plan: Plan, kind: Kind, text: string, seed: number, start: numbe
   const body = h - size * below;
   // A person's, from eye height down to just off the floor.
   const top = plan.low
-    ? Math.max(0.04, Math.min(0.96 - h, 0.3 + r(4) * Math.max(0, 0.62 - body)))
+    ? clamp(0.3 + r(4) * Math.max(0, 0.62 - body), 0.04, 0.96 - h)
     : plan.eye
       ? Math.min(0.96 - h, Math.max(0.04, 0.32 + r(4) * 0.3 - body / 2))
       : 0.04 + r(4) * Math.max(0, 0.92 - h);
@@ -1676,8 +1677,8 @@ function trace(tag: Tag, target: Uint8Array, glyph: Glyph, drawing: Drawing, spr
       // Bilinear, so the drawing's thin lines don't break up.
       const fx = u * dw - 0.5;
       const fy = v * dh - 0.5;
-      const ix = Math.max(0, Math.min(dw - 2, Math.floor(fx)));
-      const iy = Math.max(0, Math.min(dh - 2, Math.floor(fy)));
+      const ix = clamp(Math.floor(fx), 0, dw - 2);
+      const iy = clamp(Math.floor(fy), 0, dh - 2);
       const tx = clamp01(fx - ix);
       const ty = clamp01(fy - iy);
       const k = iy * dw + ix;

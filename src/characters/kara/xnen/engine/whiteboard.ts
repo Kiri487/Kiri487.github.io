@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import { glyphFor } from "./graffiti";
 import { hash3 } from "./hash";
 import type { StatueSkin } from "./statue";
@@ -124,9 +125,9 @@ class Pen {
           for (let x = x0; x <= x1; x++) {
             const px = x + 0.5;
             const py = y + 0.5;
-            const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+            const t = clamp(((px - ax) * dx + (py - ay) * dy) / len2, 0, 1);
             const d = Math.hypot(px - ax - dx * t, py - ay - dy * t);
-            const c = Math.max(0, Math.min(1, r + 0.5 - d));
+            const c = clamp(r + 0.5 - d, 0, 1);
             const k = y * FACE_W + x;
             if (c > cover[k]) cover[k] = c;
           }

@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import { tileGone } from "./decay";
 import { OVER_COLOUR, graffitiOn, paintAt, tagArt, type GraffitiLevel, type PaintSample, type Tag } from "./graffiti";
 import { WN, type Lighting } from "./lighting";
@@ -265,7 +266,7 @@ export class Renderer {
         let posterLevel = -1;
         if (!floorPass && posters.length) {
           const ratio = (posters[0][0].w * rd * 1.5) / (POSTER_WIDTH * focal);
-          posterLevel = Math.min(posters[0].length - 1, Math.max(0, Math.floor(Math.log2(Math.max(1, ratio)))));
+          posterLevel = clamp(Math.floor(Math.log2(Math.max(1, ratio))), 0, posters[0].length - 1);
         }
         const sx = (rd * 2 * plx) / W;
         const sy = (rd * 2 * ply) / W;
@@ -489,7 +490,7 @@ export class Renderer {
             // The size whose pixels are about as big as the screen's, so a far poster doesn't sparkle.
             const art = posters[spot.copy];
             const ratio = art[0].h / Math.max(1, lineH * spot.halfH * 2);
-            const n = Math.min(art.length - 1, Math.max(0, Math.floor(Math.log2(Math.max(1, ratio)))));
+            const n = clamp(Math.floor(Math.log2(Math.max(1, ratio))), 0, art.length - 1);
             crossed.push(spot);
             crossedLevel.push(art[n]);
           }
@@ -768,7 +769,7 @@ export class Renderer {
     const row = W * 4;
     const d = this.image.data;
     for (let y = 0; y < H; y++) {
-      const from = Math.min(H - 1, Math.max(0, y + jump));
+      const from = clamp(y + jump, 0, H - 1);
       d.set(still.subarray(from * row, from * row + row), y * row);
     }
     if (band >= 0) {

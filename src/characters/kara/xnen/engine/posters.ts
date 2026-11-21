@@ -1,3 +1,4 @@
+import { clamp } from "../../../../shared/math";
 import { nearestStatue } from "./compass";
 import { cellHasHole } from "./decay";
 import { hash3 } from "./hash";
@@ -374,8 +375,8 @@ function putOnWall(map: WorldMap, ox: number, oy: number, face: number, tuning: 
     const last = puts[puts.length - 1];
     let along = last ? last.along + (r(3) < 0.5 ? -1 : 1) * (0.12 + r(4) * 0.45) : base + r(4);
     let down = last ? last.down + (r(5) - 0.5) * 0.45 : 0.25 + r(5) * 0.5;
-    along = Math.min(to, Math.max(from, along));
-    down = Math.min(0.97 - reach, Math.max(0.03 + reach, down));
+    along = clamp(along, from, to);
+    down = clamp(down, 0.03 + reach, 0.97 - reach);
     puts.push({ along, down, angle, copy: copyOf(r(6)) });
   }
   return puts;
@@ -446,8 +447,8 @@ function putOnCeiling(map: WorldMap, ox: number, oy: number, tuning: Tuning, asp
     const heading = r(2) * Math.PI * 2;
     let along = last ? last.along + Math.cos(heading) * step : ox + r(1);
     let down = last ? last.down + Math.sin(heading) * step : oy + r(2);
-    along = Math.min(ox + CEILING_SPREAD + 1 - reach, Math.max(ox - CEILING_SPREAD + reach, along));
-    down = Math.min(oy + CEILING_SPREAD + 1 - reach, Math.max(oy - CEILING_SPREAD + reach, down));
+    along = clamp(along, ox - CEILING_SPREAD + reach, ox + CEILING_SPREAD + 1 - reach);
+    down = clamp(down, oy - CEILING_SPREAD + reach, oy + CEILING_SPREAD + 1 - reach);
     // Every tile it covers has to be plain, or it would be cut off at a light or a wall.
     let clear = true;
     for (let y = Math.floor(down - reach); y <= Math.floor(down + reach) && clear; y++) {
