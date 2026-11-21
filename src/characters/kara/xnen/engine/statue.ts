@@ -199,6 +199,9 @@ export function drawStatue(
     const den = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
     if (den > -0.5 && den < 0.5) continue;
     const id = 1 / den;
+    // Depth goes across the screen as its reciprocal does, not itself: straight across, a big face near the eye
+    // comes out too far in its middle, and something just over the carpet sinks through it there.
+    const r0 = 1 / d0, r1 = 1 / d1, r2 = 1 / d2;
     let bx0 = Math.min(x0, x1, x2);
     let bx1 = Math.max(x0, x1, x2);
     let by0 = Math.min(y0, y1, y2);
@@ -249,7 +252,7 @@ export function drawStatue(
         const l1 = ((y2 - y0) * (xc - x2) + (x0 - x2) * (yc - y2)) * id;
         const l2 = 1 - l0 - l1;
         if (l0 < 0 || l1 < 0 || l2 < 0) continue;
-        const z = l0 * d0 + l1 * d1 + l2 * d2;
+        const z = 1 / (l0 * r0 + l1 * r1 + l2 * r2);
         if (z >= wallDepth[x]) continue;
         // Its height in the room at this pixel: the floor and ceiling hide what's through them.
         if (clip) {
