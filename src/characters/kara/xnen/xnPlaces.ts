@@ -184,6 +184,8 @@ export interface XnWorld {
   readonly tuning: Tuning;
   /** How far the picture reaches to each side of straight ahead, at one cell ahead. */
   spread(): number;
+  /** How far off anything is drawn at all: past it, lost in the fog, nothing can be seen. */
+  readonly drawRange: number;
 }
 
 /** Something near her that XN can do something with: what it is, how far it is, and where. */
@@ -537,7 +539,7 @@ export function createXnPlaces(world: XnWorld) {
     const fx = Math.cos(cam.angle);
     const fy = Math.sin(cam.angle);
     const ahead = dx * fx + dy * fy;
-    if (ahead <= 0) return false;
+    if (ahead <= 0 || Math.hypot(dx, dy) > world.drawRange) return false;
     if (Math.abs(dy * fx - dx * fy) - XN_RADIUS > ahead * world.spread()) return false;
     return clearBetween(cam.x, cam.y, x, y);
   };

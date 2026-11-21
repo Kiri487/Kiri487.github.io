@@ -418,6 +418,7 @@ export function createGame(parts: GameParts): Game {
     },
     tuning,
     spread: () => renderer.spread(tuning.fov),
+    drawRange: DRAW_RANGE,
   });
   /** What the picture draws besides the place itself, built again each frame. */
   let props: Prop[] = [];
