@@ -611,8 +611,8 @@ export function createGame(parts: GameParts): Game {
   /** Room for XN's middle at (x, y): no wall within her reach. */
   const roomFor = (x: number, y: number) => {
     const r = XN_RADIUS;
-    // She keeps out of the pit rooms for now.
-    if (map.inPitRoom(Math.floor(x), Math.floor(y))) return false;
+    // She keeps out of the special rooms that keep her out.
+    if (!map.allows(Math.floor(x), Math.floor(y), "xn")) return false;
     return (
       !map.wall(Math.floor(x - r), Math.floor(y - r)) &&
       !map.wall(Math.floor(x + r), Math.floor(y - r)) &&
@@ -631,7 +631,7 @@ export function createGame(parts: GameParts): Game {
         if (!map.wall(cx + i, cy + j)) continue;
         for (const [nx, ny] of SIDES) {
           if (map.wall(cx + i + nx, cy + j + ny)) continue;
-          if (map.inPitRoom(cx + i + nx, cy + j + ny)) continue;
+          if (!map.allows(cx + i + nx, cy + j + ny, "xn")) continue;
           faces.push({ x: cx + i + 0.5 + nx * 0.5, y: cy + j + 0.5 + ny * 0.5, nx, ny });
         }
       }
