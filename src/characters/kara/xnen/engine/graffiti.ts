@@ -289,6 +289,7 @@ const GLYPHS: Record<string, GlyphDef> = {
   ":": latin([[[2, 1.6], [2.1, 2.1]], [[2, 4.9], [2.1, 5.4]]]),
   "'": latin([[[2.2, 0], [1.8, 1.6]]]),
   "→": { w: 4.4, strokes: [[[0, 3], [4.4, 3]], [[2.6, 1.3], [4.4, 3], [2.6, 4.7]]] },
+  "←": { w: 4.4, strokes: [[[4.4, 3], [0, 3]], [[1.8, 1.3], [0, 3], [1.8, 4.7]]] },
 
   // Spaced for a fingertip: the marks are fat.
   [TALLY_ONE]: { w: 1, strokes: [[[0.5, 0], [0.5, 6]]] },
@@ -1888,6 +1889,59 @@ const BURGER_WORDS: readonly string[] = [
   "kara brought the burgers. i brought the room",
 ];
 
+/**
+ * What XN wrote outside a burger room, beside its doorway, on half of them: an invitation. The arrow points the way in
+ * from wherever it's written.
+ */
+const BURGER_INVITES: readonly string[] = ["party →", "come in. the burgers are waiting"];
+const INVITED = 0.5;
+
+/** Each burger room's invitation, laid out once; null where there's none. */
+const inviteKnown = new WeakMap<WorldMap, Map<string, Tag | null>>();
+
+/**
+ * The invitation outside a burger room, on the outside of the wall with the doorway in it, in the two cells of that
+ * wall beside the doorway; null if it has none.
+ */
+function inviteTag(map: WorldMap, plan: BurgerPlan): Tag | null {
+  let known = inviteKnown.get(map);
+  if (!known) {
+    known = new Map();
+    inviteKnown.set(map, known);
+  }
+  const key = `${plan.x0},${plan.y0}`;
+  const had = known.get(key);
+  if (had !== undefined) return had;
+  let tag: Tag | null = null;
+  const roll = (k: number) => map.noise(plan.x0 * 7 + k, plan.y0, 970);
+  if (roll(0) < INVITED) {
+    const { side } = plan;
+    const alongX = side < 2;
+    // The wall's four cells run from one before the room to one after; the doorway is one of the middle two, and the
+    // run is the two on the far side of it.
+    const doorAt = (alongX ? plan.x0 : plan.y0) + plan.cell;
+    const start = plan.cell === 0 ? doorAt + 1 : doorAt - 2;
+    // Seen from outside: from the north, or the east, the place's axis runs right to left.
+    const reversed = side === 0 || side === 3;
+    // Whether the doorway is to the right of the writing, as it's read from outside.
+    const doorRight = reversed ? plan.cell === 0 : plan.cell === 1;
+    let text = BURGER_INVITES[Math.floor(roll(1) * BURGER_INVITES.length)];
+    if (text.endsWith("→") && !doorRight) text = `← ${text.slice(0, -2)}`;
+    const seed = Math.floor(roll(2) * 0x7fffffff);
+    const r = (k: number) => hash3(seed, k, 7717);
+    tag = layOut(planOf("text", text, 0, r), "text", text, seed, start, 2, reversed);
+    if (tag) {
+      const at = side === 0 ? plan.y0 - 1 : side === 1 ? plan.y0 + 3 : side === 2 ? plan.x0 - 1 : plan.x0 + 3;
+      const out = side === 0 || side === 2 ? -1 : 1;
+      const along = (tag.from + tag.to) / 2;
+      const z = 1 - (tag.top + tag.bottom) / 2;
+      tag.centre = alongX ? { x: along, y: at, z, nx: 0, ny: out } : { x: at, y: along, z, nx: out, ny: 0 };
+    }
+  }
+  known.set(key, tag);
+  return tag;
+}
+
 /** Each burger room's writing, by wall, laid out once. */
 const burgerKnown = new WeakMap<WorldMap, Map<string, (Tag | null)[]>>();
 
@@ -1943,7 +1997,7 @@ function burgerTagsNear(map: WorldMap, x: number, y: number, radius: number): Ta
     for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
       const plan = map.burgerPlan(lx, ly);
       if (!plan) continue;
-      for (const tag of burgerTags(map, plan)) {
+      for (const tag of [...burgerTags(map, plan), inviteTag(map, plan)]) {
         if (tag && Math.hypot(tag.centre.x - x, tag.centre.y - y) <= radius) out.push(tag);
       }
     }
@@ -1972,6 +2026,13 @@ export function graffitiOn(map: WorldMap, cx: number, cy: number, face: number, 
   if (map.burgerInside(fx, fy)) {
     const plan = map.burgerAt(fx, fy);
     return plan ? burgerTags(map, plan)[FACE_WALL[face]] : null;
+  }
+  // Outside a burger room, on the wall with its doorway: the invitation, if it has one.
+  const room = map.burgerAt(cx, cy);
+  if (room && !map.burgerAt(fx, fy) && FACE_WALL[face] === [1, 0, 3, 2][room.side]) {
+    const [dx, dy] = map.burgerDoorway(room);
+    const sameWall = room.side < 2 ? cy === dy : cx === dx;
+    if (sameWall) return inviteTag(map, room);
   }
   if (face >= 2) {
     const lx = Math.floor(cx / 5);

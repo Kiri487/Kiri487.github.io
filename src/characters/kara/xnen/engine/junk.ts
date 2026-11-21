@@ -2483,7 +2483,8 @@ const PARTY_ON_TABLE = [1, 2] as const;
 const PARTY_IN_WALLS = [2, 4] as const;
 const PARTY_IN_CEILING = [2, 3] as const;
 const PARTY_SUNK = [1, 2] as const;
-/** Dropped outside, away from the doorway: how many, at least and at most, and how far apart. */
+/** Dropped outside, away from the doorway, in half the rooms: how many, at least and at most, and how far apart. */
+const PARTY_TRAILED = 0.5;
 const PARTY_TRAIL = [3, 6] as const;
 const PARTY_TRAIL_STEP = [0.5, 0.9] as const;
 /** Sizes of the rest, from an ordinary one to this many times it, mostly small: the room is small. */
@@ -2779,7 +2780,7 @@ function partyIn(map: WorldMap, lx: number, ly: number, plan: BurgerPlan): Junk[
     [-1, 0],
     [1, 0],
   ][plan.side];
-  const trail = many(PARTY_TRAIL, 220);
+  const trail = roll(219) < PARTY_TRAILED ? many(PARTY_TRAIL, 220) : 0;
   let px = door[0];
   let py = door[1];
   let heading = Math.atan2(outward[1], outward[0]);
