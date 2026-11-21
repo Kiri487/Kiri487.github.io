@@ -190,7 +190,7 @@ export type Kind = "text" | "arrow" | "tally" | "plea" | "cult" | "portrait" | "
 
 type Stroke = readonly (readonly [number, number])[];
 /** A glyph: strokes on a grid this wide and 6 tall, y down. */
-interface GlyphDef {
+export interface GlyphDef {
   w: number;
   strokes: readonly Stroke[];
 }
@@ -288,11 +288,14 @@ const GLYPHS: Record<string, GlyphDef> = {
   Y: latin([[[0, 0], [2, 3], [4, 0]], [[2, 3], [2, 6]]]),
   Z: latin([[[0, 0], [4, 0], [0, 6], [4, 6]]]),
   "0": latin([[[1.2, 0], [2.8, 0], [3.8, 1.5], [3.8, 4.5], [2.8, 6], [1.2, 6], [0.2, 4.5], [0.2, 1.5], [1.2, 0]]]),
+  "1": latin([[[1, 1.2], [2.4, 0], [2.4, 6]], [[1, 6], [3.8, 6]]]),
   "2": latin([[[0.2, 1.2], [1.2, 0], [3, 0], [4, 1.2], [3.8, 2.6], [0, 6], [4, 6]]]),
+  "3": latin([[[0.2, 0.8], [1.2, 0], [3, 0], [4, 1.2], [3.6, 2.6], [1.6, 3], [3.6, 3.4], [4, 4.8], [3, 6], [1.2, 6], [0.2, 5.2]]]),
   "4": latin([[[3, 6], [3, 0], [0, 4], [4, 4]]]),
   "5": latin([[[4, 0], [0.4, 0], [0.2, 2.6], [2.8, 2.4], [4, 3.6], [3.8, 5.2], [2.4, 6], [0, 5.4]]]),
   "6": latin([[[3.6, 0.2], [1.6, 0.6], [0.2, 3], [0.4, 5.2], [2, 6], [3.6, 5.4], [4, 4], [3, 2.8], [1.2, 3], [0.2, 4]]]),
   ".": latin([[[2, 5.5], [2.1, 6]]]),
+  "-": latin([[[0.6, 3], [3.4, 3]]]),
   ":": latin([[[2, 1.6], [2.1, 2.1]], [[2, 4.9], [2.1, 5.4]]]),
   "'": latin([[[2.2, 0], [1.8, 1.6]]]),
   "→": { w: 4.4, strokes: [[[0, 3], [4.4, 3]], [[2.6, 1.3], [4.4, 3], [2.6, 4.7]]] },
@@ -495,6 +498,11 @@ const GLYPHS: Record<string, GlyphDef> = {
   い: square([[[1, 1], [0.8, 4], [1.6, 5.4], [2.2, 4.6]], [[4.2, 1.6], [5.2, 3.8]]]),
   る: square([[[1.4, 0.8], [4.4, 0.6], [1, 4], [3.6, 3.2], [5, 4.4], [4, 5.8], [2.4, 5.4], [2.6, 4.8], [3.4, 5.2]]]),
 };
+
+/** A letter's strokes, for writing somewhere other than a wall (a whiteboard); undefined for one there's none of. */
+export function glyphFor(ch: string): GlyphDef | undefined {
+  return GLYPHS[ch.toUpperCase()];
+}
 
 /** One size of a tag's mask: per pixel how much paint, 0–255. */
 export interface GraffitiLevel {

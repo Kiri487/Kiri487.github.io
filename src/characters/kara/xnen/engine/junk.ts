@@ -16,6 +16,7 @@ import {
   type WorldMap,
 } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
+import { WRITINGS, WRITTEN_FACE, WRITTEN_FRAME, WRITTEN_H, WRITTEN_W } from "./whiteboard";
 import { heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
 
 /*
@@ -1588,6 +1589,8 @@ export interface Junk {
   glow?: boolean;
   /** A desk or chair of the office kind, steel and laminate and fabric, not wood: it's drawn with the office's atlas. */
   office?: boolean;
+  /** A whiteboard XN has written on: which of her boards it is, and the dice for her hand (whiteboard.ts). */
+  writing?: { index: number; seed: number };
 }
 
 /**
@@ -1701,6 +1704,14 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   out.push(...hallsAround(map, x, y, radius));
   out.push(...deadEndsAround(map, x, y, radius));
   out.push(...stairsAround(map, x, y, radius));
+  if (PREVIEW_BOARDS) {
+    let boards = previewed.get(map);
+    if (!boards) {
+      boards = previewBoards(map);
+      previewed.set(map, boards);
+    }
+    out.push(...boards.filter((junk) => Math.hypot(junk.x - x, junk.y - y) <= radius));
+  }
   return out;
 }
 
@@ -4797,8 +4808,8 @@ function pantryIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk
 
 /*
  * A meeting room, sometimes a long one: a long table down the middle with chairs both sides and one at each end, a
- * whiteboard wiped clean on an end wall, mugs left at a few places. Now and then every
- * chair has been turned to face the door, or one is standing on the table; often a chair or two is missing.
+ * whiteboard on an end wall, wiped clean or written on by XN (whiteboard.ts), mugs left at a few places. Now and
+ * then every chair has been turned to face the door, or one is standing on the table; often a chair or two is missing.
  */
 
 /** The meeting room's atlas: the whiteboard, its aluminium frame. */
@@ -4836,22 +4847,63 @@ const BOARD_W = 1.4;
 const BOARD_T = 0.02;
 const BOARD_RIM = 0.015;
 
-/** A whiteboard `width` wide, its back against the wall at z = 0, its face toward +z. */
-function buildBoard(width: number): StatueModel {
+/** How many of the whiteboards XN has written on. */
+const BOARD_WRITTEN = 0.4;
+
+/**
+ * A whiteboard `width` wide, its back against the wall at z = 0, its face toward +z. A written one has an atlas of its
+ * own, bigger, for her writing to be read.
+ */
+function buildBoard(width: number, written = false): StatueModel {
   const tris: number[] = [];
   const hw = width / 2;
   const [y0, y1] = BOARD_Y;
-  box(tris, -hw, hw, y0, y1, 0, BOARD_T, BOARD, BOARD_FRAME, BOARD_FRAME);
+  const face = written ? WRITTEN_FACE : BOARD;
+  const frame = written ? WRITTEN_FRAME : BOARD_FRAME;
+  box(tris, -hw, hw, y0, y1, 0, BOARD_T, face, frame, frame);
   // The frame round its face, and the tray along its foot.
   const rim = (x0: number, x1: number, ya: number, yb: number, z1: number) =>
-    box(tris, x0, x1, ya, yb, BOARD_T, z1, BOARD_FRAME, BOARD_FRAME, BOARD_FRAME);
+    box(tris, x0, x1, ya, yb, BOARD_T, z1, frame, frame, frame);
   rim(-hw, hw, y1 - BOARD_RIM, y1, BOARD_T + 0.006);
   rim(-hw, hw, y0, y0 + BOARD_RIM, BOARD_T + 0.006);
   rim(-hw, -hw + BOARD_RIM, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
   rim(hw - BOARD_RIM, hw, y0 + BOARD_RIM, y1 - BOARD_RIM, BOARD_T + 0.006);
   rim(-hw * 0.6, hw * 0.6, y0 - 0.012, y0, BOARD_T + 0.04);
-  return { tris, atlasWidth: MEETING_ATLAS_W, atlasHeight: MEETING_ATLAS_H, stone: [236, 238, 236] };
+  const [atlasWidth, atlasHeight] = written ? [WRITTEN_W, WRITTEN_H] : [MEETING_ATLAS_W, MEETING_ATLAS_H];
+  return { tris, atlasWidth, atlasHeight, stone: [236, 238, 236] };
 }
+
+/** Where a whiteboard's face is, for XN to stand and read it: its middle, and the way it looks. */
+export function boardFace(junk: Junk): { x: number; y: number; z: number; nx: number; ny: number } {
+  const nx = Math.cos(junk.yaw);
+  const ny = Math.sin(junk.yaw);
+  return { x: junk.x + nx * BOARD_T, y: junk.y + ny * BOARD_T, z: (BOARD_Y[0] + BOARD_Y[1]) / 2, nx, ny };
+}
+
+/**
+ * Preview, for Kiri: every one of XN's boards, standing in a ring round the spawn facing it. Comes out before the pull
+ * request.
+ */
+const PREVIEW_BOARDS = true;
+const previewBoards = (map: WorldMap): Junk[] => {
+  if (!PREVIEW_BOARDS) return [];
+  const out: Junk[] = [];
+  const model = buildBoard(BOARD_W, true);
+  for (let i = 0; i < WRITINGS; i++) {
+    const a = (i / WRITINGS) * Math.PI * 2;
+    for (const r of [3.2, 2.6, 3.8, 4.4, 2]) {
+      const x = 2.5 + Math.cos(a) * r;
+      const y = 2.5 + Math.sin(a) * r;
+      if (map.wall(Math.floor(x), Math.floor(y))) continue;
+      const yaw = a + Math.PI;
+      const writing = { index: i, seed: i * 7 + 1 };
+      out.push({ key: `pb${i}`, kind: "board", model, x, y, h: 0, yaw, pitch: 0, roll: 0, solid: null, writing });
+      break;
+    }
+  }
+  return out;
+};
+const previewed = new WeakMap<WorldMap, Junk[]>();
 
 /** The table: its height, its depth in a room of one lattice room and in a long one, and how long it is at most. */
 const MEETING_TABLE_H = 0.32;
@@ -4985,7 +5037,10 @@ function meetingIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
     const width = Math.min(BOARD_W, wallLong - 0.6);
     const [bx, by] = onWall(plan, boardSide, wallLong / 2 + (roll(90) - 0.5) * 0.3, 0);
     const pose = { x: bx, y: by, h: 0, yaw: inward(boardSide), pitch: 0, roll: 0 };
-    out.push({ key: key("board"), kind: "board", model: buildBoard(width), ...pose, solid: null });
+    // Wiped clean, or something of hers on it.
+    const written = roll(91) < BOARD_WRITTEN;
+    const writing = written ? { index: Math.floor(roll(92) * WRITINGS), seed: lx * 31 + ly } : undefined;
+    out.push({ key: key("board"), kind: "board", model: buildBoard(width, !!writing), ...pose, solid: null, writing });
   }
   return out;
 }

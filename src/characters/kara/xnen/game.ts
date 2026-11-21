@@ -28,6 +28,7 @@ import { PLAYER_RADIUS, Player } from "./engine/player";
 import { inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
 import { CLEAN, EYE, Renderer, type Camera, type Effects } from "./engine/render";
+import { whiteboardSkin } from "./engine/whiteboard";
 import {
   placeStatue,
   STATUE_RADIUS,
@@ -681,8 +682,10 @@ export function createGame(parts: GameParts): Game {
     const flameGlow = reduced ? FLAME_GLOW : FLAME_GLOW + FLAME_FLICKER * flicker;
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
-      // A monitor waits for its screen's picture.
-      const junkSkin = junk.office ? OFFICE_SKIN : {
+      // A monitor waits for its screen's picture. A board XN's written on has its own, as she reads now.
+      const { writing } = junk;
+      const read = (text: string) => readAs(text, xnReadable());
+      const junkSkin = writing ? whiteboardSkin(writing.index, writing.seed, read) : junk.office ? OFFICE_SKIN : {
         monitor,
         chair: WOOD_SKIN,
         sign: SIGN_SKIN,
