@@ -3310,23 +3310,43 @@ const PILLOW_MODEL = campModel(
   campBox(-PILLOW_SIZE[0] / 2, PILLOW_SIZE[0] / 2, 0, PILLOW_SIZE[2], -PILLOW_SIZE[1] / 2, PILLOW_SIZE[1] / 2, PILLOW),
   [204, 204, 198],
 );
-/** A tin: eight sides of label, a lid of bare metal, standing on its foot, its axis up. */
-const TIN_MODEL = (() => {
-  const tris: number[] = [];
+/**
+ * An open cup of eight sides, its foot at 0 and its mouth at `h`, hollow so it can be seen into: `side` round the
+ * outside, `inside` on its inner wall and floor, `rim` round its lip and under its foot; its wall `wall` thick and
+ * its floor `floor` thick.
+ */
+function hollowCup(
+  out: number[],
+  r: number,
+  h: number,
+  wall: number,
+  floor: number,
+  side: Rect,
+  inside: Rect,
+  rim: Rect,
+) {
   const n = 8;
-  const at = (k: number): [number, number] => {
+  const ri = r - wall;
+  const at = (k: number, radius: number, y: number): V3 => {
     const a = (k / n) * Math.PI * 2;
-    return [Math.cos(a) * TIN_R, Math.sin(a) * TIN_R];
+    return [Math.cos(a) * radius, y, Math.sin(a) * radius];
   };
   for (let k = 0; k < n; k++) {
-    const [ax, az] = at(k);
-    const [bx, bz] = at(k + 1);
-    const u = { x: LABEL.x + (k * LABEL.w) / n, y: LABEL.y, w: LABEL.w / n, h: LABEL.h };
-    quad(tris, [bx, 0, bz], [ax, 0, az], [ax, TIN_H, az], [bx, TIN_H, bz], u);
-    // The lid and the foot, a fan of thin quads from the middle.
-    quad(tris, [0, TIN_H, 0], [bx, TIN_H, bz], [ax, TIN_H, az], [0, TIN_H, 0], TIN);
-    quad(tris, [0, 0, 0], [ax, 0, az], [bx, 0, bz], [0, 0, 0], TIN);
+    const u = { x: side.x + (k * side.w) / n, y: side.y, w: side.w / n, h: side.h };
+    quad(out, at(k + 1, r, 0), at(k, r, 0), at(k, r, h), at(k + 1, r, h), u);
+    // The inner wall, facing in; the lip; the floor inside; the foot. Fans from the middle are quads with their
+    // first and last corners the same.
+    quad(out, at(k, ri, floor), at(k + 1, ri, floor), at(k + 1, ri, h), at(k, ri, h), inside);
+    quad(out, at(k + 1, ri, h), at(k + 1, r, h), at(k, r, h), at(k, ri, h), rim);
+    quad(out, [0, floor, 0], at(k + 1, ri, floor), at(k, ri, floor), [0, floor, 0], inside);
+    quad(out, [0, 0, 0], at(k, r, 0), at(k + 1, r, 0), [0, 0, 0], rim);
   }
+}
+
+/** A tin, opened and empty: its label round it, bare metal inside. */
+const TIN_MODEL = (() => {
+  const tris: number[] = [];
+  hollowCup(tris, TIN_R, TIN_H, 0.0015, 0.003, LABEL, TIN, TIN);
   return campModel(tris, [168, 40, 32]);
 })();
 
