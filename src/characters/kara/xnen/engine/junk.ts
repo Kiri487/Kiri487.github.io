@@ -78,12 +78,27 @@ function box(
   quad(out, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], side);
 }
 
+/**
+ * The bulging back of the monitor, from (x0, y0, z0) to (x1, y1, z1): its back plain, and round its top, sides and
+ * bottom slots running from front to back, the rows of the atlas going back the same way on all four, so each slot
+ * goes on round the corners into the next face.
+ */
+function ventedBack(out: number[], x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) {
+  quad(out, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], PLASTIC);
+  quad(out, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], PLASTIC);
+  // Each with its first corner at the front and its fourth at the back.
+  quad(out, [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], VENTS);
+  quad(out, [x1, y0, z1], [x0, y0, z1], [x0, y0, z0], [x1, y0, z0], VENTS);
+  quad(out, [x1, y1, z1], [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], VENTS);
+  quad(out, [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [x0, y0, z0], VENTS);
+}
+
 function buildMonitor(): StatueModel {
   const tris: number[] = [];
   // The stand, the front with its bezel, the bulging back, and the screen just proud of the bezel.
   box(tris, -0.07, 0.07, 0, 0.03, -0.07, 0.12, PLASTIC, PLASTIC, PLASTIC);
   box(tris, -0.18, 0.18, 0.03, 0.33, 0.03, 0.14, BEZEL, PLASTIC, PLASTIC);
-  box(tris, -0.135, 0.135, 0.06, 0.3, -0.19, 0.03, PLASTIC, VENTS, VENTS);
+  ventedBack(tris, -0.135, 0.135, 0.06, 0.3, -0.19, 0.03);
   quad(tris, [-0.157, 0.053, 0.142], [0.157, 0.053, 0.142], [0.157, 0.307, 0.142], [-0.157, 0.307, 0.142], SCREEN);
   return { tris, atlasWidth: AW, atlasHeight: AH, stone: [190, 180, 146] };
 }
