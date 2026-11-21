@@ -7,6 +7,10 @@ import type { Tuning } from "./tuning";
  * half a wall or nothing, and how often each comes up depends on the kind of area: open halls with pillars, mazes of
  * corridors, or packed office cubicles. Now and then a block of lattice rooms is knocked through into one big room.
  *
+ * Some areas aren't left to the dice stretch by stretch but laid out to a plan. A corridor area is long corridors four
+ * cells wide, side by side, with a row of little rooms between each two, each room's door opening onto one of them. A
+ * cells area has its walls every 3 cells instead of 5: a warren of rooms two cells by two, or a few run together.
+ *
  * Rarer still, a block of 3 × 3 lattice rooms is a special room, built to its own plan: walled all round, with a
  * doorway somewhere along some of its sides and at least one. Each kind says what of the usual backrooms it lets in.
  * So far there's one kind, the pit room: from wall to wall a grid of square pits with no bottom, only thin rims
@@ -30,6 +34,30 @@ interface Area {
 const HALL: Area = { dense: 0.14, door: 0.3, half: 0.3, post: 0.5 };
 const MAZE: Area = { dense: 0.6, door: 0.32, half: 0.24, post: 0.12 };
 const OFFICE: Area = { dense: 0.88, door: 0.52, half: 0.1, post: 0.05 };
+
+/**
+ * How an area of 6 × 6 lattice rooms is laid out: stretch by stretch by the dice (as an Area says), as corridors
+ * running east–west or north–south, or as cells.
+ */
+const LATTICE = 0;
+const CORRIDOR_EW = 1;
+const CORRIDOR_NS = 2;
+const CELLS = 3;
+/** How likely an area is to be corridors, and to be cells, if nothing round it stops it. */
+const CORRIDOR_SHARE = 0.16;
+/** A corridor area's walls, rooms and corridors repeat every this many cells across the corridors. */
+const CORRIDOR_PERIOD = 8;
+const CELLS_SHARE = 0.12;
+/** In a corridor area: how likely a room is to have a second door, onto the other corridor. */
+const CORRIDOR_SECOND_DOOR = 0.3;
+/** How likely a corridor is to be walled across here and there, and two rooms side by side to have a door between. */
+const CORRIDOR_BLOCKED = 0.04;
+const CORRIDOR_SIDE_DOOR = 0.25;
+/** In a cells area: how likely a stretch of its lattice is to have any wall, and a wall to have a doorway. */
+const CELLS_DENSE = 0.85;
+const CELLS_DOOR = 0.6;
+/** PREVIEW: makes the area east of the spawn's corridors and the one south cells. Comes out before the pull request. */
+const PREVIEW_LAYOUTS = true;
 
 export const LIGHT_ON = 1;
 /** Two groups of lights that flicker, each in step with itself. */
@@ -187,6 +215,8 @@ export class WorldMap {
   /** One statue per square region this many cells wide. */
   readonly region: number;
   private readonly statues = new Map<string, Statue | null>();
+  /** How each area is laid out, by rx * 100 003 + ry. */
+  private readonly layouts = new Map<number, number>();
 
   /** The tuning is read live, so the dev panel's dead-light slider works without a new map. */
   constructor(seed: number, tuning: Tuning) {
@@ -206,6 +236,109 @@ export class WorldMap {
     if (rx === 0 && ry === 0) return MAZE;
     const t = this.noise(rx, ry, 10);
     return t < 0.3 ? HALL : t < 0.72 ? MAZE : OFFICE;
+  }
+
+  /** How the area that lattice room (lx, ly) is in is laid out. */
+  private layout(lx: number, ly: number): number {
+    const rx = Math.floor((lx + 3) / 6);
+    const ry = Math.floor((ly + 3) / 6);
+    const key = rx * 100_003 + ry;
+    let layout = this.layouts.get(key);
+    if (layout === undefined) {
+      layout = this.layoutOf(rx, ry);
+      this.layouts.set(key, layout);
+    }
+    return layout;
+  }
+
+  /**
+   * How area (rx, ry) is laid out. An area takes in 2 × 2 blocks of lattice rooms; one laid out to a plan has no
+   * special rooms in them, and isn't next to one whose wall would run along its own north or west edge, which it
+   * builds itself. The spawn's area is always left to the dice.
+   */
+  private layoutOf(rx: number, ry: number): number {
+    if (rx === 0 && ry === 0) return LATTICE;
+    if (PREVIEW_LAYOUTS && rx === 1 && ry === 0) return CORRIDOR_EW;
+    if (PREVIEW_LAYOUTS && rx === 0 && ry === 1) return CELLS;
+    const die = this.noise(rx, ry, 11);
+    if (die >= CORRIDOR_SHARE + CELLS_SHARE) return LATTICE;
+    const bx = rx * 2 - 1;
+    const by = ry * 2 - 1;
+    for (const [i, j] of [[0, -1], [1, -1], [-1, 0], [-1, 1], [-1, -1]]) {
+      if (this.rolledRoom(bx + i, by + j)) return LATTICE;
+    }
+    if (die >= CORRIDOR_SHARE) return CELLS;
+    return this.noise(rx, ry, 12) < 0.5 ? CORRIDOR_EW : CORRIDOR_NS;
+  }
+
+  /**
+   * 1 where cell (x, y) of a corridor area is wall. Across the corridors it goes, every 8 cells: a wall, a row of
+   * rooms 4 cells deep, a wall, a corridor 2 cells wide. Along them the rooms are 4 cells wide, a wall between each two.
+   * Each room has a door onto the corridor on one side of it, sometimes the other too, and now and then into the next
+   * room; now and then a corridor is walled off.
+   */
+  private corridorWall(x: number, y: number, layout: number): number {
+    const across = layout === CORRIDOR_EW ? y : x;
+    const along = layout === CORRIDOR_EW ? x : y;
+    const p = mod(across, CORRIDOR_PERIOD);
+    const room = Math.floor(along / 5);
+    const q = along - room * 5;
+    const row = Math.floor(across / CORRIDOR_PERIOD);
+    if (p >= 6) return q === 0 && this.noise(room, row, 83) < CORRIDOR_BLOCKED ? 1 : 0;
+    if (q === 0) {
+      // Between two rooms: a wall, sometimes with a door.
+      if (p === 0 || p === 5) return 1;
+      return this.noise(room, row, 85) < CORRIDOR_SIDE_DOOR && p === 1 + Math.floor(this.noise(room, row, 86) * 4)
+        ? 0
+        : 1;
+    }
+    if (p !== 0 && p !== 5) return 0;
+    // A room's front or back, onto a corridor: a door in one, sometimes both.
+    const first = this.noise(room, row, 80) < 0.5;
+    const both = this.noise(room, row, 81) < CORRIDOR_SECOND_DOOR;
+    const door = p === 0 ? first || both : !first || both;
+    return door && q === 1 + Math.floor(this.noise(room, row, 82 + p) * 4) ? 0 : 1;
+  }
+
+  /**
+   * Whether a light hangs over cell (cx, cy), if it's open: usually over cells 1, 4, 7… on both axes. In a corridor
+   * area, one in the middle of each room and every 3 cells along each corridor; one in each burger room.
+   */
+  lampAt(cx: number, cy: number): boolean {
+    if (this.burgerLamp(cx, cy)) return true;
+    const layout = this.layout(Math.floor(cx / 5), Math.floor(cy / 5));
+    if (layout === CORRIDOR_EW || layout === CORRIDOR_NS) {
+      const p = mod(layout === CORRIDOR_EW ? cy : cx, CORRIDOR_PERIOD);
+      const along = layout === CORRIDOR_EW ? cx : cy;
+      return p === 6 ? mod(along, 3) === 1 : p === 2 && mod(along, 5) === 2;
+    }
+    return mod(cx, 3) === 1 && mod(cy, 3) === 1;
+  }
+
+  /** Whether the stretch of a cells area's lattice from point (qx, qy), running east or south, covers cell m (1–2). */
+  private cellsSegment(qx: number, qy: number, dir: number, m: number): boolean {
+    if (this.noise(qx, qy, 90 + dir) >= CELLS_DENSE) return false;
+    if (this.noise(qx, qy, 92 + dir) < CELLS_DOOR) return m !== 1 + Math.floor(this.noise(qx, qy, 94 + dir) * 2);
+    return true;
+  }
+
+  /** 1 where cell (x, y) of a cells area is wall: its lattice is every 3 cells, its stretches 2 cells long. */
+  private cellsWall(x: number, y: number): number {
+    const qx = Math.floor(x / 3);
+    const qy = Math.floor(y / 3);
+    const mx = x - qx * 3;
+    const my = y - qy * 3;
+    if (mx === 0 && my === 0) {
+      const any =
+        this.cellsSegment(qx, qy, 0, 1) ||
+        this.cellsSegment(qx - 1, qy, 0, 2) ||
+        this.cellsSegment(qx, qy, 1, 1) ||
+        this.cellsSegment(qx, qy - 1, 1, 2);
+      return any ? 1 : 0;
+    }
+    if (my === 0) return this.cellsSegment(qx, qy, 0, mx) ? 1 : 0;
+    if (mx === 0) return this.cellsSegment(qx, qy, 1, my) ? 1 : 0;
+    return 0;
   }
 
   /** The kind of zone the scattered point in square (gx, gy) starts, and where in the world that point is. */
@@ -259,6 +392,13 @@ export class WorldMap {
 
   /** What kind of special room block (bx, by) of 3 × 3 lattice rooms is, or null if it's none. Never the spawn's. */
   roomKind(bx: number, by: number): RoomKind | null {
+    const kind = this.rolledRoom(bx, by);
+    // A block in an area laid out to a plan is part of the plan.
+    return kind && this.layout(bx * 3, by * 3) === LATTICE ? kind : null;
+  }
+
+  /** What kind of special room block (bx, by) rolled, whether or not its area lets it be one. */
+  private rolledRoom(bx: number, by: number): RoomKind | null {
     if (bx === 0 && by === 0) return null;
     let die = this.noise(bx, by, 50);
     for (const [kind, chance] of ROOM_CHANCES) {
@@ -293,6 +433,10 @@ export class WorldMap {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
     if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
     if (this.noise(lx, ly, 60) >= BURGER_ROOM) return null;
+    // Its walls can reach the lattice on its east and south, which may be an area laid out to a plan.
+    for (const [i, j] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      if (this.layout(lx + i, ly + j) !== LATTICE) return null;
+    }
     const corner = Math.floor(this.noise(lx, ly, 63) * 4);
     return {
       x0: lx * 5 + (corner % 2 ? 3 : 1),
@@ -444,6 +588,9 @@ export class WorldMap {
   private segment(lx: number, ly: number, dir: number, m: number): boolean {
     // Two stretches by the spawn point are always open, so nobody starts boxed in.
     if (dir === 0 ? lx === 0 && (ly === 0 || ly === 1) : ly === 0 && (lx === 0 || lx === 1)) return false;
+    const layout = this.layout(lx, ly);
+    // An area laid out to a plan has walls of its own (cellsWall, corridorWall).
+    if (layout !== LATTICE) return false;
     if (this.bigRoom(lx, ly, dir)) return false;
     if (this.roomWall(lx, ly, dir)) {
       const doorway =
@@ -471,6 +618,9 @@ export class WorldMap {
     if (burger !== null) return burger;
     const lx = Math.floor(x / 5);
     const ly = Math.floor(y / 5);
+    const layout = this.layout(lx, ly);
+    if (layout === CELLS) return this.cellsWall(x, y);
+    if (layout !== LATTICE) return this.corridorWall(x, y, layout);
     const mx = x - lx * 5;
     const my = y - ly * 5;
     if (mx === 0 && my === 0) {
@@ -495,7 +645,7 @@ export class WorldMap {
     return 0;
   }
 
-  /** The ceiling light over cell (x, y), for cells where a light hangs (every 3 cells). */
+  /** The ceiling light over cell (x, y), for cells where a light hangs (lampAt). */
   light(x: number, y: number): number {
     if (this.burgerLamp(x, y)) return LIGHT_ON;
     const statue = this.statueIn(Math.floor(x / this.region), Math.floor(y / this.region));
@@ -508,6 +658,22 @@ export class WorldMap {
     if (this.noise(x, y, 20) < dead) return LIGHT_DEAD;
     const r = this.noise(x, y, 22);
     return r < 0.08 ? LIGHT_FLICKER_A : r < 0.14 ? LIGHT_FLICKER_B : LIGHT_ON;
+  }
+
+  /** The light nearest cell (cx, cy), at most two cells away; usually it's at most one, on both axes. */
+  private lampNear(cx: number, cy: number): [number, number] {
+    let best: [number, number] = [cx + [1, 0, -1][mod(cx, 3)], cy + [1, 0, -1][mod(cy, 3)]];
+    let bestD = Infinity;
+    for (let j = -2; j <= 2; j++) {
+      for (let i = -2; i <= 2; i++) {
+        const d = i * i + j * j;
+        if (d < bestD && this.lampAt(cx + i, cy + j) && !this.wall(cx + i, cy + j)) {
+          best = [cx + i, cy + j];
+          bestD = d;
+        }
+      }
+    }
+    return best;
   }
 
   /** Room for a statue at cell (x, y): it and the eight cells around it are open, and statues belong there. */
@@ -534,8 +700,7 @@ export class WorldMap {
       const cy = ry * this.region + STATUE_MARGIN + Math.floor(this.noise(rx, ry, 140 + k) * span);
       if (!this.roomy(cx, cy)) continue;
       // Lights hang over cells 1, 4, 7… on both axes; the nearest one is at most a cell away.
-      const lampX = cx + [1, 0, -1][mod(cx, 3)];
-      const lampY = cy + [1, 0, -1][mod(cy, 3)];
+      const [lampX, lampY] = this.lampNear(cx, cy);
       const facing = this.noise(rx, ry, 180 + k) * Math.PI * 2;
       found = { x: cx + 0.5, y: cy + 0.5, cx, cy, facing, lampX, lampY, sign: null };
       if (this.noise(rx, ry, 190) < CANDLE_SIGN_SHARE) {

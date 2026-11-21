@@ -1,4 +1,3 @@
-import { mod } from "./hash";
 import { LIGHT_DEAD, LIGHT_ON, LIGHT_FLICKER_A, type WorldMap } from "./map";
 
 /*
@@ -77,8 +76,7 @@ export class Lighting {
       for (let i = 0; i < WN; i++) {
         const idx = i + j * WN;
         if (wall[idx]) continue;
-        const usual = mod(this.x0 + i, 3) === 1 && mod(this.y0 + j, 3) === 1;
-        if (!usual && !map.burgerLamp(this.x0 + i, this.y0 + j)) continue;
+        if (!map.lampAt(this.x0 + i, this.y0 + j)) continue;
         const state = map.light(this.x0 + i, this.y0 + j);
         panel[idx] = state;
         if (state === LIGHT_DEAD) continue;
