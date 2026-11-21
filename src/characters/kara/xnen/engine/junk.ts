@@ -2991,31 +2991,19 @@ const SWITCH_H = 0.42;
 const DOOR_CLEAR_OUT = 0.45;
 const DOOR_CLEAR = 0.6;
 
-/**
- * What the preview shows in each of its rooms: the room as it's usually found with all its extras, the chair turned
- * to the door, the monitor turned to the wall, the chair in a corner; the first two with office furniture.
- */
-const WORK_PREVIEWS = [
-  { turned: false, away: false, corner: false, visitor: true, cabinets: 3, office: true },
-  { turned: true, away: false, corner: false, visitor: false, cabinets: 2, office: true },
-  { turned: false, away: true, corner: false, visitor: false, cabinets: 1, office: false },
-  { turned: false, away: false, corner: true, visitor: true, cabinets: 2, office: false },
-];
-
 /** Everything in workroom `plan` in lattice room (lx, ly), the same every time for this map. */
 function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
   const roll = (k: number) => map.noise(lx * 41 + k, ly, 950);
   const out: Junk[] = [];
   const key = (name: string) => `w${lx},${ly}.${name}`;
-  const preview = plan.preview === undefined ? null : WORK_PREVIEWS[plan.preview];
-  const turned = preview ? preview.turned : roll(1) < WORK_CHAIR_TURNED;
-  const away = preview ? preview.away : roll(2) < WORK_MONITOR_AWAY;
-  const corner = preview ? preview.corner : !turned && roll(3) < WORK_CHAIR_CORNER;
-  const visitor = preview ? preview.visitor : roll(4) < WORK_VISITOR;
+  const turned = roll(1) < WORK_CHAIR_TURNED;
+  const away = roll(2) < WORK_MONITOR_AWAY;
+  const corner = !turned && roll(3) < WORK_CHAIR_CORNER;
+  const visitor = roll(4) < WORK_VISITOR;
   const [least, most] = WORK_CABINETS;
-  const cabinets = preview ? preview.cabinets : least + Math.floor(roll(5) * (most - least + 1));
+  const cabinets = least + Math.floor(roll(5) * (most - least + 1));
   // Its desk and chairs all one kind, office or wooden, as likely as its zone says.
-  const office = preview ? preview.office : roll(6) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
+  const office = roll(6) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
 
   // What's taken, as circles; the doors kept clear.
   const taken: { x: number; y: number; r: number }[] = [];
@@ -3369,24 +3357,15 @@ const CAMP_BARRICADE = 0.7;
 /** How many tins lie on their sides. */
 const TIN_FALLEN = 0.4;
 
-/** What the preview shows in each of its rooms. */
-const CAMP_PREVIEWS = [
-  { pyramid: true, stand: true, chair: true, barricade: true },
-  { pyramid: false, stand: false, chair: true, barricade: false },
-  { pyramid: true, stand: true, chair: false, barricade: false },
-  { pyramid: false, stand: false, chair: false, barricade: true },
-];
-
 /** Everything in camp `plan` in lattice room (lx, ly), the same every time for this map. */
 function campIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
   const roll = (k: number) => map.noise(lx * 43 + k, ly, 960);
   const out: Junk[] = [];
   const key = (name: string) => `w${lx},${ly}.${name}`;
-  const preview = plan.preview === undefined ? null : CAMP_PREVIEWS[plan.preview];
-  const pyramid = preview ? preview.pyramid : roll(1) < CAMP_PYRAMID;
-  const stand = preview ? preview.stand : roll(2) < CAMP_STAND;
-  const withChair = preview ? preview.chair : roll(3) < CAMP_CHAIR;
-  const barricade = plan.doors.length > 1 && (preview ? preview.barricade : roll(4) < CAMP_BARRICADE);
+  const pyramid = roll(1) < CAMP_PYRAMID;
+  const stand = roll(2) < CAMP_STAND;
+  const withChair = roll(3) < CAMP_CHAIR;
+  const barricade = plan.doors.length > 1 && roll(4) < CAMP_BARRICADE;
   const office = roll(6) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
 
   const taken: { x: number; y: number; r: number }[] = [];
@@ -3822,29 +3801,18 @@ const PANTRY_FRIDGE_AWAY = 0.12;
 /** How many mugs in the row, all handles one way. */
 const MUG_ROW = 13;
 
-/** What the preview shows in each of its rooms. */
-const PANTRY_PREVIEWS = [
-  { wallUnits: true, cooler: true, table: true, chairsUp: false, wet: true, mugRow: false, fridgeAway: false },
-  { wallUnits: true, cooler: false, table: true, chairsUp: true, wet: false, mugRow: false, fridgeAway: false },
-  { wallUnits: false, cooler: true, table: true, chairsUp: false, wet: false, mugRow: true, fridgeAway: false },
-  { wallUnits: true, cooler: false, table: false, chairsUp: false, wet: true, mugRow: false, fridgeAway: true },
-];
-
 /** Everything in pantry `plan` in lattice room (lx, ly), the same every time for this map. */
 function pantryIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
   const roll = (k: number) => map.noise(lx * 47 + k, ly, 970);
   const out: Junk[] = [];
   const key = (name: string) => `w${lx},${ly}.${name}`;
-  const preview = plan.preview === undefined ? null : PANTRY_PREVIEWS[plan.preview];
-  const has = (name: keyof (typeof PANTRY_PREVIEWS)[number], chance: number, k: number) =>
-    preview ? preview[name] : roll(k) < chance;
-  const wallUnits = has("wallUnits", PANTRY_WALL_UNITS, 1);
-  const cooler = has("cooler", PANTRY_COOLER, 2);
-  const table = has("table", PANTRY_TABLE_CHANCE, 3);
-  const chairsUp = table && has("chairsUp", PANTRY_CHAIRS_UP, 4);
-  const wet = has("wet", PANTRY_WET, 5);
-  const mugRow = has("mugRow", PANTRY_MUG_ROW, 6);
-  const fridgeAway = has("fridgeAway", PANTRY_FRIDGE_AWAY, 7);
+  const wallUnits = roll(1) < PANTRY_WALL_UNITS;
+  const cooler = roll(2) < PANTRY_COOLER;
+  const table = roll(3) < PANTRY_TABLE_CHANCE;
+  const chairsUp = table && roll(4) < PANTRY_CHAIRS_UP;
+  const wet = roll(5) < PANTRY_WET;
+  const mugRow = roll(6) < PANTRY_MUG_ROW;
+  const fridgeAway = roll(7) < PANTRY_FRIDGE_AWAY;
   const office = roll(8) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
 
   const taken: { x: number; y: number; r: number }[] = [];
@@ -4075,23 +4043,14 @@ const MEETING_ON_TABLE = 0.1;
 const MEETING_MISSING = 0.3;
 const MEETING_MUG = 0.3;
 
-/** What the preview shows in each of its rooms. */
-const MEETING_PREVIEWS = [
-  { facingDoor: false, onTable: false, missing: false },
-  { facingDoor: true, onTable: false, missing: false },
-  { facingDoor: false, onTable: true, missing: true },
-  { facingDoor: false, onTable: false, missing: false },
-];
-
 /** Everything in meeting room `plan` in lattice room (lx, ly), the same every time for this map. */
 function meetingIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
   const roll = (k: number) => map.noise(lx * 53 + k, ly, 980);
   const out: Junk[] = [];
   const key = (name: string) => `w${lx},${ly}.${name}`;
-  const preview = plan.preview === undefined ? null : MEETING_PREVIEWS[plan.preview];
-  const facingDoor = preview ? preview.facingDoor : roll(1) < MEETING_FACING_DOOR;
-  const onTable = preview ? preview.onTable : roll(2) < MEETING_ON_TABLE;
-  const missing = preview ? preview.missing : roll(3) < MEETING_MISSING;
+  const facingDoor = roll(1) < MEETING_FACING_DOOR;
+  const onTable = roll(2) < MEETING_ON_TABLE;
+  const missing = roll(3) < MEETING_MISSING;
   const office = roll(4) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
 
   const taken: { x: number; y: number; r: number }[] = [];
@@ -4399,24 +4358,15 @@ const BOX_LABELLED = 0.4;
 const STORE_STACKS = [2, 4] as const;
 const STACK_MOST = 4;
 
-/** What the preview shows in each of its rooms. */
-const STORAGE_PREVIEWS = [
-  { middle: true, ladder: true, pile: false, spilled: false },
-  { middle: false, ladder: false, pile: true, spilled: false },
-  { middle: false, ladder: true, pile: false, spilled: true },
-  { middle: true, ladder: false, pile: false, spilled: false },
-];
-
 /** Everything in storeroom `plan` in lattice room (lx, ly), the same every time for this map. */
 function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
   const roll = (k: number) => map.noise(lx * 59 + k, ly, 990);
   const out: Junk[] = [];
   const key = (name: string) => `w${lx},${ly}.${name}`;
-  const preview = plan.preview === undefined ? null : STORAGE_PREVIEWS[plan.preview];
-  const middle = preview ? preview.middle : roll(1) < STORE_MIDDLE;
-  const ladder = preview ? preview.ladder : roll(2) < STORE_LADDER;
-  const pile = preview ? preview.pile : roll(3) < STORE_PILE;
-  const spilled = preview ? preview.spilled : roll(4) < STORE_SPILLED;
+  const middle = roll(1) < STORE_MIDDLE;
+  const ladder = roll(2) < STORE_LADDER;
+  const pile = roll(3) < STORE_PILE;
+  const spilled = roll(4) < STORE_SPILLED;
 
   const taken: { x: number; y: number; r: number }[] = [];
   for (const [side, cell] of plan.doors) {

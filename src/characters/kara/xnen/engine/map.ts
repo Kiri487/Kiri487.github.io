@@ -262,38 +262,7 @@ export interface FittedPlan {
   w: number;
   h: number;
   doors: readonly (readonly [number, number])[];
-  /** Laid out the way the preview asks, not by the dice. */
-  preview?: number;
 }
-
-/**
- * PREVIEW: a fitted room of this kind in each lattice room round the spawn, its door onto the spawn's room, each
- * furnished its own way.
- */
-const PREVIEW_FITTED = true;
-const PREVIEW_KIND = "storage" as FittedKind;
-/** Each preview room's size: for meeting rooms, the first two long, taking in the room beyond. */
-const PREVIEW_SIZES: readonly (readonly [number, number])[] =
-  PREVIEW_KIND === "meeting"
-    ? [
-        [9, 4],
-        [4, 9],
-        [4, 4],
-        [4, 4],
-      ]
-    : [
-        [4, 4],
-        [4, 4],
-        [4, 4],
-        [4, 4],
-      ];
-/** The lattice rooms round the spawn, and the side of each that faces it. */
-const PREVIEW_ROOMS: readonly (readonly [number, number, number])[] = [
-  [1, 0, 2],
-  [0, 1, 0],
-  [-1, 0, 3],
-  [0, -1, 1],
-];
 
 /**
  * Where a camp's mattress lies: in a corner, along one of the two walls there, clear of the doors. Its corner (0
@@ -425,8 +394,6 @@ export class WorldMap {
    */
   private layoutOf(rx: number, ry: number): number {
     if (rx === 0 && ry === 0) return LATTICE;
-    // PREVIEW: none laid out to a plan round the preview's rooms, whose walls they'd take over.
-    if (PREVIEW_FITTED && Math.abs(rx) <= 1 && Math.abs(ry) <= 1) return LATTICE;
     const die = this.noise(rx, ry, 11);
     if (die >= CORRIDOR_SHARE * heaviest(CORRIDOR_WEIGHTS) + CELLS_SHARE * heaviest(CELLS_WEIGHTS)) return LATTICE;
     const zone = this.zoneOfPoint(rx * 30, ry * 30);
@@ -579,8 +546,6 @@ export class WorldMap {
   /** What kind of special room block (bx, by) rolled, whether or not its area lets it be one. */
   private rolledRoom(bx: number, by: number): RoomKind | null {
     if (bx === 0 && by === 0) return null;
-    // PREVIEW: none where the preview's workrooms are.
-    if (PREVIEW_FITTED && (bx === -1 || bx === 0) && (by === -1 || by === 0)) return null;
     let die = this.noise(bx, by, 50);
     for (const [kind, chance, weights] of ROOM_CHANCES) {
       const share = chance * heaviest(weights);
@@ -671,21 +636,6 @@ export class WorldMap {
   }
 
   private fittedPlanOf(lx: number, ly: number): FittedPlan | null {
-    if (PREVIEW_FITTED) {
-      const k = PREVIEW_ROOMS.findIndex(([i, j]) => i === lx && j === ly);
-      if (k >= 0) {
-        // A second door out the other way, so the spawn isn't shut in.
-        const side = PREVIEW_ROOMS[k][2];
-        const doors = [[side, 2], [side < 2 ? 2 : 0, 3]] as const;
-        const [w, h] = PREVIEW_SIZES[k];
-        return { kind: PREVIEW_KIND, x0: lx * 5 + 1, y0: ly * 5 + 1, w, h, doors, preview: k };
-      }
-      // The far half of a long one.
-      const west = PREVIEW_ROOMS.findIndex(([i, j]) => i === lx - 1 && j === ly);
-      if (west >= 0 && PREVIEW_SIZES[west][0] > FITTED_SIZE) return this.fittedPlan(lx - 1, ly);
-      const north = PREVIEW_ROOMS.findIndex(([i, j]) => i === lx && j === ly - 1);
-      if (north >= 0 && PREVIEW_SIZES[north][1] > FITTED_SIZE) return this.fittedPlan(lx, ly - 1);
-    }
     // The far half of a long meeting room west or north of it.
     if (this.rolledFitted(lx - 1, ly) === "meeting" && this.meetingLong(lx - 1, ly) === 0) {
       const plan = this.fittedPlan(lx - 1, ly);
