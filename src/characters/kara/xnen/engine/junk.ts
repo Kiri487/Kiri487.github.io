@@ -5254,6 +5254,22 @@ const BOX_SIZES: readonly (readonly [number, number, number])[] = [
 const BOX_WALL = 0.004;
 
 /**
+ * A box of `size` put down at (x, y), its front facing `yaw`: standing, or tipped onto its front, where it lies half
+ * its depth up with its top the way its front faced. Its pose, and the round on the floor it keeps inside however
+ * it's turned (its flaps too, if it's open), about its middle.
+ */
+function lyingBox(size: number, x: number, y: number, yaw: number, tipped: boolean, open: boolean) {
+  const [w, d, tall] = BOX_SIZES[size];
+  const pose: Pose = { x, y, h: tipped ? d / 2 : 0, yaw, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
+  const round = {
+    x: tipped ? x + (Math.cos(yaw) * tall) / 2 : x,
+    y: tipped ? y + (Math.sin(yaw) * tall) / 2 : y,
+    r: open ? Math.hypot(w + d, d * 2) / 2 : Math.hypot(w, tipped ? tall : d) / 2,
+  };
+  return { pose, round };
+}
+
+/**
  * A cardboard box, its foot at 0: shut and taped, with or without a label on its front; or opened, hollow, its four
  * flaps folded out flat round its mouth.
  */
@@ -5431,24 +5447,21 @@ function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
       for (let i = 0; i < 7; i++) {
         const r = (j: number) => roll(900 + i * 6 + j);
         const size = Math.floor(r(0) * BOX_SIZES.length);
-        const [w, d, tall] = BOX_SIZES[size];
         const along = (r(1) - 0.5) * SHELF_L;
         const outBy = SHELF_D / 2 + 0.1 + r(2) * 0.4;
         const tipped = r(3) < 0.5;
         const open = r(5) < BOX_OPEN;
-        const turn = r(4) * Math.PI * 2;
         const bx = x + ax * along + fx * outBy;
         const by = y + ay * along + fy * outBy;
-        // Tipped onto its front, it lies on it, half its depth up, its top the way its front faced.
-        const mx = tipped ? bx + (Math.cos(turn) * tall) / 2 : bx;
-        const my = tipped ? by + (Math.sin(turn) * tall) / 2 : by;
-        const round = open ? Math.hypot(w + d, d * 2) / 2 : Math.hypot(w, tipped ? tall : d) / 2;
+        const { pose, round } = lyingBox(size, bx, by, r(4) * Math.PI * 2, tipped, open);
         const inRoom =
-          mx - round > plan.x0 && my - round > plan.y0 && mx + round < plan.x0 + plan.w && my + round < plan.y0 + plan.h;
-        if (!inRoom || !others.every((t) => Math.hypot(t.x - mx, t.y - my) > t.r + round)) continue;
-        others.push({ x: mx, y: my, r: round });
-        taken.push({ x: mx, y: my, r: round });
-        const pose = { x: bx, y: by, h: tipped ? d / 2 : 0, yaw: turn, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
+          round.x - round.r > plan.x0 &&
+          round.y - round.r > plan.y0 &&
+          round.x + round.r < plan.x0 + plan.w &&
+          round.y + round.r < plan.y0 + plan.h;
+        if (!inRoom || !others.every((t) => Math.hypot(t.x - round.x, t.y - round.y) > t.r + round.r)) continue;
+        others.push(round);
+        taken.push(round);
         put("box", boxModel(size, open, false), pose);
       }
     }
@@ -5606,21 +5619,13 @@ function placeBoxes(key: string, spot: Spot, roll: (k: number) => number): Junk[
     for (let i = 0; i < count; i++) {
       const r = (j: number) => roll(100 + i * 7 + j);
       const size = Math.floor(r(0) * BOX_SIZES.length);
-      const [w, d, tall] = BOX_SIZES[size];
       const [x, y] = inCell(spot, r(1), r(2));
-      // Tipped onto its front, it lies on it: half its depth up.
       const tipped = r(3) < 0.4;
       const open = i === 0 && !tipped && r(5) < 0.5;
-      const yaw = r(4) * Math.PI * 2;
-      // Tipped, its top goes the way its front faced: its middle on the floor is half its height that way.
-      const mx = tipped ? x + (Math.cos(yaw) * tall) / 2 : x;
-      const my = tipped ? y + (Math.sin(yaw) * tall) / 2 : y;
-      // However it's turned, it keeps inside this round its middle: its flaps too, if it's open.
-      const round = open ? Math.hypot(w + d, d * 2) / 2 : Math.hypot(w, tipped ? tall : d) / 2;
-      if (lying.some((l) => Math.hypot(l.x - mx, l.y - my) < l.r + round)) continue;
-      lying.push({ x: mx, y: my, r: round });
-      const pose = { x, y, h: tipped ? d / 2 : 0, yaw, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
-      put(pose, size, open, r(6) < BOX_LABELLED, { x: mx, y: my, r: reach(size) });
+      const { pose, round } = lyingBox(size, x, y, r(4) * Math.PI * 2, tipped, open);
+      if (lying.some((l) => Math.hypot(l.x - round.x, l.y - round.y) < l.r + round.r)) continue;
+      lying.push(round);
+      put(pose, size, open, r(6) < BOX_LABELLED, { x: round.x, y: round.y, r: reach(size) });
     }
     return out;
   }
