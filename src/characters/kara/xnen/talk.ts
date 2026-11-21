@@ -1,5 +1,5 @@
 import { readNumber, writeString } from "../../../shared/storage";
-import { MUTTER, OPENERS, STAGES } from "./lines";
+import { MUTTER, OPENERS, PARTY_LINES, STAGES } from "./lines";
 
 /*
  * What XN says next, each time the visitor presses E by her. Her first line in a visit is an opener (the very first
@@ -25,6 +25,16 @@ export function meetingsSoFar(): number {
   return readNumber(MEETINGS_KEY, 0, { min: 0 });
 }
 
+/** A copy in a random order (Fisher–Yates). */
+function shuffled(lines: readonly string[]): string[] {
+  const out = [...lines];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 export class Talk {
   private meetings = meetingsSoFar();
   /** She's said her opener this visit. */
@@ -34,14 +44,16 @@ export class Talk {
   /** Her lines still to come before any repeats, and the stage they were dealt for. */
   private bag: string[] = [];
   private bagStage = -1;
+  /** The same for her lines at a party. */
+  private partyBag: string[] = [];
 
   /** She's turned up somewhere new: the next thing she says starts a new meeting. */
   newMeeting() {
     this.spoken = false;
   }
 
-  /** Her next line, in plain English (or "..."). */
-  next(): string {
+  /** Her next line, in plain English (or "..."); `party` while she's at a burger room's party. */
+  next(party = false): string {
     if (!this.opened) {
       this.opened = true;
       const first = this.meetings === 0;
@@ -50,15 +62,14 @@ export class Talk {
     }
     if (Math.random() < MUTTER_CHANCE) return MUTTER;
     this.meet();
+    if (party) {
+      if (!this.partyBag.length) this.partyBag = shuffled(PARTY_LINES);
+      return this.partyBag.pop() ?? MUTTER;
+    }
     const stage = STAGE_AT.filter((at) => this.meetings >= at).length;
     if (!this.bag.length || this.bagStage !== stage) {
-      this.bag = STAGES.slice(0, stage + 1).flat();
+      this.bag = shuffled(STAGES.slice(0, stage + 1).flat());
       this.bagStage = stage;
-      // Fisher–Yates.
-      for (let i = this.bag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
-      }
     }
     return this.bag.pop() ?? MUTTER;
   }

@@ -4,6 +4,15 @@
  * the visitor spends in her backrooms, the more of it reads plainly, a word at a time (san.ts, rot13.ts).
  */
 
+/** What she says at a burger room's party, with a burger in her hands, instead of her other lines. */
+export const PARTY_LINES = [
+  "i am not hungry. i am a burger",
+  "kara says burgers are a hug you can eat",
+  "do you hear the lettuce. it says hi",
+  "the burgers waited for you. i ate the waiting",
+  "i invited everyone. everyone is a burger now",
+];
+
 /** Her first line in a visit. The first ever is always the first one: the player sees "kara" in the gibberish. */
 export const OPENERS = [
   "xnen xnen xnen. that's the sound the lights make",

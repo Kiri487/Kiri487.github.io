@@ -5,6 +5,7 @@ import { parseFigure } from "./engine/figure";
 import {
   BURGER_SKIN,
   DOOR_SKIN,
+  heldBurger,
   junkAround,
   monitorSkin,
   OFFICE_SKIN,
@@ -209,6 +210,12 @@ const XN_TAIL_UP = 0.3;
 const XN_SWING_ARMS = 0.3;
 /** How likely she is, each time she turns up, to be at something near her (getting up on it, looking at it). */
 const XN_PROP_CHANCE = 0.5;
+/**
+ * With a burger room this near the visitor, she's most often at its party, across the table from Kara's seat, a
+ * burger in her hands.
+ */
+const XN_PARTY_NEAR = 10;
+const XN_PARTY_CHANCE = 0.75;
 
 /**
  * Seconds of play a subtitle stays: at least LINE_TIME, and longer lines a little longer, LINE_BASE plus this much
@@ -487,7 +494,8 @@ export function createGame(parts: GameParts): Game {
 
   /** XN's next line: often only "...", which makes no sound; her words with her voice, as much read as SAN allows. */
   const speak = () => {
-    const line = talk.next();
+    // With a burger in her hands, she's at a party.
+    const line = talk.next(!!xn && xn.holding !== "none");
     if (line === MUTTER) {
       showLine(line);
       return;
@@ -529,8 +537,9 @@ export function createGame(parts: GameParts): Game {
 
   /** Puts XN somewhere new near the visitor, doing something new. False if there was nowhere. */
   const relocateXn = (who: Xn, cam: Camera) => {
-    // Half the time, at something near the visitor, if there's anything.
-    const prop = Math.random() < XN_PROP_CHANCE ? pickXnProp(who, cam) : null;
+    // At the party, if there's one near; otherwise half the time at something near the visitor, if there's anything.
+    const party = Math.random() < XN_PARTY_CHANCE ? pickXnProp(who, cam, "party", XN_PARTY_NEAR) : null;
+    const prop = party ?? (Math.random() < XN_PROP_CHANCE ? pickXnProp(who, cam) : null);
     if (prop) {
       who.manner = { tailUp: Math.random() < XN_TAIL_UP, swingArms: false };
       carryOut(who, prop);
@@ -673,6 +682,9 @@ export function createGame(parts: GameParts): Game {
     if (xn && xnHere && xnSkin && Math.hypot(xn.x - cam.x, xn.y - cam.y) <= DRAW_RANGE) {
       const eye: Point = [cam.x, cam.y, cam.z ?? EYE];
       props.push({ mesh: xn.update(dt, eye, reduced), model: xn.figure.look, skin: xnSkin });
+      // What she has in her hands.
+      const held = xn.held();
+      if (held) props.push({ ...heldBurger(held.x, held.y, held.z, held.yaw, held.tip), skin: BURGER_SKIN });
     }
   };
 

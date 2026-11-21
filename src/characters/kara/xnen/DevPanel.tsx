@@ -134,6 +134,7 @@ const PROP_TARGETS: readonly [PropTarget, string][] = [
   ["portrait", "自畫像"],
   ["sign", "告示牌"],
   ["pit", "坑邊"],
+  ["party", "漢堡房的座位"],
 ];
 
 const PROP_POSE_LABELS: Record<PropPose, string> = {
@@ -144,6 +145,8 @@ const PROP_POSE_LABELS: Record<PropPose, string> = {
   sit: "抱膝坐",
   sitBack: "背靠抱膝坐",
   crouchBack: "背靠蹲",
+  hold: "拿漢堡",
+  holdSwing: "拿漢堡晃腳",
 };
 
 /** Looking at something, "站" reads better as "站著看". */

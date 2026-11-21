@@ -26,6 +26,8 @@ export class Lighting {
   readonly combined = new Float32Array(WN * WN);
   /** This frame's glow of each kind of light panel, indexed by its state. */
   readonly glow = new Float32Array(5);
+  /** 1 for each cell under warmer light, inside a burger room (not its walls or doorway), like a fast-food place's. */
+  readonly warm = new Uint8Array(WN * WN);
 
   private readonly steady = new Float32Array(WN * WN);
   private readonly groupA = new Float32Array(WN * WN);
@@ -59,7 +61,10 @@ export class Lighting {
     this.y0 = Math.floor(py) - HALF;
     const { wall, panel, steady, groupA, groupB } = this;
     for (let j = 0; j < WN; j++) {
-      for (let i = 0; i < WN; i++) wall[i + j * WN] = map.wall(this.x0 + i, this.y0 + j);
+      for (let i = 0; i < WN; i++) {
+        wall[i + j * WN] = map.wall(this.x0 + i, this.y0 + j);
+        this.warm[i + j * WN] = map.burgerInside(this.x0 + i, this.y0 + j) ? 1 : 0;
+      }
     }
     steady.fill(0);
     groupA.fill(0);
@@ -68,7 +73,9 @@ export class Lighting {
     for (let j = 0; j < WN; j++) {
       for (let i = 0; i < WN; i++) {
         const idx = i + j * WN;
-        if (wall[idx] || mod(this.x0 + i, 3) !== 1 || mod(this.y0 + j, 3) !== 1) continue;
+        if (wall[idx]) continue;
+        const usual = mod(this.x0 + i, 3) === 1 && mod(this.y0 + j, 3) === 1;
+        if (!usual && !map.burgerLamp(this.x0 + i, this.y0 + j)) continue;
         const state = map.light(this.x0 + i, this.y0 + j);
         panel[idx] = state;
         if (state === LIGHT_DEAD) continue;
