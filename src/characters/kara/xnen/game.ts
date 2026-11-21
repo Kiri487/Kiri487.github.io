@@ -669,7 +669,7 @@ export function createGame(parts: GameParts): Game {
     if (skin) for (const mesh of nearby) props.push({ mesh, model: parts.model, skin });
     for (const junk of nearJunk) {
       // A monitor waits for its screen's picture.
-      const junkSkin = {
+      const junkSkin = junk.office ? OFFICE_SKIN : {
         monitor,
         chair: WOOD_SKIN,
         sign: SIGN_SKIN,

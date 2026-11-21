@@ -8,7 +8,7 @@ import {
   type WorldMap,
 } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
-import { heaviest, JUNK_WEIGHTS, type ZoneWeights } from "./zones";
+import { heaviest, JUNK_WEIGHTS, OFFICE_FURNITURE, type ZoneWeights } from "./zones";
 
 /*
  * Things that don't belong, half through the place as if nobody minded: Kara's old CRT monitor, still on, showing
@@ -207,8 +207,11 @@ const ORDINARY: ChairShape = { width: 1, legs: 1, back: 1, flat: 1 };
 /** The whole chair scaled by this: an ordinary one's back comes up to just under eye height. */
 const CHAIR_SIZE = 0.72;
 
-/** A plain wooden chair with a back: four legs, rails between them, a seat, two posts, a top rail and two slats. */
-function buildChair(shape: ChairShape): StatueModel {
+/**
+ * A plain wooden chair with a back: four legs, rails between them, a seat, two posts, a top rail and two slats. An
+ * office one is the same chair in steel, its seat and a padded back in grey-blue fabric.
+ */
+function buildChair(shape: ChairShape, office = false): StatueModel {
   const tris: number[] = [];
   const hw = 0.15 * shape.width;
   const hd = 0.14;
@@ -218,18 +221,27 @@ function buildChair(shape: ChairShape): StatueModel {
   const top = seatTop + 0.32 * shape.back;
   const f = shape.flat;
   const k = CHAIR_SIZE;
-  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) =>
-    box(tris, x0 * k, x1 * k, y0 * f * k, y1 * f * k, z0 * k, z1 * k, WOOD, WOOD, WOOD);
+  const frame = office ? STEEL : WOOD;
+  const cover = office ? FABRIC : WOOD;
+  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, r = frame) =>
+    box(tris, x0 * k, x1 * k, y0 * f * k, y1 * f * k, z0 * k, z1 * k, r, r, r);
   // Legs; the back two carry on up as the backrest's posts.
   for (const sx of [-1, 1]) {
     const x0 = sx < 0 ? -hw : hw - L;
     part(x0, x0 + L, 0, legH, hd - L, hd);
-    part(x0, x0 + L, 0, top, -hd, -hd + L);
+    // An office chair's stop just short of the top of its padded back, so they're wholly inside it: a face of theirs
+    // lying on one of its faces flickers.
+    part(x0, x0 + L, 0, office ? top - 0.01 : top, -hd, -hd + L);
     // Rails along the sides, low down.
     part(x0 + 0.005, x0 + L - 0.005, legH * 0.3, legH * 0.3 + 0.02, -hd + L, hd - L);
   }
   part(-hw + L, hw - L, legH * 0.3, legH * 0.3 + 0.02, -hd + 0.005, -hd + L - 0.005);
-  part(-hw - 0.01, hw + 0.01, legH, seatTop, -hd - 0.005, hd + 0.01);
+  part(-hw - 0.01, hw + 0.01, legH, seatTop, -hd - 0.005, hd + 0.01, cover);
+  if (office) {
+    // One padded back, round the posts and a little proud of them every way.
+    part(-hw - 0.006, hw + 0.006, top - 0.21, top, -hd - 0.006, -hd + L + 0.006, cover);
+    return { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [84, 96, 118] };
+  }
   // The backrest: a top rail and two slats between the posts.
   part(-hw, hw, top - 0.05, top, -hd, -hd + 0.025);
   part(-hw + L, hw - L, top - 0.13, top - 0.1, -hd + 0.002, -hd + 0.022);
@@ -873,7 +885,10 @@ const SWITCH: Rect = { x: 0, y: 16, w: 20, h: 12 };
 /** A corner of the socket's plate, plain, for its edges. */
 const PLATE: Rect = { x: 32, y: 16, w: 2, h: 2 };
 const OFFICE_ATLAS_W = 64;
-const OFFICE_ATLAS_H = 36;
+/** An office desk's laminate top, and an office chair's fabric. */
+const LAMINATE: Rect = { x: 0, y: 36, w: 32, h: 16 };
+const FABRIC: Rect = { x: 32, y: 36, w: 32, h: 16 };
+const OFFICE_ATLAS_H = 52;
 
 /** One drawer's height, and the plinth under the bottom one. */
 const DRAWER_H = 0.1;
@@ -979,19 +994,21 @@ function deskShape(a: number, b: number, c: number): DeskShape {
 
 /**
  * A wooden desk to go with the chairs, standing on the floor, its length across and the side you'd sit at toward +z:
- * a top, square legs, a rail round under the top, and maybe a drawer in the front rail with a little knob.
+ * a top, square legs, a rail round under the top, and maybe a drawer in the front rail with a little knob. An office
+ * one has a laminate top on steel.
  */
-function buildDesk(shape: DeskShape): StatueModel {
+function buildDesk(shape: DeskShape, office = false): StatueModel {
   const tris: number[] = [];
   const hl = shape.length / 2;
   const hd = shape.depth / 2;
   const top = shape.height;
   const thick = 0.014;
   const L = Math.min(0.011, hd * 0.4);
-  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) =>
-    box(tris, x0, x1, y0, y1, z0, z1, WOOD, WOOD, WOOD);
+  const frame = office ? STEEL : WOOD;
+  const part = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, r = frame) =>
+    box(tris, x0, x1, y0, y1, z0, z1, r, r, r);
   // The top, a little proud of the legs all round.
-  part(-hl, hl, top - thick, top, -hd, hd);
+  part(-hl, hl, top - thick, top, -hd, hd, office ? LAMINATE : WOOD);
   const under = top - thick;
   const inset = 0.008;
   for (let i = 0; i < shape.legs; i++) {
@@ -1013,9 +1030,10 @@ function buildDesk(shape: DeskShape): StatueModel {
       const w = Math.min(0.16, shape.length * 0.4);
       part(-w / 2, w / 2, under - rail + 0.004, under - 0.004, z1, z1 + 0.004);
       const mid = under - rail / 2;
-      part(-0.006, 0.006, mid - 0.005, mid + 0.005, z1 + 0.004, z1 + 0.012);
+      part(-0.006, 0.006, mid - 0.005, mid + 0.005, z1 + 0.004, z1 + 0.012, office ? STEEL_DARK : WOOD);
     }
   }
+  if (office) return { tris, atlasWidth: OFFICE_ATLAS_W, atlasHeight: OFFICE_ATLAS_H, stone: [198, 192, 176] };
   return { tris, atlasWidth: 32, atlasHeight: 32, stone: [120, 84, 50] };
 }
 
@@ -1041,7 +1059,7 @@ const SOCKETS = [
   { model: buildSocket(SWITCH, SOCKET_H / 2, SOCKET_HW * 2), h: SOCKET_HW * 2 },
 ];
 
-/** Steel, the drawer fronts, the laminate and the sockets, drawn. */
+/** Steel, the drawer fronts, the sockets, the laminate and the fabric, drawn. */
 export const OFFICE_SKIN: StatueSkin = (() => {
   const W = OFFICE_ATLAS_W;
   const data = new Uint8ClampedArray(W * OFFICE_ATLAS_H * 4);
@@ -1119,6 +1137,22 @@ export const OFFICE_SKIN: StatueSkin = (() => {
       }
       if ((x === 9 || x === 10) && y === 4) c = [110, 64, 40];
       put(SWITCH.x + x, SWITCH.y + y, c, m);
+    }
+  }
+  // Laminate: a pale grey-beige with a fine speckle, a darker edge band all round.
+  for (let y = 0; y < LAMINATE.h; y++) {
+    for (let x = 0; x < LAMINATE.w; x++) {
+      const edge = x === 0 || y === 0 || x === LAMINATE.w - 1 || y === LAMINATE.h - 1;
+      const m = edge ? 0.8 : 0.96 + 0.05 * grain(x, y + 600) - (grain(x + 7, y + 601) > 0.93 ? 0.08 : 0);
+      put(LAMINATE.x + x, LAMINATE.y + y, [198, 192, 176], m);
+    }
+  }
+  // Fabric: grey-blue, woven, so every other thread a shade darker each way, and worn in places.
+  for (let y = 0; y < FABRIC.h; y++) {
+    for (let x = 0; x < FABRIC.w; x++) {
+      const weave = (x + y) % 2 === 0 ? 1 : 0.9;
+      const worn = 0.94 + 0.1 * grain(Math.floor(x / 4), Math.floor(y / 4) + 700);
+      put(FABRIC.x + x, FABRIC.y + y, [84, 96, 118], weave * worn);
     }
   }
   return { data };
@@ -1528,6 +1562,8 @@ export interface Junk {
   glow?: boolean;
   /** How far its furthest part is from (x, y), when that's well off it (a candle sign, laid out round its middle). */
   reach?: number;
+  /** A desk or chair of the office kind, steel and laminate and fabric, not wood: it's drawn with the office's atlas. */
+  office?: boolean;
 }
 
 /**
@@ -1683,6 +1719,10 @@ function spotFor(
   return spot && roll(0) < chance * weights[map.zoneAt(spot.cx, spot.cy)] ? spot : null;
 }
 
+/** Whether a desk or chair at the spot is an office one, as likely as its zone says (zones.ts). */
+const officeAt = (map: WorldMap, spot: Spot, roll: (k: number) => number) =>
+  roll(90) < OFFICE_FURNITURE[map.zoneAt(spot.cx, spot.cy)];
+
 function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   const found: Junk[] = [];
   const monitorRoll = (k: number) => map.noise(bx * 31 + k, by, 700);
@@ -1690,7 +1730,7 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (monitorSpot) found.push(placeMonitor(`m${bx},${by}`, monitorSpot, monitorRoll));
   const chairRoll = (k: number) => map.noise(bx * 31 + k, by, 710);
   const chairSpot = spotFor(map, bx, by, chairRoll, CHAIR_CHANCE, JUNK_WEIGHTS.chair);
-  if (chairSpot) found.push(placeChair(`c${bx},${by}`, chairSpot, chairRoll));
+  if (chairSpot) found.push(placeChair(`c${bx},${by}`, chairSpot, chairRoll, officeAt(map, chairSpot, chairRoll)));
   const signRoll = (k: number) => map.noise(bx * 31 + k, by, 720);
   const signSpot = spotFor(map, bx, by, signRoll, SIGN_CHANCE, JUNK_WEIGHTS.sign);
   if (signSpot) found.push(placeSign(`s${bx},${by}`, signSpot, signRoll));
@@ -1708,7 +1748,7 @@ function junkIn(map: WorldMap, bx: number, by: number): Junk[] {
   if (cabinetSpot) found.push(placeCabinet(`f${bx},${by}`, cabinetSpot, cabinetRoll));
   const deskRoll = (k: number) => map.noise(bx * 31 + k, by, 770);
   const deskSpot = spotFor(map, bx, by, deskRoll, DESK_CHANCE, JUNK_WEIGHTS.desk);
-  if (deskSpot) found.push(placeDesk(`t${bx},${by}`, deskSpot, deskRoll));
+  if (deskSpot) found.push(placeDesk(`t${bx},${by}`, deskSpot, deskRoll, officeAt(map, deskSpot, deskRoll)));
   for (const salt of [780, 790]) {
     const socketRoll = (k: number) => map.noise(bx * 31 + k, by, salt);
     const spot = spotFor(map, bx, by, socketRoll, SOCKET_CHANCE, JUNK_WEIGHTS.socket);
@@ -1882,9 +1922,9 @@ const CHAIR_REACH = 0.35;
  * Chairs: into a wall at any angle, sunk aslant into the carpet, upside down with their legs in the ceiling, or just
  * standing there, pushed up to a wall and facing it.
  */
-function placeChair(key: string, spot: Spot, roll: (k: number) => number): Junk {
+function placeChair(key: string, spot: Spot, roll: (k: number) => number, office: boolean): Junk {
   const shape = chairShape(roll(70), roll(71));
-  const base = { key, kind: "chair" as const, model: buildChair(shape) };
+  const base = { key, kind: "chair" as const, model: buildChair(shape, office), office };
   const tall = chairHeight(shape);
   const seat = chairSeat(shape);
   const how = roll(40);
@@ -2280,7 +2320,7 @@ function placeCabinet(key: string, spot: Spot, roll: (k: number) => number): Jun
 }
 
 /** Desks: pushed up to a wall to be worked at, aslant in one, standing about, sunk in the carpet, or in the ceiling. */
-function placeDesk(key: string, spot: Spot, roll: (k: number) => number): Junk {
+function placeDesk(key: string, spot: Spot, roll: (k: number) => number, office: boolean): Junk {
   const shape = deskShape(roll(70), roll(71), roll(72));
   const hl = shape.length / 2;
   // In the way from end to end, as deep as it is.
@@ -2290,7 +2330,7 @@ function placeDesk(key: string, spot: Spot, roll: (k: number) => number): Junk {
   const placed = placeFurniture(spot, roll, shape.height, reach, shape.depth / 2 + 0.005, inWay);
   // Not the ones narrow as a plank.
   const perch = shape.depth >= 0.1 ? perchOn(placed, shape.height, shape.depth / 2, 0.1) : null;
-  return { key, kind: "desk", model: buildDesk(shape), ...placed, perch };
+  return { key, kind: "desk", model: buildDesk(shape, office), ...placed, perch, office };
 }
 
 /**
@@ -2947,13 +2987,13 @@ const DOOR_CLEAR = 0.6;
 
 /**
  * What the preview shows in each of its rooms: the room as it's usually found with all its extras, the chair turned
- * to the door, the monitor turned to the wall, the chair in a corner.
+ * to the door, the monitor turned to the wall, the chair in a corner; the first two with office furniture.
  */
 const WORK_PREVIEWS = [
-  { turned: false, away: false, corner: false, visitor: true, cabinets: 3 },
-  { turned: true, away: false, corner: false, visitor: false, cabinets: 2 },
-  { turned: false, away: true, corner: false, visitor: false, cabinets: 1 },
-  { turned: false, away: false, corner: true, visitor: true, cabinets: 2 },
+  { turned: false, away: false, corner: false, visitor: true, cabinets: 3, office: true },
+  { turned: true, away: false, corner: false, visitor: false, cabinets: 2, office: true },
+  { turned: false, away: true, corner: false, visitor: false, cabinets: 1, office: false },
+  { turned: false, away: false, corner: true, visitor: true, cabinets: 2, office: false },
 ];
 
 /** Everything in workroom `plan` in lattice room (lx, ly), the same every time for this map. */
@@ -2968,6 +3008,8 @@ function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Ju
   const visitor = preview ? preview.visitor : roll(4) < WORK_VISITOR;
   const [least, most] = WORK_CABINETS;
   const cabinets = preview ? preview.cabinets : least + Math.floor(roll(5) * (most - least + 1));
+  // Its desk and chairs all one kind, office or wooden, as likely as its zone says.
+  const office = preview ? preview.office : roll(6) < OFFICE_FURNITURE[map.zoneAt(plan.x0, plan.y0)];
 
   // What's taken, as circles; the doors kept clear.
   const taken: { x: number; y: number; r: number }[] = [];
@@ -3001,7 +3043,8 @@ function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Ju
   out.push({
     key: key("desk"),
     kind: "desk",
-    model: buildDesk(WORK_DESK),
+    model: buildDesk(WORK_DESK, office),
+    office,
     ...desk,
     solid: slab(tx, ty, ax * hl, ay * hl, hd + 0.01),
     perch: perchOn(desk, WORK_DESK.height, hd, 0.1),
@@ -3030,7 +3073,7 @@ function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Ju
   });
 
   // The chair: pulled up to the desk, facing it; turned round to face the door; or in a corner, facing into it.
-  const chair = buildChair(ORDINARY);
+  const chair = buildChair(ORDINARY, office);
   const seat = chairSeat(ORDINARY);
   const putChair = (name: string, x: number, y: number, yaw: number) => {
     const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
@@ -3038,6 +3081,7 @@ function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Ju
       key: key(name),
       kind: "chair",
       model: chair,
+      office,
       ...pose,
       solid: { x, y, r: 0.2 },
       perch: perchOn(pose, seat, CHAIR_EDGE, 0.1),

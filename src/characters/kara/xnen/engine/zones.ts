@@ -60,6 +60,12 @@ export const JUNK_WEIGHTS = {
   burger: [1, 1, 1, 1, 1],
 } as const satisfies Record<string, ZoneWeights>;
 
+/**
+ * How many of the desks and chairs (lying about, or in a fitted room) are the office kind, steel and laminate and
+ * fabric, not wood: a share, not a weight, mostly in the office wing.
+ */
+export const OFFICE_FURNITURE: ZoneWeights = [0.15, 0.05, 0.85, 0.3, 0.2];
+
 /** Writing on the walls (graffiti.ts): most on bare plasterboard. The warnings outside pit rooms aren't weighed. */
 export const GRAFFITI_WEIGHTS: ZoneWeights = [1, 0.5, 0.5, 2, 1];
 
