@@ -56,8 +56,6 @@ const CORRIDOR_SIDE_DOOR = 0.25;
 /** In a cells area: how likely a stretch of its lattice is to have any wall, and a wall to have a doorway. */
 const CELLS_DENSE = 0.85;
 const CELLS_DOOR = 0.6;
-/** PREVIEW: makes the area east of the spawn's corridors and the one south cells. Comes out before the pull request. */
-const PREVIEW_LAYOUTS = true;
 
 export const LIGHT_ON = 1;
 /** Two groups of lights that flicker, each in step with itself. */
@@ -96,8 +94,6 @@ const ZONE_SIZE = 44;
  * In this share of lattice rooms the line between zones runs straight through, wallpaper and carpet cut off mid-room.
  */
 const ZONE_UNRULY = 0.15;
-/** PREVIEW: puts one of each new zone right by the spawn. Comes out before the pull request. */
-const PREVIEW_ZONES = true;
 
 /** Where the player starts: inside the first lattice room, which is always open. */
 export const SPAWN = { x: 2.5, y: 2.5, angle: 0.6 };
@@ -258,8 +254,6 @@ export class WorldMap {
    */
   private layoutOf(rx: number, ry: number): number {
     if (rx === 0 && ry === 0) return LATTICE;
-    if (PREVIEW_LAYOUTS && rx === 1 && ry === 0) return CORRIDOR_EW;
-    if (PREVIEW_LAYOUTS && rx === 0 && ry === 1) return CELLS;
     const die = this.noise(rx, ry, 11);
     if (die >= CORRIDOR_SHARE + CELLS_SHARE) return LATTICE;
     const bx = rx * 2 - 1;
@@ -344,11 +338,6 @@ export class WorldMap {
   /** The kind of zone the scattered point in square (gx, gy) starts, and where in the world that point is. */
   private zonePoint(gx: number, gy: number): [number, number, number] {
     if (gx === 0 && gy === 0) return [ZONE_YELLOW, SPAWN.x, SPAWN.y];
-    // PREVIEW: the four squares beside the spawn's are each a new zone, their points close by, east, south, west, north.
-    if (PREVIEW_ZONES && Math.abs(gx) + Math.abs(gy) === 1) {
-      const kind = gx === 1 ? ZONE_HOUSE : gy === 1 ? ZONE_OFFICE : gx === -1 ? ZONE_DRYWALL : ZONE_TILES;
-      return [kind, SPAWN.x + gx * 46, SPAWN.y + gy * 46];
-    }
     let die = this.noise(gx, gy, 72);
     let kind = ZONE_YELLOW;
     for (const [k, chance] of ZONE_CHANCES) {
