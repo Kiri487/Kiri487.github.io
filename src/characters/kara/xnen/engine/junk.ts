@@ -2972,7 +2972,7 @@ function candleSign(map: WorldMap, key: string, seedX: number, seedY: number, si
 }
 
 /** The candle signs, by statue and map: laid out once. */
-const candleSigns = new WeakMap<WorldMap, Map<Statue | "preview", Junk[]>>();
+const candleSigns = new WeakMap<WorldMap, Map<Statue, Junk[]>>();
 
 /** The candle signs in front of the statues near (x, y), whole: a sign's candles are one piece. */
 function candleSignsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
@@ -2989,16 +2989,6 @@ function candleSignsAround(map: WorldMap, x: number, y: number, radius: number):
     if (!found) {
       found = candleSign(map, `candles${statue.cx},${statue.cy}`, statue.cx, statue.cy, statue.sign);
       known.set(statue, found);
-    }
-    out.push(...found);
-  }
-  // Preview: one in front of the spawn. Delete before the PR.
-  const preview = map.previewSign();
-  if (preview && Math.hypot(preview.x - x, preview.y - y) <= radius + CANDLE_SIGN_SIZE / 2) {
-    let found = known.get("preview");
-    if (!found) {
-      found = candleSign(map, "candlesPreview", 0, 0, preview);
-      known.set("preview", found);
     }
     out.push(...found);
   }

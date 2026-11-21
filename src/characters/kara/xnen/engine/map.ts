@@ -72,11 +72,12 @@ export const CANDLE_SIGN_SIZE = 3.4;
 const CANDLE_SIGN_HALF = [1.25, 1.7] as const;
 /** How far in front of its statue its middle is. */
 const CANDLE_SIGN_AWAY = 2.9;
-/** How many statues have one, where there's room for it round them; and how many ways round they're tried. */
-const CANDLE_SIGN_SHARE = 0.3;
+/**
+ * How many statues are picked to have one, and how many ways round they're tried: about one in ten in all, as a few
+ * have no room for it any way round.
+ */
+const CANDLE_SIGN_SHARE = 0.12;
 const CANDLE_SIGN_TURNS = 8;
-/** Preview: every statue with room for one has one. Delete before the PR. */
-const PREVIEW_CANDLE_SIGNS = true;
 
 /** A special room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
 export const ROOM_BLOCK = 15;
@@ -454,7 +455,7 @@ export class WorldMap {
       const lampY = cy + [1, 0, -1][mod(cy, 3)];
       const facing = this.noise(rx, ry, 180 + k) * Math.PI * 2;
       found = { x: cx + 0.5, y: cy + 0.5, cx, cy, facing, lampX, lampY, sign: null };
-      if (PREVIEW_CANDLE_SIGNS || this.noise(rx, ry, 190) < CANDLE_SIGN_SHARE) {
+      if (this.noise(rx, ry, 190) < CANDLE_SIGN_SHARE) {
         // It was turned to face the open floor the sign's laid out on, wherever round it there's room.
         for (let turn = 0; turn < CANDLE_SIGN_TURNS && !found.sign; turn++) {
           const way = facing + (turn / CANDLE_SIGN_TURNS) * Math.PI * 2;
@@ -498,31 +499,9 @@ export class WorldMap {
   /** Whether cell (cx, cy) is under, or right by, a candle sign: junk keeps off it. */
   underSign(cx: number, cy: number): boolean {
     const statue = this.statueIn(Math.floor(cx / this.region), Math.floor(cy / this.region));
-    for (const sign of [statue?.sign, this.previewSign()]) {
-      if (!sign || Math.hypot(cx + 0.5 - sign.x, cy + 0.5 - sign.y) > CANDLE_SIGN_HALF[1] + 2) continue;
-      if (this.overSign(sign, 0.5, (x, y) => Math.floor(x) === cx && Math.floor(y) === cy)) return true;
-    }
-    return false;
-  }
-
-  /** Preview: the first place a candle sign fits right in front of the spawn, its ears toward it. Delete before the PR. */
-  private previewSignAt: CandleSign | null | undefined;
-  previewSign(): CandleSign | null {
-    if (!PREVIEW_CANDLE_SIGNS) return null;
-    if (this.previewSignAt !== undefined) return this.previewSignAt;
-    this.previewSignAt = null;
-    for (let away = 3.5; away <= 8 && !this.previewSignAt; away += 0.5) {
-      for (const turn of [0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75]) {
-        const dirX = Math.cos(SPAWN.angle + turn);
-        const dirY = Math.sin(SPAWN.angle + turn);
-        const sign = { x: SPAWN.x + dirX * away, y: SPAWN.y + dirY * away, dirX, dirY };
-        if (this.signFits(sign)) {
-          this.previewSignAt = sign;
-          break;
-        }
-      }
-    }
-    return this.previewSignAt;
+    const sign = statue?.sign;
+    if (!sign || Math.hypot(cx + 0.5 - sign.x, cy + 0.5 - sign.y) > CANDLE_SIGN_HALF[1] + 2) return false;
+    return this.overSign(sign, 0.5, (x, y) => Math.floor(x) === cx && Math.floor(y) === cy);
   }
 
   /** Every statue whose region touches the square of this radius around (x, y). */
