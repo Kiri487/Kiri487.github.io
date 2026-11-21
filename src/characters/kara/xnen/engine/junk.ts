@@ -3412,8 +3412,6 @@ function cubiclesIn(map: WorldMap, bx: number, by: number): Junk[] {
 /** Under a one-light hall's light: a chair, a monitor on the floor, or nothing. */
 const LAMP_CHAIR = 0.4;
 const LAMP_MONITOR = 0.2;
-/** Preview, for Kiri: what's under the light in the one-light halls round the spawn. */
-const PREVIEW_LAMP_THINGS: Record<string, "chair" | "monitor"> = { "-1,0": "chair", "0,-1": "monitor" };
 
 /** What's under the light of the one-light hall in block (bx, by). */
 function lampHallIn(map: WorldMap, bx: number, by: number): Junk[] {
@@ -3421,8 +3419,7 @@ function lampHallIn(map: WorldMap, bx: number, by: number): Junk[] {
   const x = bx * ROOM_BLOCK + HALL_LAMP + 0.5 + (roll(1) - 0.5) * 0.3;
   const y = by * ROOM_BLOCK + HALL_LAMP + 0.5 + (roll(2) - 0.5) * 0.3;
   const yaw = roll(3) * Math.PI * 2;
-  const rolled = roll(0) < LAMP_CHAIR ? "chair" : roll(0) < LAMP_CHAIR + LAMP_MONITOR ? "monitor" : null;
-  const what = PREVIEW_LAMP_THINGS[`${bx},${by}`] ?? rolled;
+  const what = roll(0) < LAMP_CHAIR ? "chair" : roll(0) < LAMP_CHAIR + LAMP_MONITOR ? "monitor" : null;
   if (what === "chair") {
     const office = roll(4) < OFFICE_FURNITURE[map.zoneAt(Math.floor(x), Math.floor(y))];
     const pose = { x, y, h: 0, yaw, pitch: 0, roll: 0 };
