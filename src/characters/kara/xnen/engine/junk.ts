@@ -1659,8 +1659,9 @@ function footprintOf(junk: Junk): readonly (readonly [number, number])[] {
   const tris = junk.model.tris;
   const points: [number, number][] = [];
   const corner: [number, number, number][] = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  const at = junkPoints(junk);
   for (let o = 0; o < tris.length; o += 16) {
-    for (let k = 0; k < 3; k++) corner[k] = junkPoint(junk, tris[o + k * 5], tris[o + k * 5 + 1], tris[o + k * 5 + 2]);
+    for (let k = 0; k < 3; k++) corner[k] = at(tris[o + k * 5], tris[o + k * 5 + 1], tris[o + k * 5 + 2]);
     for (let k = 0; k < 3; k++) {
       const a = corner[k];
       const b = corner[(k + 1) % 3];
@@ -1924,13 +1925,24 @@ type Pose = Pick<Junk, "x" | "y" | "h" | "yaw" | "pitch" | "roll">;
 
 /** A point of a piece of junk's own (x across, y up, z out of its front), where it is in the place. */
 function junkPoint(pose: Pose, X: number, Y: number, Z: number): [number, number, number] {
+  return junkPoints(pose)(X, Y, Z);
+}
+
+/** junkPoint for many points of the one piece of junk: its turn worked out once. */
+function junkPoints(pose: Pose): (X: number, Y: number, Z: number) => [number, number, number] {
   const fx = Math.cos(pose.yaw);
   const fy = Math.sin(pose.yaw);
-  const x1 = X * Math.cos(pose.roll) - Y * Math.sin(pose.roll);
-  const y1 = X * Math.sin(pose.roll) + Y * Math.cos(pose.roll);
-  const y2 = y1 * Math.cos(pose.pitch) - Z * Math.sin(pose.pitch);
-  const z2 = y1 * Math.sin(pose.pitch) + Z * Math.cos(pose.pitch);
-  return [pose.x + x1 * fy + z2 * fx, pose.y - x1 * fx + z2 * fy, pose.h + y2];
+  const cr = Math.cos(pose.roll);
+  const sr = Math.sin(pose.roll);
+  const cp = Math.cos(pose.pitch);
+  const sp = Math.sin(pose.pitch);
+  return (X, Y, Z) => {
+    const x1 = X * cr - Y * sr;
+    const y1 = X * sr + Y * cr;
+    const y2 = y1 * cp - Z * sp;
+    const z2 = y1 * sp + Z * cp;
+    return [pose.x + x1 * fy + z2 * fx, pose.y - x1 * fx + z2 * fy, pose.h + y2];
+  };
 }
 
 /**
