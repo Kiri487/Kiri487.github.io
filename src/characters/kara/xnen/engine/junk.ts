@@ -1722,8 +1722,10 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     // Nor on a candle sign.
     // Nor in a hall with things of its own.
     if (map.wall(cx, cy) || !map.allows(cx, cy, "junk") || map.underSign(cx, cy) || map.bareHall(cx, cy)) continue;
-    // Nor in a room with a stair.
-    if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5))) continue;
+    // Nor in a room with a stair, nor at a dead end, set out as it is with its one thing and its one light.
+    if (map.stairsIn(Math.floor(cx / 5), Math.floor(cy / 5)) || map.deadEndRoom(Math.floor(cx / 5), Math.floor(cy / 5))) {
+      continue;
+    }
     const side = Math.floor(roll(41) * 4);
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
