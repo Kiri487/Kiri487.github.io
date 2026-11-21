@@ -51,6 +51,10 @@ import {
  * A big room is a hall of one kind or another (HallKind): pillars every three cells all the way across, like a car
  * park with no cars; a floor of office cubicles, everyone gone (junk.ts); every light out but the one in the middle,
  * something under it; or left empty. A hall that's any of the first three has no fitted room or burger room in it.
+ *
+ * At the end of some dead ends, something (DeadEnd): a lattice room with only the one way in, or a corridor walled
+ * across. A door flat on the far wall that doesn't open, a chair facing it, a vending machine or two still lit; in a
+ * room, sometimes only the light nearest the far wall still on, and sometimes only that and nothing else.
  */
 
 interface Area {
@@ -178,6 +182,56 @@ export const HALL_PILLAR_EVERY = 3;
 const HALL_PILLAR_MISSING = 0.06;
 /** In a one-light hall: the one that works, this many cells in from the block's corner each way (its middle). */
 export const HALL_LAMP = 7;
+
+/** What's at a dead end. */
+export type DeadEndThing = "door" | "chair" | "vending";
+/**
+ * The end of a dead end, with something at it: the middle of the face of wall at the far end, the way out of it into
+ * the open, and how far either way of the middle there's wall to put things along. A cell (cx, cy) by it and `side`
+ * give its things their own dice. `force` is the preview's say in what exactly it is.
+ */
+export interface DeadEnd {
+  x: number;
+  y: number;
+  nx: number;
+  ny: number;
+  half: number;
+  cx: number;
+  cy: number;
+  side: number;
+  thing: DeadEndThing | null;
+  /** A room's: only its light nearest the far wall still works. */
+  lampOnly: boolean;
+  force?: string;
+}
+/**
+ * How likely a lattice room with only the one way in is to have something at its far end; what, in turn from one die
+ * (nothing but its last light, the rest); how likely, with a thing there, its other lights are out too.
+ */
+const DEAD_END = 0.5;
+const DEAD_END_KINDS: readonly [DeadEndThing | null, number][] = [
+  ["door", 0.3],
+  ["chair", 0.25],
+  ["vending", 0.25],
+  [null, 0.2],
+];
+const DEAD_END_LAMP_ONLY = 0.5;
+/** How likely each side of a corridor walled across is to have something against the wall. */
+const CORRIDOR_END = 0.5;
+
+/**
+ * Preview, for Kiri: three lattice rooms round the spawn walled in, each with a doorway toward it, and one north-east
+ * of it with its doorway on the room north of the spawn, one of each dead end in them. Comes out before the pull
+ * request.
+ */
+const PREVIEW_DEAD_ENDS = true;
+const PREVIEW_ENDS: Record<string, { open: number; thing: DeadEndThing | null; lampOnly: boolean; force?: string }> = {
+  "1,0": { open: 2, thing: "door", lampOnly: true, force: "fire" },
+  "0,1": { open: 0, thing: "chair", lampOnly: false },
+  "-1,0": { open: 3, thing: "vending", lampOnly: false, force: "snack" },
+  "1,-1": { open: 2, thing: "vending", lampOnly: true, force: "pair" },
+};
+const previewEnd = (lx: number, ly: number) => (PREVIEW_DEAD_ENDS ? PREVIEW_ENDS[`${lx},${ly}`] : undefined);
 
 /** The kinds of special room. */
 /**
@@ -380,6 +434,8 @@ export class WorldMap {
   private readonly fitted = new Map<number, FittedPlan | null>();
   /** What each block's big room has in it, or null if it's none of the kinds, by bx * 100 003 + by. */
   private readonly halls = new Map<number, HallKind | null>();
+  /** Each lattice room's dead end, or null, by lx * 100 003 + ly. */
+  private readonly ends = new Map<number, DeadEnd | null>();
 
   /** The tuning is read live, so the dev panel's dead-light slider works without a new map. */
   constructor(seed: number, tuning: Tuning) {
@@ -835,6 +891,8 @@ export class WorldMap {
 
   private hallKindOf(bx: number, by: number): HallKind | null {
     if (bx === 0 && by === 0) return null;
+    // Preview: none where the dead ends round the spawn are.
+    if (PREVIEW_DEAD_ENDS && Math.abs(bx) + Math.abs(by) <= 1) return null;
     // Only a big room of plain lattice rooms: not a special room, nor in an area laid out to a plan, which has none.
     if (this.noise(bx, by, 9) >= BIG_ROOM || this.specialRoom(bx, by)) return null;
     if (this.layout(bx * 3, by * 3) !== LATTICE) return null;
@@ -861,6 +919,132 @@ export class WorldMap {
   bareHall(cx: number, cy: number): boolean {
     const hall = this.hallAt(cx, cy);
     return hall === "cubicles" || hall === "lamp";
+  }
+
+  /**
+   * The dead end lattice room (lx, ly) is, with something at it, if it is: a plain room, with only one way in, an
+   * opening in one of its walls; not by the spawn, nor with a statue in it. Its far end is the wall across from that.
+   */
+  deadEndRoom(lx: number, ly: number): DeadEnd | null {
+    const key = lx * 100_003 + ly;
+    let end = this.ends.get(key);
+    if (end === undefined) {
+      end = this.deadEndRoomOf(lx, ly);
+      this.ends.set(key, end);
+    }
+    return end;
+  }
+
+  private deadEndRoomOf(lx: number, ly: number): DeadEnd | null {
+    const preview = previewEnd(lx, ly);
+    if (!preview) {
+      if (Math.abs(lx) + Math.abs(ly) <= 1 || this.noise(lx, ly, 77) >= DEAD_END) return null;
+      if (this.layout(lx, ly) !== LATTICE) return null;
+      const bx = Math.floor(lx / 3);
+      const by = Math.floor(ly / 3);
+      if (this.specialRoom(bx, by) || this.hallKind(bx, by)) return null;
+      if (this.fittedPlan(lx, ly) || this.burgerPlan(lx, ly)) return null;
+    }
+    const x0 = lx * 5;
+    const y0 = ly * 5;
+    // The openings in its walls, as runs of open cells along each side.
+    const cell = (side: number, k: number): [number, number] =>
+      side === 0 ? [x0 + k, y0] : side === 1 ? [x0 + k, y0 + 5] : side === 2 ? [x0, y0 + k] : [x0 + 5, y0 + k];
+    let runs = 0;
+    let open = -1;
+    for (let side = 0; side < 4; side++) {
+      let was = false;
+      for (let k = 1; k <= 4; k++) {
+        const now = !this.wall(...cell(side, k));
+        if (now && !was) {
+          runs++;
+          open = side;
+        }
+        was = now;
+      }
+    }
+    if (runs !== 1) return null;
+    const statue = this.statueIn(Math.floor((x0 + 2.5) / this.region), Math.floor((y0 + 2.5) / this.region));
+    if (statue && statue.cx > x0 && statue.cx < x0 + 5 && statue.cy > y0 && statue.cy < y0 + 5) return null;
+    let thing: DeadEndThing | null = null;
+    let lampOnly: boolean;
+    if (preview) {
+      thing = preview.thing;
+      lampOnly = preview.lampOnly;
+    } else {
+      let die = this.noise(lx, ly, 78);
+      for (const [kind, share] of DEAD_END_KINDS) {
+        if (die < share) {
+          thing = kind;
+          break;
+        }
+        die -= share;
+      }
+      lampOnly = !thing || this.noise(lx, ly, 79) < DEAD_END_LAMP_ONLY;
+    }
+    // The far wall's inside face, its middle, and the way into the room.
+    const far = ACROSS_SIDE[open];
+    const [x, y, nx, ny] = [
+      [x0 + 3, y0 + 1, 0, 1],
+      [x0 + 3, y0 + 5, 0, -1],
+      [x0 + 1, y0 + 3, 1, 0],
+      [x0 + 5, y0 + 3, -1, 0],
+    ][far];
+    return { x, y, nx, ny, half: 2, cx: x0 + 1, cy: y0 + 1, side: far, thing, lampOnly, force: preview?.force };
+  }
+
+  /**
+   * Every dead end with something at it within `radius` of (x, y): rooms with one way in, and in corridor areas,
+   * each side of a corridor walled across that has something against the wall.
+   */
+  deadEndsNear(x: number, y: number, radius: number): DeadEnd[] {
+    const out: DeadEnd[] = [];
+    for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
+      for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
+        const layout = this.layout(lx, ly);
+        if (layout === LATTICE) {
+          const end = this.deadEndRoom(lx, ly);
+          if (end?.thing) out.push(end);
+        } else if (layout === CORRIDOR_EW || layout === CORRIDOR_NS) {
+          out.push(...this.corridorEnds(lx, ly, layout));
+        }
+      }
+    }
+    return out.filter((end) => Math.hypot(end.x - x, end.y - y) <= radius);
+  }
+
+  /**
+   * The ends of corridors walled across at the lattice line through lattice room (lx, ly), with something against the
+   * wall. Each wall belongs to the lattice room its first cell is in, so it's only found once.
+   */
+  private corridorEnds(lx: number, ly: number, layout: number): DeadEnd[] {
+    const ew = layout === CORRIDOR_EW;
+    const along = (ew ? lx : ly) * 5;
+    const from = (ew ? ly : lx) * 5;
+    const out: DeadEnd[] = [];
+    for (let row = Math.floor(from / CORRIDOR_PERIOD) - 1; row <= Math.floor((from + 4) / CORRIDOR_PERIOD); row++) {
+      // The corridor's two cells across: a wall across them at `along`, if this corridor's walled off here.
+      const first = row * CORRIDOR_PERIOD + 6;
+      if (first < from || first > from + 4) continue;
+      const at = (a: number, c: number): [number, number] => (ew ? [a, c] : [c, a]);
+      if (!this.wall(...at(along, first)) || !this.wall(...at(along, first + 1))) continue;
+      if (this.layout(...(at(along, first).map((v) => Math.floor(v / 5)) as [number, number])) !== layout) continue;
+      for (const dir of [-1, 1]) {
+        const [ax, ay] = at(along + dir, first);
+        const [bx, by] = at(along + dir, first + 1);
+        if (this.wall(ax, ay) || this.wall(bx, by)) continue;
+        const side = dir < 0 ? 0 : 1;
+        if (this.noise(along * 7 + side, first, 87) >= CORRIDOR_END) continue;
+        // Door, chair or vending machine, as likely as each other as in a room.
+        const die = this.noise(along * 7 + side, first, 88) * 0.8;
+        const thing: DeadEndThing = die < 0.3 ? "door" : die < 0.55 ? "chair" : "vending";
+        const face = along + (dir < 0 ? 0 : 1);
+        const [x, y] = at(face, first + 1);
+        const [nx, ny] = at(dir, 0);
+        out.push({ x, y, nx, ny, half: 1, cx: ax, cy: ay, side, thing, lampOnly: false });
+      }
+    }
+    return out;
   }
 
   /** The middle of the one working light of every one-light hall within `radius` of (x, y). */
@@ -958,6 +1142,8 @@ export class WorldMap {
 
   /** Whether the stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), covers cell m (1–4). */
   private segment(lx: number, ly: number, dir: number, m: number): boolean {
+    const preview = this.previewEndWall(lx, ly, dir, m);
+    if (preview !== null) return preview;
     const fitted = this.fittedWall(lx, ly, dir, m);
     if (fitted !== null) return fitted;
     // Two stretches by the spawn point are always open, so nobody starts boxed in.
@@ -984,6 +1170,25 @@ export class WorldMap {
     }
     if (k < area.door + area.half) return m <= 2;
     return true;
+  }
+
+  /**
+   * Preview: whether the stretch of lattice covers cell m as a wall of one of the dead end rooms round the spawn,
+   * always but for its doorway; null if it's none of theirs.
+   */
+  private previewEndWall(lx: number, ly: number, dir: number, m: number): boolean | null {
+    if (!PREVIEW_DEAD_ENDS) return null;
+    // The room it's the north or west wall of (side 0 or 2), and the one it's the south or east wall of (1 or 3).
+    const rooms: [number, number, number][] =
+      dir === 0 ? [[lx, ly, 0], [lx, ly - 1, 1]] : [[lx, ly, 2], [lx - 1, ly, 3]];
+    let found = false;
+    for (const [rx, ry, side] of rooms) {
+      const end = previewEnd(rx, ry);
+      if (!end) continue;
+      found = true;
+      if (end.open === side && m === 2) return false;
+    }
+    return found ? true : null;
   }
 
   /** 1 where cell (x, y) is wall. */
@@ -1035,6 +1240,24 @@ export class WorldMap {
     // A one-light hall's: all out, but the one in its middle, which never even flickers.
     if (this.hallAt(x, y) === "lamp") {
       return mod(x, ROOM_BLOCK) === HALL_LAMP && mod(y, ROOM_BLOCK) === HALL_LAMP ? LIGHT_ON : LIGHT_DEAD;
+    }
+    // A dead end's, sometimes: only the one nearest its far wall still on.
+    const end = this.deadEndRoom(Math.floor(x / 5), Math.floor(y / 5));
+    if (end?.lampOnly) {
+      let best: [number, number] | null = null;
+      let bestD = Infinity;
+      for (let j = 1; j <= 4; j++) {
+        for (let i = 1; i <= 4; i++) {
+          const [lx, ly] = [end.cx - 1 + i, end.cy - 1 + j];
+          if (!this.lampAt(lx, ly)) continue;
+          const d = Math.hypot(lx + 0.5 - end.x, ly + 0.5 - end.y);
+          if (d < bestD) {
+            bestD = d;
+            best = [lx, ly];
+          }
+        }
+      }
+      if (best) return best[0] === x && best[1] === y ? LIGHT_ON : LIGHT_DEAD;
     }
     // A storeroom's are mostly out, and the rest failing.
     if (this.fittedAt(x, y)?.kind === "storage") {

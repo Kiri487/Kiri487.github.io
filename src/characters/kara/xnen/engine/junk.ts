@@ -7,6 +7,7 @@ import {
   HALL_LAMP,
   ROOM_BLOCK,
   type BurgerPlan,
+  type DeadEnd,
   type CandleSign,
   type FittedPlan,
   type Statue,
@@ -1554,7 +1555,8 @@ export type JunkKind =
   | "storage"
   | "candle"
   | "flame"
-  | "partition";
+  | "partition"
+  | "vending";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -1694,6 +1696,7 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
   out.push(...fittedAround(map, x, y, radius));
   out.push(...candleSignsAround(map, x, y, radius));
   out.push(...hallsAround(map, x, y, radius));
+  out.push(...deadEndsAround(map, x, y, radius));
   return out;
 }
 
@@ -3475,6 +3478,342 @@ function hallsAround(map: WorldMap, x: number, y: number, radius: number): Junk[
       }
       for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
     }
+  }
+  return out;
+}
+
+// ---- dead ends ----
+
+/*
+ * At the end of a dead end (map.ts), something: a door flat on the far wall that doesn't open, a chair facing that
+ * wall, or a vending machine still lit, a snack machine or a drink machine or the two side by side, back to the wall.
+ * The machines after the plain ones in offices everywhere: a black one with crisps and sweets in rows behind its glass
+ * and a keypad, a red one with its bottles lit from behind, a lit band across its top, a coin box and a flap to reach
+ * in for what you bought. No names on them.
+ */
+
+/** The machines' atlas: what's behind each one's glass, the lit band, the keypad, the coin box, their bodies. */
+const SNACKS: Rect = { x: 0, y: 0, w: 24, h: 40 };
+const DRINKS: Rect = { x: 24, y: 0, w: 24, h: 40 };
+const BAND: Rect = { x: 48, y: 0, w: 16, h: 8 };
+const KEYPAD: Rect = { x: 48, y: 8, w: 8, h: 16 };
+const COINS: Rect = { x: 56, y: 8, w: 8, h: 16 };
+const VEND_BLACK: Rect = { x: 48, y: 24, w: 8, h: 8 };
+const VEND_RED: Rect = { x: 56, y: 24, w: 8, h: 8 };
+const VEND_DARK: Rect = { x: 48, y: 32, w: 8, h: 8 };
+const VEND_STEEL: Rect = { x: 56, y: 32, w: 8, h: 8 };
+const VENDING_ATLAS_W = 64;
+const VENDING_ATLAS_H = 40;
+
+/** Bags of crisps and sweets, in the colours they come in. */
+const BAG_COLOURS = [
+  [214, 52, 40],
+  [238, 176, 36],
+  [52, 110, 210],
+  [226, 84, 160],
+  [56, 160, 76],
+  [236, 122, 34],
+  [196, 196, 206],
+];
+/** Bottles, a row of each: cola, green, orange, water, and a mix. */
+const BOTTLE_ROWS = [
+  [[58, 24, 20]],
+  [[58, 24, 20], [40, 160, 90]],
+  [[236, 128, 30], [220, 226, 230]],
+  [[140, 186, 230]],
+  [[58, 24, 20], [200, 60, 110], [140, 186, 230]],
+];
+
+/**
+ * Alpha marks what lights itself (statue.ts): 64–127, like a screen. Everything behind the glass is lit, the band
+ * across the drink machine's top, and the little screens on the keypad and the coin box.
+ */
+export const VENDING_SKIN: StatueSkin = (() => {
+  const W = VENDING_ATLAS_W;
+  const data = new Uint8ClampedArray(W * VENDING_ATLAS_H * 4);
+  const put = (x: number, y: number, c: readonly number[], a = 255) => {
+    const o = (y * W + x) * 4;
+    data[o] = c[0];
+    data[o + 1] = c[1];
+    data[o + 2] = c[2];
+    data[o + 3] = a;
+  };
+  const fill = (r: Rect, c: (x: number, y: number) => readonly number[], a = 255) => {
+    for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) put(r.x + x, r.y + y, c(x, y), a);
+  };
+  const shade = (c: readonly number[], m: number) => c.map((v) => v * m);
+  const lit = 100;
+
+  // Snacks: five shelves, each a row of six bags on their coils, dim inside.
+  fill(
+    SNACKS,
+    (x, y) => {
+      const row = Math.floor(y / 8);
+      const v = y % 8;
+      if (v === 7) return [110, 110, 114];
+      const bag = Math.floor(x / 4);
+      if (x % 4 === 3 || v === 0) return [26, 26, 30];
+      const colour = BAG_COLOURS[Math.floor(grain(bag + 17, row + 31) * BAG_COLOURS.length)];
+      // Crinkled at the top, a little logo in the middle.
+      if (v === 1) return shade(colour, 1.25);
+      if (v === 3 && x % 4 === 1) return [240, 236, 224];
+      return shade(colour, 0.9 + 0.15 * grain(x, y + 200));
+    },
+    lit,
+  );
+  // Drinks: five shelves of bottles in a row, a cap and a label on each, lit from behind.
+  fill(
+    DRINKS,
+    (x, y) => {
+      const row = Math.floor(y / 8);
+      const v = y % 8;
+      if (v === 7) return [170, 172, 176];
+      if (x % 3 === 2 || v === 0) return [214, 220, 226];
+      const kinds = BOTTLE_ROWS[row];
+      const colour = kinds[Math.floor(x / 3) % kinds.length];
+      if (v === 1) return [200, 40, 36];
+      if (v === 2) return shade(colour, 1.1);
+      if (v === 4) return [236, 236, 230];
+      return shade(colour, 0.95 + 0.1 * grain(x, y + 300));
+    },
+    lit,
+  );
+  // The band: red, darker at its edges, a white wave across.
+  fill(
+    BAND,
+    (x, y) => {
+      const wave = Math.round(3.5 + Math.sin(x * 0.8) * 1.5);
+      if (y === wave) return [244, 240, 236];
+      return shade([210, 40, 32], y === 0 || y === 7 ? 0.7 : 1);
+    },
+    120,
+  );
+  // The keypad: a green screen up top, buttons below.
+  fill(KEYPAD, (x, y) =>
+    y >= 6 && y <= 13 && x % 2 === 1 && y % 2 === 0 ? [206, 206, 200] : [72, 72, 76],
+  );
+  for (let y = 1; y <= 3; y++) for (let x = 1; x <= 6; x++) put(KEYPAD.x + x, KEYPAD.y + y, [70, 196, 96], lit);
+  // The coin box: light grey, a screen, a slot, a column of buttons.
+  fill(COINS, (x, y) => {
+    if (y >= 6 && y <= 7 && x >= 3 && x <= 4) return [20, 20, 22];
+    if (y >= 10 && y <= 14 && x >= 2 && x <= 5 && (x + y) % 2 === 0) return [120, 120, 124];
+    return [188, 190, 192];
+  });
+  for (let y = 1; y <= 3; y++) for (let x = 1; x <= 6; x++) put(COINS.x + x, COINS.y + y, [70, 200, 130], lit);
+  fill(VEND_BLACK, (x, y) => shade([36, 36, 38], 0.92 + 0.12 * grain(x, y + 400)));
+  fill(VEND_RED, (x, y) => shade([196, 34, 28], 0.92 + 0.12 * grain(x, y + 500)));
+  fill(VEND_DARK, () => [14, 14, 16]);
+  fill(VEND_STEEL, (x, y) => shade([160, 162, 166], 0.94 + 0.1 * grain(x, y + 600)));
+  return { data };
+})();
+
+/** A hole in a front: where, how deep it goes back, and what its back and its sides are. */
+interface Hole {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  depth: number;
+  back: Rect;
+  sides: Rect;
+}
+
+/**
+ * A front facing +z at z, from (x0, y0) to (x1, y1), painted `body`, with holes set back into it: a window with
+ * the glass behind its frame, a flap to reach in. The front is cut round the holes into a grid of pieces.
+ */
+function frontWithHoles(
+  out: number[],
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+  z: number,
+  body: Rect,
+  holes: readonly Hole[],
+) {
+  const xs = [...new Set([x0, x1, ...holes.flatMap((h) => [h.x0, h.x1])])].sort((a, b) => a - b);
+  const ys = [...new Set([y0, y1, ...holes.flatMap((h) => [h.y0, h.y1])])].sort((a, b) => a - b);
+  for (let j = 0; j < ys.length - 1; j++) {
+    for (let i = 0; i < xs.length - 1; i++) {
+      const mx = (xs[i] + xs[i + 1]) / 2;
+      const my = (ys[j] + ys[j + 1]) / 2;
+      if (holes.some((h) => mx > h.x0 && mx < h.x1 && my > h.y0 && my < h.y1)) continue;
+      quad(out, [xs[i], ys[j], z], [xs[i + 1], ys[j], z], [xs[i + 1], ys[j + 1], z], [xs[i], ys[j + 1], z], body);
+    }
+  }
+  for (const h of holes) {
+    const b = z - h.depth;
+    // Its back, then its floor, its top, and its two sides, all facing into it.
+    quad(out, [h.x0, h.y0, b], [h.x1, h.y0, b], [h.x1, h.y1, b], [h.x0, h.y1, b], h.back);
+    quad(out, [h.x0, h.y0, z], [h.x1, h.y0, z], [h.x1, h.y0, b], [h.x0, h.y0, b], h.sides);
+    quad(out, [h.x0, h.y1, b], [h.x1, h.y1, b], [h.x1, h.y1, z], [h.x0, h.y1, z], h.sides);
+    quad(out, [h.x0, h.y0, z], [h.x0, h.y0, b], [h.x0, h.y1, b], [h.x0, h.y1, z], h.sides);
+    quad(out, [h.x1, h.y0, b], [h.x1, h.y0, z], [h.x1, h.y1, z], [h.x1, h.y1, b], h.sides);
+  }
+}
+
+/** A vending machine: how wide, how deep, how tall, and how high its feet hold it off the floor. */
+const VEND_W = { snack: 0.34, drink: 0.36 } as const;
+const VEND_D = 0.3;
+const VEND_H = { snack: 0.7, drink: 0.72 } as const;
+const VEND_FEET = 0.02;
+type Vending = keyof typeof VEND_W;
+
+/** A machine's body, its back and sides and top, from its feet up; its front is left to frontWithHoles. */
+function vendingBody(out: number[], kind: Vending, body: Rect): [number, number, number] {
+  const hw = VEND_W[kind] / 2;
+  const hd = VEND_D / 2;
+  const y0 = VEND_FEET;
+  const y1 = VEND_H[kind];
+  quad(out, [hw, y0, -hd], [-hw, y0, -hd], [-hw, y1, -hd], [hw, y1, -hd], body);
+  quad(out, [hw, y0, hd], [hw, y0, -hd], [hw, y1, -hd], [hw, y1, hd], body);
+  quad(out, [-hw, y0, -hd], [-hw, y0, hd], [-hw, y1, hd], [-hw, y1, -hd], body);
+  quad(out, [-hw, y1, hd], [hw, y1, hd], [hw, y1, -hd], [-hw, y1, -hd], body);
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const fx = sx * (hw - 0.03);
+      const fz = sz * (hd - 0.03);
+      box(out, fx - 0.012, fx + 0.012, 0, y0, fz - 0.012, fz + 0.012, VEND_DARK, VEND_DARK, VEND_DARK);
+    }
+  }
+  return [hw, hd, y1];
+}
+
+function buildVending(kind: Vending): StatueModel {
+  const tris: number[] = [];
+  if (kind === "snack") {
+    const [hw, hd, top] = vendingBody(tris, kind, VEND_BLACK);
+    // The glass, the flap under it, and the keypad to the right of the glass.
+    frontWithHoles(tris, -hw, hw, VEND_FEET, top, hd, VEND_BLACK, [
+      { x0: -hw + 0.02, x1: hw - 0.1, y0: 0.24, y1: 0.64, depth: 0.02, back: SNACKS, sides: VEND_BLACK },
+      { x0: -hw + 0.03, x1: hw - 0.12, y0: 0.08, y1: 0.16, depth: 0.05, back: VEND_DARK, sides: VEND_DARK },
+    ]);
+    box(tris, hw - 0.085, hw - 0.02, 0.44, 0.58, hd, hd + 0.01, KEYPAD, VEND_STEEL, VEND_STEEL);
+    return { tris, atlasWidth: VENDING_ATLAS_W, atlasHeight: VENDING_ATLAS_H, stone: [40, 40, 44] };
+  }
+  const [hw, hd, top] = vendingBody(tris, kind, VEND_RED);
+  // The glass, nearly the whole front; to its right the coin box, and the flap under it.
+  frontWithHoles(tris, -hw, hw, VEND_FEET, top, hd, VEND_RED, [
+    { x0: -hw + 0.02, x1: hw - 0.1, y0: 0.17, y1: 0.6, depth: 0.015, back: DRINKS, sides: VEND_STEEL },
+    { x0: hw - 0.08, x1: hw - 0.02, y0: 0.25, y1: 0.32, depth: 0.04, back: VEND_DARK, sides: VEND_DARK },
+  ]);
+  box(tris, hw - 0.08, hw - 0.02, 0.4, 0.52, hd, hd + 0.012, COINS, VEND_STEEL, VEND_STEEL);
+  // The lit band over the glass, just proud of the front.
+  const z = hd + 0.003;
+  quad(tris, [-hw + 0.02, 0.615, z], [hw - 0.1, 0.615, z], [hw - 0.1, 0.69, z], [-hw + 0.02, 0.69, z], BAND);
+  return { tris, atlasWidth: VENDING_ATLAS_W, atlasHeight: VENDING_ATLAS_H, stone: [196, 34, 28] };
+}
+
+const VENDING: Record<Vending, StatueModel> = { snack: buildVending("snack"), drink: buildVending("drink") };
+/** How likely a dead end's machines are a pair, side by side; of one alone, how likely it's the drink machine. */
+const VEND_PAIR = 0.3;
+const VEND_DRINK = 0.5;
+/** How much of a dead end's far wall either side of its middle something can be moved along it by. */
+const END_SHIFT = 0.5;
+
+/** What's at dead end `end`, the same every time for this map. */
+function deadEndIn(map: WorldMap, end: DeadEnd): Junk[] {
+  const roll = (k: number) => map.noise(end.cx * 67 + k, end.cy, 980 + end.side);
+  const key = (name: string) => `x${end.cx},${end.cy},${end.side}.${name}`;
+  const { nx, ny } = end;
+  // Along the wall, and somewhere along it, not too far from its middle.
+  const ax = -ny;
+  const ay = nx;
+  const shift = (roll(1) - 0.5) * 2 * Math.min(END_SHIFT, end.half - 0.5);
+  const fx = end.x + ax * shift;
+  const fy = end.y + ay * shift;
+  const facing = Math.atan2(ny, nx);
+  if (end.thing === "door") {
+    const fire = end.force ? end.force === "fire" : roll(2) < 0.5;
+    const x = fx + nx * FRAME_DEPTH;
+    const y = fy + ny * FRAME_DEPTH;
+    const reach = DOOR_W / 2 + FRAME;
+    return [
+      {
+        key: key("door"),
+        kind: "door",
+        model: DOORS[fire ? "fire" : "wood"],
+        x,
+        y,
+        h: 0,
+        yaw: facing,
+        pitch: 0,
+        roll: 0,
+        solid: { x, y, r: FRAME_DEPTH + 0.01, along: [ax * reach, ay * reach] },
+        doorway: { x, y, yaw: facing, both: false },
+      },
+    ];
+  }
+  if (end.thing === "chair") {
+    // Close up to the wall, facing it.
+    const x = fx + nx * 0.2;
+    const y = fy + ny * 0.2;
+    const office = roll(3) < OFFICE_FURNITURE[map.zoneAt(end.cx, end.cy)];
+    const pose = { x, y, h: 0, yaw: facing + Math.PI + (roll(4) - 0.5) * 0.2, pitch: 0, roll: 0 };
+    return [
+      {
+        key: key("chair"),
+        kind: "chair",
+        model: buildChair(ORDINARY, office),
+        office,
+        ...pose,
+        solid: { x, y, r: 0.2 },
+        perch: perchOn(pose, chairSeat(ORDINARY), CHAIR_EDGE, 0.1),
+      },
+    ];
+  }
+  if (end.thing !== "vending") return [];
+  // Back to the wall: one, or the two side by side, either way round.
+  const pair = end.force ? end.force === "pair" : roll(5) < VEND_PAIR;
+  const kinds: Vending[] = pair
+    ? roll(6) < 0.5
+      ? ["snack", "drink"]
+      : ["drink", "snack"]
+    : [(end.force ? end.force === "drink" : roll(7) < VEND_DRINK) ? "drink" : "snack"];
+  const width = kinds.reduce((sum, k) => sum + VEND_W[k], 0) + (kinds.length - 1) * 0.01;
+  let along = (pair ? 0 : shift) - width / 2;
+  return kinds.map((kind, i) => {
+    const t = along + VEND_W[kind] / 2;
+    along += VEND_W[kind] + 0.01;
+    const x = end.x + ax * t + nx * (VEND_D / 2 + 0.005);
+    const y = end.y + ay * t + ny * (VEND_D / 2 + 0.005);
+    const hw = VEND_W[kind] / 2;
+    return {
+      key: key(`vending${i}`),
+      kind: "vending" as const,
+      model: VENDING[kind],
+      x,
+      y,
+      h: 0,
+      yaw: facing,
+      pitch: 0,
+      roll: 0,
+      solid: slab(x, y, ax * hw, ay * hw, VEND_D / 2 + 0.01),
+    };
+  });
+}
+
+/** The dead ends' things, by dead end and map: laid out once. */
+const deadEndThings = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Everything at the dead ends within `radius` of (x, y). */
+function deadEndsAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = deadEndThings.get(map);
+  if (!known) {
+    known = new Map();
+    deadEndThings.set(map, known);
+  }
+  const out: Junk[] = [];
+  // Things stand a little off the far wall's middle: look a little further for the walls.
+  for (const end of map.deadEndsNear(x, y, radius + 1)) {
+    const key = `${end.cx},${end.cy},${end.side}`;
+    let found = known.get(key);
+    if (!found) {
+      found = deadEndIn(map, end);
+      known.set(key, found);
+    }
+    for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
   }
   return out;
 }
