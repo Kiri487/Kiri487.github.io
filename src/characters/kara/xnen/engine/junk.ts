@@ -5419,22 +5419,31 @@ function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
       // Fallen off onto the floor in front, every which way.
       const fx = Math.cos(yaw);
       const fy = Math.sin(yaw);
+      // Clear of the doorways and of everything else but the unit they fell from, and of each other: they're in the
+      // way now (game.ts goes by their shape).
+      const others = taken.slice(0, -3);
       for (let i = 0; i < 7; i++) {
         const r = (j: number) => roll(900 + i * 6 + j);
         const size = Math.floor(r(0) * BOX_SIZES.length);
+        const [w, d, tall] = BOX_SIZES[size];
         const along = (r(1) - 0.5) * SHELF_L;
         const outBy = SHELF_D / 2 + 0.1 + r(2) * 0.4;
         const tipped = r(3) < 0.5;
-        // Tipped onto its front, it lies on it: half its depth up.
-        const pose = {
-          x: x + ax * along + fx * outBy,
-          y: y + ay * along + fy * outBy,
-          h: tipped ? BOX_SIZES[size][1] / 2 : 0,
-          yaw: r(4) * Math.PI * 2,
-          pitch: tipped ? Math.PI / 2 : 0,
-          roll: 0,
-        };
-        put("box", boxModel(size, r(5) < BOX_OPEN, false), pose);
+        const open = r(5) < BOX_OPEN;
+        const turn = r(4) * Math.PI * 2;
+        const bx = x + ax * along + fx * outBy;
+        const by = y + ay * along + fy * outBy;
+        // Tipped onto its front, it lies on it, half its depth up, its top the way its front faced.
+        const mx = tipped ? bx + (Math.cos(turn) * tall) / 2 : bx;
+        const my = tipped ? by + (Math.sin(turn) * tall) / 2 : by;
+        const round = open ? Math.hypot(w + d, d * 2) / 2 : Math.hypot(w, tipped ? tall : d) / 2;
+        const inRoom =
+          mx - round > plan.x0 && my - round > plan.y0 && mx + round < plan.x0 + plan.w && my + round < plan.y0 + plan.h;
+        if (!inRoom || !others.every((t) => Math.hypot(t.x - mx, t.y - my) > t.r + round)) continue;
+        others.push({ x: mx, y: my, r: round });
+        taken.push({ x: mx, y: my, r: round });
+        const pose = { x: bx, y: by, h: tipped ? d / 2 : 0, yaw: turn, pitch: tipped ? Math.PI / 2 : 0, roll: 0 };
+        put("box", boxModel(size, open, false), pose);
       }
     }
   };
