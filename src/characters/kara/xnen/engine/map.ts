@@ -576,7 +576,8 @@ export class WorldMap {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
     const kind = this.rolledFitted(lx, ly);
     if (!kind) return null;
-    for (const [i, j] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    // Its own, those it has doors onto, and the one south-east, whose lattice point is its corner.
+    for (const [i, j] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1]]) {
       if (this.layout(lx + i, ly + j) !== LATTICE) return null;
     }
     // Of two side by side, the one to the west or north is it.
