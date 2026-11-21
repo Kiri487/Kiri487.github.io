@@ -1,4 +1,4 @@
-import type { WorldMap } from "./map";
+import type { BurgerPlan, WorldMap } from "./map";
 import type { StatueMesh, StatueModel, StatueSkin } from "./statue";
 
 /*
@@ -1603,6 +1603,7 @@ export function junkAround(map: WorldMap, x: number, y: number, radius: number):
       for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
     }
   }
+  out.push(...partiesAround(map, x, y, radius));
   return out;
 }
 
@@ -2441,6 +2442,394 @@ function bitesOf(roll: (k: number) => number): Bite[] {
     at += way * (0.9 + roll(66 + b) * 0.6);
   }
   return bites;
+}
+
+// ---- the burger room ----
+
+/*
+ * A burger room is a little room, two cells by two inside its walls, with one way in, laid out for a party nobody
+ * explains: a long wooden table, a pyramid of burgers on it and a few more beside, two chairs facing each other across
+ * it and a third left empty at the far end, turned to the doorway as if kept for whoever comes in; burgers crowded
+ * round on the carpet, stuck into the walls, upside down in the ceiling and sunk in the carpet, with a narrow way left
+ * from the doorway to the table; most often a huge one wedged in a wall, half in the room and half out; and a few
+ * dropped outside, trailing away from the doorway. Every room is turned and strewn its own way.
+ */
+
+/** The long table: its length, depth and height, and pairs of legs. */
+const PARTY_TABLE: DeskShape = { length: 0.9, depth: 0.36, height: 0.23, legs: 3, drawer: false };
+/** The table stands this far from the room's middle, at most, either way. */
+const PARTY_OFF_MIDDLE = 0.08;
+/** The chairs at its sides stand this far out from its edge, and this far along from its middle, at most. */
+const PARTY_CHAIR_OUT = 0.2;
+const PARTY_CHAIR_ALONG = 0.18;
+/** The burgers round about: how many lots, at least and at most, and from how far out from the table to how far. */
+const PARTY_BURGERS = [6, 9] as const;
+const PARTY_NEAR = 0.45;
+const PARTY_FAR = 1.3;
+/** Kept clear: either side of the way from the doorway to the table, and in from the walls. */
+const PARTY_WAY = 0.2;
+const PARTY_WALL = 0.04;
+/**
+ * How likely a room is to have a huge burger wedged in one of its walls (not the doorway's), half in and half out, and
+ * how big it is: wider than the wall is thick, so it shows on both sides.
+ */
+const PARTY_GIANT = 0.7;
+const PARTY_GIANT_SIZE = [13, 15] as const;
+/** How deep it's sunk in the carpet, so it's under the ceiling. */
+const PARTY_GIANT_SUNK = 0.35;
+/** More on the table besides the pyramid, at least and at most. */
+const PARTY_ON_TABLE = [1, 2] as const;
+/** Stuck into the walls, upside down in the ceiling, and sunk in the carpet: how many, at least and at most. */
+const PARTY_IN_WALLS = [2, 4] as const;
+const PARTY_IN_CEILING = [2, 3] as const;
+const PARTY_SUNK = [1, 2] as const;
+/** Dropped outside, away from the doorway: how many, at least and at most, and how far apart. */
+const PARTY_TRAIL = [3, 6] as const;
+const PARTY_TRAIL_STEP = [0.5, 0.9] as const;
+/** Sizes of the rest, from an ordinary one to this many times it, mostly small: the room is small. */
+const PARTY_BIGGEST = 2;
+
+/** How far (x, y) is from the line from a to b. */
+function fromLine(x: number, y: number, [ax, ay]: readonly number[], [bx, by]: readonly number[]) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(x - ax - dx * t, y - ay - dy * t);
+}
+
+/** Everything in the burger room in lattice room (lx, ly), the same every time for this map. */
+function partyIn(map: WorldMap, lx: number, ly: number, plan: BurgerPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 37 + k, ly, 900);
+  const out: Junk[] = [];
+  const key = (name: string) => `p${lx},${ly}.${name}`;
+  // Inside the walls: from (x0, y0) to (x0 + ROOM, y0 + ROOM).
+  const { x0, y0 } = plan;
+  const ROOM = 2;
+  // In the doorway.
+  const [dx, dy] = map.burgerDoorway(plan);
+  const door = [dx + 0.5, dy + 0.5];
+
+  // The table, square to the walls, give or take.
+  const tx = x0 + ROOM / 2 + (roll(1) * 2 - 1) * PARTY_OFF_MIDDLE;
+  const ty = y0 + ROOM / 2 + (roll(2) * 2 - 1) * PARTY_OFF_MIDDLE;
+  const yaw = Math.floor(roll(3) * 4) * (Math.PI / 2) + (roll(4) - 0.5) * 0.3;
+  const fx = Math.cos(yaw);
+  const fy = Math.sin(yaw);
+  // Along its length.
+  const ax = Math.sin(yaw);
+  const ay = -Math.cos(yaw);
+  const hl = PARTY_TABLE.length / 2;
+  const hd = PARTY_TABLE.depth / 2;
+  const table = { x: tx, y: ty, h: 0, yaw, pitch: 0, roll: 0 };
+  out.push({
+    key: key("table"),
+    kind: "desk",
+    model: buildDesk(PARTY_TABLE),
+    ...table,
+    solid: slab(tx, ty, ax * hl, ay * hl, hd + 0.01),
+    perch: perchOn(table, PARTY_TABLE.height, hd, 0.1),
+  });
+
+  // The pyramid on it, along its length, its top one bitten.
+  const size = 1.2 + roll(5) * 0.3;
+  const w = BURGER_W * size;
+  const tall = w * BURGER_TALL;
+  const gap = w * 1.12;
+  let n = 0;
+  for (let level = 0; level < 3; level++) {
+    const across = 3 - level;
+    for (let k = 0; k < across; k++) {
+      const t = (k - (across - 1) / 2) * gap;
+      const model = burgerModel(size, level === 2 ? bitesOf((j) => roll(10 + j)) : []);
+      const x = tx + ax * t;
+      const y = ty + ay * t;
+      const h = PARTY_TABLE.height + level * tall * 0.8;
+      out.push({ key: key(`pyramid${n++}`), kind: "burger", model, x, y, h, yaw, pitch: 0, roll: 0, solid: null });
+    }
+  }
+
+  // Two chairs across the table from each other, pulled out a little, one of them askew, with a bitten burger left
+  // on its seat.
+  const chair = buildChair(ORDINARY);
+  const seat = chairSeat(ORDINARY);
+  const askew = roll(20) < 0.5 ? 0 : 1;
+  for (const side of [0, 1]) {
+    const away = side ? -1 : 1;
+    const along = (roll(21 + side) * 2 - 1) * PARTY_CHAIR_ALONG;
+    const far = hd + PARTY_CHAIR_OUT + (side === askew ? 0.12 : 0);
+    const x = tx + fx * away * far + ax * along;
+    const y = ty + fy * away * far + ay * along;
+    // Facing the table.
+    const turn = side === askew ? (roll(23) - 0.5) * 1 : (roll(24) - 0.5) * 0.15;
+    const pose = { x, y, h: 0, yaw: Math.atan2(-fy * away, -fx * away) + turn, pitch: 0, roll: 0 };
+    const left = side === askew;
+    out.push({
+      key: key(`chair${side}`),
+      kind: "chair",
+      model: chair,
+      ...pose,
+      solid: { x, y, r: 0.2 },
+      // XN doesn't sit on the burger.
+      perch: left ? null : perchOn(pose, seat, CHAIR_EDGE, 0.1),
+    });
+    if (left) {
+      out.push({
+        key: key("left"),
+        kind: "burger",
+        model: burgerModel(1, bitesOf((j) => roll(30 + j))),
+        x,
+        y,
+        h: seat,
+        yaw: roll(25) * Math.PI * 2,
+        pitch: 0,
+        roll: 0,
+        solid: null,
+      });
+    }
+  }
+
+  // The third chair, at the end of the table further from the doorway, out of the way in, turned to it.
+  const toDoor = (k: number) => Math.hypot(tx + ax * hl * k - door[0], ty + ay * hl * k - door[1]);
+  const end = toDoor(1) < toDoor(-1) ? -1 : 1;
+  const cx = tx + ax * end * (hl + 0.25);
+  const cy = ty + ay * end * (hl + 0.25);
+  const third = { x: cx, y: cy, h: 0, yaw: Math.atan2(door[1] - cy, door[0] - cx), pitch: 0, roll: 0 };
+  out.push({
+    key: key("chair2"),
+    kind: "chair",
+    model: chair,
+    ...third,
+    solid: { x: cx, y: cy, r: 0.2 },
+    perch: perchOn(third, seat, CHAIR_EDGE, 0.1),
+  });
+
+  // Burgers round about: where nothing else is, out of the way in.
+  const taken = out.filter((junk) => junk.solid).map((junk) => ({ x: junk.x, y: junk.y, r: junk.solid?.r ?? 0.2 }));
+  // The table's ends, as well as its middle.
+  taken.push({ x: tx + ax * hl, y: ty + ay * hl, r: hd + 0.05 }, { x: tx - ax * hl, y: ty - ay * hl, r: hd + 0.05 });
+  const free = (x: number, y: number, r: number) =>
+    x - r > x0 + PARTY_WALL &&
+    y - r > y0 + PARTY_WALL &&
+    x + r < x0 + ROOM - PARTY_WALL &&
+    y + r < y0 + ROOM - PARTY_WALL &&
+    fromLine(x, y, door, [tx, ty]) > PARTY_WAY + r &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r + 0.03);
+
+
+  // How many, at least and at most, by the die numbered k.
+  const many = ([least, most]: readonly [number, number], k: number) =>
+    least + Math.floor(roll(k) * (most - least + 1));
+  const burger = (name: string, model: StatueModel, x: number, y: number, h: number, turn: Turn, solid: Solid | null) =>
+    out.push({ key: key(name), kind: "burger", model, x, y, h, ...turn, solid });
+
+  // The walls inside, each as a cell of it seen from inside: north, south, west, east, and which of its two cells.
+  const wallSpots: [number, number][] = [];
+  for (let side = 0; side < 4; side++) {
+    for (let cell = 0; cell < 2; cell++) if (!(side === plan.side && cell === plan.cell)) wallSpots.push([side, cell]);
+  }
+  /** A point on that wall's face, `along` (0–1) of the way along its cell, and the way out of it into the room. */
+  const onWall = ([side, cell]: readonly [number, number], along: number): [number, number, number, number] => {
+    const a = (side < 2 ? x0 : y0) + cell + along;
+    if (side === 0) return [a, y0, 0, 1];
+    if (side === 1) return [a, y0 + ROOM, 0, -1];
+    if (side === 2) return [x0, a, 1, 0];
+    return [x0 + ROOM, a, -1, 0];
+  };
+
+  // A huge one wedged in a wall, half in the room and half out.
+  if (roll(200) < PARTY_GIANT) {
+    const sides = [0, 1, 2, 3].filter((side) => side !== plan.side);
+    const side = sides[Math.floor(roll(201) * sides.length)];
+    const size = PARTY_GIANT_SIZE[0] + roll(202) * (PARTY_GIANT_SIZE[1] - PARTY_GIANT_SIZE[0]);
+    const r = (BURGER_W * size) / 2;
+    // The middle of the wall cells' run, half a cell out from its face, inside the wall.
+    const [wx, wy, ox, oy] = onWall([side, 0], 1);
+    const x = wx - ox * 0.5;
+    const y = wy - oy * 0.5;
+    const model = burgerModel(size, roll(203) < BURGER_BITTEN ? bitesOf((j) => roll(204 + j)) : []);
+    const turn = { yaw: roll(208) * Math.PI * 2, pitch: 0, roll: 0 };
+    burger("giant", model, x, y, -PARTY_GIANT_SUNK, turn, { x, y, r });
+    taken.push({ x, y, r });
+  }
+
+
+  const count = PARTY_BURGERS[0] + Math.floor(roll(50) * (PARTY_BURGERS[1] - PARTY_BURGERS[0] + 1));
+  let placed = 0;
+  for (let k = 0; k < count * 30 && placed < count; k++) {
+    const r1 = (j: number) => map.noise(lx * 37 + k, ly * 41 + j, 910);
+    const dist = PARTY_NEAR + (PARTY_FAR - PARTY_NEAR) * r1(0);
+    const angle = r1(1) * Math.PI * 2;
+    const x = tx + Math.cos(angle) * dist;
+    const y = ty + Math.sin(angle) * dist;
+    const how = r1(2);
+    const size = 1 + (PARTY_BIGGEST - 1) * r1(3) ** 2;
+    const bw = BURGER_W * size;
+    const r = how < 0.7 ? bw / 2 : how < 0.88 ? bw * 0.6 : bw * 1.4;
+    if (!free(x, y, r)) continue;
+    taken.push({ x, y, r });
+    const name = `b${placed++}`;
+    const turn = r1(4) * Math.PI * 2;
+    const bites = (j: number) => r1(20 + j);
+    if (how < 0.7) {
+      // On its own, now and then bitten.
+      const model = burgerModel(size, r1(5) < BURGER_BITTEN ? bitesOf(bites) : []);
+      const solid = bw * BURGER_TALL < STEP ? null : { x, y, r };
+      out.push({ key: key(name), kind: "burger", model, x, y, h: 0, yaw: turn, pitch: 0, roll: 0, solid });
+    } else if (how < 0.88) {
+      // Two or three stacked.
+      const small = 1 + r1(6);
+      const sw = BURGER_W * small;
+      const high = sw * BURGER_TALL;
+      const stack = 2 + Math.floor(r1(7) * 2);
+      for (let s = 0; s < stack; s++) {
+        const model = burgerModel(small, s === stack - 1 && r1(8) < BURGER_BITTEN ? bitesOf(bites) : []);
+        out.push({
+          key: key(`${name}.${s}`),
+          kind: "burger",
+          model,
+          x: x + (r1(9 + s) - 0.5) * sw * 0.15,
+          y: y + (r1(12 + s) - 0.5) * sw * 0.15,
+          h: s * high * 0.95,
+          yaw: turn + s,
+          pitch: s ? (r1(15 + s) - 0.5) * 0.12 : 0,
+          roll: 0,
+          solid: s ? null : { x, y, r: sw / 2 },
+        });
+      }
+    } else {
+      // Fallen apart: its buns, chicken and lettuce each where they landed, the top bun as often as not on its back.
+      const small = 1 + r1(6);
+      const sw = BURGER_W * small;
+      (["bottom", "chicken", "lettuce", "top"] as const).forEach((part, s) => {
+        const a = r1(9 + s) * Math.PI * 2;
+        const far = sw * 0.6 + r1(13 + s) * 0.15;
+        const high = PART_TALL[part] * sw;
+        const flipped = part === "top" && r1(17) < 0.5;
+        const px = x + Math.cos(a) * far;
+        const py = y + Math.sin(a) * far;
+        out.push({
+          key: key(`${name}.${s}`),
+          kind: "burger",
+          model: burgerModel(small, [], part),
+          x: px,
+          y: py,
+          h: flipped ? high : 0,
+          yaw: r1(18 + s) * Math.PI * 2,
+          pitch: 0,
+          roll: flipped ? Math.PI : 0,
+          solid: high < STEP ? null : { x: px, y: py, r: sw * 0.3 },
+        });
+      });
+    }
+  }
+  // More on the table, toward its ends, one of them bitten.
+  const onTable = many(PARTY_ON_TABLE, 60);
+  for (let k = 0; k < onTable; k++) {
+    const t = (k ? -1 : 1) * (hl - 0.09) + (roll(61 + k) - 0.5) * 0.04;
+    const d = (roll(63 + k) - 0.5) * (hd - 0.08);
+    const model = burgerModel(0.9 + roll(65 + k) * 0.3, k === 0 ? bitesOf((j) => roll(70 + j)) : []);
+    const turn = { yaw: roll(67 + k) * Math.PI * 2, pitch: 0, roll: 0 };
+    burger(`table${k}`, model, tx + ax * t + fx * d, ty + ay * t + fy * d, PARTY_TABLE.height, turn, null);
+  }
+
+  // Stuck into the walls at any height and any angle, some of them deep in.
+  const inWalls = many(PARTY_IN_WALLS, 80);
+  for (let k = 0; k < inWalls; k++) {
+    const r = (j: number) => roll(81 + k * 9 + j);
+    const spot = wallSpots[Math.floor(r(0) * wallSpots.length)];
+    const [wx, wy, ox, oy] = onWall(spot, 0.2 + r(1) * 0.6);
+    const size = 1 + r(2) * 1.5;
+    const w = BURGER_W * size;
+    const sticks = w / 2 - buried(w, r(3));
+    const turn = { yaw: r(4) * Math.PI * 2, pitch: (r(5) - 0.5) * 2.4, roll: (r(6) - 0.5) * 2.4 };
+    burger(`wall${k}`, burgerModel(size), wx + ox * sticks, wy + oy * sticks, 0.1 + r(7) * 0.7, turn, null);
+  }
+
+  // Upside down in the ceiling.
+  const inCeiling = many(PARTY_IN_CEILING, 120);
+  for (let k = 0; k < inCeiling; k++) {
+    const r = (j: number) => roll(121 + k * 7 + j);
+    const size = 1 + r(0) * 1.5;
+    const tall = BURGER_W * size * BURGER_TALL;
+    const x = x0 + 0.2 + r(1) * (ROOM - 0.4);
+    const y = y0 + 0.2 + r(2) * (ROOM - 0.4);
+    const turn = { yaw: r(3) * Math.PI * 2, pitch: (r(4) - 0.5) * 0.4, roll: Math.PI + (r(5) - 0.5) * 0.4 };
+    const model = burgerModel(size, r(6) < BURGER_BITTEN ? bitesOf((j) => r(10 + j)) : []);
+    burger(`ceiling${k}`, model, x, y, 1 + buried(tall, r(7)), turn, null);
+  }
+
+  // Sunk in the carpet, only their tops showing, where nothing else is.
+  const sunkCount = many(PARTY_SUNK, 150);
+  for (let k = 0, made = 0; k < 20 && made < sunkCount; k++) {
+    const r = (j: number) => roll(151 + k * 7 + j);
+    const size = 1 + r(0) * 1.2;
+    const w = BURGER_W * size;
+    const x = x0 + 0.15 + r(1) * (ROOM - 0.3);
+    const y = y0 + 0.15 + r(2) * (ROOM - 0.3);
+    if (!free(x, y, w / 2)) continue;
+    taken.push({ x, y, r: w / 2 });
+    const turn = { yaw: r(3) * Math.PI * 2, pitch: (r(4) - 0.5) * 0.8, roll: (r(5) - 0.5) * 0.8 };
+    burger(`sunk${made++}`, burgerModel(size), x, y, -w * BURGER_TALL * (0.55 + r(6) * 0.3), turn, null);
+  }
+
+  // Dropped outside, a few at a time, trailing away from the doorway as if from someone carrying too many.
+  const outward = [
+    [0, -1],
+    [0, 1],
+    [-1, 0],
+    [1, 0],
+  ][plan.side];
+  const trail = many(PARTY_TRAIL, 220);
+  let px = door[0];
+  let py = door[1];
+  let heading = Math.atan2(outward[1], outward[0]);
+  for (let k = 0; k < trail; k++) {
+    const r = (j: number) => roll(221 + k * 7 + j);
+    const stepBy = PARTY_TRAIL_STEP[0] + r(0) * (PARTY_TRAIL_STEP[1] - PARTY_TRAIL_STEP[0]);
+    heading += (r(1) - 0.5) * 0.9;
+    const nx = px + Math.cos(heading) * stepBy;
+    const ny = py + Math.sin(heading) * stepBy;
+    // Into a wall: it ends there.
+    if (map.wall(Math.floor(nx), Math.floor(ny)) || map.burgerAt(Math.floor(nx), Math.floor(ny))) break;
+    px = nx;
+    py = ny;
+    const size = 0.9 + r(2) * 0.4;
+    const fallen = r(3) < 0.25;
+    const bites = r(5) < 0.4 ? bitesOf((j) => r(10 + j)) : [];
+    const model = fallen ? burgerModel(size, [], r(4) < 0.5 ? "top" : "bottom") : burgerModel(size, bites);
+    burger(`trail${k}`, model, px, py, 0, { yaw: r(6) * Math.PI * 2, pitch: 0, roll: 0 }, null);
+  }
+  return out;
+}
+
+/** Which way a piece of junk is turned. */
+type Turn = Pick<Junk, "yaw" | "pitch" | "roll">;
+
+/** The burger rooms' contents, by room and map: laid out once. */
+const parties = new WeakMap<WorldMap, Map<string, Junk[]>>();
+
+/** Everything in the burger rooms within `radius` of (x, y). */
+function partiesAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
+  let known = parties.get(map);
+  if (!known) {
+    known = new Map();
+    parties.set(map, known);
+  }
+  const out: Junk[] = [];
+  for (let ly = Math.floor((y - radius) / 5); ly <= Math.floor((y + radius) / 5); ly++) {
+    for (let lx = Math.floor((x - radius) / 5); lx <= Math.floor((x + radius) / 5); lx++) {
+      const plan = map.burgerPlan(lx, ly);
+      if (!plan) continue;
+      const key = `${lx},${ly}`;
+      let found = known.get(key);
+      if (!found) {
+        found = partyIn(map, lx, ly, plan);
+        known.set(key, found);
+      }
+      for (const junk of found) if (Math.hypot(junk.x - x, junk.y - y) <= radius) out.push(junk);
+    }
+  }
+  return out;
 }
 
 // ---- putting one in place ----

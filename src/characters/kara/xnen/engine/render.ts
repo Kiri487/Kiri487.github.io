@@ -71,6 +71,9 @@ export const CLEAN: Effects = { snow: 0, tear: 0, roll: 0, bands: 0, bandPhase: 
 const HOLE_DARK = [22, 20, 14];
 const HOLE_PIPE = [70, 66, 54];
 
+/** Under warmer light (a burger room), each colour's share: redder, and much less blue. */
+const WARM = [1.12, 0.98, 0.76];
+
 /** Screen columns go missing together in strips this wide. */
 const GAP_STRIP = 5;
 const GAP_COLOUR = [11, 10, 6];
@@ -99,6 +102,8 @@ export class Renderer {
   private wallDepth = new Float32Array(320);
   private wallBottom = new Int16Array(320);
   private depth = new Float32Array(320 * 180);
+  /** 1 for each pixel of the place that's under warmer light, filled in as it's drawn. */
+  private warmth = new Uint8Array(320 * 180);
   private scratch = new Uint8ClampedArray(320 * 180 * 4);
   private gaps = gapOrder(320);
   /** The frame on screen when the tape was paused. */
@@ -160,6 +165,7 @@ export class Renderer {
     this.wallDepth = new Float32Array(W);
     this.wallBottom = new Int16Array(W);
     this.depth = new Float32Array(W * H);
+    this.warmth = new Uint8Array(W * H);
     this.scratch = new Uint8ClampedArray(W * H * 4);
     this.still = null;
   }
@@ -201,6 +207,9 @@ export class Renderer {
     const ox = light.x0 + 0.5;
     const oy = light.y0 + 0.5;
     const comb = light.combined;
+    const warm = light.warm;
+    const warmth = this.warmth;
+    warmth.fill(0);
     const panels = light.panel;
     const glow = light.glow;
     const px = cam.x;
@@ -269,6 +278,7 @@ export class Renderer {
           const v = gy - iy;
           const k = ix + iy * WN;
           const inWindow = ix >= 0 && iy >= 0 && ix < WN - 1 && iy < WN - 1;
+          if (inWindow) warmth[o >> 2] = warm[Math.floor(fx) - light.x0 + (Math.floor(fy) - light.y0) * WN];
           const l = inWindow
             ? (comb[k] * (1 - u) + comb[k + 1] * u) * (1 - v) + (comb[k + WN] * (1 - u) + comb[k + WN + 1] * u) * v
             : 0;
@@ -434,6 +444,11 @@ export class Renderer {
       if (side === 0) hx -= stepX * 0.3;
       else hy -= stepY * 0.3;
       let l = light.at(hx, hy);
+      const wx = Math.floor(hx) - light.x0;
+      const wy = Math.floor(hy) - light.y0;
+      if (wx >= 0 && wy >= 0 && wx < WN && wy < WN && warm[wx + wy * WN]) {
+        for (let y = y0; y <= y1; y++) warmth[y * W + x] = 1;
+      }
       if (side === 1) l *= 0.9;
       let f = 1 - Math.exp(-perp * fogK);
       const far = (perp - 20) / 8;
@@ -584,6 +599,15 @@ export class Renderer {
       for (const prop of props) {
         drawStatue(frame, prop.mesh, prop.model, prop.skin, light.at(prop.mesh.x, prop.mesh.y), prop.clip);
       }
+    }
+
+    // Warmer light where it's warm.
+    const [WR, WG, WB] = WARM;
+    for (let i = 0, o = 0; i < W * H; i++, o += 4) {
+      if (!warmth[i]) continue;
+      d[o] *= WR;
+      d[o + 1] *= WG;
+      d[o + 2] *= WB;
     }
 
     this.tape(d, W, H, tuning, effects, reduced);

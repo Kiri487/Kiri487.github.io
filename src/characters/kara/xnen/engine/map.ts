@@ -11,6 +11,9 @@ import type { Tuning } from "./tuning";
  * doorway somewhere along some of its sides and at least one. Each kind says what of the usual backrooms it lets in.
  * So far there's one kind, the pit room: from wall to wall a grid of square pits with no bottom, only thin rims
  * between them.
+ *
+ * Smaller and rarer, a burger room: two cells by two in a corner of a lattice room, walled in all round with one
+ * doorway, a party laid out in it for nobody (junk.ts), under warmer light (lighting.ts).
  */
 
 interface Area {
@@ -52,7 +55,8 @@ export interface Statue {
 export const ROOM_BLOCK = 15;
 
 /** The kinds of special room. */
-export type RoomKind = "pit";
+/** "burger" is a little room in a corner of a lattice room, not a block: see burgerPlan. */
+export type RoomKind = "pit" | "burger";
 /**
  * What a special room lets in: the junk lying about the backrooms, a statue, and XN, on its floor and its walls or
  * just turning up there. Things it has of its own (XN on a pit's rim) it sees to itself.
@@ -64,6 +68,7 @@ export interface RoomRules {
 }
 const ROOM_RULES: Record<RoomKind, RoomRules> = {
   pit: { junk: false, statue: false, xn: false },
+  burger: { junk: false, statue: false, xn: true },
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
@@ -94,6 +99,31 @@ export interface PitField {
   y0: number;
   size: number;
 }
+
+/** How likely a lattice room is to have a burger room in it. */
+const BURGER_ROOM = 0.0035;
+
+/**
+ * A burger room: the cell at its north-west corner inside its walls (it's two cells by two), and its doorway, the
+ * side (north, south, west, east) and which of that side's two cells.
+ */
+export interface BurgerPlan {
+  x0: number;
+  y0: number;
+  side: number;
+  cell: number;
+}
+/**
+ * Preview: three burger rooms by the spawn, each with its doorway toward it, and the spawn's own block one open hall
+ * round them. Delete before the PR.
+ */
+const PREVIEW_BURGERS = true;
+const PREVIEW_ROOMS: readonly [number, number, number, number][] = [
+  // Lattice room; which corner of it (0 north-west, 1 north-east, 2 south-west, 3 south-east); the doorway's side.
+  [2, 0, 0, 2],
+  [0, 2, 0, 0],
+  [2, 2, 0, 2],
+];
 
 /** How many spots a region tries before it gives up on having a statue. */
 const STATUE_TRIES = 24;
@@ -150,7 +180,77 @@ export class WorldMap {
 
   /** The kind of special room cell (cx, cy) is in, walls included, or null if it's in none. */
   roomAt(cx: number, cy: number): RoomKind | null {
-    return this.roomKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK));
+    const kind = this.roomKind(Math.floor(cx / ROOM_BLOCK), Math.floor(cy / ROOM_BLOCK));
+    if (kind) return kind;
+    return this.burgerAt(cx, cy) ? "burger" : null;
+  }
+
+  /**
+   * The burger room in lattice room (lx, ly), if it has one: in one of its corners, two cells by two inside its walls.
+   * Never by the spawn (its walls are kept open), nor in a special room's block.
+   */
+  burgerPlan(lx: number, ly: number): BurgerPlan | null {
+    if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
+    const preview = PREVIEW_BURGERS && PREVIEW_ROOMS.find(([x, y]) => x === lx && y === ly);
+    if (!preview) {
+      if (this.specialRoom(Math.floor(lx / 3), Math.floor(ly / 3))) return null;
+      if (this.noise(lx, ly, 60) >= BURGER_ROOM) return null;
+    }
+    const corner = preview ? preview[2] : Math.floor(this.noise(lx, ly, 63) * 4);
+    return {
+      x0: lx * 5 + (corner % 2 ? 3 : 1),
+      y0: ly * 5 + (corner < 2 ? 1 : 3),
+      side: preview ? preview[3] : Math.floor(this.noise(lx, ly, 61) * 4),
+      cell: Math.floor(this.noise(lx, ly, 62) * 2),
+    };
+  }
+
+  /** The burger room whose walls or inside cell (cx, cy) is in, if any. */
+  burgerAt(cx: number, cy: number): BurgerPlan | null {
+    const lx = Math.floor(cx / 5);
+    const ly = Math.floor(cy / 5);
+    // Its walls can be on the lattice either side of it.
+    for (let j = ly - 1; j <= ly; j++) {
+      for (let i = lx - 1; i <= lx; i++) {
+        const plan = this.burgerPlan(i, j);
+        if (plan && cx >= plan.x0 - 1 && cx <= plan.x0 + 2 && cy >= plan.y0 - 1 && cy <= plan.y0 + 2) return plan;
+      }
+    }
+    return null;
+  }
+
+  /** Whether cell (cx, cy) is inside a burger room: not its walls, nor its doorway. */
+  burgerInside(cx: number, cy: number): boolean {
+    const plan = this.burgerAt(cx, cy);
+    return !!plan && cx >= plan.x0 && cx <= plan.x0 + 1 && cy >= plan.y0 && cy <= plan.y0 + 1;
+  }
+
+  /** The cell of a burger room's doorway, in its wall. */
+  burgerDoorway(plan: BurgerPlan): [number, number] {
+    const { x0, y0, side, cell } = plan;
+    if (side === 0) return [x0 + cell, y0 - 1];
+    if (side === 1) return [x0 + cell, y0 + 2];
+    if (side === 2) return [x0 - 1, y0 + cell];
+    return [x0 + 2, y0 + cell];
+  }
+
+  /**
+   * Whether a light hangs over cell (cx, cy) as well as the usual ones (every third cell): one in each burger room,
+   * which is too small to be sure of one, and it always works.
+   */
+  burgerLamp(cx: number, cy: number): boolean {
+    const plan = this.burgerAt(cx, cy);
+    return !!plan && cx === plan.x0 && cy === plan.y0;
+  }
+
+  /** 1 or 0 where cell (cx, cy) is a burger room's wall or inside it, null where it's neither. */
+  private burgerWall(cx: number, cy: number): number | null {
+    const plan = this.burgerAt(cx, cy);
+    if (!plan) return null;
+    const inside = cx >= plan.x0 && cx <= plan.x0 + 1 && cy >= plan.y0 && cy <= plan.y0 + 1;
+    if (inside) return 0;
+    const [dx, dy] = this.burgerDoorway(plan);
+    return cx === dx && cy === dy ? 0 : 1;
   }
 
   /** Whether `what` belongs at cell (cx, cy): anywhere outside the special rooms, and in one if its kind lets it in. */
@@ -161,6 +261,7 @@ export class WorldMap {
 
   /** Whether block (bx, by) of 3 × 3 lattice rooms is knocked through into one room: a big room or a special room. */
   private openBlock(bx: number, by: number): boolean {
+    if (PREVIEW_BURGERS && bx === 0 && by === 0) return true;
     return this.noise(bx, by, 9) < 0.2 || this.specialRoom(bx, by);
   }
 
@@ -270,6 +371,8 @@ export class WorldMap {
 
   /** 1 where cell (x, y) is wall. */
   wall(x: number, y: number): number {
+    const burger = this.burgerWall(x, y);
+    if (burger !== null) return burger;
     const lx = Math.floor(x / 5);
     const ly = Math.floor(y / 5);
     const mx = x - lx * 5;
@@ -287,7 +390,7 @@ export class WorldMap {
       const bx = Math.floor(lx / 3);
       const by = Math.floor(ly / 3);
       // A special room has nothing standing in it but what its plan puts there.
-      if (inside && this.specialRoom(bx, by)) return 0;
+      if (inside && (this.specialRoom(bx, by) || (PREVIEW_BURGERS && bx === 0 && by === 0))) return 0;
       const inBigRoom = inside && this.openBlock(bx, by);
       return this.noise(lx, ly, 8) < (inBigRoom ? 0.6 : this.area(lx, ly).post) ? 1 : 0;
     }
@@ -298,6 +401,7 @@ export class WorldMap {
 
   /** The ceiling light over cell (x, y), for cells where a light hangs (every 3 cells). */
   light(x: number, y: number): number {
+    if (this.burgerLamp(x, y)) return LIGHT_ON;
     const statue = this.statueIn(Math.floor(x / this.region), Math.floor(y / this.region));
     if (statue && statue.lampX === x && statue.lampY === y) return LIGHT_ON;
     // Some whole stretches are mostly dark.
