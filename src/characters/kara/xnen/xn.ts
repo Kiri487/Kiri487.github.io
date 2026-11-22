@@ -74,9 +74,9 @@ export interface XnSpot extends Placement {
   surface: XnSurface;
 }
 
-/** Standing on the floor at (x, y), facing `facing` (radians). */
-export function floorSpot(x: number, y: number, facing: number): XnSpot {
-  return { surface: "floor", x, y, z: 0, up: [0, 0, 1], front: [Math.cos(facing), Math.sin(facing), 0] };
+/** Standing on the floor at (x, y), `floor` high, facing `facing` (radians). */
+export function floorSpot(x: number, y: number, facing: number, floor = 0): XnSpot {
+  return { surface: "floor", x, y, z: floor, up: [0, 0, 1], front: [Math.cos(facing), Math.sin(facing), 0] };
 }
 
 /** Hanging from the ceiling over (x, y), `ceiling` high, her front toward `facing`. */
@@ -92,8 +92,8 @@ export function ceilingSpot(x: number, y: number, facing: number, ceiling = 1): 
 }
 
 /** On the ceiling at (x, y), `ceiling` high, facing `facing`; or else on the floor there. */
-export function spotOn(surface: XnSurface, x: number, y: number, facing: number, ceiling = 1): XnSpot {
-  return surface === "ceiling" ? ceilingSpot(x, y, facing, ceiling) : floorSpot(x, y, facing);
+export function spotOn(surface: XnSurface, x: number, y: number, facing: number, ceiling = 1, floor = 0): XnSpot {
+  return surface === "ceiling" ? ceilingSpot(x, y, facing, ceiling) : floorSpot(x, y, facing, floor);
 }
 
 /**
@@ -112,17 +112,17 @@ export function topSpot(x: number, y: number, z: number, facing: number, hanging
 }
 
 /**
- * Sticking straight out of a wall, half way up it. (x, y) is on the wall's face, `out` the way the face looks
- * (radians), and `along` (1 or −1) which way along the wall her front points.
+ * Sticking straight out of a wall, half way up it from a floor `floor` high. (x, y) is on the wall's face, `out` the
+ * way the face looks (radians), and `along` (1 or −1) which way along the wall her front points.
  */
-export function wallSpot(x: number, y: number, out: number, along: number): XnSpot {
+export function wallSpot(x: number, y: number, out: number, along: number, floor = 0): XnSpot {
   const ox = Math.cos(out);
   const oy = Math.sin(out);
   return {
     surface: "wall",
     x: x + ox * GAP,
     y: y + oy * GAP,
-    z: 0.5,
+    z: 0.5 + floor,
     up: [ox, oy, 0],
     front: [-oy * along, ox * along, 0],
   };

@@ -1783,29 +1783,34 @@ const TOUCHES_FLOOR = 0.03;
 const HANGS_CLEAR = 0.6;
 
 /**
- * What's laid out as it is under a ceiling 1 high, under the ceiling where each piece is. What's stuck up into the
- * ceiling goes up or down with it. What then can't be (standing up through a higher one, hanging too low from a lower
- * one, or too tall for it) isn't there; what runs from the floor up through a lower one is just cut off by it.
+ * What's laid out as it is on a floor at 0 under a ceiling 1 high, as it is where each piece is. What's stuck up into
+ * the ceiling goes up or down with it; everything else (on the floor, in a wall, sunk in the carpet) with the floor.
+ * What then can't be (hanging too low, too tall for the room, standing up through a ceiling it no longer reaches, or
+ * running from floor to ceiling where the floor's moved) isn't there; what runs from the floor up through a lower
+ * ceiling is just cut off by it.
  */
 function underCeiling(map: WorldMap, found: Junk[]): Junk[] {
   const out: Junk[] = [];
   for (const junk of found) {
-    const ceiling = map.ceilingAt(Math.floor(junk.x), Math.floor(junk.y));
-    if (ceiling === 1) {
+    const [cx, cy] = [Math.floor(junk.x), Math.floor(junk.y)];
+    const ceiling = map.ceilingAt(cx, cy);
+    const floor = map.floorAt(cx, cy);
+    if (ceiling === 1 && floor === 0) {
       out.push(junk);
       continue;
     }
     const [low, high] = heightsOf(junk);
-    if (high < TOUCHES_CEILING) {
-      if (high < ceiling - 0.02) out.push(junk);
+    const inCeiling = high >= TOUCHES_CEILING;
+    if (inCeiling && low < TOUCHES_FLOOR) {
+      if (floor === 0 && ceiling < 1) out.push(junk);
       continue;
     }
-    if (low < TOUCHES_FLOOR) {
-      if (ceiling < 1) out.push(junk);
+    const lift = inCeiling ? ceiling - 1 : floor;
+    if (inCeiling ? low + lift - floor < HANGS_CLEAR && lift < 0 : high + lift > ceiling - 0.02) continue;
+    if (lift === 0) {
+      out.push(junk);
       continue;
     }
-    const lift = ceiling - 1;
-    if (low + lift < HANGS_CLEAR && lift < 0) continue;
     out.push({
       ...junk,
       h: junk.h + lift,
