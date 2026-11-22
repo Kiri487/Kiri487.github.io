@@ -14,7 +14,7 @@ import {
 } from "./posters";
 import { drawPits, pitFieldsNear } from "./pits";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
-import { floorMarksAt, type FloorMark } from "./floorMarks";
+import { floorMarksAt, floorMarksFrame, type FloorMark } from "./floorMarks";
 import { wallMarksOn, type WallMark } from "./wallMarks";
 import { CARPET_FLIP, CARPET_SIZE, CEILING, FLOORS, FLOOR_FLIPS, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
@@ -92,6 +92,9 @@ function wallRow(tv: number, ceiling: number): number {
   if (ty > 0) return 64 + (ty > 63 ? 63 : ty);
   return ((ty % 64) + 64) % 64;
 }
+
+/** At most this many cells' floor marks are worked out a frame (floorMarks.ts); the rest come in the frames after. */
+const FLOOR_MARKS_A_FRAME = 6;
 
 /** Screen columns go missing together in strips this wide. */
 const GAP_STRIP = 5;
@@ -280,6 +283,7 @@ export class Renderer {
     ceilingHoles.fill(-1);
     const floorMarkCells = this.floorMarkCells;
     floorMarkCells.fill(undefined);
+    floorMarksFrame(FLOOR_MARKS_A_FRAME);
     // The graffiti on the face of wall being drawn, looked up once per face, and what it shows this frame.
     let tagKey = "";
     let tag: Tag | null = null;
@@ -462,7 +466,8 @@ export class Renderer {
             if (inWindow) {
               let marks = floorMarkCells[cell];
               if (marks === undefined) {
-                marks = floorMarksAt(map, Math.floor(fx), Math.floor(fy));
+                // Not worked out yet this frame's share: none here till a later frame.
+                marks = floorMarksAt(map, Math.floor(fx), Math.floor(fy)) ?? null;
                 floorMarkCells[cell] = marks;
               }
               if (marks) {

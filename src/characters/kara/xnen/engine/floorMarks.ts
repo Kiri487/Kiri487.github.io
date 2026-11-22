@@ -6,29 +6,51 @@ import { FLOOR_MARKED, FLOOR_MARKED_WEIGHTS, FLOOR_MARKS, type FloorMarkKind } f
 
 /*
  * What's happened to the floor, over its own picture: by zone (zones.ts), damp and mildew, spills and burns, coffee,
- * oil and paint, cracks, scuffs, a square of lino gone; and a puddle's stain under every ceiling tile gone. A mark belongs to a cell, from that cell's dice, but spreads onto the cells round it, so it
- * isn't cut off at the cell's edge.
+ * oil and paint, cracks, scuffs, a square of lino gone; and a puddle's stain under every ceiling tile gone. A mark
+ * belongs to a cell, from that cell's dice, but spreads onto the cells round it, so it isn't cut off at the cell's
+ * edge; though only onto those of its own zone, whose floor it was made for.
  */
 
 /**
  * A mark on the floor, in the floor's own pixels (64 to a cell) on the map: its top left corner, its size, and its
- * picture, as a wall's mark (wallMarks.ts).
+ * picture, as a wall's mark (wallMarks.ts); and the zone whose floor it's on, or null for any (a puddle's stain).
  */
-export type FloorMark = WallMark;
+export interface FloorMark extends WallMark {
+  zone: number | null;
+}
 
-/** How far a mark's middle is from its cell's, and how far it reaches from there, at most, in cells. */
+/**
+ * How far a mark's middle is from its cell's, and how far it reaches from there, at most, in cells. Together under
+ * 1.5, so a mark reaches no further than the cells right round its own: those are all floorMarksAt looks in.
+ */
 const OFF_MIDDLE = 0.25;
 const REACH = 1.2;
 
-/** The cells a mark's middle can be in: only marks from these and the cells round them reach this one. */
+/** Each cell's own marks, those whose middle is in it, as worked out; and the marks reaching each cell, from those. */
 const anchors = new WeakMap<WorldMap, Map<string, FloorMark[] | null>>();
 const cells = new WeakMap<WorldMap, Map<string, { cx: number; cy: number; marks: FloorMark[] | null }>>();
-/** Past this many cells kept, those further than CELLS_NEAR from the one asked for are let go. */
+/** Past this many cells kept, those further than CELLS_NEAR from the one asked for are let go; if none are, all. */
 const CELLS_KEPT = 8000;
 const CELLS_NEAR = 48;
 
-/** The marks on the floor of cell (cx, cy), from it and the cells round it, or null for none. */
-export function floorMarksAt(map: WorldMap, cx: number, cy: number): FloorMark[] | null {
+/**
+ * How many cells' own marks may still be worked out this frame (floorMarksFrame). Past that, a cell whose marks would
+ * need more is left without them for now, and asked for again next frame: so a whole new stretch seen at once comes
+ * in over a few frames rather than holding one up.
+ */
+let budget = Infinity;
+const NOT_YET = Symbol("not yet");
+
+/** Starts a frame: `most` cells' own marks may be worked out in it. */
+export function floorMarksFrame(most: number) {
+  budget = most;
+}
+
+/**
+ * The marks on the floor of cell (cx, cy), from it and the cells round it, or null for none; or undefined if they
+ * aren't all worked out yet and this frame's had its share (floorMarksFrame).
+ */
+export function floorMarksAt(map: WorldMap, cx: number, cy: number): FloorMark[] | null | undefined {
   let known = cells.get(map);
   if (!known) {
     known = new Map();
@@ -38,17 +60,28 @@ export function floorMarksAt(map: WorldMap, cx: number, cy: number): FloorMark[]
   let found = known.get(key);
   if (!found) {
     if (known.size >= CELLS_KEPT) {
+      const before = known.size;
       for (const [k, c] of known) {
         if (Math.abs(c.cx - cx) > CELLS_NEAR || Math.abs(c.cy - cy) > CELLS_NEAR) known.delete(k);
       }
+      if (known.size === before) known.clear();
       // What the cells were made from goes too; it's the same worked out again.
       anchors.get(map)?.clear();
     }
+    if (map.roomAt(cx, cy) === "pit") {
+      found = { cx, cy, marks: null };
+      known.set(key, found);
+      return null;
+    }
+    const zone = map.zoneAt(cx, cy);
     let marks: FloorMark[] | null = null;
     const [x0, y0] = [cx * 64, cy * 64];
     for (let j = -1; j <= 1; j++) {
       for (let i = -1; i <= 1; i++) {
-        for (const mark of anchoredAt(map, cx + i, cy + j) ?? []) {
+        const own = anchoredAt(map, cx + i, cy + j);
+        if (own === NOT_YET) return undefined;
+        for (const mark of own ?? []) {
+          if (mark.zone !== null && mark.zone !== zone) continue;
           if (mark.x >= x0 + 64 || mark.y >= y0 + 64 || mark.x + mark.w <= x0 || mark.y + mark.h <= y0) continue;
           (marks ??= []).push(mark);
         }
@@ -60,8 +93,8 @@ export function floorMarksAt(map: WorldMap, cx: number, cy: number): FloorMark[]
   return found.marks;
 }
 
-/** The marks whose middle is in cell (cx, cy). */
-function anchoredAt(map: WorldMap, cx: number, cy: number): FloorMark[] | null {
+/** The marks whose middle is in cell (cx, cy); NOT_YET if they'd need working out and this frame's had its share. */
+function anchoredAt(map: WorldMap, cx: number, cy: number): FloorMark[] | null | typeof NOT_YET {
   let known = anchors.get(map);
   if (!known) {
     known = new Map();
@@ -70,7 +103,9 @@ function anchoredAt(map: WorldMap, cx: number, cy: number): FloorMark[] | null {
   const key = `${cx},${cy}`;
   let marks = known.get(key);
   if (marks === undefined) {
+    if (budget <= 0) return NOT_YET;
     marks = marksOf(map, cx, cy);
+    if (marks) budget--;
     known.set(key, marks);
   }
   return marks;
@@ -79,12 +114,13 @@ function anchoredAt(map: WorldMap, cx: number, cy: number): FloorMark[] | null {
 function marksOf(map: WorldMap, cx: number, cy: number): FloorMark[] | null {
   if (map.wall(cx, cy) || map.roomAt(cx, cy) === "pit") return null;
   const marks: FloorMark[] = [];
-  // Under each ceiling tile gone (a light's never is), where the drips have landed.
+  // Under each ceiling tile gone (a light's never is), where the drips have landed: on whatever floor is there.
   if (!map.lampAt(cx, cy)) {
     for (let k = 0; k < 4; k++) {
       const [tx, ty] = [cx * 2 + (k & 1), cy * 2 + (k >> 1)];
       if (!tileGone(map, tx, ty)) continue;
-      marks.push(puddle((n) => hash3(tx, ty, 900 + n), tx * 32 + 16, ty * 32 + 16));
+      const mark = puddle((n) => map.noise(tx, ty, 900 + n), tx * 32 + 16, ty * 32 + 16);
+      marks.push({ ...mark, zone: null });
     }
   }
   const zone = map.zoneAt(cx, cy);
@@ -95,7 +131,7 @@ function marksOf(map: WorldMap, cx: number, cy: number): FloorMark[] | null {
     const r: Dice = (k) => hash3(seed, k, 821);
     const mx = (cx + 0.5 + (r(0) - 0.5) * 2 * OFF_MIDDLE) * 64;
     const my = (cy + 0.5 + (r(1) - 0.5) * 2 * OFF_MIDDLE) * 64;
-    marks.push(MAKERS[pick(kinds, die(2))](r, mx, my));
+    marks.push({ ...MAKERS[pick(kinds, die(2))](r, mx, my), zone });
   }
   return marks.length ? marks : null;
 }
@@ -110,7 +146,7 @@ function pick(kinds: readonly (readonly [FloorMarkKind, number])[], die: number)
   return kinds[kinds.length - 1][0];
 }
 
-type Maker = (r: Dice, mx: number, my: number) => FloorMark;
+type Maker = (r: Dice, mx: number, my: number) => WallMark;
 const MAKERS: Record<FloorMarkKind, Maker> = {
   wet,
   mildew: floorMildew,
@@ -127,7 +163,7 @@ const MAKERS: Record<FloorMarkKind, Maker> = {
   yellowed,
 };
 
-/** Bigger than REACH: no mark reaches further from its middle than this, in pixels. */
+/** REACH in pixels: no mark reaches further from its middle than this. */
 const FURTHEST = REACH * 64;
 
 /**
@@ -143,9 +179,10 @@ function stain(
   colour: readonly [number, number, number],
   most: number,
   grain = 12,
-): FloorMark {
+  box = Math.max(rx, ry),
+): WallMark {
   const seed = Math.floor(r(90) * 100000);
-  const mark = around(mx, my, Math.max(rx, ry), true);
+  const mark = around(mx, my, Math.max(rx, ry, box), true);
   for (let j = 0; j < mark.h; j++) {
     for (let i = 0; i < mark.w; i++) {
       const [x, y] = [mark.x + i, mark.y + j];
@@ -162,7 +199,7 @@ function stain(
 
 /** Round drops of `colour` round (mx, my), `count` of them out to `spread`, each 1–`size` pixels across. */
 function drops(
-  mark: FloorMark,
+  mark: WallMark,
   r: Dice,
   k: number,
   mx: number,
@@ -192,7 +229,7 @@ const around = (mx: number, my: number, reach: number, shade: boolean) =>
   blank(Math.floor(mx - reach), Math.floor(my - reach), Math.ceil(reach * 2) + 1, Math.ceil(reach * 2) + 1, shade);
 
 /** A patch wetter than the rest, darker and a little greener, blotchy, fading out to nothing at its edge. */
-function wet(r: Dice, mx: number, my: number): FloorMark {
+function wet(r: Dice, mx: number, my: number): WallMark {
   const rx = within(r(2), 26, REACH * 64 * 0.9);
   const ry = within(r(3), 26, REACH * 64 * 0.9);
   const seed = Math.floor(r(4) * 100000);
@@ -212,7 +249,7 @@ function wet(r: Dice, mx: number, my: number): FloorMark {
 }
 
 /** Mildew in the pile: dark, a little green, in specks thick at the middle and thinning out. */
-function floorMildew(r: Dice, mx: number, my: number): FloorMark {
+function floorMildew(r: Dice, mx: number, my: number): WallMark {
   const radius = within(r(2), 18, 36);
   const seed = Math.floor(r(3) * 100000);
   const mark = around(mx, my, radius, false);
@@ -233,7 +270,7 @@ function floorMildew(r: Dice, mx: number, my: number): FloorMark {
  * Where it's dripped through a ceiling tile gone, at (mx, my): a dark round stain, darkest at its middle, and a few
  * splashes round it.
  */
-function puddle(r: Dice, mx: number, my: number): FloorMark {
+function puddle(r: Dice, mx: number, my: number): WallMark {
   const radius = within(r(0), 18, 34);
   const seed = Math.floor(r(1) * 100000);
   const mark = around(mx, my, radius * 1.6, true);
@@ -266,16 +303,18 @@ function puddle(r: Dice, mx: number, my: number): FloorMark {
 // ---- house: the old dark red carpet ----
 
 /** Something spilled and soaked in long ago: darker, a little browner, splashes round it. */
-function spill(r: Dice, mx: number, my: number): FloorMark {
+function spill(r: Dice, mx: number, my: number): WallMark {
   const rx = within(r(2), 14, 34);
   const ry = within(r(3), 10, 26);
-  const mark = stain(r, mx, my, rx * 1.4, ry * 1.4, [150, 116, 108], 170, 9);
-  drops(mark, r, 100, mx, my, 2 + Math.floor(r(4) * 5), Math.max(rx, ry) * 1.3, 2, [150, 116, 108], 150);
+  // The box takes in the furthest drop, and all of it.
+  const spread = Math.max(rx, ry) * 1.3;
+  const mark = stain(r, mx, my, rx * 1.4, ry * 1.4, [150, 116, 108], 170, 9, spread + 4);
+  drops(mark, r, 100, mx, my, 2 + Math.floor(r(4) * 5), spread, 2, [150, 116, 108], 150);
   return mark;
 }
 
 /** Cigarette burns, one to three: a black pit melted into the pile, fading brown round it. */
-function burns(r: Dice, mx: number, my: number): FloorMark {
+function burns(r: Dice, mx: number, my: number): WallMark {
   const mark = around(mx, my, 30, false);
   const count = 1 + Math.floor(r(2) * 3);
   for (let n = 0; n < count; n++) {
@@ -298,7 +337,7 @@ function burns(r: Dice, mx: number, my: number): FloorMark {
 }
 
 /** Where a rug lay for years: the carpet under it less worn, a soft-edged rectangle a little richer than round it. */
-function rug(r: Dice, mx: number, my: number): FloorMark {
+function rug(r: Dice, mx: number, my: number): WallMark {
   const w = within(r(2), 60, FURTHEST * 1.6);
   const h = within(r(3), 44, FURTHEST * 1.3);
   const mark = around(mx, my, Math.max(w, h) / 2 + 2, true);
@@ -317,7 +356,7 @@ function rug(r: Dice, mx: number, my: number): FloorMark {
 // ---- office: carpet tiles ----
 
 /** A carpet tile put in since, a newer blue than the rest, lined up with the tiles round it. */
-function tileSwap(r: Dice, mx: number, my: number): FloorMark {
+function tileSwap(r: Dice, mx: number, my: number): WallMark {
   const x0 = Math.floor(mx / 32) * 32;
   const y0 = Math.floor(my / 32) * 32;
   // Now and then two side by side.
@@ -335,18 +374,19 @@ function tileSwap(r: Dice, mx: number, my: number): FloorMark {
 }
 
 /** Coffee spilled: a brown stain, darker where it pooled, a few drops round it. */
-function coffee(r: Dice, mx: number, my: number): FloorMark {
+function coffee(r: Dice, mx: number, my: number): WallMark {
   const rx = within(r(2), 8, 20);
   const ry = within(r(3), 7, 16);
-  const mark = stain(r, mx, my, rx * 1.4, ry * 1.4, [196, 158, 120], 200, 6);
-  drops(mark, r, 100, mx, my, 3 + Math.floor(r(4) * 6), Math.max(rx, ry) * 2, 1.5, [196, 158, 120], 190);
+  const spread = Math.max(rx, ry) * 2;
+  const mark = stain(r, mx, my, rx * 1.4, ry * 1.4, [196, 158, 120], 200, 6, spread + 4);
+  drops(mark, r, 100, mx, my, 3 + Math.floor(r(4) * 6), spread, 1.5, [196, 158, 120], 190);
   return mark;
 }
 
 // ---- drywall: bare concrete ----
 
 /** A crack in the slab: a thin dark line wandering across a cell or so, sometimes forking. */
-function floorCrack(r: Dice, mx: number, my: number): FloorMark {
+function floorCrack(r: Dice, mx: number, my: number): WallMark {
   const points: [number, number][] = [];
   const walk = (x: number, y: number, angle: number, steps: number, k: number) => {
     for (let n = 0; n < steps; n++) {
@@ -373,7 +413,7 @@ function floorCrack(r: Dice, mx: number, my: number): FloorMark {
 }
 
 /** An oil stain soaked into the concrete: dark, blotchy, darkest in the middle. */
-function oil(r: Dice, mx: number, my: number): FloorMark {
+function oil(r: Dice, mx: number, my: number): WallMark {
   return stain(r, mx, my, within(r(2), 18, 42), within(r(3), 16, 36), [128, 126, 120], 160, 7);
 }
 
@@ -381,7 +421,7 @@ function oil(r: Dice, mx: number, my: number): FloorMark {
  * The painters were here: old specks of paint, mostly off-white, gone grey with the dirt walked over them, in a
  * scatter or along the way a can was carried.
  */
-function paint(r: Dice, mx: number, my: number): FloorMark {
+function paint(r: Dice, mx: number, my: number): WallMark {
   const colours = [
     [170, 168, 158],
     [170, 168, 158],
@@ -408,8 +448,8 @@ function paint(r: Dice, mx: number, my: number): FloorMark {
 // ---- tiles: checked lino ----
 
 /** Black heel marks: short curved strokes, a few together, all ways. */
-function scuffs(r: Dice, mx: number, my: number): FloorMark {
-  const mark = around(mx, my, 34, false);
+function scuffs(r: Dice, mx: number, my: number): WallMark {
+  const mark = around(mx, my, 42, false);
   const count = 3 + Math.floor(r(2) * 7);
   for (let n = 0; n < count; n++) {
     let x = mx + (r(10 + n) - 0.5) * 50;
@@ -429,18 +469,19 @@ function scuffs(r: Dice, mx: number, my: number): FloorMark {
 }
 
 /** A square of lino come up and gone, one or two, the brown adhesive under it, combed. */
-function linoGone(r: Dice, mx: number, my: number): FloorMark {
+function linoGone(r: Dice, mx: number, my: number): WallMark {
   const x0 = Math.floor(mx / 16) * 16;
   const y0 = Math.floor(my / 16) * 16;
   const two = r(2) < 0.35;
   const across = r(3) < 0.5;
   const mark = blank(x0, y0, two && across ? 32 : 16, two && !across ? 32 : 16, false);
   const comb = Math.floor(r(4) * 3);
+  const seed = Math.floor(r(5) * 100000);
   for (let j = 0; j < mark.h; j++) {
     for (let i = 0; i < mark.w; i++) {
       const [x, y] = [x0 + i, y0 + j];
       const ridge = comb === 0 ? mod(y, 4) < 2 : comb === 1 ? mod(x, 4) < 2 : mod(x + y, 5) < 2;
-      const m = (0.84 + 0.2 * hash3(x, y, 977)) * (ridge ? 0.82 : 1);
+      const m = (0.84 + 0.2 * hash3(x, y, seed)) * (ridge ? 0.82 : 1);
       put(mark, x, y, 146 * m, 126 * m, 88 * m, 255);
     }
   }
@@ -448,6 +489,6 @@ function linoGone(r: Dice, mx: number, my: number): FloorMark {
 }
 
 /** A patch gone yellow, where the sun or something spilt got at it. */
-function yellowed(r: Dice, mx: number, my: number): FloorMark {
+function yellowed(r: Dice, mx: number, my: number): WallMark {
   return stain(r, mx, my, within(r(2), 20, 46), within(r(3), 16, 40), [244, 224, 160], 150, 14);
 }
