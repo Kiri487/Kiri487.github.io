@@ -232,6 +232,13 @@ export function createXnPlaces(world: XnWorld) {
 
   // ---- where XN can go ----
 
+  /** How high the ceiling is over (x, y). */
+  const ceilingOver = (x: number, y: number) => world.map.ceilingAt(Math.floor(x), Math.floor(y));
+
+  /** On `surface` at (x, y) facing `facing`: on the ceiling, under it, however high it is there. */
+  const spotAt = (surface: XnSurface, x: number, y: number, facing: number) =>
+    spotOn(surface, x, y, facing, ceilingOver(x, y));
+
   /** No wall on the straight line between two points. */
   const clearBetween = (x0: number, y0: number, x1: number, y1: number) => {
     const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.1);
@@ -304,7 +311,7 @@ export function createXnPlaces(world: XnWorld) {
     }
     let d = XN_AHEAD;
     while (d > 0.6 && !(roomFor(x + fx * d, y + fy * d) && clearBetween(x, y, x + fx * d, y + fy * d))) d -= 0.1;
-    return spotOn(surface, x + fx * d, y + fy * d, angle + Math.PI);
+    return spotAt(surface, x + fx * d, y + fy * d, angle + Math.PI);
   };
 
   /** A ceiling light near her to stare at: one she can turn her head to, and that works, if there's one. */
@@ -331,7 +338,7 @@ export function createXnPlaces(world: XnWorld) {
         const score = dist + (dist > 0.3 && turn > 1.1 ? 3 : 0) + dead;
         if (score >= bestScore) continue;
         bestScore = score;
-        best = [lx + 0.5, ly + 0.5, 1];
+        best = [lx + 0.5, ly + 0.5, ceilingOver(lx + 0.5, ly + 0.5)];
       }
     }
     return best;
@@ -350,12 +357,18 @@ export function createXnPlaces(world: XnWorld) {
     return world.statues.every((mesh) => Math.hypot(x - mesh.x, y - mesh.y) >= STATUE_RADIUS + XN_RADIUS);
   };
 
-  /** Room for her all the way from (x, y) `far` cells along `angle`, on `surface`. */
+  /**
+   * Room for her all the way from (x, y) `far` cells along `angle`, on `surface`. On the ceiling, it keeps to one
+   * height all the way: she doesn't go over a drop in it.
+   */
   const wayClear = (x: number, y: number, angle: number, far: number, surface: XnSurface) => {
     const n = Math.max(1, Math.ceil(far / 0.1));
+    const height = ceilingOver(x, y);
     for (let i = 1; i <= n; i++) {
       const k = (far * i) / n;
-      if (!freeFor(x + Math.cos(angle) * k, y + Math.sin(angle) * k, surface)) return false;
+      const [wx, wy] = [x + Math.cos(angle) * k, y + Math.sin(angle) * k];
+      if (!freeFor(wx, wy, surface)) return false;
+      if (surface === "ceiling" && ceilingOver(wx, wy) !== height) return false;
     }
     return true;
   };
@@ -408,7 +421,7 @@ export function createXnPlaces(world: XnWorld) {
       const off = Math.atan2(Math.sin(want - facing), Math.cos(want - facing));
       const turned = facing + clamp(off, -XN_TURN * dt, XN_TURN * dt);
       const go = distance * Math.max(0, Math.cos(off));
-      if (go <= 0) return spotOn(spot.surface, spot.x, spot.y, turned);
+      if (go <= 0) return spotAt(spot.surface, spot.x, spot.y, turned);
       const x = spot.x + Math.cos(turned) * go;
       const y = spot.y + Math.sin(turned) * go;
       const { player } = world;
@@ -421,12 +434,14 @@ export function createXnPlaces(world: XnWorld) {
       const intoStatue =
         world.statues.some((mesh) => Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS + XN_RADIUS) ||
         intoJunk(x, y, XN_RADIUS, spot.surface);
-      if (!roomFor(x, y) || intoVisitor || intoStatue) {
+      // Nor, on the ceiling, over a drop in it.
+      const overDrop = spot.surface === "ceiling" && ceilingOver(x, y) !== ceilingOver(spot.x, spot.y);
+      if (!roomFor(x, y) || intoVisitor || intoStatue || overDrop) {
         held += dt;
-        return spotOn(spot.surface, spot.x, spot.y, turned);
+        return spotAt(spot.surface, spot.x, spot.y, turned);
       }
       held = 0;
-      return spotOn(spot.surface, x, y, turned);
+      return spotAt(spot.surface, x, y, turned);
     };
   };
 
@@ -523,7 +538,7 @@ export function createXnPlaces(world: XnWorld) {
         if (score >= bestScore) continue;
         bestScore = score;
         const facing = Math.atan2(-face.ny, -face.nx);
-        best = spotOn(surface, sx, sy, facing);
+        best = spotAt(surface, sx, sy, facing);
       }
       // No wall near enough: she just stands.
       if (best) who.moveTo(best);
@@ -572,7 +587,7 @@ export function createXnPlaces(world: XnWorld) {
         spot = wallSpot(face.x, face.y, Math.atan2(face.ny, face.nx), Math.random() < 0.5 ? -1 : 1);
       } else {
         if (!roomFor(x, y)) continue;
-        spot = spotOn(surface, x, y, Math.random() * Math.PI * 2);
+        spot = spotAt(surface, x, y, Math.random() * Math.PI * 2);
       }
       const [mx, my] = who.middleOf(spot);
       if (intoJunk(mx, my, XN_RADIUS, surface)) continue;

@@ -79,14 +79,21 @@ export function floorSpot(x: number, y: number, facing: number): XnSpot {
   return { surface: "floor", x, y, z: 0, up: [0, 0, 1], front: [Math.cos(facing), Math.sin(facing), 0] };
 }
 
-/** Hanging from the ceiling over (x, y), her front toward `facing`. */
-export function ceilingSpot(x: number, y: number, facing: number): XnSpot {
-  return { surface: "ceiling", x, y, z: 1 - GAP, up: [0, 0, -1], front: [Math.cos(facing), Math.sin(facing), 0] };
+/** Hanging from the ceiling over (x, y), `ceiling` high, her front toward `facing`. */
+export function ceilingSpot(x: number, y: number, facing: number, ceiling = 1): XnSpot {
+  return {
+    surface: "ceiling",
+    x,
+    y,
+    z: ceiling - GAP,
+    up: [0, 0, -1],
+    front: [Math.cos(facing), Math.sin(facing), 0],
+  };
 }
 
-/** On the ceiling at (x, y) facing `facing`, or else on the floor there. */
-export function spotOn(surface: XnSurface, x: number, y: number, facing: number): XnSpot {
-  return (surface === "ceiling" ? ceilingSpot : floorSpot)(x, y, facing);
+/** On the ceiling at (x, y), `ceiling` high, facing `facing`; or else on the floor there. */
+export function spotOn(surface: XnSurface, x: number, y: number, facing: number, ceiling = 1): XnSpot {
+  return surface === "ceiling" ? ceilingSpot(x, y, facing, ceiling) : floorSpot(x, y, facing);
 }
 
 /**
