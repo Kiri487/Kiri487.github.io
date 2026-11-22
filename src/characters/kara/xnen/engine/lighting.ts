@@ -34,6 +34,10 @@ export class Lighting {
   /** How high the ceiling is over each cell (map.ceilingAt), and its floor (map.floorAt). */
   readonly ceiling = new Float32Array(WN * WN);
   readonly floor = new Float32Array(WN * WN);
+  /** How high each low wall is (map.lowWall), 0 for one that goes up to the ceiling and for open floor. */
+  readonly low = new Float32Array(WN * WN);
+  /** 1 for each cell of wall the lights can't shine past: wall that goes up to the ceiling. */
+  private readonly block = new Uint8Array(WN * WN);
 
   private readonly steady = new Float32Array(WN * WN);
   private readonly groupA = new Float32Array(WN * WN);
@@ -57,7 +61,7 @@ export class Lighting {
     const n = Math.ceil(Math.sqrt(d2) * 3);
     for (let s = 1; s < n; s++) {
       const t = s / n;
-      if (this.wall[Math.floor(i0 + 0.5 + (i1 - i0) * t) + Math.floor(j0 + 0.5 + (j1 - j0) * t) * WN]) return false;
+      if (this.block[Math.floor(i0 + 0.5 + (i1 - i0) * t) + Math.floor(j0 + 0.5 + (j1 - j0) * t) * WN]) return false;
     }
     return true;
   }
@@ -65,7 +69,7 @@ export class Lighting {
   build(px: number, py: number, map: WorldMap) {
     this.x0 = Math.floor(px) - HALF;
     this.y0 = Math.floor(py) - HALF;
-    const { wall, panel, steady, groupA, groupB } = this;
+    const { wall, block, panel, steady, groupA, groupB } = this;
     for (let j = 0; j < WN; j++) {
       for (let i = 0; i < WN; i++) {
         wall[i + j * WN] = map.wall(this.x0 + i, this.y0 + j);
@@ -73,6 +77,9 @@ export class Lighting {
         this.zone[i + j * WN] = map.zoneAt(this.x0 + i, this.y0 + j);
         this.ceiling[i + j * WN] = map.ceilingAt(this.x0 + i, this.y0 + j);
         this.floor[i + j * WN] = map.floorAt(this.x0 + i, this.y0 + j);
+        const low = wall[i + j * WN] ? map.lowWall(this.x0 + i, this.y0 + j) : 0;
+        this.low[i + j * WN] = low;
+        this.block[i + j * WN] = wall[i + j * WN] && !low ? 1 : 0;
       }
     }
     steady.fill(0);
@@ -99,7 +106,8 @@ export class Lighting {
             const d2 = di * di + dj * dj;
             if (d2 > LIGHT_REACH * LIGHT_REACH) continue;
             const k = ii + jj * WN;
-            if (wall[k]) continue;
+            // Over a low wall too: it doesn't reach the ceiling.
+            if (block[k]) continue;
             let c = strength / (1 + 0.45 * d2);
             if (d2 > 0 && !this.clear(i, j, ii, jj, d2)) c *= 0.1;
             target[k] += c;
@@ -112,11 +120,11 @@ export class Lighting {
       for (let j = 1; j < WN - 1; j++) {
         for (let i = 1; i < WN - 1; i++) {
           const k = i + j * WN;
-          if (!wall[k]) continue;
+          if (!block[k]) continue;
           let sum = 0;
           let n = 0;
           for (const o of [k - 1, k + 1, k - WN, k + WN]) {
-            if (!wall[o]) {
+            if (!block[o]) {
               sum += layer[o];
               n++;
             }
@@ -147,6 +155,13 @@ export class Lighting {
     const i = cx - this.x0;
     const j = cy - this.y0;
     return i >= 0 && j >= 0 && i < WN && j < WN ? this.ceiling[i + j * WN] : map.ceilingAt(cx, cy);
+  }
+
+  /** How high wall cell (cx, cy) is if it's low, 0 if not (map.lowWall), from the window when it's in it. */
+  lowAt(cx: number, cy: number, map: WorldMap): number {
+    const i = cx - this.x0;
+    const j = cy - this.y0;
+    return i >= 0 && j >= 0 && i < WN && j < WN ? this.low[i + j * WN] : map.lowWall(cx, cy);
   }
 
   /** How high the floor is in cell (cx, cy), from the window when it's in it. */

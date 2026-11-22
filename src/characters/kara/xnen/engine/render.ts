@@ -16,7 +16,18 @@ import { drawPits, pitFieldsNear } from "./pits";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
 import { floorMarksAt, floorMarksFrame, type FloorMark } from "./floorMarks";
 import { wallMarksOn, type WallMark } from "./wallMarks";
-import { CARPET_FLIP, CARPET_SIZE, CEILING, FLOORS, FLOOR_FLIPS, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
+import {
+  CAPS,
+  CAP_TRIMS,
+  CARPET_FLIP,
+  CARPET_SIZE,
+  CEILING,
+  FLOORS,
+  FLOOR_FLIPS,
+  PANEL,
+  PANEL_MASK,
+  WALL_TEXTURES,
+} from "./textures";
 
 /** The carpet picture's size, for wrapping pixels into it: CARPET_SIZE − 1, and log2 of CARPET_SIZE. */
 const CARPET_MASK = CARPET_SIZE - 1;
@@ -93,6 +104,10 @@ function wallRow(tv: number, ceiling: number): number {
   return ((ty % 64) + 64) % 64;
 }
 
+/** A low wall's trim: how far in from an open edge it runs over its top, and how far down its face, in cells. */
+const TRIM_IN = 3 / 64;
+const TRIM_DOWN = 2.5 / 64;
+
 /** A step's face, turned away from the lights overhead, is this much darker than the floor. */
 const RISER_SHADE = 0.62;
 
@@ -158,6 +173,8 @@ export class Renderer {
    */
   private rayFrom = new Float64Array(320 * RAY_CELLS);
   private rayCeiling = new Float32Array(320 * RAY_CELLS);
+  /** 1 for each of a ray's cells that's a low wall (map.lowWall), seen over: its floor is the wall's top. */
+  private rayLow = new Uint8Array(320 * RAY_CELLS);
   private rayFloor = new Float32Array(320 * RAY_CELLS);
   private rayX = new Int32Array(320 * RAY_CELLS);
   private rayY = new Int32Array(320 * RAY_CELLS);
@@ -225,6 +242,7 @@ export class Renderer {
     this.rayStepped = new Uint8Array(W);
     this.rayFrom = new Float64Array(W * RAY_CELLS);
     this.rayCeiling = new Float32Array(W * RAY_CELLS);
+    this.rayLow = new Uint8Array(W * RAY_CELLS);
     this.rayFloor = new Float32Array(W * RAY_CELLS);
     this.rayX = new Int32Array(W * RAY_CELLS);
     this.rayY = new Int32Array(W * RAY_CELLS);
@@ -411,7 +429,7 @@ export class Renderer {
     };
 
     const { rayHit, rayHitX, rayHitY, rayHitSide, rayCells, rayUneven, rayFrom, rayCeiling, rayX, rayY, raySide } = this;
-    const { rayStepped, rayFloor } = this;
+    const { rayStepped, rayFloor, rayLow } = this;
 
     // One pixel of floor, at (fx, fy) on the map: lit `l`, fogged `f`; `cell` its cell in the light window, if
     // `inWindow`.
@@ -537,6 +555,7 @@ export class Renderer {
       rayFrom[base] = 0;
       rayCeiling[base] = light.ceilingAt(mapX, mapY, map);
       rayFloor[base] = light.floorAt(mapX, mapY, map);
+      rayLow[base] = 0;
       rayX[base] = mapX;
       rayY[base] = mapY;
       let cells = 1;
@@ -556,15 +575,21 @@ export class Renderer {
           side = 1;
         }
         if (perp > FAR) break;
+        // On over a low wall, as if it were a cell of floor raised to its top.
+        let low = 0;
         if (light.wallAt(mapX, mapY, map)) {
-          hit = perp;
-          break;
+          low = light.lowAt(mapX, mapY, map);
+          if (!low) {
+            hit = perp;
+            break;
+          }
         }
         const height = light.ceilingAt(mapX, mapY, map);
-        const level = light.floorAt(mapX, mapY, map);
+        const level = light.floorAt(mapX, mapY, map) + low;
         rayFrom[base + cells] = perp;
         rayCeiling[base + cells] = height;
         rayFloor[base + cells] = level;
+        rayLow[base + cells] = low ? 1 : 0;
         if (level !== 0) stepped = true;
         rayX[base + cells] = mapX;
         rayY[base + cells] = mapY;
@@ -659,6 +684,96 @@ export class Renderer {
     };
 
     /**
+     * The face of the low wall that's ray cell i of column x, `from` ahead, on rows `first` down to (not including)
+     * `last`: the wall the room in front has, from its floor, its trim turned down over the top.
+     */
+    const lowFace = (x: number, i: number, from: number, first: number, last: number, rdx: number, rdy: number) => {
+      const base = x * RAY_CELLS;
+      const s = raySide[base + i];
+      const hx = px + from * rdx;
+      const hy = py + from * rdy;
+      const tx = Math.floor((s === 0 ? hy : hx) * 64) & 63;
+      const [bx, by] = [rayX[base + i - 1], rayY[base + i - 1]];
+      const zone = light.zoneAt(bx, by, map);
+      const tex = WALL_TEXTURES[zone];
+      const trim = CAP_TRIMS[zone];
+      const ground = rayFloor[base + i - 1];
+      const level = rayFloor[base + i];
+      const l = light.at(px + (from - 0.05) * rdx, py + (from - 0.05) * rdy) * (s === 1 ? 0.9 : 1);
+      const f = Math.min(1, fogAt(from));
+      const inv = 1 - f;
+      const wx = bx - light.x0;
+      const wy = by - light.y0;
+      const warmHere = wx >= 0 && wy >= 0 && wx < WN && wy < WN ? warm[wx + wy * WN] : 0;
+      for (let y = first; y < Math.min(last, H); y++) {
+        const height = z - ((y + 0.5 - horizon) * from) / focal;
+        // The wall's picture from the floor in front, as if it went on up to a ceiling 1 above that.
+        const tv = 1 - (height - ground);
+        const ti = (wallRow(tv, 1) * 64 + tx) * 3;
+        const li = l * (1.1 - 0.25 * (tv > 0 ? tv : 0)) * inv;
+        const edge = level - height < TRIM_DOWN;
+        const o = (y * W + x) * 4;
+        d[o] = (edge ? trim[0] : tex[ti]) * li + FR * f;
+        d[o + 1] = (edge ? trim[1] : tex[ti + 1]) * li + FG * f;
+        d[o + 2] = (edge ? trim[2] : tex[ti + 2]) * li + FB * f;
+        d[o + 3] = 255;
+        depth[y * W + x] = from;
+        warmth[y * W + x] = warmHere;
+      }
+    };
+
+    /**
+     * The top of the low wall that's ray cell i of column x, `drop` × focal below the eye, on rows `last` − 1 up to
+     * `top`: its zone's top, with the trim along each edge over open floor.
+     */
+    const lowTop = (x: number, i: number, drop: number, top: number, last: number, rdx: number, rdy: number) => {
+      const base = x * RAY_CELLS;
+      const cx = rayX[base + i];
+      const cy = rayY[base + i];
+      const zone = light.zoneAt(cx, cy, map);
+      const tex = CAPS[zone];
+      const trim = CAP_TRIMS[zone];
+      // Which of its edges are over open floor: west, east, north, south.
+      const open =
+        (light.wallAt(cx - 1, cy, map) ? 0 : 1) |
+        (light.wallAt(cx + 1, cy, map) ? 0 : 2) |
+        (light.wallAt(cx, cy - 1, map) ? 0 : 4) |
+        (light.wallAt(cx, cy + 1, map) ? 0 : 8);
+      for (let y = last - 1; y >= top; y--) {
+        let p = y + 0.5 - horizon;
+        if (p < 0.5) p = 0.5;
+        const t = drop / p;
+        const o = (y * W + x) * 4;
+        depth[y * W + x] = t;
+        d[o + 3] = 255;
+        const f = fogAt(t);
+        if (f >= 1) {
+          d[o] = FR;
+          d[o + 1] = FG;
+          d[o + 2] = FB;
+          continue;
+        }
+        const fx = px + t * rdx;
+        const fy = py + t * rdy;
+        const u = clamp(fx - cx, 0, 0.999);
+        const v = clamp(fy - cy, 0, 0.999);
+        const edge =
+          (open & 1 && u < TRIM_IN) ||
+          (open & 2 && u > 1 - TRIM_IN) ||
+          (open & 4 && v < TRIM_IN) ||
+          (open & 8 && v > 1 - TRIM_IN);
+        const ti = (Math.floor(v * 64) * 64 + Math.floor(u * 64)) * 3;
+        const li = light.at(fx, fy) * (1 - f);
+        const wx = cx - light.x0;
+        const wy = cy - light.y0;
+        if (wx >= 0 && wy >= 0 && wx < WN && wy < WN) warmth[y * W + x] = warm[wx + wy * WN];
+        d[o] = (edge ? trim[0] : tex[ti]) * li + FR * f;
+        d[o + 1] = (edge ? trim[1] : tex[ti + 1]) * li + FG * f;
+        d[o + 2] = (edge ? trim[2] : tex[ti + 2]) * li + FB * f;
+      }
+    };
+
+    /**
      * Draws column x's floor cell by cell along its ray, up to a wall `end` cells ahead, each at its own height; and,
      * where it steps up, the step's face. Gives the last row it left above what it drew.
      */
@@ -673,7 +788,11 @@ export class Renderer {
         const to = i + 1 < cells ? rayFrom[base + i + 1] : end;
         // Where it steps up from the cell before: the step's face, from the floor there up to this one.
         const start = i === 0 ? H : Math.ceil(horizon + (focal / from) * (z - level) - 0.5);
-        if (start < low) {
+        const wallHere = rayLow[base + i] === 1;
+        if (start < low && wallHere) {
+          lowFace(x, i, from, Math.max(start, 0), low, rdx, rdy);
+          low = Math.max(start, 0);
+        } else if (start < low) {
           const below = rayFloor[base + i - 1];
           const s = raySide[base + i];
           const hx = px + from * rdx;
@@ -706,6 +825,11 @@ export class Renderer {
           0,
           to === Infinity ? Math.ceil(horizon - 0.5) : Math.ceil(horizon + (focal / to) * (z - level) - 0.5),
         );
+        if (wallHere) {
+          lowTop(x, i, drop, top, low, rdx, rdy);
+          if (top < low) low = top;
+          continue;
+        }
         for (let y = low - 1; y >= top; y--) {
           let p = y + 0.5 - horizon;
           if (p < 0.5) p = 0.5;
@@ -759,7 +883,8 @@ export class Renderer {
       // The wall goes from the floor in front of it up to the ceiling there; its texture is laid out from that floor,
       // as if the ceiling were 1 above it.
       const front = x * RAY_CELLS + rayCells[x] - 1;
-      const level = rayFloor[front];
+      // Behind a low wall, from the floor under that.
+      const level = rayLow[front] ? light.floorAt(rayX[front], rayY[front], map) : rayFloor[front];
       const ceiling = rayCeiling[front] - level;
       const top = horizon - lineH * (1 + level - z);
       const span = lineH;

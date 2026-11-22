@@ -205,6 +205,68 @@ export const WALL_TEXTURES = [wallPixel, housePixel, officePixel, drywallPixel, 
   return both;
 });
 
+/*
+ * The tops of the low walls, a cell a side, one to a zone; and the trim each has along an edge over open floor, which
+ * turns down over the top of the face below it (render.ts).
+ */
+
+/** Painted boards, the paint the wallpaper's yellow gone brown, the grain showing through. */
+function yellowCap(x: number, y: number): Rgb {
+  let m = (0.86 + 0.14 * valueNoise(x / 64, (y / 64) * 8, 4, 300)) * (0.94 + 0.08 * grain(x, y, 301));
+  if (y % 16 === 0) m *= 0.7;
+  m *= 0.88 + 0.2 * layered(x / 64, y / 64, 2, 302);
+  return [166 * m, 138 * m, 72 * m];
+}
+
+/** Dark varnished wood, a groove between each two boards, worn paler here and there. */
+function houseCap(x: number, y: number): Rgb {
+  let m = (0.84 + 0.16 * valueNoise((x / 64) * 8, y / 64, 4, 310 + (x >> 4))) * (0.93 + 0.1 * grain(x, y, 311));
+  if (x % 16 === 0) m *= 0.55;
+  m *= 1 + 0.18 * smoothstep(0.6, 0.75, layered(x / 64, y / 64, 2, 312));
+  return [108 * m, 72 * m, 46 * m];
+}
+
+/** Grey laminate, flecked. */
+function officeCap(x: number, y: number): Rgb {
+  let m = (0.95 + 0.06 * grain(x, y, 320)) * (0.9 + 0.14 * layered(x / 64, y / 64, 2, 321));
+  if (grain(x, y, 322) > 0.96) m *= 0.85;
+  return [164 * m, 162 * m, 156 * m];
+}
+
+/** The bare top of a stud wall boxed in with plasterboard, smeared with filler and dust. */
+function drywallCap(x: number, y: number): Rgb {
+  const g = layered(x / 64, y / 64, 4, 330);
+  const m = (0.92 + 0.1 * grain(x, y, 331)) * (0.86 + 0.2 * g);
+  const mud = smoothstep(0.55, 0.65, layered(x / 64, y / 64, 2, 332));
+  return [(184 + 24 * mud) * m, (180 + 26 * mud) * m, (170 + 28 * mud) * m];
+}
+
+/** White tiles laid along the top, grubby grout between them. */
+function tilesCap(x: number, y: number): Rgb {
+  const g = layered(x / 64, y / 64, 4, 340);
+  if (x % 16 === 0 || y % 16 === 0) {
+    const m = (0.8 + 0.2 * grain(x, y, 341)) * (0.8 + 0.3 * g);
+    return [146 * m, 142 * m, 128 * m];
+  }
+  let m = (0.93 + 0.08 * grain(x >> 4, y >> 4, 342)) * (0.97 + 0.04 * grain(x, y, 343));
+  if (x % 16 === 1 || y % 16 === 1) m *= 1.06;
+  return [212 * m, 214 * m, 204 * m];
+}
+
+/** Each zone's low wall top (zones.ts), 64 pixels a cell. */
+export const CAPS = [yellowCap, houseCap, officeCap, drywallCap, tilesCap].map((pixel) => makeTexture(64, pixel));
+/**
+ * Each zone's trim along a low wall's open edges: dark painted wood, a rounded wooden rail, aluminium, a steel corner
+ * bead, round-edged tiles.
+ */
+export const CAP_TRIMS: readonly Rgb[] = [
+  [112, 90, 46],
+  [140, 96, 60],
+  [196, 198, 204],
+  [150, 154, 160],
+  [226, 226, 216],
+];
+
 /**
  * The carpet, at 64 pixels a cell, and how many cells its picture covers before it repeats. Its stains are the same
  * size they always were; the picture is just big enough that they don't line up every couple of cells.

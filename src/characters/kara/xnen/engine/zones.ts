@@ -44,6 +44,13 @@ export const CORRIDOR_WEIGHTS: ZoneWeights = [1, 2, 1, 1, 1];
 export const CELLS_WEIGHTS: ZoneWeights = [1, 0.5, 2.5, 1.5, 2];
 
 /**
+ * Low walls: a stretch of lattice between two plain rooms now and then, and whole areas of them, laid out like cells
+ * but seen over. Most of all in the office (half-height partition walls) and the drywall (never finished).
+ */
+export const LOW_STRETCH_WEIGHTS: ZoneWeights = [1, 0.8, 1.5, 1.4, 0.8];
+export const LOW_CELLS_WEIGHTS: ZoneWeights = [0.6, 0.4, 2.2, 1.6, 1];
+
+/**
  * Special rooms. Pit rooms are only ever in the yellow; heavier there so there are as many as before zones had a say
  * (yellow is a little under 6 in 10 of the zones). A burger room can be anywhere, papered like its zone.
  */

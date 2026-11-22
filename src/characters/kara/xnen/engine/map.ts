@@ -3,6 +3,8 @@ import type { Tuning } from "./tuning";
 import {
   BURGER_ROOM_WEIGHTS,
   CELLS_WEIGHTS,
+  LOW_CELLS_WEIGHTS,
+  LOW_STRETCH_WEIGHTS,
   CORRIDOR_WEIGHTS,
   heaviest,
   PIT_ROOM_WEIGHTS,
@@ -84,6 +86,8 @@ const LATTICE = 0;
 const CORRIDOR_EW = 1;
 const CORRIDOR_NS = 2;
 const CELLS = 3;
+/** Laid out like cells, but its walls low (lowWall). */
+const LOW_CELLS = 4;
 /**
  * How likely an area is to be corridors, and to be cells, if nothing round it stops it: in the yellow, and weighed in
  * the other zones (zones.ts).
@@ -100,6 +104,30 @@ const CORRIDOR_SIDE_DOOR = 0.25;
 /** In a cells area: how likely a stretch of its lattice is to have any wall, and a wall to have a doorway. */
 const CELLS_DENSE = 0.85;
 const CELLS_DOOR = 0.6;
+/** How likely an area is to be low cells, if nothing round it stops it, weighed by its zone (zones.ts). */
+const LOW_CELLS_SHARE = 0.05;
+/** In an area of low cells, how likely a stretch is to be the taller kind (WALL_SHORT). */
+const LOW_CELLS_TALL = 0.25;
+
+/**
+ * A low wall's top: waist high, to see over (WALL_LOW), or short of the ceiling by a little, to see only the ceiling
+ * and the lights go on past it (WALL_SHORT).
+ */
+export const WALL_LOW = 0.4;
+export const WALL_SHORT = 0.85;
+/**
+ * How likely a stretch of lattice wall between two plain rooms is to be low, weighed by the zone (zones.ts); of
+ * those, how likely to be the taller kind, and to be low only in its middle two cells, like a window.
+ */
+const LOW_STRETCH = 0.15;
+const LOW_STRETCH_TALL = 0.35;
+const LOW_STRETCH_MIDDLE = 0.4;
+
+/** A stretch of lattice wall that's low: how high, and whether only its middle two cells are. */
+interface LowStretch {
+  height: number;
+  middle: boolean;
+}
 
 export const LIGHT_ON = 1;
 /** How likely a stretch of 22 × 22 cells is to be mostly dark, before its zone weighs it (zones.ts). */
@@ -480,6 +508,8 @@ export class WorldMap {
   private readonly ends = new Map<number, DeadEnd | null>();
   /** Each lattice room's floor height, inside its walls, by lx * 100 003 + ly. */
   private readonly floors = new Map<number, number>();
+  /** Each stretch of lattice's low wall, or null, by (lx * 100 003 + ly) * 2 + dir. */
+  private readonly lowStretches = new Map<number, LowStretch | null>();
   /** Each lattice room's stair, or null, by lx * 100 003 + ly. */
   private readonly stairs = new Map<number, StairsPlan | null>();
   /** Each zone square's point, and each block's special room, as worked out: both asked for many times a cell. */
@@ -530,15 +560,21 @@ export class WorldMap {
   private layoutOf(rx: number, ry: number): number {
     if (rx === 0 && ry === 0) return LATTICE;
     const die = this.noise(rx, ry, 11);
-    if (die >= CORRIDOR_SHARE * heaviest(CORRIDOR_WEIGHTS) + CELLS_SHARE * heaviest(CELLS_WEIGHTS)) return LATTICE;
+    const most =
+      CORRIDOR_SHARE * heaviest(CORRIDOR_WEIGHTS) +
+      CELLS_SHARE * heaviest(CELLS_WEIGHTS) +
+      LOW_CELLS_SHARE * heaviest(LOW_CELLS_WEIGHTS);
+    if (die >= most) return LATTICE;
     const zone = this.zoneOfPoint(rx * 30, ry * 30);
     const corridors = CORRIDOR_SHARE * CORRIDOR_WEIGHTS[zone];
-    if (die >= corridors + CELLS_SHARE * CELLS_WEIGHTS[zone]) return LATTICE;
+    const cells = corridors + CELLS_SHARE * CELLS_WEIGHTS[zone];
+    if (die >= cells + LOW_CELLS_SHARE * LOW_CELLS_WEIGHTS[zone]) return LATTICE;
     const bx = rx * 2 - 1;
     const by = ry * 2 - 1;
     for (const [i, j] of [[0, -1], [1, -1], [-1, 0], [-1, 1], [-1, -1]]) {
       if (this.rolledRoom(bx + i, by + j)) return LATTICE;
     }
+    if (die >= cells) return LOW_CELLS;
     if (die >= corridors) return CELLS;
     return this.noise(rx, ry, 12) < 0.5 ? CORRIDOR_EW : CORRIDOR_NS;
   }
@@ -1349,7 +1385,7 @@ export class WorldMap {
     const lx = Math.floor(x / 5);
     const ly = Math.floor(y / 5);
     const layout = this.layout(lx, ly);
-    if (layout === CELLS) return this.cellsWall(x, y);
+    if (layout === CELLS || layout === LOW_CELLS) return this.cellsWall(x, y);
     if (layout !== LATTICE) return this.corridorWall(x, y, layout);
     const hall = this.hallAt(x, y);
     if (hall === "pillars" || hall === "cubicles") {
@@ -1383,6 +1419,84 @@ export class WorldMap {
     if (my === 0) return this.segment(lx, ly, 0, mx) ? 1 : 0;
     if (mx === 0) return this.segment(lx, ly, 1, my) ? 1 : 0;
     return 0;
+  }
+
+  /**
+   * How high wall cell (x, y) stands if it's low (WALL_LOW or WALL_SHORT), from the floor; 0 if it goes all the way up
+   * to the ceiling. Only for cells that are wall (wall()).
+   */
+  lowWall(x: number, y: number): number {
+    const lx = Math.floor(x / 5);
+    const ly = Math.floor(y / 5);
+    const layout = this.layout(lx, ly);
+    if (layout === LOW_CELLS) return this.lowCellsWall(x, y);
+    if (layout !== LATTICE) return 0;
+    const mx = x - lx * 5;
+    const my = y - ly * 5;
+    // Its stretches, never the points where they meet.
+    if ((mx === 0) === (my === 0)) return 0;
+    const dir = my === 0 ? 0 : 1;
+    const stretch = this.lowStretch(lx, ly, dir);
+    if (!stretch) return 0;
+    const m = dir === 0 ? mx : my;
+    return stretch.middle && (m === 1 || m === 4) ? 0 : stretch.height;
+  }
+
+  /** The stretch of lattice from point (lx, ly), running east (dir 0) or south (dir 1), if it's a low wall. */
+  private lowStretch(lx: number, ly: number, dir: number): LowStretch | null {
+    const key = (lx * 100_003 + ly) * 2 + dir;
+    let stretch = this.lowStretches.get(key);
+    if (stretch === undefined) {
+      stretch = this.lowStretchOf(lx, ly, dir);
+      this.lowStretches.set(key, stretch);
+    }
+    return stretch;
+  }
+
+  /**
+   * Whether the stretch of lattice from point (lx, ly), running east or south, is low: now and then, between two plain
+   * rooms away from the spawn with nothing of their own against a wall (a dead end's thing, a stair).
+   */
+  private lowStretchOf(lx: number, ly: number, dir: number): LowStretch | null {
+    const die = this.noise(lx, ly, 670 + dir);
+    if (die >= LOW_STRETCH * heaviest(LOW_STRETCH_WEIGHTS)) return null;
+    if (die >= LOW_STRETCH * LOW_STRETCH_WEIGHTS[this.roomZone(lx, ly)]) return null;
+    const rooms = dir === 0 ? [[lx, ly], [lx, ly - 1]] : [[lx, ly], [lx - 1, ly]];
+    for (const [rx, ry] of rooms) {
+      if (Math.abs(rx) <= 1 && Math.abs(ry) <= 1) return null;
+      if (!this.plainRoom(rx, ry) || this.deadEndRoom(rx, ry) || this.stairsIn(rx, ry)) return null;
+    }
+    return {
+      height: this.noise(lx, ly, 672 + dir) < LOW_STRETCH_TALL ? WALL_SHORT : WALL_LOW,
+      middle: this.noise(lx, ly, 674 + dir) < LOW_STRETCH_MIDDLE,
+    };
+  }
+
+  /** How high wall cell (x, y) of an area of low cells is: its stretch's height, or where they meet, the tallest's. */
+  private lowCellsWall(x: number, y: number): number {
+    const qx = Math.floor(x / 3);
+    const qy = Math.floor(y / 3);
+    const mx = x - qx * 3;
+    const my = y - qy * 3;
+    if (mx !== 0 && my !== 0) return 0;
+    if (my === 0 && mx !== 0) return this.lowCellsHeight(qx, qy, 0);
+    if (mx === 0 && my !== 0) return this.lowCellsHeight(qx, qy, 1);
+    let height = WALL_LOW;
+    const meeting: readonly [number, number, number, number][] = [
+      [qx, qy, 0, 1],
+      [qx - 1, qy, 0, 2],
+      [qx, qy, 1, 1],
+      [qx, qy - 1, 1, 2],
+    ];
+    for (const [sx, sy, dir, m] of meeting) {
+      if (this.cellsSegment(sx, sy, dir, m)) height = Math.max(height, this.lowCellsHeight(sx, sy, dir));
+    }
+    return height;
+  }
+
+  /** How high the stretch of an area of low cells from point (qx, qy), running east or south, is. */
+  private lowCellsHeight(qx: number, qy: number, dir: number): number {
+    return this.noise(qx, qy, 96 + dir) < LOW_CELLS_TALL ? WALL_SHORT : WALL_LOW;
   }
 
   /** The ceiling light over cell (x, y), for cells where a light hangs (lampAt). */
