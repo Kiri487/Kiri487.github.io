@@ -135,10 +135,11 @@ export const GRAFFITI_WEIGHTS: ZoneWeights = [1, 0.5, 0.5, 2, 1];
 export const POSTER_WEIGHTS: ZoneWeights = [1, 0.5, 1.5, 0.5, 0];
 
 /**
- * How many faces of wall have marks on them (wallMarks.ts) over their clean paper: the rest are clean. And which
- * marks each zone's walls get, each with its share.
+ * How many faces of wall have marks on them (wallMarks.ts) over their clean paper, the rest clean: most on the bare
+ * plasterboard and the tiles, fewest in the office, kept up. And which marks each zone's walls get, each with its share.
  */
 export const WALL_MARKED = 0.4;
+export const WALL_MARKED_WEIGHTS: ZoneWeights = [1, 0.9, 0.75, 1.25, 1.15];
 export type WallMarkKind =
   | "damp"
   | "drips"

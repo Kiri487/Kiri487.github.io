@@ -1,6 +1,6 @@
-import { hash3 } from "./hash";
+import { hash3, mod } from "./hash";
 import type { WorldMap } from "./map";
-import { WALL_MARKED, WALL_MARKS, type WallMarkKind } from "./zones";
+import { WALL_MARKED, WALL_MARKED_WEIGHTS, WALL_MARKS, type WallMarkKind } from "./zones";
 
 /*
  * What's happened to the walls, over their clean paper: damp, drips, tears, scuffs, cracks, tiles gone, mould. Each
@@ -39,7 +39,14 @@ const FACE_OUT = [
   [0, 1],
 ] as const;
 
-const known = new WeakMap<WorldMap, Map<string, WallMark[] | null>>();
+/**
+ * Each face's marks, kept as worked out, and the cell they're on. Past FACES_KEPT faces, those further than FACES_NEAR
+ * cells from the one asked for are let go: a long walk would keep every face it ever passed, and they're the same
+ * worked out again.
+ */
+const known = new WeakMap<WorldMap, Map<string, { cx: number; cy: number; marks: WallMark[] | null }>>();
+const FACES_KEPT = 6000;
+const FACES_NEAR = 48;
 
 /** The marks on face `face` of wall cell (cx, cy), or null for a clean one. The same every time for this map. */
 export function wallMarksOn(map: WorldMap, cx: number, cy: number, face: number): WallMark[] | null {
@@ -49,21 +56,27 @@ export function wallMarksOn(map: WorldMap, cx: number, cy: number, face: number)
     known.set(map, faces);
   }
   const key = `${cx},${cy},${face}`;
-  let marks = faces.get(key);
-  if (marks === undefined) {
-    marks = marksOf(map, cx, cy, face);
-    faces.set(key, marks);
+  let found = faces.get(key);
+  if (!found) {
+    if (faces.size >= FACES_KEPT) {
+      for (const [k, f] of faces) {
+        if (Math.abs(f.cx - cx) > FACES_NEAR || Math.abs(f.cy - cy) > FACES_NEAR) faces.delete(k);
+      }
+    }
+    found = { cx, cy, marks: marksOf(map, cx, cy, face) };
+    faces.set(key, found);
   }
-  return marks;
+  return found.marks;
 }
 
 function marksOf(map: WorldMap, cx: number, cy: number, face: number): WallMark[] | null {
   const fx = cx + FACE_OUT[face][0];
   const fy = cy + FACE_OUT[face][1];
   if (map.wall(fx, fy)) return null;
-  const kinds = WALL_MARKS[map.zoneAt(fx, fy)];
+  const zone = map.zoneAt(fx, fy);
+  const kinds = WALL_MARKS[zone];
   const die = (k: number) => map.noise(cx * 4 + face, cy, 610 + k);
-  if (!kinds.length || die(0) >= WALL_MARKED) return null;
+  if (!kinds.length || die(0) >= WALL_MARKED * WALL_MARKED_WEIGHTS[zone]) return null;
   // From just under the ceiling, however high it is, to the floor.
   const top = Math.ceil((1 - map.ceilingAt(fx, fy)) * 64) + MARGIN;
   const bottom = 64 - MARGIN;
@@ -71,10 +84,29 @@ function marksOf(map: WorldMap, cx: number, cy: number, face: number): WallMark[
   const marks: WallMark[] = [];
   for (let n = 0; n < count; n++) {
     const seed = Math.floor(die(2 + n * 2) * 0x7fffffff);
-    const mark = MAKERS[pick(kinds, die(3 + n * 2))]((k) => hash3(seed, k, 811), top, bottom);
-    if (mark) marks.push(mark);
+    const kind = pick(kinds, die(3 + n * 2));
+    const mark = MAKERS[kind]((k) => hash3(seed, k, 811), top, bottom);
+    if (!mark) continue;
+    if (!SQUARE[kind]) fadeSides(mark);
+    marks.push(mark);
   }
   return marks.length ? marks : null;
+}
+
+/**
+ * The marks that keep to the wall's own lines (the tiles, the panelling's boards, the screws), whose edges are where
+ * they are. Every other fades out toward the face's sides, so the face beside it, clean, doesn't cut it off straight.
+ */
+const SQUARE: Partial<Record<WallMarkKind, boolean>> = { missing: true, panel: true, screwPop: true, ghost: true };
+const SIDE_FADE = 8;
+
+function fadeSides(mark: WallMark) {
+  for (let i = 0; i < mark.w; i++) {
+    const x = mark.x + i;
+    const fade = Math.min(1, Math.max(0, Math.min(x, 63 - x) / SIDE_FADE));
+    if (fade >= 1) continue;
+    for (let j = 0; j < mark.h; j++) mark.alpha[j * mark.w + i] *= fade;
+  }
 }
 
 /** Which of `kinds` a die picks, by their shares. */
@@ -193,7 +225,8 @@ function missing(r: Dice, top: number, bottom: number): WallMark | null {
         const fromCorner = [i + j, TILE - i + j, i + TILE - j, 2 * TILE - i - j][shard] ?? Infinity;
         if (fromCorner < shardSize) continue;
         const grain = hash3(tx + i, ty + j, 977);
-        const ridge = comb === 0 ? (ty + j) % 4 < 2 : comb === 1 ? (tx + i) % 4 < 2 : (tx + i + ty + j) % 5 < 2;
+        // Up a high wall the rows are negative: a remainder that stays positive keeps the combing even.
+        const ridge = comb === 0 ? mod(ty + j, 4) < 2 : comb === 1 ? mod(tx + i, 4) < 2 : mod(tx + i + ty + j, 5) < 2;
         let m = (0.82 + 0.22 * grain) * (ridge ? 0.78 : 1);
         // A faint shadow under the tile above, which stands out from the glue.
         if (j === 1) m *= 0.78;
