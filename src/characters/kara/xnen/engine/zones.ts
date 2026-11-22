@@ -185,3 +185,55 @@ export const WALL_MARKS: readonly (readonly (readonly [WallMarkKind, number])[])
     ["mould", 0.25],
   ],
 ];
+
+/**
+ * How many cells of floor have a mark of their own (floorMarks.ts), spreading onto the cells round it; and which
+ * marks each zone's floor gets, each with its share; the office's and the tiles' are small, so more of them. Under
+ * every ceiling tile gone there's a puddle's stain besides, whatever the zone.
+ */
+export const FLOOR_MARKED = 0.055;
+export const FLOOR_MARKED_WEIGHTS: ZoneWeights = [1, 1, 1.8, 1, 1.2];
+export type FloorMarkKind =
+  | "wet"
+  | "mildew"
+  | "spill"
+  | "burns"
+  | "rug"
+  | "tileSwap"
+  | "coffee"
+  | "crack"
+  | "oil"
+  | "paint"
+  | "scuffs"
+  | "linoGone"
+  | "yellowed";
+export const FLOOR_MARKS: readonly (readonly (readonly [FloorMarkKind, number])[])[] = [
+  // Yellow: a wetter patch, mildew.
+  [
+    ["wet", 0.65],
+    ["mildew", 0.35],
+  ],
+  // House: something spilled, cigarette burns, where a rug lay.
+  [
+    ["spill", 0.4],
+    ["burns", 0.3],
+    ["rug", 0.3],
+  ],
+  // Office: a carpet tile put in since, coffee.
+  [
+    ["tileSwap", 0.45],
+    ["coffee", 0.55],
+  ],
+  // Drywall: cracks in the slab, oil, paint.
+  [
+    ["crack", 0.4],
+    ["oil", 0.3],
+    ["paint", 0.3],
+  ],
+  // Tiles: heel marks, a square of lino gone, a patch gone yellow.
+  [
+    ["scuffs", 0.45],
+    ["linoGone", 0.25],
+    ["yellowed", 0.3],
+  ],
+];

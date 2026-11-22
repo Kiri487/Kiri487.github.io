@@ -256,14 +256,13 @@ const OFFICE_FLOOR = makeFloor(64, (x, y) => {
   return [84 * m, 92 * m, 104 * m];
 });
 
-/** Bare concrete, blotchy, with a crack or two. */
+/** Bare concrete, blotchy. Its cracks are laid over it (floorMarks.ts), each its own. */
 const CONCRETE_FLOOR = makeFloor(256, (x, y) => {
   const u = x / 256;
   const v = y / 256;
   let m = 0.9 + 0.16 * grain(x, y, 260);
   m *= 0.78 + 0.34 * layered(u, v, 4, 261);
   m *= 1 - 0.25 * smoothstep(0.6, 0.75, layered(u, v, 2, 262));
-  if (Math.abs(layered(u, v, 3, 263) - 0.5) < 0.004 && layered(u, v, 2, 264) > 0.6) m *= 0.6;
   return [124 * m, 120 * m, 112 * m];
 });
 

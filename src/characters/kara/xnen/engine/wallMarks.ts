@@ -119,7 +119,7 @@ function pick(kinds: readonly (readonly [WallMarkKind, number])[], die: number):
   return kinds[kinds.length - 1][0];
 }
 
-type Dice = (k: number) => number;
+export type Dice = (k: number) => number;
 type Maker = (r: Dice, top: number, bottom: number) => WallMark | null;
 
 const MAKERS: Record<WallMarkKind, Maker> = {
@@ -139,7 +139,7 @@ const MAKERS: Record<WallMarkKind, Maker> = {
 };
 
 /** A blank mark, w × h pixels from (x, y). */
-function blank(x: number, y: number, w: number, h: number, shade = false): WallMark {
+export function blank(x: number, y: number, w: number, h: number, shade = false): WallMark {
   return { x, y, w, h, rgb: new Uint8ClampedArray(w * h * 3), alpha: new Uint8Array(w * h), shade };
 }
 
@@ -147,7 +147,7 @@ function blank(x: number, y: number, w: number, h: number, shade = false): WallM
 const band = (y0: number, y1: number, shade = false) => blank(0, y0, 64, Math.max(1, y1 - y0 + 1), shade);
 
 /** Paints pixel (x, y) of the wall, if it's in the mark, this colour, at least this much covered. */
-function put(mark: WallMark, x: number, y: number, r: number, g: number, b: number, a: number) {
+export function put(mark: WallMark, x: number, y: number, r: number, g: number, b: number, a: number) {
   const i = x - mark.x;
   const j = y - mark.y;
   if (i < 0 || j < 0 || i >= mark.w || j >= mark.h) return;
@@ -160,7 +160,7 @@ function put(mark: WallMark, x: number, y: number, r: number, g: number, b: numb
 }
 
 /** Between lo and hi, by a die. */
-const within = (die: number, lo: number, hi: number) => lo + die * (hi - lo);
+export const within = (die: number, lo: number, hi: number) => lo + die * (hi - lo);
 
 /**
  * A crack in the glaze: a thin grey line wandering from where it starts, mostly one way, sometimes with a branch off
@@ -238,7 +238,7 @@ function missing(r: Dice, top: number, bottom: number): WallMark | null {
 }
 
 /** Smooth noise over the wall's pixels, `size` pixels to a step, for this mark's dice. */
-function blotch(x: number, y: number, size: number, seed: number): number {
+export function blotch(x: number, y: number, size: number, seed: number): number {
   const gx = x / size;
   const gy = y / size;
   const ix = Math.floor(gx);
