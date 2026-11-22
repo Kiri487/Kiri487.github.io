@@ -14,6 +14,7 @@ import {
 } from "./posters";
 import { drawPits, pitFieldsNear } from "./pits";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
+import { floorMarksAt, floorMarksFrame, type FloorMark } from "./floorMarks";
 import { wallMarksOn, type WallMark } from "./wallMarks";
 import { CARPET_FLIP, CARPET_SIZE, CEILING, FLOORS, FLOOR_FLIPS, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
@@ -92,6 +93,9 @@ function wallRow(tv: number, ceiling: number): number {
   return ((ty % 64) + 64) % 64;
 }
 
+/** At most this many cells' floor marks are worked out a frame (floorMarks.ts); the rest come in the frames after. */
+const FLOOR_MARKS_A_FRAME = 6;
+
 /** Screen columns go missing together in strips this wide. */
 const GAP_STRIP = 5;
 const GAP_COLOUR = [11, 10, 6];
@@ -150,6 +154,8 @@ export class Renderer {
   private rayX = new Int32Array(320 * RAY_CELLS);
   private rayY = new Int32Array(320 * RAY_CELLS);
   private raySide = new Uint8Array(320 * RAY_CELLS);
+  /** The marks on the floor of each cell of the light window, looked up once a frame; undefined until then. */
+  private floorMarkCells: (FloorMark[] | null | undefined)[] = new Array(WN * WN);
   /** Which of the four ceiling tiles over each cell of the light window are gone, as bits; -1 until looked up. */
   private ceilingHoles = new Int8Array(WN * WN);
 
@@ -275,6 +281,9 @@ export class Renderer {
     ceilingPosters.fill(undefined);
     const ceilingHoles = this.ceilingHoles;
     ceilingHoles.fill(-1);
+    const floorMarkCells = this.floorMarkCells;
+    floorMarkCells.fill(undefined);
+    floorMarksFrame(FLOOR_MARKS_A_FRAME);
     // The graffiti on the face of wall being drawn, looked up once per face, and what it shows this frame.
     let tagKey = "";
     let tag: Tag | null = null;
@@ -450,9 +459,40 @@ export class Renderer {
               if (CARPET_FLIP[(ty >> CARPET_SHIFT) & 255]) cv = CARPET_MASK - cv;
             }
             const ti = (cv * CARPET_SIZE + cu) * 3;
-            d[o] = floor[ti] * li + ar;
-            d[o + 1] = floor[ti + 1] * li + ag;
-            d[o + 2] = floor[ti + 2] * li + ab;
+            let fr = floor[ti];
+            let fg = floor[ti + 1];
+            let fb = floor[ti + 2];
+            // What's happened to the floor here, over it.
+            if (inWindow) {
+              let marks = floorMarkCells[cell];
+              if (marks === undefined) {
+                // Not worked out yet this frame's share: none here till a later frame.
+                marks = floorMarksAt(map, Math.floor(fx), Math.floor(fy)) ?? null;
+                floorMarkCells[cell] = marks;
+              }
+              if (marks) {
+                for (const mark of marks) {
+                  const mi = tx - mark.x;
+                  const mj = ty - mark.y;
+                  if (mi < 0 || mj < 0 || mi >= mark.w || mj >= mark.h) continue;
+                  const mk = mj * mark.w + mi;
+                  const a = mark.alpha[mk] / 255;
+                  if (!a) continue;
+                  if (mark.shade) {
+                    fr += ((fr * mark.rgb[mk * 3]) / 255 - fr) * a;
+                    fg += ((fg * mark.rgb[mk * 3 + 1]) / 255 - fg) * a;
+                    fb += ((fb * mark.rgb[mk * 3 + 2]) / 255 - fb) * a;
+                  } else {
+                    fr += (mark.rgb[mk * 3] - fr) * a;
+                    fg += (mark.rgb[mk * 3 + 1] - fg) * a;
+                    fb += (mark.rgb[mk * 3 + 2] - fb) * a;
+                  }
+                }
+              }
+            }
+            d[o] = fr * li + ar;
+            d[o + 1] = fg * li + ag;
+            d[o + 2] = fb * li + ab;
           } else {
             ceilingPixel(o, fx, fy, l, f, posterLevel);
           }
