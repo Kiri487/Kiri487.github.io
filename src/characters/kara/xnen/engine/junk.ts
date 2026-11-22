@@ -1770,10 +1770,66 @@ function laidOut<K>(stores: WeakMap<WorldMap, Map<K, Junk[]>>, map: WorldMap, ke
   }
   let found = known.get(key);
   if (!found) {
-    found = lay();
+    found = underCeiling(map, lay());
     known.set(key, found);
   }
   return found;
+}
+
+/** Up to this high, something reaches the ceiling (1) and goes into it; down to this low, it stands on the floor. */
+const TOUCHES_CEILING = 0.97;
+const TOUCHES_FLOOR = 0.03;
+/** Below this, something hanging from a lower ceiling would be in the visitor's way. */
+const HANGS_CLEAR = 0.6;
+
+/**
+ * What's laid out as it is under a ceiling 1 high, under the ceiling where each piece is. What's stuck up into the
+ * ceiling goes up or down with it. What then can't be (standing up through a higher one, hanging too low from a lower
+ * one, or too tall for it) isn't there; what runs from the floor up through a lower one is just cut off by it.
+ */
+function underCeiling(map: WorldMap, found: Junk[]): Junk[] {
+  const out: Junk[] = [];
+  for (const junk of found) {
+    const ceiling = map.ceilingAt(Math.floor(junk.x), Math.floor(junk.y));
+    if (ceiling === 1) {
+      out.push(junk);
+      continue;
+    }
+    const [low, high] = heightsOf(junk);
+    if (high < TOUCHES_CEILING) {
+      if (high < ceiling - 0.02) out.push(junk);
+      continue;
+    }
+    if (low < TOUCHES_FLOOR) {
+      if (ceiling < 1) out.push(junk);
+      continue;
+    }
+    const lift = ceiling - 1;
+    if (low + lift < HANGS_CLEAR && lift < 0) continue;
+    out.push({
+      ...junk,
+      h: junk.h + lift,
+      perch: junk.perch && { ...junk.perch, z: junk.perch.z + lift },
+      plate: junk.plate && { ...junk.plate, z: junk.plate.z + lift },
+    });
+  }
+  return out;
+}
+
+/** How low and how high a piece of junk goes, from the floor. */
+function heightsOf(junk: Junk): [number, number] {
+  const tris = junk.model.tris;
+  const at = junkPoints(junk);
+  let low = Infinity;
+  let high = -Infinity;
+  for (let o = 0; o < tris.length; o += 16) {
+    for (let k = 0; k < 3; k++) {
+      const z = at(tris[o + k * 5], tris[o + k * 5 + 1], tris[o + k * 5 + 2])[2];
+      if (z < low) low = z;
+      if (z > high) high = z;
+    }
+  }
+  return [low, high];
 }
 
 /** Adds to `out` each of `found` within `radius` of (x, y). */

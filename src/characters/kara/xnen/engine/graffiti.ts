@@ -1887,6 +1887,8 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
         const z = 1 - (tag.top + tag.bottom) / 2;
         tag.centre =
           dir === 0 ? { x: along, y: line, z, nx: 0, ny: out } : { x: line, y: along, z, nx: out, ny: 0 };
+        // Not one that would go up into a low ceiling.
+        if (tag.top < 1 - map.ceilingAt(fx, fy)) tag = null;
       }
     }
   }
