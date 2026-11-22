@@ -75,52 +75,45 @@ function makeTexture(size: number, pixel: (x: number, y: number) => Rgb): Uint8C
   return out;
 }
 
-/**
- * Yellow wallpaper with a faint diamond pattern, darker toward the floor, over a brown skirting board. `upper` is the
- * paper alone, to go on up a wall higher than 1 (see WALL_TEXTURES).
+/*
+ * The walls, one clean wall to a zone. What's happened to them (damp, stains, scuffs, tears, cracks) is laid over
+ * them a face of wall at a time (wallMarks.ts), so it's never twice the same. Each also comes `upper`: the wall alone,
+ * without what's only at its foot (a skirting, the panelling, the shadow toward the floor) or its top edge, to go on
+ * up a wall higher than 1 (see WALL_TEXTURES).
  */
-function wallPixel(variant: number, upper: boolean) {
+
+/** Yellow wallpaper with a faint diamond pattern, darker toward the floor, over a brown skirting board. */
+function wallPixel(upper: boolean) {
   return (x: number, y: number): Rgb => {
     const u = x / 64;
     const v = y / 64;
     let base: Rgb = [202, 176, 86];
     let m = 1;
-    let stain = 0;
     if (x % 8 === 0) m *= 0.94;
     const ddx = Math.abs((x % 16) - 8);
     const ddy = Math.abs((y % 16) - 8);
     if (ddx + ddy === 4) m *= 0.9;
     if (ddx + ddy < 2) m *= 0.93;
     m *= 0.94 + 0.12 * grain(x, y, 1);
-    const g = layered(u, v, 4, 10 + variant * 7);
+    const g = layered(u, v, 4, 10);
     m *= 0.82 + 0.3 * g;
     if (!upper) m *= 1 - 0.3 * Math.max(0, (v - 0.55) / 0.45) * (0.4 + g);
-    // Variant 1 has damp patches, variant 2 streaks running down from the top.
-    if (variant === 1) {
-      stain = smoothstep(0.5, 0.64, layered(u, v, 2, 50));
-      m *= 1 - 0.32 * stain;
-    }
-    if (variant === 2 && grain(x, 0, 60) > 0.78 && (upper || y < grain(x, 1, 61) * 44)) {
-      m *= 0.8;
-      stain = 0.5;
-    }
     if (!upper && y >= 57) {
       base = [104, 84, 46];
       m = 0.88 + 0.12 * grain(x, y, 2);
       if (y === 57) m *= 0.6;
-      stain = 0;
     }
     if (!upper && y < 1) m *= 0.75;
-    return [base[0] * m, base[1] * m * (1 - stain * 0.1), base[2] * m * (1 - stain * 0.3)];
+    return [base[0] * m, base[1] * m, base[2] * m];
   };
 }
 
-/** Faded striped wallpaper above a dado rail, dark wood panelling below; `upper`, the paper alone. */
-function housePixel(variant: number, upper: boolean) {
+/** Faded striped wallpaper above a dado rail, dark wood panelling below. */
+function housePixel(upper: boolean) {
   return (x: number, y: number): Rgb => {
     const u = x / 64;
     const v = y / 64;
-    const g = layered(u, v, 4, 200 + variant * 7);
+    const g = layered(u, v, 4, 200);
     if (upper || y < 34) {
       // Wide dusty-rose bands, a thin line either side of each.
       const sx = x % 16;
@@ -128,17 +121,6 @@ function housePixel(variant: number, upper: boolean) {
       if (sx === 7 || sx === 15) base = [150, 120, 100];
       let m = (0.93 + 0.1 * grain(x, y, 201)) * (0.84 + 0.28 * g);
       if (!upper && y < 1) m *= 0.75;
-      // Variant 1 has damp coming down from the top, variant 2 a strip of paper peeled off, plaster under it.
-      // Higher up the damp is everywhere, as it is at the top of the usual wall.
-      if (variant === 1) {
-        m *= upper
-          ? 1 - 0.3 * smoothstep(0.52, 0.66, layered(u, v, 2, 205))
-          : 1 - 0.3 * smoothstep(0.52, 0.66, layered(u, v * 0.6, 2, 205)) * (1 - v * 1.6);
-      }
-      if (!upper && variant === 2 && x >= 20 && x < 31 + Math.floor(grain(0, y, 206) * 3) && y > 6 + grain(x, 0, 207) * 4) {
-        base = [176, 170, 150];
-        m *= 0.9;
-      }
       return [base[0] * m, base[1] * m, base[2] * m];
     }
     // The rail, then boards with grooves between them, the grain running down them.
@@ -152,11 +134,8 @@ function housePixel(variant: number, upper: boolean) {
   };
 }
 
-/**
- * Off-white paint over plasterboard, scuffed about knee and hand height, over a black rubber skirting; `upper`, the
- * paint alone.
- */
-function officePixel(variant: number, upper: boolean) {
+/** Off-white paint over plasterboard, over a black rubber skirting. */
+function officePixel(upper: boolean) {
   return (x: number, y: number): Rgb => {
     const u = x / 64;
     const v = y / 64;
@@ -164,31 +143,16 @@ function officePixel(variant: number, upper: boolean) {
       const m = (y === 58 ? 0.7 : 1) * (0.9 + 0.12 * grain(x, y, 220));
       return [46 * m, 46 * m, 48 * m];
     }
-    const g = layered(u, v, 4, 221 + variant * 7);
+    const g = layered(u, v, 4, 221);
     let m = (0.95 + 0.06 * grain(x, y, 222)) * (0.88 + 0.2 * g);
     if (!upper && y < 1) m *= 0.75;
     if (!upper) m *= 1 - 0.22 * Math.max(0, (v - 0.6) / 0.4) * (0.4 + g);
-    // Variant 1 has grey scuffs where chairs and bags have rubbed, variant 2 a brown water stain from the ceiling.
-    if (!upper && variant === 1) {
-      const band = Math.max(0, 1 - Math.abs(v - 0.64) / 0.1);
-      m *= 1 - 0.18 * band * smoothstep(0.45, 0.65, valueNoise(u, v * 6, 8, 225));
-    }
-    if (variant === 2) {
-      // Higher up the stain is everywhere, as it is at the top of the usual wall.
-      const stain = upper
-        ? smoothstep(0.48, 0.6, layered(u, v, 2, 226))
-        : smoothstep(0.48, 0.6, layered(u, v * 0.5, 2, 226)) * (1 - smoothstep(0, 0.7, v));
-      return [192 * m * (1 - stain * 0.12), 192 * m * (1 - stain * 0.2), 184 * m * (1 - stain * 0.4)];
-    }
     return [192 * m, 192 * m, 184 * m];
   };
 }
 
-/**
- * Plasterboard never painted: a taped seam, a row of screws, a builder's pencil line. It has only two looks: variant 2
- * is the plain one again. `upper` has no pencil line, its screws going on up 14 pixels apart.
- */
-function drywallPixel(variant: number, upper: boolean) {
+/** Plasterboard never painted: a taped seam, a row of screws down each board. Upper, the screws go on up 14 apart. */
+function drywallPixel(upper: boolean) {
   return (x: number, y: number): Rgb => {
     const u = x / 64;
     const v = y / 64;
@@ -200,26 +164,21 @@ function drywallPixel(variant: number, upper: boolean) {
       base = [212, 210, 202];
       if (x === 0) m *= 0.85;
     }
-    // Variant 1 has blotches of mud over the screws and the seams, sanded or not.
-    if (variant === 1 && layered(u, v, 3, 235) > 0.58) base = [214, 212, 206];
-    // Screws, a row down each board, filled over in variant 1.
-    if ((x === 20 || x === 44) && y % 14 === (upper ? 0 : 6)) m *= variant === 1 ? 0.85 : 0.55;
-    // A builder's pencil line.
-    if (!upper && y === 22 && x > 8 && x < 50 && grain(x, 0, 236) > 0.15) m *= 0.75;
+    if ((x === 20 || x === 44) && y % 14 === (upper ? 0 : 6)) m *= 0.55;
     if (!upper) m *= 1 - 0.3 * Math.max(0, (v - 0.7) / 0.3) * (0.5 + g);
     if (!upper && y < 1) m *= 0.75;
     return [base[0] * m, base[1] * m, base[2] * m];
   };
 }
 
-/** White tiles all the way up, the grout between them grubby, the bottom row darker; `upper`, plain tiles. */
-function tilesPixel(variant: number, upper: boolean) {
+/** White tiles all the way up, the grout between them grubby, the bottom row darker. */
+function tilesPixel(upper: boolean) {
   return (x: number, y: number): Rgb => {
     const u = x / 64;
     const v = y / 64;
     const tx = x >> 4;
     const ty = y >> 4;
-    const g = layered(u, v, 4, 240 + variant * 7);
+    const g = layered(u, v, 4, 240);
     if (x % 16 === 0 || y % 16 === 0) {
       const m = (0.8 + 0.2 * grain(x, y, 241)) * (0.8 + 0.3 * g) * (upper ? 1 : 1 - 0.3 * v);
       return [150 * m, 146 * m, 132 * m];
@@ -229,33 +188,22 @@ function tilesPixel(variant: number, upper: boolean) {
     if (x % 16 === 1 || y % 16 === 1) m *= 1.06;
     if (x % 16 === 15 || y % 16 === 15) m *= 0.92;
     if (!upper) m *= 1 - 0.25 * Math.max(0, (v - 0.6) / 0.4) * (0.4 + g);
-    let base: Rgb = !upper && ty === 3 ? [150, 156, 150] : [210, 212, 202];
-    // Variant 1 has a crack running across some tiles, variant 2 a tile gone and the combed glue behind it.
-    if (!upper && variant === 1 && x > 6 && x < 58 && Math.abs(y - (18 + x * 0.4 + (grain(x >> 2, 0, 245) - 0.5) * 3)) < 0.7) {
-      m *= 0.55;
-    }
-    if (!upper && variant === 2 && tx === 2 && ty === 1) {
-      base = [120, 112, 92];
-      m = (0.8 + 0.25 * grain(x, y, 244)) * (y % 4 < 2 ? 0.75 : 1);
-    }
+    const base: Rgb = !upper && ty === 3 ? [150, 156, 150] : [210, 212, 202];
     return [base[0] * m, base[1] * m, base[2] * m];
   };
 }
 
 /**
- * Each zone's wallpaper (zones.ts), in three variants: mostly the first, sometimes the second, now and then the third.
- * Indexed by zone, then variant. Each is 64 pixels wide and 128 high: rows 64 on are the usual wall, from the ceiling
- * (1 high) down to the floor; rows 0–63 above them, the wall alone, that goes on up over and over where the ceiling's
- * higher, and joins the usual wall without a seam.
+ * Each zone's wall (zones.ts), 64 pixels wide and 128 high: rows 64 on are the usual wall, from the ceiling (1 high)
+ * down to the floor; rows 0–63 above them, the wall alone, that goes on up over and over where the ceiling's higher,
+ * and joins the usual wall without a seam.
  */
-export const WALL_TEXTURES = [wallPixel, housePixel, officePixel, drywallPixel, tilesPixel].map((pixel) =>
-  [0, 1, 2].map((variant) => {
-    const tall = new Uint8ClampedArray(64 * 128 * 3);
-    tall.set(makeTexture(64, pixel(variant, true)));
-    tall.set(makeTexture(64, pixel(variant, false)), 64 * 64 * 3);
-    return tall;
-  }),
-);
+export const WALL_TEXTURES = [wallPixel, housePixel, officePixel, drywallPixel, tilesPixel].map((pixel) => {
+  const both = new Uint8ClampedArray(64 * 128 * 3);
+  both.set(makeTexture(64, pixel(true)));
+  both.set(makeTexture(64, pixel(false)), 64 * 64 * 3);
+  return both;
+});
 
 /**
  * The carpet, at 64 pixels a cell, and how many cells its picture covers before it repeats. Its stains are the same

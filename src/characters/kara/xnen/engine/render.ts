@@ -14,6 +14,7 @@ import {
 } from "./posters";
 import { drawPits, pitFieldsNear } from "./pits";
 import { drawStatue, type Prop, type StatueFrame } from "./statue";
+import { wallMarksOn, type WallMark } from "./wallMarks";
 import { CARPET_FLIP, CARPET_SIZE, CEILING, FLOORS, FLOOR_FLIPS, PANEL, PANEL_MASK, WALL_TEXTURES } from "./textures";
 
 /** The carpet picture's size, for wrapping pixels into it: CARPET_SIZE − 1, and log2 of CARPET_SIZE. */
@@ -279,6 +280,10 @@ export class Renderer {
     let tag: Tag | null = null;
     let tagMask: GraffitiLevel[] | null = null;
     const sample: PaintSample = { paint: 0, over: 0 };
+    // The marks on the face of wall being drawn, looked up once per face, and those this column crosses.
+    let marksKey = "";
+    let marks: WallMark[] | null = null;
+    const marked: WallMark[] = [];
     const [OR, OG, OB] = OVER_COLOUR;
 
     // How fogged something `t` cells ahead is, 1 for not seen at all; and the size of poster to show on the ceiling
@@ -540,8 +545,7 @@ export class Renderer {
           const hy = py + from * rdy;
           const along = s === 0 ? hy - Math.floor(hy) : hx - Math.floor(hx);
           const tx = Math.min(63, Math.floor(along * 64));
-          const pick = map.noise(rayX[base + i], rayY[base + i], 30);
-          const tex = WALL_TEXTURES[light.zoneAt(rayX[base + i - 1], rayY[base + i - 1], map)][pick < 0.6 ? 0 : pick < 0.85 ? 1 : 2];
+          const tex = WALL_TEXTURES[light.zoneAt(rayX[base + i - 1], rayY[base + i - 1], map)];
           const l = light.at(px + (from - 0.05) * rdx, py + (from - 0.05) * rdy) * (s === 1 ? 0.9 : 1);
           const f = Math.min(1, fogAt(from));
           const inv = 1 - f;
@@ -643,10 +647,9 @@ export class Renderer {
       if (f > 1) f = 1;
       const inv = 1 - f;
       const ar = FR * f, ag = FG * f, ab = FB * f;
-      const pick = map.noise(mapX, mapY, 30);
       // Done up as the zone of the cell this face looks into.
       const zone = side === 0 ? light.zoneAt(mapX - stepX, mapY, map) : light.zoneAt(mapX, mapY - stepY, map);
-      const tex = WALL_TEXTURES[zone][pick < 0.6 ? 0 : pick < 0.85 ? 1 : 2];
+      const tex = WALL_TEXTURES[zone];
       const gap = this.gaps[x] < effects.wallGaps;
 
       // The posters on this face of wall that this column crosses. Across the face runs left to right as seen.
@@ -683,6 +686,12 @@ export class Renderer {
           ? tagArt(tag, tag.text ? this.readGraffiti(tag.text) : "", tag.lost ? this.readLost(tag.lost) : "")
           : null;
       }
+      if (key !== marksKey) {
+        marksKey = key;
+        marks = wallMarksOn(map, mapX, mapY, face);
+      }
+      marked.length = 0;
+      if (marks) for (const mark of marks) if (tx >= mark.x && tx < mark.x + mark.w) marked.push(mark);
       const along = (side === 0 ? mapY : mapX) + wallX;
       const painted = tag && tagMask && along >= tag.from && along < tag.to ? tag : null;
       const tagLevel = painted ? Math.max(0, Math.floor(Math.log2(Math.max(1, painted.px / Math.max(1, lineH))))) : 0;
@@ -720,22 +729,45 @@ export class Renderer {
           break;
         }
         if (papered) continue;
+        // The paper, with what's happened to the wall over it.
+        let wr = tex[ti];
+        let wg = tex[ti + 1];
+        let wb = tex[ti + 2];
+        if (marked.length) {
+          const row = Math.floor(tv * 64);
+          for (const mark of marked) {
+            const j = row - mark.y;
+            if (j < 0 || j >= mark.h) continue;
+            const k = j * mark.w + tx - mark.x;
+            const a = mark.alpha[k] / 255;
+            if (!a) continue;
+            if (mark.shade) {
+              wr += ((wr * mark.rgb[k * 3]) / 255 - wr) * a;
+              wg += ((wg * mark.rgb[k * 3 + 1]) / 255 - wg) * a;
+              wb += ((wb * mark.rgb[k * 3 + 2]) / 255 - wb) * a;
+            } else {
+              wr += (mark.rgb[k * 3] - wr) * a;
+              wg += (mark.rgb[k * 3 + 1] - wg) * a;
+              wb += (mark.rgb[k * 3 + 2] - wb) * a;
+            }
+          }
+        }
         if (painted && tagMask && paintAt(painted, tagMask, tagLevel, along, tv, sample)) {
           // Its own paint on the wall, then whatever XN put over the top.
           const a = sample.paint;
           const b = sample.over;
           const paint = painted.colour;
-          const r = tex[ti] + (paint[0] - tex[ti]) * a;
-          const g = tex[ti + 1] + (paint[1] - tex[ti + 1]) * a;
-          const bl = tex[ti + 2] + (paint[2] - tex[ti + 2]) * a;
+          const r = wr + (paint[0] - wr) * a;
+          const g = wg + (paint[1] - wg) * a;
+          const bl = wb + (paint[2] - wb) * a;
           d[o] = (r + (OR - r) * b) * li + ar;
           d[o + 1] = (g + (OG - g) * b) * li + ag;
           d[o + 2] = (bl + (OB - bl) * b) * li + ab;
           continue;
         }
-        d[o] = tex[ti] * li + ar;
-        d[o + 1] = tex[ti + 1] * li + ag;
-        d[o + 2] = tex[ti + 2] * li + ab;
+        d[o] = wr * li + ar;
+        d[o + 1] = wg * li + ag;
+        d[o + 2] = wb * li + ab;
       }
     }
 
