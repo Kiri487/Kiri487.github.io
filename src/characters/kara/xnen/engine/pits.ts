@@ -32,6 +32,8 @@ export interface PitView {
   height: number;
   /** How far each column's ray goes before a wall. */
   wallDepth: Float32Array;
+  /** The first row of each column hidden by floor drawn nearer than the pits (a raised floor's edge), if any is. */
+  floorTop?: Int16Array;
   camX: number;
   camY: number;
   /** Eye height: 0 is the floor, below 0 down in a pit. */
@@ -117,7 +119,7 @@ export function drawPits(v: PitView, fields: readonly PitField[], light: Lightin
     const ry = v.dirY + v.planeY * cam;
     const end = Math.min(wallDepth[x], v.far);
     // Rows from here down are taken by something nearer.
-    let ymax = H;
+    let ymax = v.floorTop ? Math.min(H, v.floorTop[x]) : H;
     // The column's fields, nearest first. Rarely more than one.
     seen.length = 0;
     for (const field of fields) {

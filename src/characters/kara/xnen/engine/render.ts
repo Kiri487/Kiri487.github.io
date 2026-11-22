@@ -93,6 +93,9 @@ function wallRow(tv: number, ceiling: number): number {
   return ((ty % 64) + 64) % 64;
 }
 
+/** A step's face, turned away from the lights overhead, is this much darker than the floor. */
+const RISER_SHADE = 0.62;
+
 /** At most this many cells' floor marks are worked out a frame (floorMarks.ts); the rest come in the frames after. */
 const FLOOR_MARKS_A_FRAME = 6;
 
@@ -123,6 +126,8 @@ export class Renderer {
   private image: ImageData;
   private wallDepth = new Float32Array(320);
   private wallBottom = new Int16Array(320);
+  /** The first row of each column covered by floor drawn cell by cell (floorColumn), or the picture's height. */
+  private floorTop = new Int16Array(320);
   private depth = new Float32Array(320 * 180);
   /** 1 for each pixel of the place that's under warmer light, filled in as it's drawn. */
   private warmth = new Uint8Array(320 * 180);
@@ -145,12 +150,15 @@ export class Renderer {
   /** How many open cells each column's ray crosses first, and 1 where their ceilings aren't all 1 high. */
   private rayCells = new Uint8Array(320);
   private rayUneven = new Uint8Array(320);
+  /** 1 where a column's ray crosses floor not all at 0, so its floor is drawn cell by cell (floorColumn). */
+  private rayStepped = new Uint8Array(320);
   /**
    * The open cells each column's ray crosses, nearest first, RAY_CELLS to a column: how far ahead each starts, its
    * ceiling's height, the cell, and which way the ray came into it (0 across x, 1 across y).
    */
   private rayFrom = new Float64Array(320 * RAY_CELLS);
   private rayCeiling = new Float32Array(320 * RAY_CELLS);
+  private rayFloor = new Float32Array(320 * RAY_CELLS);
   private rayX = new Int32Array(320 * RAY_CELLS);
   private rayY = new Int32Array(320 * RAY_CELLS);
   private raySide = new Uint8Array(320 * RAY_CELLS);
@@ -207,14 +215,17 @@ export class Renderer {
     this.gaps = gapOrder(W);
     this.wallDepth = new Float32Array(W);
     this.wallBottom = new Int16Array(W);
+    this.floorTop = new Int16Array(W);
     this.rayHit = new Float64Array(W);
     this.rayHitX = new Int32Array(W);
     this.rayHitY = new Int32Array(W);
     this.rayHitSide = new Uint8Array(W);
     this.rayCells = new Uint8Array(W);
     this.rayUneven = new Uint8Array(W);
+    this.rayStepped = new Uint8Array(W);
     this.rayFrom = new Float64Array(W * RAY_CELLS);
     this.rayCeiling = new Float32Array(W * RAY_CELLS);
+    this.rayFloor = new Float32Array(W * RAY_CELLS);
     this.rayX = new Int32Array(W * RAY_CELLS);
     this.rayY = new Int32Array(W * RAY_CELLS);
     this.raySide = new Uint8Array(W * RAY_CELLS);
@@ -400,6 +411,61 @@ export class Renderer {
     };
 
     const { rayHit, rayHitX, rayHitY, rayHitSide, rayCells, rayUneven, rayFrom, rayCeiling, rayX, rayY, raySide } = this;
+    const { rayStepped, rayFloor } = this;
+
+    // One pixel of floor, at (fx, fy) on the map: lit `l`, fogged `f`; `cell` its cell in the light window, if
+    // `inWindow`.
+    const floorPixel = (o: number, fx: number, fy: number, l: number, f: number, inWindow: boolean, cell: number) => {
+      const inv = 1 - f;
+      const ar = FR * f, ag = FG * f, ab = FB * f;
+      const li = l * inv;
+      const zone = inWindow ? zones[cell] : 0;
+      const floor = FLOORS[zone];
+      // Each column and row of carpet pictures mirrored or not, so the stains don't line up.
+      const tx = Math.floor(fx * 64);
+      const ty = Math.floor(fy * 64);
+      let cu = tx & CARPET_MASK;
+      let cv = ty & CARPET_MASK;
+      if (FLOOR_FLIPS[zone]) {
+        if (CARPET_FLIP[(tx >> CARPET_SHIFT) & 255]) cu = CARPET_MASK - cu;
+        if (CARPET_FLIP[(ty >> CARPET_SHIFT) & 255]) cv = CARPET_MASK - cv;
+      }
+      const ti = (cv * CARPET_SIZE + cu) * 3;
+      let fr = floor[ti];
+      let fg = floor[ti + 1];
+      let fb = floor[ti + 2];
+      // What's happened to the floor here, over it.
+      if (inWindow) {
+        let marks = floorMarkCells[cell];
+        if (marks === undefined) {
+          // Not worked out yet this frame's share: none here till a later frame.
+          marks = floorMarksAt(map, Math.floor(fx), Math.floor(fy)) ?? null;
+          floorMarkCells[cell] = marks;
+        }
+        if (marks) {
+          for (const mark of marks) {
+            const mi = tx - mark.x;
+            const mj = ty - mark.y;
+            if (mi < 0 || mj < 0 || mi >= mark.w || mj >= mark.h) continue;
+            const mk = mj * mark.w + mi;
+            const a = mark.alpha[mk] / 255;
+            if (!a) continue;
+            if (mark.shade) {
+              fr += ((fr * mark.rgb[mk * 3]) / 255 - fr) * a;
+              fg += ((fg * mark.rgb[mk * 3 + 1]) / 255 - fg) * a;
+              fb += ((fb * mark.rgb[mk * 3 + 2]) / 255 - fb) * a;
+            } else {
+              fr += (mark.rgb[mk * 3] - fr) * a;
+              fg += (mark.rgb[mk * 3 + 1] - fg) * a;
+              fb += (mark.rgb[mk * 3 + 2] - fb) * a;
+            }
+          }
+        }
+      }
+      d[o] = fr * li + ar;
+      d[o + 1] = fg * li + ag;
+      d[o + 2] = fb * li + ab;
+    };
 
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
@@ -414,7 +480,7 @@ export class Renderer {
         const f = fogAt(rd);
         if (f >= 1) {
           for (let x = 0; x < W; x++, o += 4) {
-            if (floorPass ? y <= wallBottom[x] : rayUneven[x]) continue;
+            if (floorPass ? y <= wallBottom[x] || rayStepped[x] : rayUneven[x]) continue;
             d[o] = FR;
             d[o + 1] = FG;
             d[o + 2] = FB;
@@ -422,15 +488,13 @@ export class Renderer {
           }
           continue;
         }
-        const inv = 1 - f;
-        const ar = FR * f, ag = FG * f, ab = FB * f;
         const posterLevel = floorPass ? -1 : posterLevelAt(rd);
         const sx = (rd * 2 * plx) / W;
         const sy = (rd * 2 * ply) / W;
         let fx = px + rd * (dx - plx) + sx * 0.5;
         let fy = py + rd * (dy - ply) + sy * 0.5;
         for (let x = 0; x < W; x++, o += 4, fx += sx, fy += sy) {
-          if (floorPass ? y <= wallBottom[x] : rayUneven[x]) continue;
+          if (floorPass ? y <= wallBottom[x] || rayStepped[x] : rayUneven[x]) continue;
           const gx = fx - ox;
           const gy = fy - oy;
           const ix = Math.floor(gx);
@@ -446,53 +510,7 @@ export class Renderer {
             : 0;
           d[o + 3] = 255;
           if (isFloor) {
-            const li = l * inv;
-            const zone = inWindow ? zones[cell] : 0;
-            const floor = FLOORS[zone];
-            // Each column and row of carpet pictures mirrored or not, so the stains don't line up.
-            const tx = Math.floor(fx * 64);
-            const ty = Math.floor(fy * 64);
-            let cu = tx & CARPET_MASK;
-            let cv = ty & CARPET_MASK;
-            if (FLOOR_FLIPS[zone]) {
-              if (CARPET_FLIP[(tx >> CARPET_SHIFT) & 255]) cu = CARPET_MASK - cu;
-              if (CARPET_FLIP[(ty >> CARPET_SHIFT) & 255]) cv = CARPET_MASK - cv;
-            }
-            const ti = (cv * CARPET_SIZE + cu) * 3;
-            let fr = floor[ti];
-            let fg = floor[ti + 1];
-            let fb = floor[ti + 2];
-            // What's happened to the floor here, over it.
-            if (inWindow) {
-              let marks = floorMarkCells[cell];
-              if (marks === undefined) {
-                // Not worked out yet this frame's share: none here till a later frame.
-                marks = floorMarksAt(map, Math.floor(fx), Math.floor(fy)) ?? null;
-                floorMarkCells[cell] = marks;
-              }
-              if (marks) {
-                for (const mark of marks) {
-                  const mi = tx - mark.x;
-                  const mj = ty - mark.y;
-                  if (mi < 0 || mj < 0 || mi >= mark.w || mj >= mark.h) continue;
-                  const mk = mj * mark.w + mi;
-                  const a = mark.alpha[mk] / 255;
-                  if (!a) continue;
-                  if (mark.shade) {
-                    fr += ((fr * mark.rgb[mk * 3]) / 255 - fr) * a;
-                    fg += ((fg * mark.rgb[mk * 3 + 1]) / 255 - fg) * a;
-                    fb += ((fb * mark.rgb[mk * 3 + 2]) / 255 - fb) * a;
-                  } else {
-                    fr += (mark.rgb[mk * 3] - fr) * a;
-                    fg += (mark.rgb[mk * 3 + 1] - fg) * a;
-                    fb += (mark.rgb[mk * 3 + 2] - fb) * a;
-                  }
-                }
-              }
-            }
-            d[o] = fr * li + ar;
-            d[o + 1] = fg * li + ag;
-            d[o + 2] = fb * li + ab;
+            floorPixel(o, fx, fy, l, f, inWindow, cell);
           } else {
             ceilingPixel(o, fx, fy, l, f, posterLevel);
           }
@@ -518,10 +536,12 @@ export class Renderer {
       const base = x * RAY_CELLS;
       rayFrom[base] = 0;
       rayCeiling[base] = light.ceilingAt(mapX, mapY, map);
+      rayFloor[base] = light.floorAt(mapX, mapY, map);
       rayX[base] = mapX;
       rayY[base] = mapY;
       let cells = 1;
       let uneven = rayCeiling[base] !== 1;
+      let stepped = rayFloor[base] !== 0;
       for (let n = 0; n < RAY_STEPS; n++) {
         let perp: number;
         if (sdx < sdy) {
@@ -541,8 +561,11 @@ export class Renderer {
           break;
         }
         const height = light.ceilingAt(mapX, mapY, map);
+        const level = light.floorAt(mapX, mapY, map);
         rayFrom[base + cells] = perp;
         rayCeiling[base + cells] = height;
+        rayFloor[base + cells] = level;
+        if (level !== 0) stepped = true;
         rayX[base + cells] = mapX;
         rayY[base + cells] = mapY;
         raySide[base + cells] = side;
@@ -555,6 +578,7 @@ export class Renderer {
       rayHitSide[x] = side;
       rayCells[x] = cells;
       rayUneven[x] = uneven ? 1 : 0;
+      rayStepped[x] = stepped ? 1 : 0;
     }
 
     rows(false);
@@ -634,6 +658,80 @@ export class Renderer {
       return clip;
     };
 
+    /**
+     * Draws column x's floor cell by cell along its ray, up to a wall `end` cells ahead, each at its own height; and,
+     * where it steps up, the step's face. Gives the last row it left above what it drew.
+     */
+    const floorColumn = (x: number, rdx: number, rdy: number, end: number): number => {
+      const cells = rayCells[x];
+      const base = x * RAY_CELLS;
+      // Rows from here down are drawn.
+      let low = H;
+      for (let i = 0; i < cells; i++) {
+        const level = rayFloor[base + i];
+        const from = rayFrom[base + i];
+        const to = i + 1 < cells ? rayFrom[base + i + 1] : end;
+        // Where it steps up from the cell before: the step's face, from the floor there up to this one.
+        const start = i === 0 ? H : Math.ceil(horizon + (focal / from) * (z - level) - 0.5);
+        if (start < low) {
+          const below = rayFloor[base + i - 1];
+          const s = raySide[base + i];
+          const hx = px + from * rdx;
+          const hy = py + from * rdy;
+          const along = Math.floor((s === 0 ? hy : hx) * 64);
+          const zone = light.zoneAt(rayX[base + i], rayY[base + i], map);
+          const floor = FLOORS[zone];
+          const l = light.at(px + (from - 0.05) * rdx, py + (from - 0.05) * rdy) * RISER_SHADE;
+          const f = Math.min(1, fogAt(from));
+          const inv = 1 - f;
+          const first = Math.max(start, 0);
+          for (let y = first; y < Math.min(low, H); y++) {
+            // Down the face, in the floor's pixels from its top edge: its carpet turned down over the step.
+            const down = Math.floor((level - (z - ((y + 0.5 - horizon) * from) / focal)) * 64);
+            const ti = ((down & CARPET_MASK) * CARPET_SIZE + (along & CARPET_MASK)) * 3;
+            const li = l * inv * (down < 2 ? 1.25 : 1);
+            const o = (y * W + x) * 4;
+            d[o] = floor[ti] * li + FR * f;
+            d[o + 1] = floor[ti + 1] * li + FG * f;
+            d[o + 2] = floor[ti + 2] * li + FB * f;
+            d[o + 3] = 255;
+            depth[y * W + x] = from;
+          }
+          if (below < level) low = Math.max(first, 0);
+        }
+        // Its floor, from there to where the ray leaves it.
+        const drop = (z - level) * focal;
+        if (drop <= 0) continue;
+        const top = Math.max(
+          0,
+          to === Infinity ? Math.ceil(horizon - 0.5) : Math.ceil(horizon + (focal / to) * (z - level) - 0.5),
+        );
+        for (let y = low - 1; y >= top; y--) {
+          let p = y + 0.5 - horizon;
+          if (p < 0.5) p = 0.5;
+          const t = drop / p;
+          const o = (y * W + x) * 4;
+          depth[y * W + x] = t;
+          d[o + 3] = 255;
+          const f = fogAt(t);
+          if (f >= 1) {
+            d[o] = FR;
+            d[o + 1] = FG;
+            d[o + 2] = FB;
+            continue;
+          }
+          const fx = px + t * rdx;
+          const fy = py + t * rdy;
+          const inWindow = fx >= ox && fy >= oy && fx < ox + WN - 1 && fy < oy + WN - 1;
+          const cell = Math.floor(fx) - light.x0 + (Math.floor(fy) - light.y0) * WN;
+          if (inWindow) warmth[y * W + x] = warm[cell];
+          floorPixel(o, fx, fy, inWindow ? light.at(fx, fy) : 0, f, inWindow, cell);
+        }
+        if (top < low) low = top;
+      }
+      return low;
+    };
+
     // Walls, column by column.
     for (let x = 0; x < W; x++) {
       const cam2 = (2 * (x + 0.5)) / W - 1;
@@ -646,8 +744,11 @@ export class Renderer {
       const mapX = rayHitX[x];
       const mapY = rayHitY[x];
       const side = rayHitSide[x];
-      // Under a ceiling of more than one height, this column's is drawn cell by cell, with the drops between.
+      // Under a ceiling of more than one height, this column's is drawn cell by cell, with the drops between; and over
+      // a floor of more than one, the same.
       const clipTop = rayUneven[x] ? ceilingColumn(x, rdx, rdy, rayHit[x]) : 0;
+      const clipBottom = rayStepped[x] ? floorColumn(x, rdx, rdy, rayHit[x]) : H;
+      this.floorTop[x] = clipBottom;
       if (!hit) {
         wallDepth[x] = 1e9;
         wallBottom[x] = -1;
@@ -655,14 +756,18 @@ export class Renderer {
       }
       if (perp < 0.02) perp = 0.02;
       const lineH = focal / perp;
-      // The wall goes up to the ceiling in front of it; its texture is laid out as if that were 1 high.
-      const ceiling = rayCeiling[x * RAY_CELLS + rayCells[x] - 1];
-      const top = horizon - lineH * (1 - z);
+      // The wall goes from the floor in front of it up to the ceiling there; its texture is laid out from that floor,
+      // as if the ceiling were 1 above it.
+      const front = x * RAY_CELLS + rayCells[x] - 1;
+      const level = rayFloor[front];
+      const ceiling = rayCeiling[front] - level;
+      const top = horizon - lineH * (1 + level - z);
       const span = lineH;
-      let y0 = Math.ceil(horizon - lineH * (ceiling - z) - 0.5);
+      let y0 = Math.ceil(horizon - lineH * (rayCeiling[front] - z) - 0.5);
       if (y0 < clipTop) y0 = clipTop;
       if (y0 < 0) y0 = 0;
       let y1 = Math.floor(top + span - 0.5);
+      if (y1 > clipBottom - 1) y1 = clipBottom - 1;
       if (y1 > H - 1) y1 = H - 1;
       wallDepth[x] = perp;
       wallBottom[x] = y1;
@@ -820,6 +925,7 @@ export class Renderer {
         width: W,
         height: H,
         wallDepth,
+        floorTop: this.floorTop,
         camX: px,
         camY: py,
         eye: z,
@@ -860,7 +966,8 @@ export class Renderer {
       for (const prop of props) order.push(prop);
       order.sort((a, b) => (a.mesh.x - px) ** 2 + (a.mesh.y - py) ** 2 - (b.mesh.x - px) ** 2 - (b.mesh.y - py) ** 2);
       for (const prop of order) {
-        drawStatue(frame, prop.mesh, prop.model, prop.skin, prop.glow ?? light.at(prop.mesh.x, prop.mesh.y), prop.clip);
+        const glow = prop.glow ?? light.at(prop.mesh.x, prop.mesh.y);
+        drawStatue(frame, prop.mesh, prop.model, prop.skin, glow, prop.clip, prop.floor);
       }
     }
 

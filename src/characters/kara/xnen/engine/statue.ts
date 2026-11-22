@@ -45,6 +45,8 @@ export interface Prop {
   skin: StatueSkin;
   /** Cut off below the floor and above a ceiling this high, for things stuck through them. */
   clip?: number;
+  /** How high the floor it's cut off at is, if not 0. */
+  floor?: number;
   /** Lit by itself this brightly (a flame), rather than by the light where it is. */
   glow?: number;
 }
@@ -52,7 +54,8 @@ export interface Prop {
 /** How close the player can come to a statue's middle. */
 export const STATUE_RADIUS = 0.36;
 
-export function placeStatue(model: StatueModel, statue: Statue): StatueMesh {
+/** A statue's mesh, standing where it stands, on a floor `base` high. */
+export function placeStatue(model: StatueModel, statue: Statue, base = 0): StatueMesh {
   const src = model.tris;
   const count = src.length / 16;
   const fx = Math.cos(statue.facing);
@@ -74,7 +77,7 @@ export function placeStatue(model: StatueModel, statue: Statue): StatueMesh {
       const Z = src[o + k * 5 + 2];
       corners[q + k * 5] = statue.x + X * rx + Z * fx;
       corners[q + k * 5 + 1] = statue.y + X * ry + Z * fy;
-      corners[q + k * 5 + 2] = Y;
+      corners[q + k * 5 + 2] = Y + base;
       corners[q + k * 5 + 3] = src[o + k * 5 + 3];
       corners[q + k * 5 + 4] = src[o + k * 5 + 4];
       reach = Math.max(reach, Math.hypot(X, Z));
@@ -153,6 +156,7 @@ export function drawStatue(
   skin: StatueSkin,
   light: number,
   clip?: number,
+  floor = 0,
 ) {
   const ahead = (mesh.x - f.camX) * f.dirX + (mesh.y - f.camY) * f.dirY;
   const reach = mesh.reach ?? 0;
@@ -257,7 +261,7 @@ export function drawStatue(
         // Its height in the room at this pixel: the floor and ceiling hide what's through them.
         if (clip !== undefined) {
           const height = eye - ((yc - horizon) * z) / focal;
-          if (height < 0 || height > clip) continue;
+          if (height < floor || height > clip) continue;
         }
         const zi = y * W + x;
         if (z >= depth[zi]) continue;

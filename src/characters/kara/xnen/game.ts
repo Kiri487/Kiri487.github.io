@@ -134,8 +134,11 @@ export interface FrameStats {
   worst: number;
 }
 
-/** Where the dev panel can send the visitor: a zone (zones.ts), a hall with a high ceiling, a low corridor. */
-export type DevPlace = number | "high" | "low";
+/**
+ * Where the dev panel can send the visitor: a zone (zones.ts), a hall with a high ceiling, a low corridor, a room with
+ * its floor sunk or raised.
+ */
+export type DevPlace = number | "high" | "low" | "sunk" | "raised";
 
 /** How far the dev panel's sending looks, in cells either way: from just past where the visitor is, out this far. */
 const GO_FROM = 8;
@@ -238,6 +241,8 @@ const FALL_END = -2.6;
  * PLAYER_RADIUS, so they lean out over the dark a little first.
  */
 const PIT_FOOTING = 0.08;
+/** How fast the eye follows the floor up or down a step, in ceiling heights a second. */
+const STEP_SPEED = 1.4;
 /** While falling, the view tips down this much, as a share of the picture's height. */
 const FALL_TIP = 0.25;
 /** Dev builds: how often the frame stats are reported, in seconds. */
@@ -422,6 +427,8 @@ export function createGame(parts: GameParts): Game {
   let enterLeft = reduced ? 0 : ENTER_TIME;
   /** Falling into a pit: the eye's height and how fast it's going down. Null while on solid floor. */
   let fall: { z: number; speed: number } | null = null;
+  /** How high the floor under the visitor is, as their eye follows it: easing up or down a step, not jumping. */
+  let footing = 0;
   let bandPhase = 0;
   /** The rewind's burst has started (and made its sound). */
   let burst = false;
@@ -687,7 +694,7 @@ export function createGame(parts: GameParts): Game {
     angle: player.angle,
     pitch: fall ? player.pitch + FALL_TIP * Math.min(1, (EYE - fall.z) / (EYE - FALL_END)) : player.pitch,
     bob: fall ? 0 : player.bob,
-    z: fall ? fall.z : EYE,
+    z: fall ? fall.z : EYE + footing,
   });
 
   /** Where the camera is while rewinding: running back along the walk, faster and faster. */
@@ -707,6 +714,8 @@ export function createGame(parts: GameParts): Game {
       angle: a.angle + turn * k,
       pitch: a.pitch + (b.pitch - a.pitch) * k,
       bob: 0,
+      // At the eye's height then: up or down a step, too.
+      z: (a.z ?? EYE) + ((b.z ?? EYE) - (a.z ?? EYE)) * k,
     };
   };
 
@@ -725,7 +734,7 @@ export function createGame(parts: GameParts): Game {
       if (dist > DRAW_RANGE) continue;
       let mesh = meshes.get(statue);
       if (!mesh) {
-        mesh = placeStatue(parts.model, statue);
+        mesh = placeStatue(parts.model, statue, map.floorAt(statue.cx, statue.cy));
         meshes.set(statue, mesh);
       }
       nearby.push(mesh);
@@ -763,8 +772,9 @@ export function createGame(parts: GameParts): Game {
         mesh = placeJunk(junk.model, junk);
         junkMeshes.set(junk.key, mesh);
       }
-      const clip = map.ceilingAt(Math.floor(junk.x), Math.floor(junk.y));
-      props.push({ mesh, model: junk.model, skin: junkSkin, clip, glow: junk.glow ? flameGlow : undefined });
+      const [jx, jy] = [Math.floor(junk.x), Math.floor(junk.y)];
+      const [clip, floor] = [map.ceilingAt(jx, jy), map.floorAt(jx, jy)];
+      props.push({ mesh, model: junk.model, skin: junkSkin, clip, floor, glow: junk.glow ? flameGlow : undefined });
     }
     // Let go of what's been left far behind, now and then, or a long walk keeps every piece it ever passed.
     if (junkMeshes.size > nearJunk.length + MESHES_SPARE) {
@@ -806,6 +816,9 @@ export function createGame(parts: GameParts): Game {
       tuning.bob && !reduced ? renderer.pictureHeight : 0,
     );
     if (step) playStepSfx();
+    // Up or down a step, the eye a moment behind the feet.
+    const ground = map.floorAt(Math.floor(player.x), Math.floor(player.y));
+    footing += clamp(ground - footing, -STEP_SPEED * dt, STEP_SPEED * dt);
     if (map.pitAt(player.x, player.y, PIT_FOOTING)) {
       // Over the edge. With reduced motion there's no drop to watch: the tape just stops.
       showLine(null);
@@ -1159,6 +1172,7 @@ export function createGame(parts: GameParts): Game {
       if (freshMap) {
         map = pickMap(tuning);
         player = new Player();
+        footing = 0;
         timecode = new Timecode();
         meshes.clear();
         nearby = [];
@@ -1213,7 +1227,11 @@ export function createGame(parts: GameParts): Game {
           ? map.ceilingAt(x, y) > 1
           : place === "low"
             ? map.ceilingAt(x, y) < 1
-            : map.zoneAt(x, y) === place;
+            : place === "sunk"
+              ? map.floorAt(x, y) < 0
+              : place === "raised"
+                ? map.floorAt(x, y) > 0
+                : map.zoneAt(x, y) === place;
       // Room to look round: the cells about it open too, but in a corridor, only two cells wide.
       const open = (x: number, y: number) => {
         if (place === "low") return !map.wall(x, y);
@@ -1244,6 +1262,7 @@ export function createGame(parts: GameParts): Game {
             if (!fits(x, y) || !open(x, y) || !clear(x, y)) continue;
             player.x = x + 0.5;
             player.y = y + 0.5;
+            footing = map.floorAt(x, y);
             trail = [];
             fall = null;
             redrawHeld();

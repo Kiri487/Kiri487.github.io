@@ -234,10 +234,15 @@ export function createXnPlaces(world: XnWorld) {
 
   /** How high the ceiling is over (x, y). */
   const ceilingOver = (x: number, y: number) => world.map.ceilingAt(Math.floor(x), Math.floor(y));
+  /** How high the floor is under (x, y). */
+  const floorUnder = (x: number, y: number) => world.map.floorAt(Math.floor(x), Math.floor(y));
+  /** How high the surface she'd be on at (x, y) is: the ceiling there, or the floor. */
+  const surfaceAt = (surface: XnSurface, x: number, y: number) =>
+    surface === "ceiling" ? ceilingOver(x, y) : floorUnder(x, y);
 
   /** On `surface` at (x, y) facing `facing`: on the ceiling, under it, however high it is there. */
   const spotAt = (surface: XnSurface, x: number, y: number, facing: number) =>
-    spotOn(surface, x, y, facing, ceilingOver(x, y));
+    spotOn(surface, x, y, facing, ceilingOver(x, y), floorUnder(x, y));
 
   /** No wall on the straight line between two points. */
   const clearBetween = (x0: number, y0: number, x1: number, y1: number) => {
@@ -304,7 +309,7 @@ export function createXnPlaces(world: XnWorld) {
         bestScore = score;
         // Her front along the wall, toward their side of her.
         const along = dx * -face.ny + dy * face.nx < 0 ? -1 : 1;
-        best = wallSpot(face.x, face.y, Math.atan2(face.ny, face.nx), along);
+        best = wallSpot(face.x, face.y, Math.atan2(face.ny, face.nx), along, floorUnder(face.x + face.nx * 0.5, face.y + face.ny * 0.5));
       }
       // Nowhere to cling to: the floor.
       if (best) return best;
@@ -358,17 +363,17 @@ export function createXnPlaces(world: XnWorld) {
   };
 
   /**
-   * Room for her all the way from (x, y) `far` cells along `angle`, on `surface`. On the ceiling, it keeps to one
-   * height all the way: she doesn't go over a drop in it.
+   * Room for her all the way from (x, y) `far` cells along `angle`, on `surface`. On the ceiling or the floor, it
+   * keeps to one height all the way: she doesn't go over a drop or a step.
    */
   const wayClear = (x: number, y: number, angle: number, far: number, surface: XnSurface) => {
     const n = Math.max(1, Math.ceil(far / 0.1));
-    const height = ceilingOver(x, y);
+    const height = surfaceAt(surface, x, y);
     for (let i = 1; i <= n; i++) {
       const k = (far * i) / n;
       const [wx, wy] = [x + Math.cos(angle) * k, y + Math.sin(angle) * k];
       if (!freeFor(wx, wy, surface)) return false;
-      if (surface === "ceiling" && ceilingOver(wx, wy) !== height) return false;
+      if (surface !== "wall" && surfaceAt(surface, wx, wy) !== height) return false;
     }
     return true;
   };
@@ -434,8 +439,9 @@ export function createXnPlaces(world: XnWorld) {
       const intoStatue =
         world.statues.some((mesh) => Math.hypot(x - mesh.x, y - mesh.y) < STATUE_RADIUS + XN_RADIUS) ||
         intoJunk(x, y, XN_RADIUS, spot.surface);
-      // Nor, on the ceiling, over a drop in it.
-      const overDrop = spot.surface === "ceiling" && ceilingOver(x, y) !== ceilingOver(spot.x, spot.y);
+      // Nor, on the ceiling or the floor, over a drop or a step.
+      const overDrop =
+        spot.surface !== "wall" && surfaceAt(spot.surface, x, y) !== surfaceAt(spot.surface, spot.x, spot.y);
       if (!roomFor(x, y) || intoVisitor || intoStatue || overDrop) {
         held += dt;
         return spotAt(spot.surface, spot.x, spot.y, turned);
@@ -549,7 +555,8 @@ export function createXnPlaces(world: XnWorld) {
     if (chosen === "carpet") {
       const { x, y, front } = who.where;
       // Just ahead of her feet, or the floor under her.
-      gaze = surface === "floor" ? [x + front[0] * 0.3, y + front[1] * 0.3, 0] : [who.x, who.y, 0];
+      const [gx, gy] = surface === "floor" ? [x + front[0] * 0.3, y + front[1] * 0.3] : [who.x, who.y];
+      gaze = [gx, gy, floorUnder(gx, gy)];
     }
     who.act(chosen, gaze);
     if (chosen === "walk") who.route = routeFor(who);
@@ -584,7 +591,8 @@ export function createXnPlaces(world: XnWorld) {
         const faces = wallFaces(x, y, 1);
         if (!faces.length) continue;
         const face = faces[Math.floor(Math.random() * faces.length)];
-        spot = wallSpot(face.x, face.y, Math.atan2(face.ny, face.nx), Math.random() < 0.5 ? -1 : 1);
+        const floor = floorUnder(face.x + face.nx * 0.5, face.y + face.ny * 0.5);
+        spot = wallSpot(face.x, face.y, Math.atan2(face.ny, face.nx), Math.random() < 0.5 ? -1 : 1, floor);
       } else {
         if (!roomFor(x, y)) continue;
         spot = spotAt(surface, x, y, Math.random() * Math.PI * 2);
@@ -713,8 +721,8 @@ export function createXnPlaces(world: XnWorld) {
         if (!roomBy(sx, sy, null)) continue;
         const action: XnAction = pose === "sit" ? "sit" : pose === "crouch" ? "crouch" : "stand";
         const facing = Math.atan2(y - sy, x - sx) + (Math.random() - 0.5) * 0.6;
-        const gaze: Point = action === "stand" ? [x, y, 1] : [x, y, 0.1];
-        return { spot: floorSpot(sx, sy, facing), action, gaze, ...still };
+        const gaze: Point = action === "stand" ? [x, y, ceilingOver(x, y)] : [x, y, floorUnder(x, y) + 0.1];
+        return { spot: floorSpot(sx, sy, facing, floorUnder(sx, sy)), action, gaze, ...still };
       }
       return null;
     }
@@ -733,8 +741,8 @@ export function createXnPlaces(world: XnWorld) {
       if (!roomBy(mx, my, thing.junk)) return null;
       const action: XnAction = pose === "stand" ? "stand" : pose === "sit" || pose === "sitBack" ? "sit" : "crouch";
       const facing = back ? Math.atan2(ny, nx) : Math.atan2(-ny, -nx);
-      const gaze: Point | null = back ? null : [x, y, 0.4];
-      return { spot: floorSpot(sx, sy, facing), action, gaze, ...still };
+      const gaze: Point | null = back ? null : [x, y, floorUnder(x, y) + 0.4];
+      return { spot: floorSpot(sx, sy, facing, floorUnder(sx, sy)), action, gaze, ...still };
     }
     if (thing.look) {
       const { x, y, z, nx, ny } = thing.look;
@@ -746,7 +754,7 @@ export function createXnPlaces(world: XnWorld) {
       // Facing it, a little off square.
       const facing = Math.atan2(-ny, -nx) + (Math.random() - 0.5) * 0.4;
       return {
-        spot: floorSpot(sx, sy, facing),
+        spot: floorSpot(sx, sy, facing, floorUnder(sx, sy)),
         action,
         gaze: [x, y, z],
         swing: false,

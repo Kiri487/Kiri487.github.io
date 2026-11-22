@@ -163,6 +163,8 @@ const GO_PLACES: readonly (readonly [DevPlace, string])[] = [
   [4, "磁磚區"],
   ["high", "挑高大廳"],
   ["low", "低矮走廊"],
+  ["sunk", "下沉房間"],
+  ["raised", "墊高房間"],
 ];
 
 /** Looking at something, "站" reads better as "站著看". */
