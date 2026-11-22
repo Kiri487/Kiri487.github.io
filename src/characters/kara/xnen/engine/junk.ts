@@ -1795,6 +1795,8 @@ function underCeiling(map: WorldMap, found: Junk[]): Junk[] {
     const [cx, cy] = [Math.floor(junk.x), Math.floor(junk.y)];
     const ceiling = map.ceilingAt(cx, cy);
     const floor = map.floorAt(cx, cy);
+    // Nothing across a step: one end would float, or the other sink.
+    if (!onOneFloor(map, junk, cx, cy, floor)) continue;
     if (ceiling === 1 && floor === 0) {
       out.push(junk);
       continue;
@@ -1806,7 +1808,8 @@ function underCeiling(map: WorldMap, found: Junk[]): Junk[] {
       continue;
     }
     const lift = inCeiling ? ceiling - 1 : floor;
-    if (inCeiling ? low + lift - floor < HANGS_CLEAR && lift < 0 : high + lift > ceiling - 0.02) continue;
+    // Hanging, it's come down nearer the floor where the ceiling's lower or the floor's higher.
+    if (inCeiling ? low + lift - floor < HANGS_CLEAR && lift - floor < 0 : high + lift > ceiling - 0.02) continue;
     if (lift === 0) {
       out.push(junk);
       continue;
@@ -1819,6 +1822,24 @@ function underCeiling(map: WorldMap, found: Junk[]): Junk[] {
     });
   }
   return out;
+}
+
+/**
+ * Whether all of a piece of junk that's in the way stands on the one floor, `floor` high, as at its middle, cell
+ * (cx, cy): nowhere near a step, or not reaching over one.
+ */
+function onOneFloor(map: WorldMap, junk: Junk, cx: number, cy: number, floor: number): boolean {
+  let near = false;
+  for (let j = -1; j <= 1 && !near; j++) {
+    for (let i = -1; i <= 1; i++) {
+      if (map.floorAt(cx + i, cy + j) !== floor) {
+        near = true;
+        break;
+      }
+    }
+  }
+  if (!near) return true;
+  return footprintOf(junk).every(([x, y]) => map.floorAt(Math.floor(x), Math.floor(y)) === floor);
 }
 
 /** How low and how high a piece of junk goes, from the floor. */
@@ -5014,7 +5035,7 @@ function buildBoard(width: number, written = false): StatueModel {
 export function boardFace(junk: Junk): { x: number; y: number; z: number; nx: number; ny: number } {
   const nx = Math.cos(junk.yaw);
   const ny = Math.sin(junk.yaw);
-  return { x: junk.x + nx * BOARD_T, y: junk.y + ny * BOARD_T, z: (BOARD_Y[0] + BOARD_Y[1]) / 2, nx, ny };
+  return { x: junk.x + nx * BOARD_T, y: junk.y + ny * BOARD_T, z: junk.h + (BOARD_Y[0] + BOARD_Y[1]) / 2, nx, ny };
 }
 
 

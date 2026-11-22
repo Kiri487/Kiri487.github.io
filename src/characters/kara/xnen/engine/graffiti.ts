@@ -1884,11 +1884,13 @@ function tagOn(map: WorldMap, lx: number, ly: number, dir: number, side: number,
         const along = (tag.from + tag.to) / 2;
         const line = (dir === 0 ? ly : lx) * 5 + side;
         const out = side ? 1 : -1;
-        const z = 1 - (tag.top + tag.bottom) / 2;
+        // Laid out on the wall from the floor in front of it, wherever that is.
+        const floor = map.floorAt(fx, fy);
+        const z = 1 - (tag.top + tag.bottom) / 2 + floor;
         tag.centre =
           dir === 0 ? { x: along, y: line, z, nx: 0, ny: out } : { x: line, y: along, z, nx: out, ny: 0 };
-        // Not one that would go up into a low ceiling.
-        if (tag.top < 1 - map.ceilingAt(fx, fy)) tag = null;
+        // Not one that would go up into a low ceiling, or a room's raised to near it.
+        if (tag.top < 1 - (map.ceilingAt(fx, fy) - floor)) tag = null;
       }
     }
   }

@@ -126,6 +126,8 @@ export class Renderer {
   private image: ImageData;
   private wallDepth = new Float32Array(320);
   private wallBottom = new Int16Array(320);
+  /** The first row of each column covered by floor drawn cell by cell (floorColumn), or the picture's height. */
+  private floorTop = new Int16Array(320);
   private depth = new Float32Array(320 * 180);
   /** 1 for each pixel of the place that's under warmer light, filled in as it's drawn. */
   private warmth = new Uint8Array(320 * 180);
@@ -213,6 +215,7 @@ export class Renderer {
     this.gaps = gapOrder(W);
     this.wallDepth = new Float32Array(W);
     this.wallBottom = new Int16Array(W);
+    this.floorTop = new Int16Array(W);
     this.rayHit = new Float64Array(W);
     this.rayHitX = new Int32Array(W);
     this.rayHitY = new Int32Array(W);
@@ -745,6 +748,7 @@ export class Renderer {
       // a floor of more than one, the same.
       const clipTop = rayUneven[x] ? ceilingColumn(x, rdx, rdy, rayHit[x]) : 0;
       const clipBottom = rayStepped[x] ? floorColumn(x, rdx, rdy, rayHit[x]) : H;
+      this.floorTop[x] = clipBottom;
       if (!hit) {
         wallDepth[x] = 1e9;
         wallBottom[x] = -1;
@@ -921,6 +925,7 @@ export class Renderer {
         width: W,
         height: H,
         wallDepth,
+        floorTop: this.floorTop,
         camX: px,
         camY: py,
         eye: z,

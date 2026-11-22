@@ -77,8 +77,8 @@ function marksOf(map: WorldMap, cx: number, cy: number, face: number): WallMark[
   const kinds = WALL_MARKS[zone];
   const die = (k: number) => map.noise(cx * 4 + face, cy, 610 + k);
   if (!kinds.length || die(0) >= WALL_MARKED * WALL_MARKED_WEIGHTS[zone]) return null;
-  // From just under the ceiling, however high it is, to the floor.
-  const top = Math.ceil((1 - map.ceilingAt(fx, fy)) * 64) + MARGIN;
+  // From just under the ceiling to the floor, however far apart they are: the wall's laid out from its floor.
+  const top = Math.ceil((1 - (map.ceilingAt(fx, fy) - map.floorAt(fx, fy))) * 64) + MARGIN;
   const bottom = 64 - MARGIN;
   const count = die(1) < SECOND_MARK ? 2 : 1;
   const marks: WallMark[] = [];
