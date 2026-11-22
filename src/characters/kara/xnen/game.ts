@@ -134,6 +134,13 @@ export interface FrameStats {
   worst: number;
 }
 
+/** Where the dev panel can send the visitor: a zone (zones.ts), a hall with a high ceiling, a low corridor. */
+export type DevPlace = number | "high" | "low";
+
+/** How far the dev panel's sending looks, in cells either way: from just past where the visitor is, out this far. */
+const GO_FROM = 8;
+const GO_FAR = 250;
+
 export interface Game {
   /** The phone's stop button. */
   stop: () => void;
@@ -155,6 +162,11 @@ export interface Game {
   previewXnProp: (target: PropTarget, pose: PropPose) => void;
   /** The dev panel: XN forgets every meeting, as if the visitor had never been. */
   forgetXnMeetings: () => void;
+  /**
+   * The dev panel: the visitor goes to the nearest open floor in this zone, or under a high or low ceiling; never
+   * the floor right round them, so asking again goes on somewhere else.
+   */
+  goTo: (place: DevPlace) => void;
   dispose: () => void;
 }
 
@@ -1194,6 +1206,41 @@ export function createGame(parts: GameParts): Game {
     forgetXnMeetings() {
       forgetMeetings();
       talk = new Talk();
+    },
+    goTo(place) {
+      const fits = (x: number, y: number) =>
+        place === "high"
+          ? map.ceilingAt(x, y) > 1
+          : place === "low"
+            ? map.ceilingAt(x, y) < 1
+            : map.zoneAt(x, y) === place;
+      // Room to look round: the cells about it open too, but in a corridor, only two cells wide.
+      const open = (x: number, y: number) => {
+        if (place === "low") return !map.wall(x, y);
+        for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (map.wall(x + i, y + j)) return false;
+        return true;
+      };
+      const cx = Math.floor(player.x);
+      const cy = Math.floor(player.y);
+      for (let r = GO_FROM; r <= GO_FAR; r++) {
+        for (let k = -r; k < r; k++) {
+          // The four sides of the square ring r out.
+          for (const [x, y] of [
+            [cx + k, cy - r],
+            [cx + r, cy + k],
+            [cx - k, cy + r],
+            [cx - r, cy - k],
+          ]) {
+            if (!fits(x, y) || !open(x, y)) continue;
+            player.x = x + 0.5;
+            player.y = y + 0.5;
+            trail = [];
+            fall = null;
+            redrawHeld();
+            return;
+          }
+        }
+      }
     },
     moveXnOn() {
       if (xn && relocateXn(xn, playerCamera())) redrawHeld();

@@ -5,7 +5,7 @@ import { describeTuning, loadTuning, saveTuning } from "./devTuning";
 import { forgetDoor } from "./door";
 import { readableAt, SAN_DEV_RANGE, setSanExposure, stageAt, useSanSeconds } from "./san";
 import { meetingsSoFar } from "./talk";
-import type { XnPreview } from "./game";
+import type { DevPlace, XnPreview } from "./game";
 import { PROP_POSES, type PropPose, type PropTarget } from "./xnPlaces";
 import {
   NOT_ON_WALLS,
@@ -154,6 +154,17 @@ const PROP_POSE_LABELS: Record<PropPose, string> = {
   sitWall: "面牆抱膝坐",
 };
 
+/** Where the dev panel can send the visitor, in zone order (zones.ts), then the ceilings. */
+const GO_PLACES: readonly (readonly [DevPlace, string])[] = [
+  [0, "黃色區"],
+  [1, "住宅區"],
+  [2, "辦公區"],
+  [3, "石膏區"],
+  [4, "磁磚區"],
+  ["high", "挑高大廳"],
+  ["low", "低矮走廊"],
+];
+
 /** Looking at something, "站" reads better as "站著看". */
 const LOOKED_AT = new Set<PropTarget>(["graffiti", "portrait", "sign", "board"]);
 
@@ -164,10 +175,20 @@ interface DevPanelProps {
   onXnPreview: (next: XnPreview, restart: boolean) => void;
   onMoveXnOn: () => void;
   onForgetXn: () => void;
+  onGoTo: (place: DevPlace) => void;
   onXnProp: (target: PropTarget, pose: PropPose) => void;
 }
 
-function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForgetXn, onXnProp }: DevPanelProps) {
+function DevPanel({
+  panelRef,
+  onTune,
+  xnPreview,
+  onXnPreview,
+  onMoveXnOn,
+  onForgetXn,
+  onGoTo,
+  onXnProp,
+}: DevPanelProps) {
   const [tuning, setTuning] = useState(loadTuning);
   const [copied, setCopied] = useState<"" | "done" | "failed">("");
   const [poseCopied, setPoseCopied] = useState<"" | "done" | "failed">("");
@@ -297,6 +318,15 @@ function DevPanel({ panelRef, onTune, xnPreview, onXnPreview, onMoveXnOn, onForg
         </button>
       </div>
       <output className="kara-xnen-dev__summary">{describeTuning(tuning)}</output>
+      <h3>傳送到最近的</h3>
+      <p className="kara-xnen-dev__note">跳過身邊幾格，所以同一個再按一次會換到別處。</p>
+      <div className="kara-xnen-dev__buttons" role="group" aria-label="傳送到最近的">
+        {GO_PLACES.map(([place, label]) => (
+          <button key={label} type="button" onClick={() => onGoTo(place)}>
+            {label}
+          </button>
+        ))}
+      </div>
 
       <h3>SAN（隱藏）</h3>
       <label className="kara-xnen-dev__field">
