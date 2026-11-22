@@ -165,6 +165,9 @@ const GO_PLACES: readonly (readonly [DevPlace, string])[] = [
   ["low", "低矮走廊"],
   ["sunk", "下沉房間"],
   ["raised", "墊高房間"],
+  ["waiting", "等候室"],
+  ["washroom", "廁所"],
+  ["files", "檔案室"],
 ];
 
 /** Looking at something, "站" reads better as "站著看". */
