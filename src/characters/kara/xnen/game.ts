@@ -139,7 +139,7 @@ export type DevPlace = number | "high" | "low";
 
 /** How far the dev panel's sending looks, in cells either way: from just past where the visitor is, out this far. */
 const GO_FROM = 8;
-const GO_FAR = 250;
+const GO_FAR = 160;
 
 export interface Game {
   /** The phone's stop button. */
@@ -164,9 +164,9 @@ export interface Game {
   forgetXnMeetings: () => void;
   /**
    * The dev panel: the visitor goes to the nearest open floor in this zone, or under a high or low ceiling; never
-   * the floor right round them, so asking again goes on somewhere else.
+   * the floor right round them, so asking again goes on somewhere else. False if there's none near enough.
    */
-  goTo: (place: DevPlace) => void;
+  goTo: (place: DevPlace) => boolean;
   dispose: () => void;
 }
 
@@ -1220,6 +1220,16 @@ export function createGame(parts: GameParts): Game {
         for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (map.wall(x + i, y + j)) return false;
         return true;
       };
+      // Nowhere they'd fall at once, or be stuck: not in a pit room, nor in a statue or a piece of junk.
+      const clear = (x: number, y: number) => {
+        const [px, py] = [x + 0.5, y + 0.5];
+        if (map.roomAt(x, y) === "pit") return false;
+        const near = PLAYER_RADIUS + STATUE_RADIUS;
+        if (map.statuesAround(px, py, 2).some((statue) => Math.hypot(statue.x - px, statue.y - py) < near)) return false;
+        return !junkAround(map, px, py, JUNK_SEEN).some(
+          (junk) => (junk.solid || junk.kind === "storage") && bodyDistance(junk, px, py) < JUNK_BODY,
+        );
+      };
       const cx = Math.floor(player.x);
       const cy = Math.floor(player.y);
       for (let r = GO_FROM; r <= GO_FAR; r++) {
@@ -1231,16 +1241,17 @@ export function createGame(parts: GameParts): Game {
             [cx - k, cy + r],
             [cx - r, cy - k],
           ]) {
-            if (!fits(x, y) || !open(x, y)) continue;
+            if (!fits(x, y) || !open(x, y) || !clear(x, y)) continue;
             player.x = x + 0.5;
             player.y = y + 0.5;
             trail = [];
             fall = null;
             redrawHeld();
-            return;
+            return true;
           }
         }
       }
+      return false;
     },
     moveXnOn() {
       if (xn && relocateXn(xn, playerCamera())) redrawHeld();
