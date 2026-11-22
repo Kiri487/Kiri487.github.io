@@ -1561,7 +1561,8 @@ export type JunkKind =
   | "flame"
   | "partition"
   | "vending"
-  | "stairs";
+  | "stairs"
+  | "fixture";
 
 /** One piece of junk: what it is, where it's put, how it's turned, and the part of it in the way (if any). */
 export interface Junk {
@@ -3405,7 +3406,16 @@ function workroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Ju
 const fittings = new WeakMap<WorldMap, Map<string, Junk[]>>();
 
 /** How each kind of fitted room is furnished. */
-const FURNISH = { workroom: workroomIn, camp: campIn, pantry: pantryIn, meeting: meetingIn, storage: storageIn };
+const FURNISH = {
+  workroom: workroomIn,
+  camp: campIn,
+  pantry: pantryIn,
+  meeting: meetingIn,
+  storage: storageIn,
+  waiting: waitingIn,
+  washroom: washroomIn,
+  files: filesIn,
+};
 
 /** Everything in the fitted rooms within `radius` of (x, y). */
 function fittedAround(map: WorldMap, x: number, y: number, radius: number): Junk[] {
@@ -4544,8 +4554,21 @@ const TAP_HOT: Rect = { x: 20, y: 40, w: 2, h: 8 };
 const TAP_COLD: Rect = { x: 22, y: 40, w: 2, h: 8 };
 const BOTTLE: Rect = { x: 24, y: 32, w: 8, h: 16 };
 const MUG: Rect = { x: 56, y: 16, w: 8, h: 8 };
+/**
+ * The waiting room's, the washroom's and the file room's, on the same atlas: a stall's laminate, a mirror, a basin's
+ * bowl, a toilet's, a dark grey for the backs of things, a sheet of paper; and the number display, one picture for
+ * each number it can be stuck on.
+ */
+const STALL: Rect = { x: 0, y: 48, w: 16, h: 16 };
+const MIRROR: Rect = { x: 16, y: 48, w: 16, h: 16 };
+const BASIN: Rect = { x: 32, y: 48, w: 16, h: 16 };
+const BOWL: Rect = { x: 48, y: 48, w: 16, h: 16 };
+const DARK: Rect = { x: 16, y: 72, w: 8, h: 8 };
+const PAPER: Rect = { x: 0, y: 72, w: 16, h: 16 };
+const DISPLAY_NUMBERS = ["047", "112", "---", "000"] as const;
+const DISPLAYS: readonly Rect[] = DISPLAY_NUMBERS.map((_, i) => ({ x: i * 16, y: 64, w: 16, h: 8 }));
 const KITCHEN_ATLAS_W = 64;
-const KITCHEN_ATLAS_H = 48;
+const KITCHEN_ATLAS_H = 88;
 
 export const KITCHEN_SKIN: StatueSkin = (() => {
   const W = KITCHEN_ATLAS_W;
@@ -4607,6 +4630,59 @@ export const KITCHEN_SKIN: StatueSkin = (() => {
   );
   // A mug: white, a ring of colour round its rim.
   fill(MUG, (_x, y) => (y <= 1 ? [180, 60, 50] : [236, 234, 228]));
+  // A stall's laminate: pale grey-beige, faintly mottled.
+  fill(STALL, () => [186, 182, 166], (x, y) => 0.92 + 0.1 * grain(x, y + 920));
+  // A mirror: dark, a paler streak across it, gone black in specks round its edge where the silver's lifting.
+  fill(MIRROR, (x, y) => {
+    const edge = x <= 1 || y <= 1 || x >= 14 || y >= 14;
+    if (edge && grain(x, y + 930) > 0.6) return [36, 36, 34];
+    const streak = Math.abs(x - y - 2) < 2;
+    return streak ? [118, 126, 130] : [76, 84, 90];
+  });
+  // A basin from above: a white rim, its bowl greying down to the plughole.
+  fill(BASIN, (x, y) => {
+    const d = Math.hypot((x - 7.5) / 7.5, (y - 7.5) / 6.5);
+    if (d > 0.85) return [234, 234, 228];
+    if (d < 0.15) return [50, 50, 50];
+    return [196 - (1 - d) * 40, 198 - (1 - d) * 40, 196 - (1 - d) * 36];
+  });
+  // A toilet from above: a white rim round still water, bluish grey, darker deep in the middle.
+  fill(BOWL, (x, y) => {
+    const d = Math.hypot((x - 7.5) / 6.5, (y - 8.5) / 7.5);
+    if (d > 0.8) return [232, 232, 226];
+    if (d > 0.66) return [196, 198, 196];
+    return [118 + d * 50, 138 + d * 44, 142 + d * 40];
+  });
+  fill(DARK, () => [46, 46, 48]);
+  // A sheet of paper: off-white, lines of grey typing, broken where the words end.
+  fill(PAPER, (x, y) => {
+    const line = y >= 3 && y <= 13 && y % 2 === 1 && x >= 2 && x <= 13 && grain(x >> 2, y + 940) > 0.2;
+    return line ? [150, 148, 144] : [232, 230, 222];
+  });
+  // The number display: black, its digits red and lit from inside (alpha 100: the renderer lights it itself).
+  const DIGITS: Record<string, string> = {
+    "0": "111101101101111",
+    "1": "010110010010111",
+    "2": "111001111100111",
+    "4": "101101111001001",
+    "7": "111001010010010",
+    "-": "000000111000000",
+  };
+  DISPLAY_NUMBERS.forEach((number, i) => {
+    const r = DISPLAYS[i];
+    fill(r, () => [20, 16, 14]);
+    [...number].forEach((digit, k) => {
+      const bits = DIGITS[digit];
+      for (let j = 0; j < 15; j++) {
+        if (bits[j] !== "1") continue;
+        const o = ((r.y + 1 + Math.floor(j / 3)) * W + r.x + 2 + k * 4 + (j % 3)) * 4;
+        data[o] = 255;
+        data[o + 1] = 70;
+        data[o + 2] = 44;
+        data[o + 3] = 100;
+      }
+    });
+  });
   return { data };
 })();
 
@@ -5620,6 +5696,457 @@ function storageIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Jun
   }
   return out;
 }
+
+// ---- the waiting room, the washroom and the file room ----
+
+/*
+ * A waiting room, most of all in the yellow: chairs in rows along the walls, their backs to them, sometimes a row back
+ * to back down the middle; a reception desk in a corner, its monitor and its chair behind it; on the wall over it, the
+ * number being served, still lit; sometimes a water cooler. Now and then one chair stands alone in the middle facing a
+ * wall, or every chair along the walls has been turned to face the wall behind it; now and then the number is dashes,
+ * or noughts.
+ *
+ * A washroom, by the tiles: a row of stalls along one wall, a toilet in each, their doors ajar but for one shut; on the
+ * wall across from them, basins with a mirror over each. Sometimes every door is shut; sometimes a wet floor sign; a
+ * roll of paper left out on the floor.
+ *
+ * A file room, in the office: filing cabinets in rows, backs to two walls and back to back down the middle, aisles
+ * between, a drawer left out here and there and papers dropped on the floor. Sometimes one side of a row has gone over
+ * on its face into the aisle; now and then one cabinet stands on its own in an aisle, turned the wrong way.
+ */
+
+/** What's kept clear in front of each of fitted room `plan`'s doors, and whether there's room at (x, y), r round. */
+function roomKeeper(plan: FittedPlan) {
+  const taken: { x: number; y: number; r: number }[] = [];
+  for (const [side, cell] of plan.doors) {
+    const [x, y] = onWall(plan, side, cell - 0.5, DOOR_CLEAR_OUT);
+    taken.push({ x, y, r: DOOR_CLEAR });
+  }
+  // `wall` how far it has to be from the walls, if not r.
+  const free = (x: number, y: number, r: number, wall = r) =>
+    x - wall > plan.x0 &&
+    y - wall > plan.y0 &&
+    x + wall < plan.x0 + plan.w &&
+    y + wall < plan.y0 + plan.h &&
+    taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + r);
+  return { taken, free };
+}
+
+/** Along the wall on side `side` of a fitted room, the way its `t` runs: east along the north and south, south else. */
+const ALONG = (side: number): readonly [number, number] => (side < 2 ? [1, 0] : [0, 1]);
+
+/** A level pose at (x, y) facing `yaw`. */
+const standing = (x: number, y: number, yaw: number, h = 0): Pose => ({ x, y, h, yaw, pitch: 0, roll: 0 });
+
+/** The waiting room's chairs: office ones, steel and grey-blue fabric. Middle to middle along a row; out from a wall. */
+const WAIT_CHAIR = buildChair(ORDINARY, true);
+const WAIT_SEAT = chairSeat(ORDINARY);
+const WAIT_STEP = 0.26;
+const WAIT_OUT = 0.15;
+/** The reception desk, and how far its back is out from the wall, the receptionist's chair between. */
+const RECEPTION: DeskShape = { length: 0.8, depth: 0.34, height: 0.36, legs: 2, drawer: false };
+const RECEPTION_OUT = 0.5;
+/** The number display over it: how high, and its size. */
+const DISPLAY_H = 0.6;
+const DISPLAY_MODELS = DISPLAYS.map((face) => {
+  const tris: number[] = [];
+  box(tris, -0.14, 0.14, 0, 0.1, 0, 0.03, face, DARK, DARK);
+  return kitchenModel(tris, [40, 34, 30]);
+});
+/**
+ * How likely: a row back to back down the middle; one chair alone in the middle, facing a wall; every chair along the
+ * walls turned to face it; a water cooler. Of the displays, how many show a number (the rest dashes, or noughts).
+ */
+const WAIT_MIDDLE = 0.4;
+const WAIT_LONELY = 0.15;
+const WAIT_TURNED = 0.08;
+const WAIT_COOLER = 0.4;
+const WAIT_NUMBER = 0.7;
+const WAIT_DASHES = 0.9;
+
+/** Everything in waiting room `plan` in lattice room (lx, ly), the same every time for this map. */
+function waitingIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 61 + k, ly, 1010);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const { taken, free } = roomKeeper(plan);
+  const turnedAll = roll(1) < WAIT_TURNED;
+  const middle = roll(2) < WAIT_MIDDLE;
+  const lonely = !middle && roll(3) < WAIT_LONELY;
+  let n = 0;
+  const chair = (x: number, y: number, yaw: number) => {
+    const pose = standing(x, y, yaw);
+    out.push({
+      key: key(`chair${n++}`),
+      kind: "chair",
+      model: WAIT_CHAIR,
+      office: true,
+      ...pose,
+      solid: { x, y, r: 0.13 },
+      perch: perchOn(pose, WAIT_SEAT, CHAIR_EDGE, 0.1),
+    });
+    taken.push({ x, y, r: 0.13 });
+  };
+
+  // The reception desk, in the corner furthest from the way in, along whichever of its two walls has no door.
+  const [doorSide, doorCell] = plan.doors[0];
+  const door = onWall(plan, doorSide, doorCell - 0.5, 0.5);
+  const corners = [0, 1, 2, 3].map((c) => {
+    const ns = c < 2 ? 0 : 1;
+    const ew = c % 2 ? 3 : 2;
+    const x = ew === 2 ? plan.x0 : plan.x0 + plan.w;
+    const y = ns === 0 ? plan.y0 : plan.y0 + plan.h;
+    return { ns, ew, away: Math.hypot(x - door[0], y - door[1]) };
+  });
+  corners.sort((a, b) => b.away - a.away);
+  const doorSides = new Set(plan.doors.map(([side]) => side));
+  const { ns, ew } = corners[0];
+  const deskSide = doorSides.has(ns) ? ew : ns;
+  const deskT = deskSide < 2 ? (ew === 2 ? 0.75 : plan.w - 0.75) : ns === 0 ? 0.75 : plan.h - 0.75;
+  const face = inward(deskSide);
+  const [ax, ay] = ALONG(deskSide);
+  const hl = RECEPTION.length / 2;
+  const hd = RECEPTION.depth / 2;
+  // The desk faces the wall: whoever works at it sits between them, looking out into the room.
+  const [tx, ty] = onWall(plan, deskSide, deskT, RECEPTION_OUT + hd);
+  const desk = standing(tx, ty, face + Math.PI);
+  out.push({
+    key: key("desk"),
+    kind: "desk",
+    model: buildDesk(RECEPTION, false),
+    ...desk,
+    solid: slab(tx, ty, ax * hl, ay * hl, hd + 0.01),
+    perch: perchOn(desk, RECEPTION.height, hd, 0.1),
+  });
+  for (const k of [-1, 0, 1]) taken.push({ x: tx + ax * hl * 0.7 * k, y: ty + ay * hl * 0.7 * k, r: hd + 0.02 });
+  // Its monitor, its screen to the chair, its back to the room.
+  const monitorYaw = face + Math.PI + (roll(4) - 0.5) * 0.2;
+  const [mx, my] = onWall(plan, deskSide, deskT + (roll(5) - 0.5) * 0.2, RECEPTION_OUT + RECEPTION.depth - MONITOR_DEPTH / 2);
+  const monitor = standing(mx - Math.cos(monitorYaw) * MONITOR_MIDDLE, my - Math.sin(monitorYaw) * MONITOR_MIDDLE, monitorYaw, RECEPTION.height);
+  out.push({
+    key: key("monitor"),
+    kind: "monitor",
+    model: MONITOR,
+    ...monitor,
+    solid: null,
+    perch: perchOn(monitor, MONITOR_TALL, 0.17, 0.42, false, -0.03),
+  });
+  const [cx, cy] = onWall(plan, deskSide, deskT + (roll(6) - 0.5) * 0.2, RECEPTION_OUT / 2);
+  chair(cx, cy, face + (roll(7) - 0.5) * 0.4);
+  // The number, on the wall over the desk.
+  const number = roll(8);
+  const display = number < WAIT_NUMBER ? Math.floor(roll(9) * 2) : number < WAIT_DASHES ? 2 : 3;
+  const [dx, dy] = onWall(plan, deskSide, deskT, 0.002);
+  out.push({ key: key("display"), kind: "fixture", model: DISPLAY_MODELS[display], ...standing(dx, dy, face, DISPLAY_H), solid: null });
+
+  // A water cooler in a corner.
+  if (roll(10) < WAIT_COOLER) {
+    for (let k = 0; k < 8; k++) {
+      const side = Math.floor(roll(11 + k) * 4);
+      const len = side < 2 ? plan.w : plan.h;
+      const t = roll(20 + k) < 0.5 ? 0.2 : len - 0.2;
+      const [x, y] = onWall(plan, side, t, COOLER_W / 2 + 0.01);
+      if (!free(x, y, 0.12, 0.08)) continue;
+      out.push({ key: key("cooler"), kind: "kitchen", model: COOLER_MODEL, ...standing(x, y, inward(side)), solid: { x, y, r: 0.1 } });
+      taken.push({ x, y, r: 0.12 });
+      break;
+    }
+  }
+
+  // A row back to back down the middle, the long way across whichever way the dice say.
+  if (middle) {
+    const acrossX = roll(30) < 0.5;
+    const len = acrossX ? plan.w : plan.h;
+    for (let t = 1; t <= len - 1 + 1e-6; t += WAIT_STEP) {
+      for (const s of [-1, 1]) {
+        const x = acrossX ? plan.x0 + t : plan.x0 + plan.w / 2 + s * 0.15;
+        const y = acrossX ? plan.y0 + plan.h / 2 + s * 0.15 : plan.y0 + t;
+        if (!free(x, y, 0.13)) continue;
+        chair(x, y, acrossX ? (s * Math.PI) / 2 : s > 0 ? 0 : Math.PI);
+      }
+    }
+  }
+  // One alone in the middle, facing a wall.
+  if (lonely) {
+    const x = plan.x0 + plan.w / 2 + (roll(40) - 0.5) * 0.6;
+    const y = plan.y0 + plan.h / 2 + (roll(41) - 0.5) * 0.6;
+    if (free(x, y, 0.13)) chair(x, y, inward(Math.floor(roll(42) * 4)) + Math.PI);
+  }
+  // Rows along the walls wherever there's room, backs to the wall; or all turned round to face it.
+  for (let side = 0; side < 4; side++) {
+    const len = side < 2 ? plan.w : plan.h;
+    for (let t = 0.35; t <= len - 0.35 + 1e-6; t += WAIT_STEP) {
+      const [x, y] = onWall(plan, side, t, WAIT_OUT);
+      if (!free(x, y, 0.13, 0.1)) continue;
+      const jitter = (roll(50 + side * 20 + Math.round(t * 4)) - 0.5) * 0.12;
+      chair(x, y, inward(side) + (turnedAll ? Math.PI : 0) + jitter);
+    }
+  }
+  return out;
+}
+
+/** A stall: its width along the wall, how far out from it, its panels' thickness, and from how high to how high. */
+const STALL_W = 0.38;
+const STALL_D = 0.6;
+const STALL_T = 0.016;
+const STALL_Y = [0.05, 0.72] as const;
+/** A panel between two stalls or at the end of the row, from the wall (z = 0) out to the front. */
+const STALL_PANEL = (() => {
+  const tris: number[] = [];
+  box(tris, -STALL_T / 2, STALL_T / 2, STALL_Y[0], STALL_Y[1], 0, STALL_D, STALL, STALL, STALL);
+  return kitchenModel(tris, [186, 182, 166]);
+})();
+/** A stall's door, hung from its hinge at x = 0. */
+const STALL_DOOR_W = STALL_W - STALL_T - 0.02;
+const STALL_DOOR = (() => {
+  const tris: number[] = [];
+  box(tris, 0, STALL_DOOR_W, STALL_Y[0], STALL_Y[1], -STALL_T / 2, STALL_T / 2, STALL, STALL, STALL);
+  return kitchenModel(tris, [186, 182, 166]);
+})();
+/** A toilet, its back to the wall at z = 0: the cistern on the wall, the bowl in front, its top the seat round water. */
+const TOILET = (() => {
+  const tris: number[] = [];
+  box(tris, -0.085, 0.085, 0.16, 0.32, 0, 0.07, WHITE, WHITE, WHITE);
+  topBox(tris, -0.07, 0.07, 0, 0.15, 0.02, 0.27, WHITE, WHITE, BOWL);
+  return kitchenModel(tris, [232, 232, 226]);
+})();
+/** How high a basin's top is. */
+const BASIN_H = 0.34;
+/** A basin on its pedestal against the wall at z = 0, its tap, and the mirror over it. */
+const BASIN_MIRROR = (() => {
+  const tris: number[] = [];
+  box(tris, -0.03, 0.03, 0, BASIN_H - 0.06, 0.04, 0.1, WHITE, WHITE, WHITE);
+  topBox(tris, -0.11, 0.11, BASIN_H - 0.06, BASIN_H, 0, 0.17, WHITE, WHITE, BASIN);
+  box(tris, -0.008, 0.008, BASIN_H, BASIN_H + 0.06, 0.012, 0.028, CHROME, CHROME, CHROME);
+  box(tris, -0.006, 0.006, BASIN_H + 0.048, BASIN_H + 0.06, 0.028, 0.07, CHROME, CHROME, CHROME);
+  box(tris, -0.12, 0.12, 0.42, 0.7, 0, 0.01, CHROME, CHROME, CHROME);
+  quad(tris, [-0.11, 0.43, 0.012], [0.11, 0.43, 0.012], [0.11, 0.69, 0.012], [-0.11, 0.69, 0.012], MIRROR);
+  return kitchenModel(tris, [226, 226, 220]);
+})();
+/** A roll of toilet paper, standing on end. */
+const PAPER_ROLL = (() => {
+  const tris: number[] = [];
+  cylinder(tris, 0.028, 0, 0.075, WHITE, WHITE);
+  return kitchenModel(tris, [236, 234, 228]);
+})();
+/** How many stalls, at least and at most; basins; how far apart the basins are. */
+const STALLS = [4, 6] as const;
+const BASINS = [2, 3] as const;
+const BASIN_STEP = 0.55;
+/** How likely every stall door is shut; a wet floor sign; a roll of paper on the floor. */
+const WASH_ALL_SHUT = 0.1;
+const WASH_WET = 0.35;
+const WASH_ROLL = 0.35;
+
+/** Everything in washroom `plan` in lattice room (lx, ly), the same every time for this map. */
+function washroomIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 67 + k, ly, 1020);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const { taken, free } = roomKeeper(plan);
+  let n = 0;
+  const put = (name: string, kind: JunkKind, model: StatueModel, pose: Pose, solid: Solid | null = null) => {
+    out.push({ key: key(`${name}${n++}`), kind, model, ...pose, solid });
+  };
+
+  // The stalls along a wall with no door in it, the basins along the wall across.
+  const doorSides = new Set(plan.doors.map(([side]) => side));
+  const first = Math.floor(roll(1) * 4);
+  const sides = [0, 1, 2, 3].map((k) => (first + k) % 4);
+  const stallSide = sides.find((s) => !doorSides.has(s)) ?? first;
+  const basinSide = ACROSS[stallSide];
+  const face = inward(stallSide);
+  const [ax, ay] = ALONG(stallSide);
+  const len = stallSide < 2 ? plan.w : plan.h;
+  const count = STALLS[0] + Math.floor(roll(2) * (STALLS[1] - STALLS[0] + 1));
+  const t0 = (len - count * STALL_W) / 2 + (roll(3) - 0.5) * (len - count * STALL_W - 0.2);
+  // A door hangs from the end of its stall the way `t` runs along the wall from it, or the other: which way the
+  // door's own length runs, set by the way it faces (junkPoints).
+  const forward = stallSide === 0 || stallSide === 3;
+  const allShut = roll(4) < WASH_ALL_SHUT;
+  const shut = Math.floor(roll(5) * count);
+  // The row of stalls is in the way as one: the first panel carries it.
+  const half = (count * STALL_W) / 2;
+  const [sx, sy] = onWall(plan, stallSide, t0 + half, STALL_D / 2);
+  for (let i = 0; i <= count; i++) {
+    const [x, y] = onWall(plan, stallSide, t0 + i * STALL_W, 0);
+    put("panel", "fixture", STALL_PANEL, standing(x, y, face), i === 0 ? slab(sx, sy, ax * half, ay * half, STALL_D / 2) : null);
+  }
+  for (let i = 0; i < count; i++) {
+    const [x, y] = onWall(plan, stallSide, t0 + (i + 0.5) * STALL_W, 0.005);
+    put("toilet", "fixture", TOILET, standing(x, y, face));
+    const hinge = forward ? t0 + i * STALL_W + STALL_T / 2 + 0.01 : t0 + (i + 1) * STALL_W - STALL_T / 2 - 0.01;
+    const [hx, hy] = onWall(plan, stallSide, hinge, STALL_D - STALL_T / 2);
+    // Swung in, toward the wall; or shut.
+    const open = allShut || i === shut ? 0 : 0.25 + roll(10 + i) * 0.85;
+    put("door", "fixture", STALL_DOOR, standing(hx, hy, face - open));
+  }
+  for (let t = 0; t <= count * STALL_W + 1e-6; t += STALL_D / 2) {
+    const [x, y] = onWall(plan, stallSide, t0 + t, STALL_D / 2);
+    taken.push({ x, y, r: STALL_D / 2 });
+  }
+
+  // The basins, as near the middle of their wall as they'll go clear of a door.
+  const basinLen = basinSide < 2 ? plan.w : plan.h;
+  const wanted = BASINS[0] + Math.floor(roll(20) * (BASINS[1] - BASINS[0] + 1));
+  const spots: number[] = [];
+  for (let t = 0.4; t <= basinLen - 0.4 + 1e-6; t += BASIN_STEP / 2) spots.push(t);
+  spots.sort((a, b) => Math.abs(a - basinLen / 2) - Math.abs(b - basinLen / 2));
+  const placed: number[] = [];
+  for (const t of spots) {
+    if (placed.length >= wanted) break;
+    if (placed.some((p) => Math.abs(p - t) < BASIN_STEP - 1e-6)) continue;
+    const [x, y] = onWall(plan, basinSide, t, 0.09);
+    if (!free(x, y, 0.12, 0.05)) continue;
+    const [wx, wy] = onWall(plan, basinSide, t, 0.003);
+    put("basin", "fixture", BASIN_MIRROR, standing(wx, wy, inward(basinSide)), { x, y, r: 0.12 });
+    taken.push({ x, y, r: 0.13 });
+    placed.push(t);
+  }
+
+  // Somewhere out on the floor: a wet floor sign; a roll of paper.
+  const somewhere = (k: number, r: number): [number, number] | null => {
+    for (let j = 0; j < 12; j++) {
+      const x = plan.x0 + 0.3 + roll(k + j) * (plan.w - 0.6);
+      const y = plan.y0 + 0.3 + roll(k + 20 + j) * (plan.h - 0.6);
+      if (free(x, y, r)) return [x, y];
+    }
+    return null;
+  };
+  if (roll(30) < WASH_WET) {
+    const spot = somewhere(100, 0.15);
+    if (spot) {
+      put("wet", "wetFloor", WET_FLOOR, standing(spot[0], spot[1], roll(31) * Math.PI * 2), { x: spot[0], y: spot[1], r: 0.1 });
+      taken.push({ x: spot[0], y: spot[1], r: 0.15 });
+    }
+  }
+  if (roll(32) < WASH_ROLL) {
+    const spot = somewhere(150, 0.05);
+    if (spot) put("roll", "fixture", PAPER_ROLL, standing(spot[0], spot[1], 0));
+  }
+  return out;
+}
+
+/** The file room's cabinets: middle to middle along a row; how far the rows' ends are kept from the walls. */
+const FILE_STEP = 0.16;
+const FILE_END = 0.55;
+/** Where the two rows back to back down the middle are, as shares of the way across from the first wall. */
+const FILE_ROWS = [0.35, 0.65] as const;
+/** A sheet of paper lying on the floor. */
+const PAPER_SHEET = (() => {
+  const tris: number[] = [];
+  const [w, d, h] = [0.043, 0.06, 0.002];
+  quad(tris, [-w, h, d], [w, h, d], [w, h, -d], [-w, h, -d], PAPER);
+  return kitchenModel(tris, [232, 230, 222]);
+})();
+/** How likely: a cabinet with a drawer left out; one side of a middle row gone over; one cabinet out on its own. */
+const FILE_OPEN = 0.15;
+const FILE_FALLEN = 0.12;
+const FILE_LOST = 0.1;
+/** How many sheets of paper on the floor, at least and at most. */
+const FILE_PAPERS = [6, 14] as const;
+/** The file room's cabinets, by which drawer is out how far: one model each. */
+const fileCabinets = new Map<string, StatueModel>();
+
+/** Everything in file room `plan` in lattice room (lx, ly), the same every time for this map. */
+function filesIn(map: WorldMap, lx: number, ly: number, plan: FittedPlan): Junk[] {
+  const roll = (k: number) => map.noise(lx * 71 + k, ly, 1030);
+  const out: Junk[] = [];
+  const key = (name: string) => `w${lx},${ly}.${name}`;
+  const { taken, free } = roomKeeper(plan);
+  // The rows run along one pair of walls, backs to them, from the first (sideA) across to the other.
+  const alongX = roll(1) < 0.5;
+  const [sideA, sideB] = alongX ? [0, 1] : [2, 3];
+  const len = alongX ? plan.w : plan.h;
+  const across = alongX ? plan.h : plan.w;
+  const fallen = roll(2) < FILE_FALLEN ? Math.floor(roll(3) * 4) : -1;
+  const lost = roll(4) < FILE_LOST;
+  let n = 0;
+  let k = 100;
+  // Each cabinet, kept out of the way of what comes after the rows (not of the rows themselves, packed tight).
+  const cabinets: { x: number; y: number; r: number }[] = [];
+
+  // One row: `at` out from wall A, facing away from it (dir 1) or toward it (−1), from `from` to `to` along it;
+  // `over` if it's gone over on its face.
+  const row = (at: number, dir: number, from: number, to: number, over: boolean) => {
+    const yaw = inward(dir > 0 ? sideA : sideB);
+    const [fx, fy] = INWARD[dir > 0 ? sideA : sideB];
+    for (let t = from; t <= to + 1e-6; t += FILE_STEP) {
+      const c = roll(k++) < FILE_OPEN && !over ? roll(k++) * 0.35 : 0.9;
+      const shape = cabinetShape(0, 0, c);
+      const name = shape.pulled.join(",");
+      let model = fileCabinets.get(name);
+      if (!model) {
+        model = buildCabinet(shape);
+        fileCabinets.set(name, model);
+      }
+      const hd = shape.depth / 2;
+      const tall = cabinetHeight(shape);
+      const [x, y] = onWall(plan, sideA, t, at);
+      if (!free(x, y, 0.1, 0.05)) continue;
+      if (over) {
+        // Face down in the aisle, its top toward the aisle's far side.
+        const pose = { ...standing(x, y, yaw, hd), pitch: Math.PI / 2 };
+        const [mx, my] = [x + (fx * tall) / 2, y + (fy * tall) / 2];
+        out.push({ key: key(`cabinet${n++}`), kind: "cabinet", model, ...pose, solid: slab(mx, my, (fx * tall) / 2, (fy * tall) / 2, shape.width / 2 + 0.01) });
+        cabinets.push({ x: mx, y: my, r: tall / 2 });
+        continue;
+      }
+      const pose = standing(x, y, yaw);
+      out.push({
+        key: key(`cabinet${n++}`),
+        kind: "cabinet",
+        model,
+        ...pose,
+        solid: slab(x, y, fx * hd, fy * hd, shape.width / 2 + 0.01),
+        perch: perchOn(pose, tall, hd, 0.1),
+      });
+      cabinets.push({ x, y, r: 0.1 });
+    }
+  };
+  const hd = 0.1;
+  // Against the two walls, all along them; back to back down the middle, their ends clear for the way round.
+  row(hd + 0.005, 1, 0.1 + 0.075, len - 0.1 - 0.075, false);
+  row(across - hd - 0.005, -1, 0.1 + 0.075, len - 0.1 - 0.075, false);
+  FILE_ROWS.forEach((share, i) => {
+    const middle = across * share;
+    row(middle - hd - 0.003, -1, FILE_END, len - FILE_END, fallen === i * 2);
+    row(middle + hd + 0.003, 1, FILE_END, len - FILE_END, fallen === i * 2 + 1);
+  });
+  taken.push(...cabinets);
+
+  // One out on its own in the first aisle, turned along it.
+  if (lost) {
+    const at = (0.2 + across * FILE_ROWS[0] - 0.2) / 2;
+    const t = len / 2 + (roll(10) - 0.5) * 1.2;
+    const [x, y] = onWall(plan, sideA, t, at);
+    if (free(x, y, 0.15)) {
+      const shape = cabinetShape(0, 0, 0.9);
+      const yaw = inward(sideA) + Math.PI / 2 + (roll(11) - 0.5) * 0.3;
+      const pose = standing(x, y, yaw);
+      out.push({
+        key: key("lost"),
+        kind: "cabinet",
+        model: buildCabinet(shape),
+        ...pose,
+        solid: { x, y, r: 0.13 },
+        perch: perchOn(pose, cabinetHeight(shape), shape.depth / 2, 0.1),
+      });
+      taken.push({ x, y, r: 0.15 });
+    }
+  }
+
+  // Papers dropped in the aisles, flat on the floor.
+  const papers = FILE_PAPERS[0] + Math.floor(roll(20) * (FILE_PAPERS[1] - FILE_PAPERS[0] + 1));
+  for (let i = 0, tries = 0; i < papers && tries < papers * 4; tries++) {
+    const x = plan.x0 + 0.15 + roll(30 + tries) * (plan.w - 0.3);
+    const y = plan.y0 + 0.15 + roll(90 + tries) * (plan.h - 0.3);
+    if (!taken.every((t) => Math.hypot(t.x - x, t.y - y) > t.r + 0.04)) continue;
+    out.push({ key: key(`paper${i++}`), kind: "fixture", model: PAPER_SHEET, ...standing(x, y, roll(150 + tries) * Math.PI * 2), solid: null });
+  }
+  return out;
+}
+
 
 // ---- boxes, mugs and tins lying about ----
 

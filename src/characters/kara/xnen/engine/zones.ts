@@ -64,6 +64,10 @@ export const PANTRY_WEIGHTS: ZoneWeights = [0.25, 0.3, 0.6, 0.3, 3];
 export const STORAGE_WEIGHTS: ZoneWeights = [0.25, 0.3, 0.3, 3, 0.3];
 /** A meeting room: the office wing's. */
 export const MEETING_WEIGHTS: ZoneWeights = [0.25, 0.2, 2, 0.3, 0.2];
+/** A waiting room most of all in the yellow and the old house; a washroom by the tiles; a file room in the office. */
+export const WAITING_WEIGHTS: ZoneWeights = [2.2, 1.5, 0.6, 0.4, 0.6];
+export const WASHROOM_WEIGHTS: ZoneWeights = [0.5, 0.3, 0.6, 0.5, 3];
+export const FILES_WEIGHTS: ZoneWeights = [1.2, 0.3, 2, 0.8, 0.3];
 
 /**
  * What a big room (a block of lattice rooms knocked through) has in it (map.ts): a forest of pillars like a car park

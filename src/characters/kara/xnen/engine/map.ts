@@ -22,6 +22,9 @@ import {
   PILLAR_HALL_WEIGHTS,
   PANTRY_WEIGHTS,
   STORAGE_WEIGHTS,
+  WAITING_WEIGHTS,
+  WASHROOM_WEIGHTS,
+  FILES_WEIGHTS,
   WORKROOM_WEIGHTS,
   type ZoneWeights,
 } from "./zones";
@@ -298,6 +301,9 @@ const ROOM_RULES: Record<RoomKind, RoomRules> = {
   pantry: { junk: false, statue: false, xn: true },
   meeting: { junk: false, statue: false, xn: true },
   storage: { junk: false, statue: false, xn: true },
+  waiting: { junk: false, statue: false, xn: true },
+  washroom: { junk: false, statue: false, xn: true },
+  files: { junk: false, statue: false, xn: true },
 };
 /**
  * How likely a block is to be each kind of special room, in turn from one die: a new kind takes the next share, so the
@@ -348,7 +354,7 @@ export interface BurgerPlan {
  * a mattress on the floor, empty tins, the count on the wall. A pantry is a little kitchen. A meeting room, sometimes
  * two lattice rooms knocked through into one long one. A storeroom, shelving all round.
  */
-export type FittedKind = "workroom" | "camp" | "pantry" | "meeting" | "storage";
+export type FittedKind = "workroom" | "camp" | "pantry" | "meeting" | "storage" | "waiting" | "washroom" | "files";
 /**
  * How likely a lattice room is to be each kind of fitted room, in turn from one die, weighed by its zone (zones.ts):
  * a new kind takes the next share, so the ones before stay where they were.
@@ -360,6 +366,17 @@ const FITTED_CHANCES: readonly [FittedKind, number, ZoneWeights][] = [
   ["meeting", 0.05, MEETING_WEIGHTS],
   ["storage", 0.06, STORAGE_WEIGHTS],
 ];
+/**
+ * The kinds that came later, from a die of their own for a room the first left plain: the first die's shares take up
+ * nearly all of it.
+ */
+const FITTED_LATER: readonly [FittedKind, number, ZoneWeights][] = [
+  ["waiting", 0.015, WAITING_WEIGHTS],
+  ["washroom", 0.05, WASHROOM_WEIGHTS],
+  ["files", 0.05, FILES_WEIGHTS],
+];
+/** How many of a file room's lights flicker. */
+const FILES_FLICKER = 0.3;
 /** A storeroom's lights: how many are out, and how many of the rest flicker. */
 const STORAGE_DEAD = 0.5;
 const STORAGE_FLICKER = 0.5;
@@ -431,10 +448,13 @@ export function mountedWall(plan: FittedPlan, noise: (k: number) => number): num
 
 /**
  * Whether wall `side` of a fitted room is kept bare of writing and posters, which would be half behind what's against
- * it: the wall something's put up on, and every wall of a storeroom, shelved all round.
+ * it: the wall something's put up on; every wall of a storeroom or a file room, with something all round; every wall
+ * of a washroom, all stalls and mirrors.
  */
 export function bareWall(plan: FittedPlan, side: number, noise: (k: number) => number): boolean {
-  return plan.kind === "storage" || side === mountedWall(plan, noise);
+  // A room with something along every wall, or that's all tiles and mirrors, has nothing put up on it.
+  if (plan.kind === "storage" || plan.kind === "files" || plan.kind === "washroom") return true;
+  return side === mountedWall(plan, noise);
 }
 
 /** A camp's mattress, worked out from its plan; the same for whatever asks (the furniture, the writing). */
@@ -774,8 +794,18 @@ export class WorldMap {
 
   /** What kind of fitted room lattice room (lx, ly) rolled, whether or not it can be one. */
   private rolledFitted(lx: number, ly: number): FittedKind | null {
-    let die = this.noise(lx, ly, 64);
-    for (const [kind, chance, weights] of FITTED_CHANCES) {
+    return this.fittedRoll(lx, ly, FITTED_CHANCES, 64) ?? this.fittedRoll(lx, ly, FITTED_LATER, 641);
+  }
+
+  /** Which of `chances` lattice room (lx, ly) rolled on the die salted `salt`, if any. */
+  private fittedRoll(
+    lx: number,
+    ly: number,
+    chances: readonly [FittedKind, number, ZoneWeights][],
+    salt: number,
+  ): FittedKind | null {
+    let die = this.noise(lx, ly, salt);
+    for (const [kind, chance, weights] of chances) {
       const share = chance * heaviest(weights);
       if (die < share) return die < chance * weights[this.roomZone(lx, ly)] ? kind : null;
       die -= share;
@@ -1411,6 +1441,8 @@ export class WorldMap {
       if (best) return best[0] === x && best[1] === y ? LIGHT_ON : LIGHT_DEAD;
     }
     // A storeroom's are mostly out, and the rest failing.
+    // A file room's, some of them failing.
+    if (this.fittedAt(x, y)?.kind === "files") return this.noise(x, y, 23) < FILES_FLICKER ? LIGHT_FLICKER_B : LIGHT_ON;
     if (this.fittedAt(x, y)?.kind === "storage") {
       const r = this.noise(x, y, 23);
       if (r < STORAGE_DEAD) return LIGHT_DEAD;

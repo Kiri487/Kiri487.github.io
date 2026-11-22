@@ -26,7 +26,7 @@ import {
   type JunkKind,
 } from "./engine/junk";
 import { Lighting } from "./engine/lighting";
-import { SPAWN, WorldMap, type Statue } from "./engine/map";
+import { SPAWN, WorldMap, type FittedKind, type Statue } from "./engine/map";
 import { PLAYER_RADIUS, Player } from "./engine/player";
 import { inkOf, setDrawing, type DrawingName } from "./engine/graffiti";
 import { agePosters } from "./engine/posters";
@@ -138,7 +138,7 @@ export interface FrameStats {
  * Where the dev panel can send the visitor: a zone (zones.ts), a hall with a high ceiling, a low corridor, a room with
  * its floor sunk or raised.
  */
-export type DevPlace = number | "high" | "low" | "sunk" | "raised";
+export type DevPlace = number | "high" | "low" | "sunk" | "raised" | FittedKind;
 
 /** How far the dev panel's sending looks, in cells either way: from just past where the visitor is, out this far. */
 const GO_FROM = 8;
@@ -194,6 +194,7 @@ const KIND_SKINS: Record<Exclude<JunkKind, "monitor">, StatueSkin> = {
   kitchen: KITCHEN_SKIN,
   board: MEETING_SKIN,
   storage: STORAGE_SKIN,
+  fixture: KITCHEN_SKIN,
   candle: CANDLE_SKIN,
   flame: CANDLE_SKIN,
   partition: OFFICE_SKIN,
@@ -1222,19 +1223,18 @@ export function createGame(parts: GameParts): Game {
       talk = new Talk();
     },
     goTo(place) {
-      const fits = (x: number, y: number) =>
-        place === "high"
-          ? map.ceilingAt(x, y) > 1
-          : place === "low"
-            ? map.ceilingAt(x, y) < 1
-            : place === "sunk"
-              ? map.floorAt(x, y) < 0
-              : place === "raised"
-                ? map.floorAt(x, y) > 0
-                : map.zoneAt(x, y) === place;
+      const fits = (x: number, y: number) => {
+        if (place === "high") return map.ceilingAt(x, y) > 1;
+        if (place === "low") return map.ceilingAt(x, y) < 1;
+        if (place === "sunk") return map.floorAt(x, y) < 0;
+        if (place === "raised") return map.floorAt(x, y) > 0;
+        if (typeof place === "number") return map.zoneAt(x, y) === place;
+        return map.fittedAt(x, y)?.kind === place;
+      };
       // Room to look round: the cells about it open too, but in a corridor, only two cells wide.
       const open = (x: number, y: number) => {
-        if (place === "low") return !map.wall(x, y);
+        // In a corridor, or a room full of things, only the cell itself.
+        if (place === "low" || map.fittedAt(x, y)) return !map.wall(x, y);
         for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (map.wall(x + i, y + j)) return false;
         return true;
       };
