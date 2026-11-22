@@ -3,6 +3,7 @@ import { clamp } from "../../../shared/math";
 import { prefersReducedMotion } from "../../../shared/motion";
 import { nearestStatue, Timecode } from "./engine/compass";
 import { parseFigure } from "./engine/figure";
+import { mod } from "./engine/hash";
 import {
   bodyDistance,
   BURGER_SKIN,
@@ -138,7 +139,7 @@ export interface FrameStats {
  * Where the dev panel can send the visitor: a zone (zones.ts), a hall with a high ceiling, a low corridor, a room with
  * its floor sunk or raised.
  */
-export type DevPlace = number | "high" | "low" | "sunk" | "raised";
+export type DevPlace = number | "high" | "low" | "sunk" | "raised" | "lowWall" | "lowCells";
 
 /** How far the dev panel's sending looks, in cells either way: from just past where the visitor is, out this far. */
 const GO_FROM = 8;
@@ -1222,8 +1223,23 @@ export function createGame(parts: GameParts): Game {
       talk = new Talk();
     },
     goTo(place) {
+      const lowAt = (x: number, y: number) => !!map.wall(x, y) && map.lowWall(x, y) > 0;
+      // A low wall a cell or two off, straight ahead one way or another.
+      const byLowWall = (x: number, y: number) =>
+        [1, 2].some((k) => lowAt(x + k, y) || lowAt(x - k, y) || lowAt(x, y + k) || lowAt(x, y - k));
+      // In an area of low cells: a low wall off the lattice's lines, where only theirs are (every 3 cells).
+      const inLowCells = (x: number, y: number) => {
+        const wx = x - mod(x, 3);
+        const wy = y - mod(y, 3);
+        const offLattice = (cx: number, cy: number) => mod(cx, 5) !== 0 && mod(cy, 5) !== 0;
+        return (lowAt(wx, y) && offLattice(wx, y)) || (lowAt(x, wy) && offLattice(x, wy));
+      };
       const fits = (x: number, y: number) =>
-        place === "high"
+        place === "lowWall"
+          ? byLowWall(x, y)
+          : place === "lowCells"
+            ? inLowCells(x, y)
+            : place === "high"
           ? map.ceilingAt(x, y) > 1
           : place === "low"
             ? map.ceilingAt(x, y) < 1
@@ -1234,7 +1250,7 @@ export function createGame(parts: GameParts): Game {
                 : map.zoneAt(x, y) === place;
       // Room to look round: the cells about it open too, but in a corridor, only two cells wide.
       const open = (x: number, y: number) => {
-        if (place === "low") return !map.wall(x, y);
+        if (place === "low" || place === "lowWall" || place === "lowCells") return !map.wall(x, y);
         for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) if (map.wall(x + i, y + j)) return false;
         return true;
       };

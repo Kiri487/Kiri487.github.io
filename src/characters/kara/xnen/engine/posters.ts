@@ -334,9 +334,9 @@ const FACE_OUT = [
   [0, 1],
 ] as const;
 
-/** A face of wall cell (x, y) that can be seen: the cell is wall, and the one it faces is open. */
+/** A face of wall cell (x, y) that can be seen: the cell is wall up to the ceiling, and the one it faces is open. */
 const faceOpen = (map: WorldMap, x: number, y: number, face: number) =>
-  map.wall(x, y) === 1 && map.wall(x + FACE_OUT[face][0], y + FACE_OUT[face][1]) === 0;
+  map.wall(x, y) === 1 && !map.lowWall(x, y) && map.wall(x + FACE_OUT[face][0], y + FACE_OUT[face][1]) === 0;
 
 /** How far a bunch on a wall may spread from the cell it started on, in cells either way. */
 const WALL_SPREAD = 2;

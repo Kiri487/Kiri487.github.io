@@ -1908,7 +1908,8 @@ function spotIn(map: WorldMap, bx: number, by: number, roll: (k: number) => numb
     let wall: readonly [number, number] | null = null;
     for (let s = 0; s < 4 && !wall; s++) {
       const out = OUT[(side + s) % 4];
-      if (map.wall(cx + out[0], cy + out[1])) wall = out;
+      // Not a low wall: what's leant on it would stand up over it.
+      if (map.wall(cx + out[0], cy + out[1]) && !map.lowWall(cx + out[0], cy + out[1])) wall = out;
     }
     return { cx, cy, wall };
   }

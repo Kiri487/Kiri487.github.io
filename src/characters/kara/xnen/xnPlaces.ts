@@ -1,7 +1,7 @@
 import { clamp } from "../../../shared/math";
 import { graffitiNear } from "./engine/graffiti";
 import { boardFace, junkAround, solidDistance, type Junk } from "./engine/junk";
-import { LIGHT_DEAD, PIT_COUNT, PIT_PITCH, PIT_RIM, type WorldMap } from "./engine/map";
+import { LIGHT_DEAD, PIT_COUNT, PIT_PITCH, PIT_RIM, WALL_LOW, type WorldMap } from "./engine/map";
 import { pitFieldsNear } from "./engine/pits";
 import { PLAYER_RADIUS, type Player } from "./engine/player";
 import type { Camera } from "./engine/render";
@@ -53,7 +53,8 @@ export type PropTarget =
   | "bed"
   | "counter"
   | "spotlight"
-  | "board";
+  | "board"
+  | "ledge";
 /** `hold` is sitting on the edge with a burger in her hands, now and then taking a bite. */
 export type PropPose =
   | "stand"
@@ -85,6 +86,7 @@ export const PROP_POSES: Record<PropTarget, readonly PropPose[]> = {
   counter: ["perch", "swing"],
   spotlight: ["stand", "sit", "crouch"],
   board: ["stand", "sit", "crouch"],
+  ledge: ["perch", "swing", "stand", "crouch"],
 };
 
 /** The dev panel puts XN this far in front of the visitor. */
@@ -146,6 +148,8 @@ const XN_BED_ALONG = 0.2;
 const XN_BED_BACK = 0.06;
 /** How many seats on the rims of each pit room near the visitor XN thinks of, when she's looking for something. */
 const XN_PIT_SEATS = 3;
+/** How many places on top of the low walls near the visitor she thinks of, when she's looking for something. */
+const XN_LEDGE_SEATS = 3;
 /** Under a dark hall's one light: how far from right under it she is, at least and at most. */
 const XN_UNDER_LIGHT = [0.35, 0.7] as const;
 
@@ -274,7 +278,8 @@ export function createXnPlaces(world: XnWorld) {
     const cy = Math.floor(y);
     for (let j = -reach; j <= reach; j++) {
       for (let i = -reach; i <= reach; i++) {
-        if (!world.map.wall(cx + i, cy + j)) continue;
+        // Not a low wall: she'd stick out over its top.
+        if (!world.map.wall(cx + i, cy + j) || world.map.lowWall(cx + i, cy + j)) continue;
         for (const [nx, ny] of SIDES) {
           if (world.map.wall(cx + i + nx, cy + j + ny)) continue;
           if (!world.map.allows(cx + i + nx, cy + j + ny, "xn")) continue;
@@ -485,7 +490,7 @@ export function createXnPlaces(world: XnWorld) {
       for (let i = -r; i <= r; i++) {
         const lx = cx + i;
         const ly = cy + j;
-        const pillar = world.map.wall(lx, ly);
+        const pillar = world.map.wall(lx, ly) && !world.map.lowWall(lx, ly);
         if (!pillar && !world.map.lampAt(lx, ly)) continue;
         const ox = lx + 0.5;
         const oy = ly + 0.5;
@@ -659,6 +664,26 @@ export function createXnPlaces(world: XnWorld) {
         const yaw = onX ? (ahead > 0 ? 0 : Math.PI) : ahead > 0 ? Math.PI / 2 : -Math.PI / 2;
         out.push({ target: "pit", x: sx, y: sy, junk: null, perch: { x: sx, y: sy, z: 0, yaw, edge: PIT_RIM } });
       }
+    }
+    // A few places on top of the waist-high walls near, at the edge over the floor on one side.
+    const ledges: Thing[] = [];
+    const [cx, cy] = [Math.floor(x), Math.floor(y)];
+    const reach = Math.ceil(radius);
+    for (let j = -reach; j <= reach; j++) {
+      for (let i = -reach; i <= reach; i++) {
+        const [lx, ly] = [cx + i, cy + j];
+        if (!world.map.wall(lx, ly) || world.map.lowWall(lx, ly) !== WALL_LOW) continue;
+        if (Math.hypot(lx + 0.5 - x, ly + 0.5 - y) > radius) continue;
+        for (const [nx, ny] of SIDES) {
+          if (world.map.wall(lx + nx, ly + ny) || !world.map.allows(lx + nx, ly + ny, "xn")) continue;
+          const z = floorUnder(lx + 0.5, ly + 0.5) + WALL_LOW;
+          const perch = { x: lx + 0.5, y: ly + 0.5, z, yaw: Math.atan2(ny, nx), edge: 0.5 };
+          ledges.push({ target: "ledge", x: lx + 0.5, y: ly + 0.5, junk: null, perch });
+        }
+      }
+    }
+    for (let k = 0; k < XN_LEDGE_SEATS && ledges.length; k++) {
+      out.push(ledges.splice(Math.floor(Math.random() * ledges.length), 1)[0]);
     }
     return out;
   };

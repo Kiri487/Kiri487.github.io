@@ -1790,9 +1790,13 @@ export function tagArt(tag: Tag, shown: string, lostShown: string): GraffitiLeve
 }
 
 
-/** Whether the cell is wall and the one on this side of the stretch (0 north or west, 1 south or east) is open. */
+/**
+ * Whether the cell is wall up to the ceiling (not a low one) and the one on this side of the stretch (0 north or west,
+ * 1 south or east) is open.
+ */
 const sideOpen = (map: WorldMap, x: number, y: number, dir: number, side: number) =>
   map.wall(x, y) === 1 &&
+  !map.lowWall(x, y) &&
   map.wall(x + (dir === 1 ? (side ? 1 : -1) : 0), y + (dir === 0 ? (side ? 1 : -1) : 0)) === 0;
 
 /** The longest run of cells on this side of the stretch that can be seen, as [first m, count]. */

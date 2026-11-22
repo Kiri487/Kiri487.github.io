@@ -138,6 +138,7 @@ const PROP_TARGETS: readonly [PropTarget, string][] = [
   ["bed", "床墊"],
   ["counter", "流理台"],
   ["spotlight", "唯一的燈下"],
+  ["ledge", "矮牆上"],
   ["board", "白板"],
 ];
 
@@ -165,6 +166,8 @@ const GO_PLACES: readonly (readonly [DevPlace, string])[] = [
   ["low", "低矮走廊"],
   ["sunk", "下沉房間"],
   ["raised", "墊高房間"],
+  ["lowWall", "矮牆"],
+  ["lowCells", "矮隔間區"],
 ];
 
 /** Looking at something, "站" reads better as "站著看". */
