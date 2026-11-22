@@ -324,10 +324,10 @@ const BURGER_ROOM = 0.0035;
  * side (north, south, west, east) and which of that side's two cells.
  */
 export interface BurgerPlan {
-  x0: number;
-  y0: number;
-  side: number;
-  cell: number;
+  readonly x0: number;
+  readonly y0: number;
+  readonly side: number;
+  readonly cell: number;
 }
 
 /**
@@ -467,6 +467,11 @@ export class WorldMap {
   private readonly ends = new Map<number, DeadEnd | null>();
   /** Each lattice room's stair, or null, by lx * 100 003 + ly. */
   private readonly stairs = new Map<number, StairsPlan | null>();
+  /** Each zone square's point, and each block's special room, as worked out: both asked for many times a cell. */
+  private readonly zonePoints = new Map<number, readonly [number, number, number]>();
+  private readonly roomKinds = new Map<number, RoomKind | null>();
+  /** Each lattice room's burger room, or null: asked for four times over for every cell the light window covers. */
+  private readonly burgers = new Map<number, BurgerPlan | null>();
 
   /** The tuning is read live, so the dev panel's dead-light slider works without a new map. */
   constructor(seed: number, tuning: Tuning) {
@@ -594,7 +599,17 @@ export class WorldMap {
   }
 
   /** The kind of zone the scattered point in square (gx, gy) starts, and where in the world that point is. */
-  private zonePoint(gx: number, gy: number): [number, number, number] {
+  private zonePoint(gx: number, gy: number): readonly [number, number, number] {
+    const key = gx * 100_003 + gy;
+    let point = this.zonePoints.get(key);
+    if (!point) {
+      point = this.zonePointOf(gx, gy);
+      this.zonePoints.set(key, point);
+    }
+    return point;
+  }
+
+  private zonePointOf(gx: number, gy: number): [number, number, number] {
     if (gx === 0 && gy === 0) return [ZONE_YELLOW, SPAWN.x, SPAWN.y];
     let die = this.noise(gx, gy, 72);
     let kind = ZONE_YELLOW;
@@ -653,6 +668,16 @@ export class WorldMap {
 
   /** What kind of special room block (bx, by) of 3 × 3 lattice rooms is, or null if it's none. Never the spawn's. */
   roomKind(bx: number, by: number): RoomKind | null {
+    const key = bx * 100_003 + by;
+    let kind = this.roomKinds.get(key);
+    if (kind === undefined) {
+      kind = this.roomKindOf(bx, by);
+      this.roomKinds.set(key, kind);
+    }
+    return kind;
+  }
+
+  private roomKindOf(bx: number, by: number): RoomKind | null {
     const kind = this.rolledRoom(bx, by);
     // A block in an area laid out to a plan is part of the plan.
     return kind && this.layout(bx * 3, by * 3) === LATTICE ? kind : null;
@@ -830,6 +855,16 @@ export class WorldMap {
    * Never by the spawn (its walls are kept open), nor in a special room's block.
    */
   burgerPlan(lx: number, ly: number): BurgerPlan | null {
+    const key = lx * 100_003 + ly;
+    let plan = this.burgers.get(key);
+    if (plan === undefined) {
+      plan = this.burgerPlanOf(lx, ly);
+      this.burgers.set(key, plan);
+    }
+    return plan;
+  }
+
+  private burgerPlanOf(lx: number, ly: number): BurgerPlan | null {
     if (Math.abs(lx) + Math.abs(ly) <= 1) return null;
     const bx = Math.floor(lx / 3);
     const by = Math.floor(ly / 3);

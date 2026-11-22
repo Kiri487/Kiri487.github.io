@@ -22,8 +22,19 @@ export const ZONE_TILES = 4;
  */
 export type ZoneWeights = readonly [number, number, number, number, number];
 
-/** The most any zone has: a die past the usual chance times this is out everywhere, without asking where it is. */
-export const heaviest = (weights: ZoneWeights) => Math.max(...weights);
+/**
+ * The most any zone has: a die past the usual chance times this is out everywhere, without asking where it is.
+ * Asked for over and over of the same few tables, so each table's is worked out once.
+ */
+const heaviests = new WeakMap<ZoneWeights, number>();
+export function heaviest(weights: ZoneWeights): number {
+  let most = heaviests.get(weights);
+  if (most === undefined) {
+    most = Math.max(...weights);
+    heaviests.set(weights, most);
+  }
+  return most;
+}
 
 /**
  * How an area is laid out. Long corridors like an old block of flats; cells most of all in the office (cubicles), by

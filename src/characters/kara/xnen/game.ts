@@ -23,6 +23,7 @@ import {
   VENDING_SKIN,
   WOOD_SKIN,
   type Junk,
+  type JunkKind,
 } from "./engine/junk";
 import { Lighting } from "./engine/lighting";
 import { SPAWN, WorldMap, type Statue } from "./engine/map";
@@ -162,6 +163,29 @@ export interface Game {
  * shouldn't count the whole stall.
  */
 const MAX_REAL_STEP = 1;
+/** Each kind of junk's atlas, but a monitor's, whose screen waits for its picture. */
+const KIND_SKINS: Record<Exclude<JunkKind, "monitor">, StatueSkin> = {
+  chair: WOOD_SKIN,
+  sign: SIGN_SKIN,
+  door: DOOR_SKIN,
+  exit: SAFETY_SKIN,
+  wetFloor: SAFETY_SKIN,
+  cabinet: OFFICE_SKIN,
+  desk: WOOD_SKIN,
+  socket: OFFICE_SKIN,
+  burger: BURGER_SKIN,
+  bedding: CAMP_SKIN,
+  can: CAMP_SKIN,
+  kitchen: KITCHEN_SKIN,
+  board: MEETING_SKIN,
+  storage: STORAGE_SKIN,
+  candle: CANDLE_SKIN,
+  flame: CANDLE_SKIN,
+  partition: OFFICE_SKIN,
+  vending: VENDING_SKIN,
+  stairs: STAIRS_SKIN,
+};
+
 /** How many placed things out of drawing range are kept, ready, before they're let go. */
 const MESHES_SPARE = 400;
 /** What's all above this height (XN up on the ceiling) the visitor walks under. */
@@ -314,6 +338,8 @@ export function createGame(parts: GameParts): Game {
   const renderer = new Renderer(canvas);
   // XN's graffiti reads as her subtitles do: through the visitor's SAN, a word at a time.
   renderer.setGraffitiReader((text) => readAs(text, xnReadable()));
+  // Her whiteboards read the same way.
+  const readBoard = (text: string) => readAs(text, xnReadable());
   renderer.setLostReader((text) => garble(text, catsLost()));
   const light = new Lighting();
   let timecode = new Timecode();
@@ -712,29 +738,13 @@ export function createGame(parts: GameParts): Game {
     for (const junk of nearJunk) {
       // A monitor waits for its screen's picture. A board XN's written on has its own, as she reads now.
       const { writing } = junk;
-      const read = (text: string) => readAs(text, xnReadable());
-      const junkSkin = writing ? whiteboardSkin(writing.index, writing.seed, read) : junk.office ? OFFICE_SKIN : {
-        monitor,
-        chair: WOOD_SKIN,
-        sign: SIGN_SKIN,
-        door: DOOR_SKIN,
-        exit: SAFETY_SKIN,
-        wetFloor: SAFETY_SKIN,
-        cabinet: OFFICE_SKIN,
-        desk: WOOD_SKIN,
-        socket: OFFICE_SKIN,
-        burger: BURGER_SKIN,
-        bedding: CAMP_SKIN,
-        can: CAMP_SKIN,
-        kitchen: KITCHEN_SKIN,
-        board: MEETING_SKIN,
-        storage: STORAGE_SKIN,
-        candle: CANDLE_SKIN,
-        flame: CANDLE_SKIN,
-        partition: OFFICE_SKIN,
-        vending: VENDING_SKIN,
-        stairs: STAIRS_SKIN,
-      }[junk.kind];
+      const junkSkin = writing
+        ? whiteboardSkin(writing.index, writing.seed, readBoard)
+        : junk.office
+          ? OFFICE_SKIN
+          : junk.kind === "monitor"
+            ? monitor
+            : KIND_SKINS[junk.kind];
       if (!junkSkin) continue;
       let mesh = junkMeshes.get(junk.key);
       if (!mesh) {
