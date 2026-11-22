@@ -13,6 +13,8 @@ const HALF = WN / 2;
 const REBUILD_AT = 16;
 const LIGHT_REACH = 6;
 const AMBIENT = 0.035;
+/** How much a light's glow falls off with how high it hangs, the ceiling's height to this power. */
+const HANG_FALLOFF = 0.35;
 
 export class Lighting {
   /** Window position of cell (0, 0) in the world. */
@@ -29,6 +31,8 @@ export class Lighting {
   readonly warm = new Uint8Array(WN * WN);
   /** The zone each cell is in (map.zoneAt): what its floor, and the faces of wall looking into it, are done up as. */
   readonly zone = new Uint8Array(WN * WN);
+  /** How high the ceiling is over each cell (map.ceilingAt). */
+  readonly ceiling = new Float32Array(WN * WN);
 
   private readonly steady = new Float32Array(WN * WN);
   private readonly groupA = new Float32Array(WN * WN);
@@ -66,6 +70,7 @@ export class Lighting {
         wall[i + j * WN] = map.wall(this.x0 + i, this.y0 + j);
         this.warm[i + j * WN] = map.burgerInside(this.x0 + i, this.y0 + j) ? 1 : 0;
         this.zone[i + j * WN] = map.zoneAt(this.x0 + i, this.y0 + j);
+        this.ceiling[i + j * WN] = map.ceilingAt(this.x0 + i, this.y0 + j);
       }
     }
     steady.fill(0);
@@ -81,6 +86,8 @@ export class Lighting {
         panel[idx] = state;
         if (state === LIGHT_DEAD) continue;
         const target = state === LIGHT_ON ? steady : state === LIGHT_FLICKER_A ? groupA : groupB;
+        // Hung higher, less of it reaches the floor; lower, more.
+        const strength = 0.42 * this.ceiling[idx] ** -HANG_FALLOFF;
         for (let dj = -LIGHT_REACH; dj <= LIGHT_REACH; dj++) {
           const jj = j + dj;
           if (jj < 0 || jj >= WN) continue;
@@ -91,7 +98,7 @@ export class Lighting {
             if (d2 > LIGHT_REACH * LIGHT_REACH) continue;
             const k = ii + jj * WN;
             if (wall[k]) continue;
-            let c = 0.42 / (1 + 0.45 * d2);
+            let c = strength / (1 + 0.45 * d2);
             if (d2 > 0 && !this.clear(i, j, ii, jj, d2)) c *= 0.1;
             target[k] += c;
           }
@@ -131,6 +138,13 @@ export class Lighting {
     const i = cx - this.x0;
     const j = cy - this.y0;
     return i >= 0 && j >= 0 && i < WN && j < WN ? this.zone[i + j * WN] : map.zoneAt(cx, cy);
+  }
+
+  /** How high the ceiling is over cell (cx, cy), from the window when it's in it. */
+  ceilingAt(cx: number, cy: number, map: WorldMap): number {
+    const i = cx - this.x0;
+    const j = cy - this.y0;
+    return i >= 0 && j >= 0 && i < WN && j < WN ? this.ceiling[i + j * WN] : map.ceilingAt(cx, cy);
   }
 
   /** Moves the flicker on and mixes this frame's light. With reduced motion the flickering lights just stay dim. */

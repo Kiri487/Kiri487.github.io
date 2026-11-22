@@ -173,6 +173,10 @@ const CANDLE_SIGN_TURNS = 8;
 /** A special room is one block of 3 × 3 lattice rooms: this many cells a side, walls included. */
 export const ROOM_BLOCK = 15;
 
+/** The ceiling's height in a hall with something in it, and along a corridor (not its rooms); 1 everywhere else. */
+export const CEILING_HIGH = 1.7;
+export const CEILING_LOW = 0.78;
+
 /** How likely a block of lattice rooms is to be knocked through into a big room. */
 const BIG_ROOM = 0.2;
 /**
@@ -570,6 +574,18 @@ export class WorldMap {
       return p === 6 ? mod(along, 3) === 1 : p === 2 && mod(along, 5) === 2;
     }
     return mod(cx, 3) === 1 && mod(cy, 3) === 1;
+  }
+
+  /**
+   * How high the ceiling is over cell (cx, cy): high over a hall with something in it (not the lattice round it, nor
+   * its doorways), low along a corridor, between its walls of rooms; 1 everywhere else.
+   */
+  ceilingAt(cx: number, cy: number): number {
+    const layout = this.layout(Math.floor(cx / 5), Math.floor(cy / 5));
+    if (layout === CORRIDOR_EW || layout === CORRIDOR_NS) {
+      return mod(layout === CORRIDOR_EW ? cy : cx, CORRIDOR_PERIOD) >= 6 ? CEILING_LOW : 1;
+    }
+    return this.hallAt(cx, cy) ? CEILING_HIGH : 1;
   }
 
   /** Whether the stretch of a cells area's lattice from point (qx, qy), running east or south, covers cell m (1–2). */

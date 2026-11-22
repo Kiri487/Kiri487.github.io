@@ -751,7 +751,8 @@ export function createGame(parts: GameParts): Game {
         mesh = placeJunk(junk.model, junk);
         junkMeshes.set(junk.key, mesh);
       }
-      props.push({ mesh, model: junk.model, skin: junkSkin, clip: true, glow: junk.glow ? flameGlow : undefined });
+      const clip = map.ceilingAt(Math.floor(junk.x), Math.floor(junk.y));
+      props.push({ mesh, model: junk.model, skin: junkSkin, clip, glow: junk.glow ? flameGlow : undefined });
     }
     // Let go of what's been left far behind, now and then, or a long walk keeps every piece it ever passed.
     if (junkMeshes.size > nearJunk.length + MESHES_SPARE) {

@@ -33,6 +33,9 @@ const EMIT = [255, 250, 225];
 export const EYE = 0.5;
 /** Nothing is drawn past this many cells. */
 const FAR = 28;
+/** The most cells a column's ray goes through looking for a wall, and so the most open cells it can cross. */
+const RAY_STEPS = 64;
+const RAY_CELLS = RAY_STEPS + 1;
 
 export interface Camera {
   x: number;
@@ -75,6 +78,19 @@ const HOLE_PIPE = [70, 66, 54];
 /** Under warmer light (a burger room), each colour's share: redder, and much less blue. */
 const WARM = [1.12, 0.98, 0.76];
 
+/**
+ * Which row of a wall's picture (WALL_TEXTURES, 128 rows) is `tv` down from where a ceiling 1 high would meet it,
+ * under a ceiling `ceiling` high. Higher than that, the wall alone goes on up, over and over; under any ceiling the
+ * topmost row is the dark edge where it meets the wall.
+ */
+function wallRow(tv: number, ceiling: number): number {
+  const ty = Math.floor(tv * 64);
+  if (ceiling === 1) return 64 + (ty > 63 ? 63 : ty < 0 ? 0 : ty);
+  if (tv < 1 - ceiling + 1 / 64) return 64;
+  if (ty > 0) return 64 + (ty > 63 ? 63 : ty);
+  return ((ty % 64) + 64) % 64;
+}
+
 /** Screen columns go missing together in strips this wide. */
 const GAP_STRIP = 5;
 const GAP_COLOUR = [11, 10, 6];
@@ -116,6 +132,23 @@ export class Renderer {
   private posters: readonly PosterArt[] = [];
   /** The ceiling's posters over each cell of the light window, looked up once a frame; undefined until then. */
   private ceilingPosters: (PosterSpot[] | null | undefined)[] = new Array(WN * WN);
+  /** Each column's ray: how far to the wall it hits (Infinity for none), the wall's cell, and which way it came in. */
+  private rayHit = new Float64Array(320);
+  private rayHitX = new Int32Array(320);
+  private rayHitY = new Int32Array(320);
+  private rayHitSide = new Uint8Array(320);
+  /** How many open cells each column's ray crosses first, and 1 where their ceilings aren't all 1 high. */
+  private rayCells = new Uint8Array(320);
+  private rayUneven = new Uint8Array(320);
+  /**
+   * The open cells each column's ray crosses, nearest first, RAY_CELLS to a column: how far ahead each starts, its
+   * ceiling's height, the cell, and which way the ray came into it (0 across x, 1 across y).
+   */
+  private rayFrom = new Float64Array(320 * RAY_CELLS);
+  private rayCeiling = new Float32Array(320 * RAY_CELLS);
+  private rayX = new Int32Array(320 * RAY_CELLS);
+  private rayY = new Int32Array(320 * RAY_CELLS);
+  private raySide = new Uint8Array(320 * RAY_CELLS);
   /** Which of the four ceiling tiles over each cell of the light window are gone, as bits; -1 until looked up. */
   private ceilingHoles = new Int8Array(WN * WN);
 
@@ -167,6 +200,17 @@ export class Renderer {
     this.gaps = gapOrder(W);
     this.wallDepth = new Float32Array(W);
     this.wallBottom = new Int16Array(W);
+    this.rayHit = new Float64Array(W);
+    this.rayHitX = new Int32Array(W);
+    this.rayHitY = new Int32Array(W);
+    this.rayHitSide = new Uint8Array(W);
+    this.rayCells = new Uint8Array(W);
+    this.rayUneven = new Uint8Array(W);
+    this.rayFrom = new Float64Array(W * RAY_CELLS);
+    this.rayCeiling = new Float32Array(W * RAY_CELLS);
+    this.rayX = new Int32Array(W * RAY_CELLS);
+    this.rayY = new Int32Array(W * RAY_CELLS);
+    this.raySide = new Uint8Array(W * RAY_CELLS);
     this.depth = new Float32Array(W * H);
     this.warmth = new Uint8Array(W * H);
     this.scratch = new Uint8ClampedArray(W * H * 4);
@@ -237,6 +281,112 @@ export class Renderer {
     const sample: PaintSample = { paint: 0, over: 0 };
     const [OR, OG, OB] = OVER_COLOUR;
 
+    // How fogged something `t` cells ahead is, 1 for not seen at all; and the size of poster to show on the ceiling
+    // there, so far ones don't sparkle (seen at a slant, they shrink more).
+    const fogAt = (t: number) => {
+      const f = 1 - Math.exp(-t * fogK);
+      const far = (t - 20) / 8;
+      return far > f ? far : f;
+    };
+    const posterLevelAt = (t: number) => {
+      if (!posters.length) return -1;
+      const ratio = (posters[0][0].w * t * 1.5) / (POSTER_WIDTH * focal);
+      return clamp(Math.floor(Math.log2(Math.max(1, ratio))), 0, posters[0].length - 1);
+    };
+
+    // One pixel of ceiling, at (fx, fy) on the map: lit `l`, fogged `f`, its posters shown at size `posterLevel`.
+    const ceilingPixel = (o: number, fx: number, fy: number, l: number, f: number, posterLevel: number) => {
+      const inWindow = fx >= ox && fy >= oy && fx < ox + WN - 1 && fy < oy + WN - 1;
+      const inv = 1 - f;
+      const ar = FR * f, ag = FG * f, ab = FB * f;
+      const cx = Math.floor(fx);
+      const cy = Math.floor(fy);
+      const pi = cx - light.x0 + (cy - light.y0) * WN;
+      const state = inWindow ? panels[pi] : 0;
+      const tp = Math.floor((fy - cy) * 64) * 64 + Math.floor((fx - cx) * 64);
+      const ti = tp * 3;
+      if (state) {
+        const mask = PANEL_MASK[tp];
+        if (mask && state !== 4) {
+          const e = glow[state] * (mask === 2 ? 0.9 : 1);
+          const ff = f * 0.5;
+          d[o] = ER * e * (1 - ff) + FR * ff;
+          d[o + 1] = EG * e * (1 - ff) + FG * ff;
+          d[o + 2] = EB * e * (1 - ff) + FB * ff;
+        } else {
+          const li = l * inv * (mask ? 0.32 : 1);
+          d[o] = PANEL[ti] * li + ar;
+          d[o + 1] = PANEL[ti + 1] * li + ag;
+          d[o + 2] = PANEL[ti + 2] * li + ab;
+        }
+      } else {
+        const li = l * inv;
+        let papered = false;
+        if (posterLevel >= 0 && inWindow && pi >= 0 && pi < WN * WN) {
+          let over = ceilingPosters[pi];
+          if (over === undefined) {
+            over = postersOver(map, cx, cy, tuning, posterAspect);
+            ceilingPosters[pi] = over;
+          }
+          if (over) {
+            // Across runs south and down runs east: seen from below, the picture isn't mirrored.
+            const across = fy - cy;
+            const down = fx - cx;
+            for (let i = over.length - 1; i >= 0; i--) {
+              const spot = over[i];
+              const ox = across - spot.across;
+              const oy = down - spot.down;
+              const pu = (ox * spot.cos + oy * spot.sin) / (spot.halfW * 2) + 0.5;
+              const pv = (oy * spot.cos - ox * spot.sin) / (spot.halfH * 2) + 0.5;
+              if (pu < 0 || pu >= 1 || pv < 0 || pv >= 1) continue;
+              const level = posters[spot.copy][posterLevel];
+              const k = Math.floor(pv * level.h) * level.w + Math.floor(pu * level.w);
+              const m = level.mask[k];
+              if (!m) continue;
+              const e = ((m - 1) / 254) * POSTER_GLOW * (1 - f * 0.5);
+              d[o] = level.rgb[k * 3] * li + ar + 26 * e;
+              d[o + 1] = level.rgb[k * 3 + 1] * li + ag + 150 * e;
+              d[o + 2] = level.rgb[k * 3 + 2] * li + ab + 70 * e;
+              papered = true;
+              break;
+            }
+          }
+        }
+        // A tile gone: the dark above it, inside what's left of its frame.
+        let holes = 0;
+        if (!papered && inWindow && pi >= 0 && pi < WN * WN) {
+          holes = ceilingHoles[pi];
+          if (holes < 0) {
+            holes =
+              (tileGone(map, cx * 2, cy * 2) ? 1 : 0) |
+              (tileGone(map, cx * 2 + 1, cy * 2) ? 2 : 0) |
+              (tileGone(map, cx * 2, cy * 2 + 1) ? 4 : 0) |
+              (tileGone(map, cx * 2 + 1, cy * 2 + 1) ? 8 : 0);
+            ceilingHoles[pi] = holes;
+          }
+        }
+        const hx = Math.floor((fx - cx) * 64);
+        const hy = Math.floor((fy - cy) * 64);
+        const lx = hx & 31;
+        const ly = hy & 31;
+        if (holes && holes & (1 << ((hx >> 5) + (hy >> 5) * 2)) && lx > 0 && ly > 0) {
+          const shade = (0.2 + 0.45 * l) * inv;
+          // A pipe running across some of the holes.
+          const pipe = ly >= 13 && ly <= 17 && (cx + cy + (hx >> 5)) % 2 === 0;
+          const c = pipe ? HOLE_PIPE : HOLE_DARK;
+          d[o] = c[0] * shade + ar;
+          d[o + 1] = c[1] * shade + ag;
+          d[o + 2] = c[2] * shade + ab;
+        } else if (!papered) {
+          d[o] = CEILING[ti] * li + ar;
+          d[o + 1] = CEILING[ti + 1] * li + ag;
+          d[o + 2] = CEILING[ti + 2] * li + ab;
+        }
+      }
+    };
+
+    const { rayHit, rayHitX, rayHitY, rayHitSide, rayCells, rayUneven, rayFrom, rayCeiling, rayX, rayY, raySide } = this;
+
     // Ceiling (floorPass false) and floor, row by row. The floor runs after the walls and skips what they cover.
     const rows = (floorPass: boolean) => {
       for (let y = 0; y < H; y++) {
@@ -247,12 +397,10 @@ export class Renderer {
         if (p < 0.5) p = 0.5;
         const rd = ((isFloor ? z : 1 - z) * focal) / p;
         let o = y * W * 4;
-        let f = 1 - Math.exp(-rd * fogK);
-        const far = (rd - 20) / 8;
-        if (far > f) f = far;
+        const f = fogAt(rd);
         if (f >= 1) {
           for (let x = 0; x < W; x++, o += 4) {
-            if (floorPass && y <= wallBottom[x]) continue;
+            if (floorPass ? y <= wallBottom[x] : rayUneven[x]) continue;
             d[o] = FR;
             d[o + 1] = FG;
             d[o + 2] = FB;
@@ -262,18 +410,13 @@ export class Renderer {
         }
         const inv = 1 - f;
         const ar = FR * f, ag = FG * f, ab = FB * f;
-        // The posters' size for this row of ceiling, so far ones don't sparkle; seen at a slant, they shrink more.
-        let posterLevel = -1;
-        if (!floorPass && posters.length) {
-          const ratio = (posters[0][0].w * rd * 1.5) / (POSTER_WIDTH * focal);
-          posterLevel = clamp(Math.floor(Math.log2(Math.max(1, ratio))), 0, posters[0].length - 1);
-        }
+        const posterLevel = floorPass ? -1 : posterLevelAt(rd);
         const sx = (rd * 2 * plx) / W;
         const sy = (rd * 2 * ply) / W;
         let fx = px + rd * (dx - plx) + sx * 0.5;
         let fy = py + rd * (dy - ply) + sy * 0.5;
         for (let x = 0; x < W; x++, o += 4, fx += sx, fy += sy) {
-          if (floorPass && y <= wallBottom[x]) continue;
+          if (floorPass ? y <= wallBottom[x] : rayUneven[x]) continue;
           const gx = fx - ox;
           const gy = fy - oy;
           const ix = Math.floor(gx);
@@ -306,97 +449,13 @@ export class Renderer {
             d[o + 1] = floor[ti + 1] * li + ag;
             d[o + 2] = floor[ti + 2] * li + ab;
           } else {
-            const cx = Math.floor(fx);
-            const cy = Math.floor(fy);
-            const pi = cx - light.x0 + (cy - light.y0) * WN;
-            const state = inWindow ? panels[pi] : 0;
-            const tp = Math.floor((fy - cy) * 64) * 64 + Math.floor((fx - cx) * 64);
-            const ti = tp * 3;
-            if (state) {
-              const mask = PANEL_MASK[tp];
-              if (mask && state !== 4) {
-                const e = glow[state] * (mask === 2 ? 0.9 : 1);
-                const ff = f * 0.5;
-                d[o] = ER * e * (1 - ff) + FR * ff;
-                d[o + 1] = EG * e * (1 - ff) + FG * ff;
-                d[o + 2] = EB * e * (1 - ff) + FB * ff;
-              } else {
-                const li = l * inv * (mask ? 0.32 : 1);
-                d[o] = PANEL[ti] * li + ar;
-                d[o + 1] = PANEL[ti + 1] * li + ag;
-                d[o + 2] = PANEL[ti + 2] * li + ab;
-              }
-            } else {
-              const li = l * inv;
-              let papered = false;
-              if (posterLevel >= 0 && inWindow && pi >= 0 && pi < WN * WN) {
-                let over = ceilingPosters[pi];
-                if (over === undefined) {
-                  over = postersOver(map, cx, cy, tuning, posterAspect);
-                  ceilingPosters[pi] = over;
-                }
-                if (over) {
-                  // Across runs south and down runs east: seen from below, the picture isn't mirrored.
-                  const across = fy - cy;
-                  const down = fx - cx;
-                  for (let i = over.length - 1; i >= 0; i--) {
-                    const spot = over[i];
-                    const ox = across - spot.across;
-                    const oy = down - spot.down;
-                    const pu = (ox * spot.cos + oy * spot.sin) / (spot.halfW * 2) + 0.5;
-                    const pv = (oy * spot.cos - ox * spot.sin) / (spot.halfH * 2) + 0.5;
-                    if (pu < 0 || pu >= 1 || pv < 0 || pv >= 1) continue;
-                    const level = posters[spot.copy][posterLevel];
-                    const k = Math.floor(pv * level.h) * level.w + Math.floor(pu * level.w);
-                    const m = level.mask[k];
-                    if (!m) continue;
-                    const e = ((m - 1) / 254) * POSTER_GLOW * (1 - f * 0.5);
-                    d[o] = level.rgb[k * 3] * li + ar + 26 * e;
-                    d[o + 1] = level.rgb[k * 3 + 1] * li + ag + 150 * e;
-                    d[o + 2] = level.rgb[k * 3 + 2] * li + ab + 70 * e;
-                    papered = true;
-                    break;
-                  }
-                }
-              }
-              // A tile gone: the dark above it, inside what's left of its frame.
-              let holes = 0;
-              if (!papered && inWindow && pi >= 0 && pi < WN * WN) {
-                holes = ceilingHoles[pi];
-                if (holes < 0) {
-                  holes =
-                    (tileGone(map, cx * 2, cy * 2) ? 1 : 0) |
-                    (tileGone(map, cx * 2 + 1, cy * 2) ? 2 : 0) |
-                    (tileGone(map, cx * 2, cy * 2 + 1) ? 4 : 0) |
-                    (tileGone(map, cx * 2 + 1, cy * 2 + 1) ? 8 : 0);
-                  ceilingHoles[pi] = holes;
-                }
-              }
-              const hx = Math.floor((fx - cx) * 64);
-              const hy = Math.floor((fy - cy) * 64);
-              const lx = hx & 31;
-              const ly = hy & 31;
-              if (holes && holes & (1 << ((hx >> 5) + (hy >> 5) * 2)) && lx > 0 && ly > 0) {
-                const shade = (0.2 + 0.45 * l) * inv;
-                // A pipe running across some of the holes.
-                const pipe = ly >= 13 && ly <= 17 && (cx + cy + (hx >> 5)) % 2 === 0;
-                const c = pipe ? HOLE_PIPE : HOLE_DARK;
-                d[o] = c[0] * shade + ar;
-                d[o + 1] = c[1] * shade + ag;
-                d[o + 2] = c[2] * shade + ab;
-              } else if (!papered) {
-                d[o] = CEILING[ti] * li + ar;
-                d[o + 1] = CEILING[ti + 1] * li + ag;
-                d[o + 2] = CEILING[ti + 2] * li + ab;
-              }
-            }
+            ceilingPixel(o, fx, fy, l, f, posterLevel);
           }
         }
       }
     };
-    rows(false);
 
-    // Walls, column by column.
+    // Each column's ray, out to the wall it hits, through the open cells on the way.
     for (let x = 0; x < W; x++) {
       const cam2 = (2 * (x + 0.5)) / W - 1;
       const rdx = dx + plx * cam2;
@@ -410,9 +469,16 @@ export class Renderer {
       let sdx = rdx < 0 ? (px - mapX) * ddx : (mapX + 1 - px) * ddx;
       let sdy = rdy < 0 ? (py - mapY) * ddy : (mapY + 1 - py) * ddy;
       let side = 0;
-      let hit = false;
-      let perp = 0;
-      for (let n = 0; n < 64; n++) {
+      let hit = Infinity;
+      const base = x * RAY_CELLS;
+      rayFrom[base] = 0;
+      rayCeiling[base] = light.ceilingAt(mapX, mapY, map);
+      rayX[base] = mapX;
+      rayY[base] = mapY;
+      let cells = 1;
+      let uneven = rayCeiling[base] !== 1;
+      for (let n = 0; n < RAY_STEPS; n++) {
+        let perp: number;
         if (sdx < sdy) {
           perp = sdx;
           sdx += ddx;
@@ -426,10 +492,118 @@ export class Renderer {
         }
         if (perp > FAR) break;
         if (light.wallAt(mapX, mapY, map)) {
-          hit = true;
+          hit = perp;
           break;
         }
+        const height = light.ceilingAt(mapX, mapY, map);
+        rayFrom[base + cells] = perp;
+        rayCeiling[base + cells] = height;
+        rayX[base + cells] = mapX;
+        rayY[base + cells] = mapY;
+        raySide[base + cells] = side;
+        cells++;
+        if (height !== 1) uneven = true;
       }
+      rayHit[x] = hit;
+      rayHitX[x] = mapX;
+      rayHitY[x] = mapY;
+      rayHitSide[x] = side;
+      rayCells[x] = cells;
+      rayUneven[x] = uneven ? 1 : 0;
+    }
+
+    rows(false);
+
+    // How far off each pixel is, for what's drawn over the place: the pits, for XN's legs hanging into one to go behind
+    // its far side, and a ceiling of more than one height, for what's beyond a drop in it.
+    const depth = this.depth;
+    depth.fill(1e9);
+
+    /**
+     * Draws column x's ceiling cell by cell along its ray, up to a wall `end` cells ahead, each at its own height; and,
+     * where one drops lower, the face of wall above the drop. Gives the first row it left.
+     */
+    const ceilingColumn = (x: number, rdx: number, rdy: number, end: number): number => {
+      const cells = rayCells[x];
+      const base = x * RAY_CELLS;
+      let clip = 0;
+      for (let i = 0; i < cells; i++) {
+        const height = rayCeiling[base + i];
+        const from = rayFrom[base + i];
+        const to = i + 1 < cells ? rayFrom[base + i + 1] : end;
+        // Where it drops from the cell before: the face from the ceiling there down to this one, as wall.
+        const start = i === 0 ? 0 : Math.ceil(horizon - (focal / from) * (height - z) - 0.5);
+        if (start > clip) {
+          const above = rayCeiling[base + i - 1];
+          const s = raySide[base + i];
+          const hx = px + from * rdx;
+          const hy = py + from * rdy;
+          const along = s === 0 ? hy - Math.floor(hy) : hx - Math.floor(hx);
+          const tx = Math.min(63, Math.floor(along * 64));
+          const pick = map.noise(rayX[base + i], rayY[base + i], 30);
+          const tex = WALL_TEXTURES[light.zoneAt(rayX[base + i - 1], rayY[base + i - 1], map)][pick < 0.6 ? 0 : pick < 0.85 ? 1 : 2];
+          const l = light.at(px + (from - 0.05) * rdx, py + (from - 0.05) * rdy) * (s === 1 ? 0.9 : 1);
+          const f = Math.min(1, fogAt(from));
+          const inv = 1 - f;
+          const wx = rayX[base + i - 1] - light.x0;
+          const wy = rayY[base + i - 1] - light.y0;
+          const warmHere = wx >= 0 && wy >= 0 && wx < WN && wy < WN ? warm[wx + wy * WN] : 0;
+          const last = Math.min(start, H);
+          for (let y = Math.max(clip, 0); y < last; y++) {
+            const tv = 1 - z - ((horizon - (y + 0.5)) * from) / focal;
+            const ti = (wallRow(tv, above) * 64 + tx) * 3;
+            const li = l * (1.1 - 0.25 * (tv > 0 ? tv : 0)) * inv;
+            const o = (y * W + x) * 4;
+            d[o] = tex[ti] * li + FR * f;
+            d[o + 1] = tex[ti + 1] * li + FG * f;
+            d[o + 2] = tex[ti + 2] * li + FB * f;
+            depth[y * W + x] = from;
+            warmth[y * W + x] = warmHere;
+          }
+          clip = start;
+        }
+        // Its ceiling, from there to where the ray leaves it.
+        const rise = (height - z) * focal;
+        const last = Math.min(H, to === Infinity ? Math.ceil(horizon - 0.5) : Math.ceil(horizon - (focal / to) * (height - z) - 0.5));
+        for (let y = Math.max(clip, 0); y < last; y++) {
+          let p = horizon - (y + 0.5);
+          if (p < 0.5) p = 0.5;
+          const t = rise / p;
+          const o = (y * W + x) * 4;
+          depth[y * W + x] = t;
+          const f = fogAt(t);
+          if (f >= 1) {
+            d[o] = FR;
+            d[o + 1] = FG;
+            d[o + 2] = FB;
+            continue;
+          }
+          const fx = px + t * rdx;
+          const fy = py + t * rdy;
+          const cx = Math.floor(fx) - light.x0;
+          const cy = Math.floor(fy) - light.y0;
+          warmth[y * W + x] = cx >= 0 && cy >= 0 && cx < WN && cy < WN ? warm[cx + cy * WN] : 0;
+          ceilingPixel(o, fx, fy, light.at(fx, fy), f, posterLevelAt(t));
+        }
+        if (last > clip) clip = last;
+      }
+      return clip;
+    };
+
+    // Walls, column by column.
+    for (let x = 0; x < W; x++) {
+      const cam2 = (2 * (x + 0.5)) / W - 1;
+      const rdx = dx + plx * cam2;
+      const rdy = dy + ply * cam2;
+      const stepX = rdx < 0 ? -1 : 1;
+      const stepY = rdy < 0 ? -1 : 1;
+      const hit = rayHit[x] !== Infinity;
+      let perp = rayHit[x];
+      const mapX = rayHitX[x];
+      const mapY = rayHitY[x];
+      const side = rayHitSide[x];
+      // Under a ceiling of more than one height, this column's is drawn cell by cell, with the drops between.
+      const clipTop = rayUneven[x] ? ceilingColumn(x, rdx, rdy, rayHit[x]) : 0;
       if (!hit) {
         wallDepth[x] = 1e9;
         wallBottom[x] = -1;
@@ -437,9 +611,12 @@ export class Renderer {
       }
       if (perp < 0.02) perp = 0.02;
       const lineH = focal / perp;
+      // The wall goes up to the ceiling in front of it; its texture is laid out as if that were 1 high.
+      const ceiling = rayCeiling[x * RAY_CELLS + rayCells[x] - 1];
       const top = horizon - lineH * (1 - z);
       const span = lineH;
-      let y0 = Math.ceil(top - 0.5);
+      let y0 = Math.ceil(horizon - lineH * (ceiling - z) - 0.5);
+      if (y0 < clipTop) y0 = clipTop;
       if (y0 < 0) y0 = 0;
       let y1 = Math.floor(top + span - 0.5);
       if (y1 > H - 1) y1 = H - 1;
@@ -487,6 +664,8 @@ export class Renderer {
           across = side === 0 ? (stepX > 0 ? wallX : 1 - wallX) : stepY > 0 ? 1 - wallX : wallX;
           for (const spot of onFace) {
             if (Math.abs(across - spot.across) >= spot.reach) continue;
+            // Under a low ceiling, none that would go up into it.
+            if (ceiling < 1 && spot.down - Math.hypot(spot.halfW, spot.halfH) < 1 - ceiling) continue;
             // The size whose pixels are about as big as the screen's, so a far poster doesn't sparkle.
             const art = posters[spot.copy];
             const ratio = art[0].h / Math.max(1, lineH * spot.halfH * 2);
@@ -516,11 +695,9 @@ export class Renderer {
           continue;
         }
         const tv = (y + 0.5 - top) / span;
-        let ty = Math.floor(tv * 64);
-        if (ty > 63) ty = 63;
-        if (ty < 0) ty = 0;
+        const ty = wallRow(tv, ceiling);
         const ti = (ty * 64 + tx) * 3;
-        const li = l * (1.1 - 0.25 * tv) * inv;
+        const li = l * (1.1 - 0.25 * (tv > 0 ? tv : 0)) * inv;
         const o = (y * W + x) * 4;
         let papered = false;
         // The topmost poster here: the last one stuck up.
@@ -564,13 +741,10 @@ export class Renderer {
 
     // From down in a pit there's no floor at 0 to see: the pit's own floor and sides cover it all.
     if (z > 0) rows(true);
-    // How far off each pixel is, for what's drawn over the place: only the pits have any, for XN's legs hanging into
-    // one to go behind its far side.
-    this.depth.fill(1e9);
     drawPits(
       {
         pixels: d,
-        depth: this.depth,
+        depth,
         width: W,
         height: H,
         wallDepth,
@@ -597,7 +771,7 @@ export class Renderer {
         width: W,
         height: H,
         wallDepth,
-        depth: this.depth,
+        depth,
         camX: px,
         camY: py,
         eye: z,

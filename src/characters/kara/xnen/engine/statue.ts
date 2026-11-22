@@ -43,8 +43,8 @@ export interface Prop {
   mesh: StatueMesh;
   model: StatueModel;
   skin: StatueSkin;
-  /** Cut off below the floor and above the ceiling, for things stuck through them. */
-  clip?: boolean;
+  /** Cut off below the floor and above a ceiling this high, for things stuck through them. */
+  clip?: number;
   /** Lit by itself this brightly (a flame), rather than by the light where it is. */
   glow?: number;
 }
@@ -152,7 +152,7 @@ export function drawStatue(
   model: StatueModel,
   skin: StatueSkin,
   light: number,
-  clip = false,
+  clip?: number,
 ) {
   const ahead = (mesh.x - f.camX) * f.dirX + (mesh.y - f.camY) * f.dirY;
   const reach = mesh.reach ?? 0;
@@ -255,9 +255,9 @@ export function drawStatue(
         const z = 1 / (l0 * r0 + l1 * r1 + l2 * r2);
         if (z >= wallDepth[x]) continue;
         // Its height in the room at this pixel: the floor and ceiling hide what's through them.
-        if (clip) {
+        if (clip !== undefined) {
           const height = eye - ((yc - horizon) * z) / focal;
-          if (height < 0 || height > 1) continue;
+          if (height < 0 || height > clip) continue;
         }
         const zi = y * W + x;
         if (z >= depth[zi]) continue;
