@@ -133,3 +133,55 @@ export const GRAFFITI_WEIGHTS: ZoneWeights = [1, 0.5, 0.5, 2, 1];
  * put up near a statue, by its believers, aren't weighed: they go where the statue is.
  */
 export const POSTER_WEIGHTS: ZoneWeights = [1, 0.5, 1.5, 0.5, 0];
+
+/**
+ * How many faces of wall have marks on them (wallMarks.ts) over their clean paper, the rest clean: most on the bare
+ * plasterboard and the tiles, fewest in the office, kept up. And which marks each zone's walls get, each with its share.
+ */
+export const WALL_MARKED = 0.4;
+export const WALL_MARKED_WEIGHTS: ZoneWeights = [1, 0.9, 0.75, 1.25, 1.15];
+export type WallMarkKind =
+  | "damp"
+  | "drips"
+  | "mildew"
+  | "ghost"
+  | "panel"
+  | "scuff"
+  | "leak"
+  | "mud"
+  | "screwPop"
+  | "pencil"
+  | "crack"
+  | "missing"
+  | "mould";
+export const WALL_MARKS: readonly (readonly (readonly [WallMarkKind, number])[])[] = [
+  // Yellow: damp, water run down from the ceiling, mildew.
+  [
+    ["damp", 0.45],
+    ["drips", 0.35],
+    ["mildew", 0.2],
+  ],
+  // House: where a picture hung, damp, the panelling broken.
+  [
+    ["ghost", 0.4],
+    ["damp", 0.35],
+    ["panel", 0.25],
+  ],
+  // Office: scuffs, a leak from the ceiling.
+  [
+    ["scuff", 0.55],
+    ["leak", 0.45],
+  ],
+  // Drywall: mud, screws popped, the builders' pencil.
+  [
+    ["mud", 0.4],
+    ["screwPop", 0.3],
+    ["pencil", 0.3],
+  ],
+  // Tiles: cracks, tiles gone, mould in the grout.
+  [
+    ["crack", 0.45],
+    ["missing", 0.3],
+    ["mould", 0.25],
+  ],
+];
