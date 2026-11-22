@@ -31,8 +31,9 @@ export class Lighting {
   readonly warm = new Uint8Array(WN * WN);
   /** The zone each cell is in (map.zoneAt): what its floor, and the faces of wall looking into it, are done up as. */
   readonly zone = new Uint8Array(WN * WN);
-  /** How high the ceiling is over each cell (map.ceilingAt). */
+  /** How high the ceiling is over each cell (map.ceilingAt), and its floor (map.floorAt). */
   readonly ceiling = new Float32Array(WN * WN);
+  readonly floor = new Float32Array(WN * WN);
 
   private readonly steady = new Float32Array(WN * WN);
   private readonly groupA = new Float32Array(WN * WN);
@@ -71,6 +72,7 @@ export class Lighting {
         this.warm[i + j * WN] = map.burgerInside(this.x0 + i, this.y0 + j) ? 1 : 0;
         this.zone[i + j * WN] = map.zoneAt(this.x0 + i, this.y0 + j);
         this.ceiling[i + j * WN] = map.ceilingAt(this.x0 + i, this.y0 + j);
+        this.floor[i + j * WN] = map.floorAt(this.x0 + i, this.y0 + j);
       }
     }
     steady.fill(0);
@@ -145,6 +147,13 @@ export class Lighting {
     const i = cx - this.x0;
     const j = cy - this.y0;
     return i >= 0 && j >= 0 && i < WN && j < WN ? this.ceiling[i + j * WN] : map.ceilingAt(cx, cy);
+  }
+
+  /** How high the floor is in cell (cx, cy), from the window when it's in it. */
+  floorAt(cx: number, cy: number, map: WorldMap): number {
+    const i = cx - this.x0;
+    const j = cy - this.y0;
+    return i >= 0 && j >= 0 && i < WN && j < WN ? this.floor[i + j * WN] : map.floorAt(cx, cy);
   }
 
   /** Moves the flicker on and mixes this frame's light. With reduced motion the flickering lights just stay dim. */

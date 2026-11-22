@@ -177,6 +177,15 @@ export const ROOM_BLOCK = 15;
 export const CEILING_HIGH = 1.7;
 export const CEILING_LOW = 0.78;
 
+/**
+ * A plain lattice room's floor, inside its walls, can be sunk this far below the rest (FLOOR_SUNK) or raised this far
+ * above it (FLOOR_RAISED); and how many are, of those that could be.
+ */
+export const FLOOR_SUNK = -0.15;
+export const FLOOR_RAISED = 0.12;
+const SUNK_ROOMS = 0.06;
+const RAISED_ROOMS = 0.04;
+
 /** How likely a block of lattice rooms is to be knocked through into a big room. */
 const BIG_ROOM = 0.2;
 /**
@@ -469,6 +478,8 @@ export class WorldMap {
   private readonly halls = new Map<number, HallKind | null>();
   /** Each lattice room's dead end, or null, by lx * 100 003 + ly. */
   private readonly ends = new Map<number, DeadEnd | null>();
+  /** Each lattice room's floor height, inside its walls, by lx * 100 003 + ly. */
+  private readonly floors = new Map<number, number>();
   /** Each lattice room's stair, or null, by lx * 100 003 + ly. */
   private readonly stairs = new Map<number, StairsPlan | null>();
   /** Each zone square's point, and each block's special room, as worked out: both asked for many times a cell. */
@@ -586,6 +597,35 @@ export class WorldMap {
       return mod(layout === CORRIDOR_EW ? cy : cx, CORRIDOR_PERIOD) >= 6 ? CEILING_LOW : 1;
     }
     return this.hallAt(cx, cy) ? CEILING_HIGH : 1;
+  }
+
+  /**
+   * How high the floor is in cell (cx, cy): 0 but inside a plain lattice room sunk or raised, the lattice round it
+   * (walls, doorways) staying at 0, so a step runs all round it.
+   */
+  floorAt(cx: number, cy: number): number {
+    const lx = Math.floor(cx / 5);
+    const ly = Math.floor(cy / 5);
+    if (cx === lx * 5 || cy === ly * 5) return 0;
+    const key = lx * 100_003 + ly;
+    let floor = this.floors.get(key);
+    if (floor === undefined) {
+      floor = this.roomFloorOf(lx, ly);
+      this.floors.set(key, floor);
+    }
+    return floor;
+  }
+
+  /**
+   * How high lattice room (lx, ly)'s floor is: sunk or raised now and then, if it's a plain room away from the spawn,
+   * with nothing of its own in it (a dead end's thing, a stair).
+   */
+  private roomFloorOf(lx: number, ly: number): number {
+    if (Math.abs(lx) <= 1 && Math.abs(ly) <= 1) return 0;
+    const die = this.noise(lx, ly, 660);
+    if (die >= SUNK_ROOMS + RAISED_ROOMS) return 0;
+    if (!this.plainRoom(lx, ly) || this.deadEndRoom(lx, ly) || this.stairsIn(lx, ly)) return 0;
+    return die < SUNK_ROOMS ? FLOOR_SUNK : FLOOR_RAISED;
   }
 
   /** Whether the stretch of a cells area's lattice from point (qx, qy), running east or south, covers cell m (1–2). */
