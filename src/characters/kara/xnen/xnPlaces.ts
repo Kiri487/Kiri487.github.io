@@ -555,7 +555,8 @@ export function createXnPlaces(world: XnWorld) {
     if (chosen === "carpet") {
       const { x, y, front } = who.where;
       // Just ahead of her feet, or the floor under her.
-      gaze = surface === "floor" ? [x + front[0] * 0.3, y + front[1] * 0.3, 0] : [who.x, who.y, 0];
+      const [gx, gy] = surface === "floor" ? [x + front[0] * 0.3, y + front[1] * 0.3] : [who.x, who.y];
+      gaze = [gx, gy, floorUnder(gx, gy)];
     }
     who.act(chosen, gaze);
     if (chosen === "walk") who.route = routeFor(who);
@@ -720,7 +721,7 @@ export function createXnPlaces(world: XnWorld) {
         if (!roomBy(sx, sy, null)) continue;
         const action: XnAction = pose === "sit" ? "sit" : pose === "crouch" ? "crouch" : "stand";
         const facing = Math.atan2(y - sy, x - sx) + (Math.random() - 0.5) * 0.6;
-        const gaze: Point = action === "stand" ? [x, y, 1] : [x, y, 0.1];
+        const gaze: Point = action === "stand" ? [x, y, ceilingOver(x, y)] : [x, y, floorUnder(x, y) + 0.1];
         return { spot: floorSpot(sx, sy, facing, floorUnder(sx, sy)), action, gaze, ...still };
       }
       return null;
@@ -740,7 +741,7 @@ export function createXnPlaces(world: XnWorld) {
       if (!roomBy(mx, my, thing.junk)) return null;
       const action: XnAction = pose === "stand" ? "stand" : pose === "sit" || pose === "sitBack" ? "sit" : "crouch";
       const facing = back ? Math.atan2(ny, nx) : Math.atan2(-ny, -nx);
-      const gaze: Point | null = back ? null : [x, y, 0.4];
+      const gaze: Point | null = back ? null : [x, y, floorUnder(x, y) + 0.4];
       return { spot: floorSpot(sx, sy, facing, floorUnder(sx, sy)), action, gaze, ...still };
     }
     if (thing.look) {

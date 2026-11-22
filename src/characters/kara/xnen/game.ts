@@ -714,6 +714,8 @@ export function createGame(parts: GameParts): Game {
       angle: a.angle + turn * k,
       pitch: a.pitch + (b.pitch - a.pitch) * k,
       bob: 0,
+      // At the eye's height then: up or down a step, too.
+      z: (a.z ?? EYE) + ((b.z ?? EYE) - (a.z ?? EYE)) * k,
     };
   };
 
